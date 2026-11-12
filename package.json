@@ -4,6 +4,51 @@
   "description": "UVA Library reusable web components",
   "license": "MIT",
   "type": "module",
+  "sideEffects": [
+    "./dist/components/*/site-*.js",
+    "*.css"
+  ],
+  "customElements": "dist/custom-elements.json",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./base.js": {
+      "types": "./dist/base.d.ts",
+      "default": "./dist/base.js"
+    },
+    "./site-page.js": {
+      "types": "./dist/components/site-page/site-page.d.ts",
+      "default": "./dist/components/site-page/site-page.js"
+    },
+    "./site-header.js": {
+      "types": "./dist/components/site-header/site-header.d.ts",
+      "default": "./dist/components/site-header/site-header.js"
+    },
+    "./site-footer.js": {
+      "types": "./dist/components/site-footer/site-footer.d.ts",
+      "default": "./dist/components/site-footer/site-footer.js"
+    },
+    "./site-analytics.js": {
+      "types": "./dist/components/site-analytics/site-analytics.d.ts",
+      "default": "./dist/components/site-analytics/site-analytics.js"
+    },
+    "./site-style.js": {
+      "types": "./dist/components/site-style/site-style.d.ts",
+      "default": "./dist/components/site-style/site-style.js"
+    },
+    "./tokens.css": "./dist/tokens.css",
+    "./base.css": "./dist/base.css",
+    "./custom-elements.json": "./dist/custom-elements.json",
+    "./skills/*": "./skills/*"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "bin",
+    "CHANGELOG.md"
+  ],
   "engines": {
     "node": ">=22"
   },
@@ -12,7 +57,8 @@
     "test": "pnpm test:node && wtr \"test/**/*.test.ts\" --config web-test-runner.config.mjs",
     "test:node": "node --test test/*.test.mjs",
     "lint": "eslint . && prettier --check .",
-    "build:npm": "tsc -p tsconfig.build.json",
+    "build:npm": "tsc -p tsconfig.build.json && node scripts/emit-css.mjs dist && pnpm analyze",
+    "build": "pnpm build:npm",
     "analyze": "cem analyze --litelement --globs \"src/**/*.ts\" --outdir dist"
   },
   "dependencies": {

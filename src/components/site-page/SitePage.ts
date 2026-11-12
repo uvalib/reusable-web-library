@@ -12,6 +12,16 @@ const isPreFooter = (n: Node): boolean =>
 /**
  * Page wrapper: skip link, header, a single `<main>`, footer, and global page styles.
  * Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`.
+ *
+ * @tagname site-page
+ * @slot - Main page content, rendered inside the single `<main>`.
+ * @slot pre-footer - Optional content shown in a band above the footer.
+ * @csspart main - The `<main>` landmark.
+ * @cssprop [--uva-brand-blue=#232d4b] - Skip link background (and header and footer link colours).
+ * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour.
+ * @cssprop [--uva-font-family=franklin-gothic-urw, Arial, Helvetica, sans-serif] - Page font family (global styles).
+ * @cssprop [--uva-font-size-base=17px] - Page base font size (global styles).
+ * @cssprop [--uva-grey-darkest=#2b2b2b] - Page text colour (global styles).
  */
 export class SitePage extends UvalibElement {
   @property({ type: String, attribute: 'root-link-domain' }) rootLinkDomain =

@@ -8,6 +8,12 @@ import { base } from '../../styles/base.js';
 /**
  * Compatibility element: shadow mode styles its slotted content; light mode
  * (`no-shadow-dom`) installs the tokens and base page styles on the document.
+ *
+ * @tagname site-style
+ * @slot - Content styled with the UVA Library tokens and base styles.
+ * @cssprop [--uva-font-family=franklin-gothic-urw, Arial, Helvetica, sans-serif] - Font family.
+ * @cssprop [--uva-font-size-base=17px] - Base font size.
+ * @cssprop [--uva-grey-darkest=#2b2b2b] - Text colour.
  */
 export class SiteStyle extends UvalibElement {
   static styles = [tokens, base];

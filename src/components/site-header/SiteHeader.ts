@@ -20,6 +20,14 @@ const VENDOR_LINKS = FULL_LINKS.filter((l) => l.label === 'Ask a Librarian');
 /** Light-DOM instances share the document id space, so each gets its own popover id. */
 let menuCounter = 0;
 
+/**
+ * UVA Library site header: logo, utility navigation, and a popover menu on narrow screens.
+ *
+ * @tagname site-header
+ * @csspart header - The `<header>` element.
+ * @cssprop [--uva-brand-blue=#232d4b] - Link and menu button colour.
+ * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour.
+ */
 export class SiteHeader extends UvalibElement {
   static styles = [
     accessible,

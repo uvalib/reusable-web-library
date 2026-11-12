@@ -23,6 +23,17 @@ const ABOUT: FooterLink[] = [
   { label: 'Status dashboard', path: '/status' },
 ];
 
+/**
+ * UVA Library site footer: link columns, contact details and copyright.
+ *
+ * @tagname site-footer
+ * @slot pre-footer - Optional content shown in a band above the footer links.
+ * @csspart footer - The `<footer>` element.
+ * @cssprop [--uva-brand-blue=#232d4b] - Main footer background.
+ * @cssprop [--uva-blue-alt-300=#bfe7f7] - Pre-footer band background.
+ * @cssprop [--uva-blue-alt-darkest=#141e3c] - Copyright bar background.
+ * @cssprop [--uva-brand-orange=#e57200] - Social icon hover colour and focus ring.
+ */
 export class SiteFooter extends UvalibElement {
   @property({ type: String, attribute: 'root-link-domain' }) rootLinkDomain =
     'https://www.library.virginia.edu';

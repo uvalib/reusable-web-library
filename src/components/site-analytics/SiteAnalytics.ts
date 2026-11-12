@@ -27,6 +27,14 @@ interface EventDetail {
   event: any[];
 }
 
+/**
+ * Matomo analytics loader with no visual output. Listens on `document` for the events below.
+ *
+ * @tagname site-analytics
+ * @fires site-analytics-pageview - Listened for on `document` (not fired): `detail` is `{ customTitle?, referrer? }`.
+ * @fires site-analytics-search - Listened for on `document` (not fired): `detail` is `{ searchQuery, searchCategory?, resultCount }`.
+ * @fires site-analytics-event - Listened for on `document` (not fired): `detail` is `{ event: any[] }`, passed to Matomo `trackEvent`.
+ */
 export class SiteAnalytics extends UvalibElement {
   static styles = css`
     :host {
