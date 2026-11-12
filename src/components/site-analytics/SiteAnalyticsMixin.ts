@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-object-type -- ported verbatim from the monorepo */
 import type { LitElement } from 'lit';
 
 type Constructor<T = {}> = new (...args: any[]) => T;
