@@ -85,6 +85,8 @@ reusable-web-library/
   pipeline/
     buildspec.yml           # CodeBuild: CI + release
     codebuild.yml           # CloudFormation: project, role, webhook
+  skills/
+    uvalib-web-components/  # agent skill: SKILL.md + reference/ (see §9)
   docs/
     usage.md, migration.md, superpowers/specs/…
 ```
@@ -227,7 +229,39 @@ Same bucket (`s3://unpkg.internal.lib.virginia.edu`) and CloudFront distribution
 
 **Docs:** `docs/usage.md` covers both consumption paths, the shadow and light-DOM modes, and tokens. `docs/migration.md` maps the old URLs (`/web-components/latest/@uvalib/site-page/site-page.js`) and npm names (`@uvalib/site-page`) to the new ones.
 
-## 9. Testing
+## 9. Agent skill: using the components
+
+The project includes an agent skill that teaches coding agents (Claude Code and others that read `SKILL.md` skills) how to use these components correctly in other projects.
+
+**Location and distribution**
+- Source: `skills/uvalib-web-components/` in this repo.
+- It ships inside the npm package (listed in `files`). An agent in a consuming project can find it at `node_modules/@uvalib/web-components/skills/uvalib-web-components/SKILL.md`.
+- It's published to the CDN at `/web-components/vX.Y.Z/skills/…`, so sites that only use script tags can fetch it.
+- `docs/usage.md` explains how to install it into a project:
+  - copy or symlink it into `.claude/skills/`, or
+  - run `npx @uvalib/web-components install-skill`, a small bin script that copies the skill into `./.claude/skills/uvalib-web-components/`.
+
+**Contents**
+- `SKILL.md`:
+  - A trigger description covering UVA Library sites, pages, headers and footers, the `<site-page>` tags, and unpkg.internal.lib.virginia.edu.
+  - Decision rules:
+    - npm import vs CDN script tag, and when to use each.
+    - Pin an exact version or use the major alias. Never use the legacy `latest/` paths.
+    - Shadow DOM vs `no-shadow-dom` / `no-style`, and when a host site's own CSS should own the styling.
+  - Required page structure: one `<site-page>` per page; don't add a second `<main>`, skip link or header.
+  - Theming only through `--uva-*` tokens and the documented `::part`s, never by reaching into internals.
+  - The library.virginia.edu / design system authority rule.
+  - Ready-to-paste snippets for plain HTML, 11ty and a bundled app (Vite).
+  - A verification checklist: components defined, one `<main>`, an axe pass, no console errors.
+- `reference/components.md` is **generated at build time from `custom-elements.json`**: tags, attributes, slots, parts, events and CSS custom properties. It can't drift from the code, and a test fails if the committed copy is stale.
+- `reference/migration.md` maps old URLs and package names to new ones, for agents updating existing projects.
+
+**Testing**
+- The build test checks that the skill and its reference files are in both the npm package and the CDN output.
+- Every snippet in `SKILL.md` is extracted and loaded in a test page against the built output, and must render without errors.
+- The skill is authored and evaluated with the `skill-creator` workflow: a few realistic prompts, e.g. "add the library header and footer to this 11ty site", checked for correct output.
+
+## 10. Testing
 
 - `@web/test-runner` with Playwright Chromium, run on every component in **both** shadow and `no-shadow-dom` modes:
   - Rendering and attributes: `root-link-domain` links, header variants, pre-footer visibility, the computed copyright year.
@@ -237,16 +271,16 @@ Same bucket (`s3://unpkg.internal.lib.virginia.edu`) and CloudFront distribution
   - The `define` guard: importing a component twice does not throw.
   - axe-core runs against each demo fixture, with zero serious or critical violations.
 - A build test checks that `dist-cdn/manifest.json` lists every entry and every file exists, and that `npm pack` includes every export target.
-- The BOV visual and axe comparison from §8.
+- The BOV visual and axe comparison from §8, and the skill checks from §9.
 
-## 10. Out of scope for Phase A
+## 11. Out of scope for Phase A
 
 - Phase B components and the Drupal module and theme changes.
 - Removing anything from the monorepo or the old pipeline (phase C).
 - Rebuilding the header around the design system's full main-site layout (drop-down main navigation). That waits for the design system's header and footer layout pages to be published.
 - Declarative Shadow DOM / SSR output.
 
-## 11. Open items for the repo owner
+## 12. Open items for the repo owner
 
 - The GitHub repo name and location (assumed: `uvalib/reusable-web-library`).
 - npm automation token for the `@uvalib` org, stored in SSM.
