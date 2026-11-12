@@ -282,7 +282,7 @@ The project includes an agent skill that teaches coding agents (Claude Code and 
 
 ## 12. Open items for the repo owner
 
-- The GitHub repo name and location (assumed: `uvalib/reusable-web-library`).
+- ~~GitHub repo~~ — resolved: `https://github.com/uvalib/reusable-web-library` (origin).
 - npm automation token for the `@uvalib` org, stored in SSM.
 - Deploying `pipeline/codebuild.yml`: needs the CloudFront distribution ID and GitHub connection approval.
 - Access to the draft design-system pages in Confluence. The Hoo Helper service account can read the UX meeting notes but not the component pages themselves.

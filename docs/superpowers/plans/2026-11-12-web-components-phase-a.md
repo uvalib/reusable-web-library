@@ -454,7 +454,7 @@
 
 ## Not in this plan (needs the repo owner)
 
-- Creating the GitHub repo and pushing.
+- Pushing to `origin` (`https://github.com/uvalib/reusable-web-library`, currently empty) — only with the user's go-ahead.
 - Storing the npm token in SSM.
 - Deploying `pipeline/codebuild.yml`.
 - Running `pnpm release major` for 1.0.0.
