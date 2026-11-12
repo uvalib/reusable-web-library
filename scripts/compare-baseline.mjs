@@ -50,7 +50,13 @@ const pct = ({ diff, total }) => (total ? ((diff / total) * 100).toFixed(2) : '0
 
 const files = (await readdir(beforeDir)).filter((f) => f.endsWith('.png')).sort();
 if (diffDir) await mkdir(diffDir, { recursive: true });
-console.log('image'.padEnd(46), 'size before -> after'.padEnd(26), 'full'.padStart(8), 'header'.padStart(8), 'footer'.padStart(8));
+console.log(
+  'image'.padEnd(46),
+  'size before -> after'.padEnd(26),
+  'full'.padStart(8),
+  'header'.padStart(8),
+  'footer'.padStart(8),
+);
 for (const f of files) {
   let a;
   let b;
@@ -70,9 +76,17 @@ for (const f of files) {
     crop(a, a.height - FOOTER_PX, a.height),
     crop(b, b.height - FOOTER_PX, b.height),
   );
-  console.log(f.padEnd(46), sizeNote.padEnd(26), pct(full).padStart(8), pct(header).padStart(8), pct(footer).padStart(8));
+  console.log(
+    f.padEnd(46),
+    sizeNote.padEnd(26),
+    pct(full).padStart(8),
+    pct(header).padStart(8),
+    pct(footer).padStart(8),
+  );
   if (mismatch) {
-    console.log(`  note: image size differs (${sizeNote}); full-page diff is over the padded union and counts extra rows as differing; header/footer regions are aligned to each image's own top/bottom.`);
+    console.log(
+      `  note: image size differs (${sizeNote}); full-page diff is over the padded union and counts extra rows as differing; header/footer regions are aligned to each image's own top/bottom.`,
+    );
   }
   if (diffDir && holder.png) await writeFile(join(diffDir, f), PNG.sync.write(holder.png));
 }

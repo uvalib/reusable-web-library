@@ -1,4 +1,5 @@
 import { expect, fixture, aTimeout, nextFrame } from '@open-wc/testing';
+import { setViewport } from '@web/test-runner-commands';
 import '../src/components/site-footer/site-footer.js';
 import type { SiteFooter } from '../src/components/site-footer/SiteFooter.js';
 import { expectNoAxeViolations } from './helpers/axe.js';
@@ -71,6 +72,24 @@ for (const mode of ['shadow', 'light'] as const) {
       const address = root(el).querySelector('address')!;
       expect(getComputedStyle(address).fontStyle).to.equal('italic');
       expect(getComputedStyle(address.querySelector('a')!).fontStyle).to.equal('italic');
+    });
+
+    it('centres each column content within its 300px block at 1280', async () => {
+      await setViewport({ width: 1280, height: 900 });
+      try {
+        const el = await make();
+        const blocks = [...root(el).querySelectorAll('.footer--main > .block')];
+        expect(blocks.length).to.equal(3);
+        for (const block of blocks) {
+          const b = block.getBoundingClientRect();
+          const c = block.firstElementChild!.getBoundingClientRect();
+          expect(c.width, 'content shrink-wraps').to.be.lessThan(b.width);
+          const delta = Math.abs(c.left + c.width / 2 - (b.left + b.width / 2));
+          expect(delta).to.be.lessThan(4);
+        }
+      } finally {
+        await setViewport({ width: 800, height: 600 });
+      }
     });
 
     it('hides .footer--pre without pre-footer content', async () => {

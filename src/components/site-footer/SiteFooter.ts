@@ -71,7 +71,10 @@ export class SiteFooter extends UvalibElement {
         justify-content: center;
         padding-top: 2rem;
       }
+      /* Old layout: each column's content is centred within its 300px block. */
       .footer--main > .block {
+        display: flex;
+        justify-content: space-around;
         width: 300px;
         box-sizing: border-box;
       }
@@ -131,6 +134,7 @@ export class SiteFooter extends UvalibElement {
       }
       @media screen and (max-width: 767px) {
         .footer--main > .block {
+          justify-content: flex-start;
           padding: 1rem;
         }
       }
@@ -198,39 +202,47 @@ export class SiteFooter extends UvalibElement {
         </div>
         <div class="footer--main">
           <div class="block">
-            <h2>Using the Library</h2>
-            ${this.links(USING)}
+            <div class="block-content">
+              <h2>Using the Library</h2>
+              ${this.links(USING)}
+            </div>
           </div>
           <div class="block">
-            <h2>About</h2>
-            ${this.links(ABOUT)}
+            <div class="block-content">
+              <h2>About</h2>
+              ${this.links(ABOUT)}
+            </div>
           </div>
           <div class="block">
-            <h2>Contact us</h2>
-            <address>
-              <a href="tel:+14349243021">(434) 924-3021</a><br />
-              <a href="mailto:library@virginia.edu">library@virginia.edu</a><br />
-              UVA Shannon Library<br />
-              P.O. Box 400113<br />
-              160 McCormick Road<br />
-              Charlottesville, VA 22904
-            </address>
-            <ul>
-              <li><a href=${siteLink(root, '/askalibrarian')}>Ask a Librarian</a></li>
-              <li><a href=${siteLink(root, '/site-feedback')}>Site feedback</a></li>
-            </ul>
-            <ul class="social-media">
-              <li>
-                <a href="https://www.facebook.com/UVALibrary/" aria-label="UVA Library on Facebook"
-                  >${facebookIcon}</a
-                >
-              </li>
-              <li>
-                <a href="https://instagram.com/uvalibrary" aria-label="UVA Library on Instagram"
-                  >${instagramIcon}</a
-                >
-              </li>
-            </ul>
+            <div class="block-content">
+              <h2>Contact us</h2>
+              <address>
+                <a href="tel:+14349243021">(434) 924-3021</a><br />
+                <a href="mailto:library@virginia.edu">library@virginia.edu</a><br />
+                UVA Shannon Library<br />
+                P.O. Box 400113<br />
+                160 McCormick Road<br />
+                Charlottesville, VA 22904
+              </address>
+              <ul>
+                <li><a href=${siteLink(root, '/askalibrarian')}>Ask a Librarian</a></li>
+                <li><a href=${siteLink(root, '/site-feedback')}>Site feedback</a></li>
+              </ul>
+              <ul class="social-media">
+                <li>
+                  <a
+                    href="https://www.facebook.com/UVALibrary/"
+                    aria-label="UVA Library on Facebook"
+                    >${facebookIcon}</a
+                  >
+                </li>
+                <li>
+                  <a href="https://instagram.com/uvalibrary" aria-label="UVA Library on Instagram"
+                    >${instagramIcon}</a
+                  >
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
         <div class="footer--post">

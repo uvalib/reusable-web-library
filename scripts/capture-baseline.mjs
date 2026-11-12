@@ -83,7 +83,11 @@ try {
     if (nodeFetch) {
       await context.route(
         (url) => !['127.0.0.1', 'localhost'].includes(url.hostname),
-        (route) => route.fetch().then((res) => route.fulfill({ response: res }), () => route.abort()),
+        (route) =>
+          route.fetch().then(
+            (res) => route.fulfill({ response: res }),
+            () => route.abort(),
+          ),
       );
     }
     for (const p of pages) {
