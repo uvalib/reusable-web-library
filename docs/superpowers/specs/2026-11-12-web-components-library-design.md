@@ -276,16 +276,21 @@ The project includes an agent skill that teaches coding agents (Claude Code and 
 
 **Playground** (`site/`, published to `https://uvalib.github.io/reusable-web-library/`)
 - A Vite multi-page site built into `dist-site/`.
-- **Gallery page:** every component and variant, shown live in both shadow and `no-shadow-dom` modes, with copyable markup next to each example.
-- **Playground page:** an HTML editor beside a sandboxed `<iframe srcdoc>` preview that updates as you type (debounced).
+- Built on Lit's **`playground-elements`** (`<playground-ide>`, the editor/preview components that power lit.dev/playground), so every example is editable and encourages play.
+- **Gallery page:** one compact `<playground-ide>` per component and variant, with the HTML file open and a live preview beside it. Each variant is shown in both shadow and `no-shadow-dom` modes.
+- **Playground page:** a full-size, resizable `<playground-ide>` with line numbers.
   - **Presets:** full page; vendor header; light DOM styled by host CSS; pre-footer slot; theming with `--uva-*` tokens.
-  - **Sharing:** the editor content is stored in the URL hash, compressed with `CompressionStream` and base64url-encoded, so an example can be shared as a link.
-- **Component source:** the site loads its own copy of the CDN build (`dist-cdn/`, copied to `dist-site/cdn/`) built from the same commit. It does not use the internal CDN, which may not be reachable from outside UVA, and this keeps the demo matching `main`.
+  - **Sharing:** "Copy link" serializes the project's files into the URL hash, compressed with `CompressionStream` and base64url-encoded. Opening the link restores them.
+- **Component source in previews:** preset files load the components from the site's own copy of the CDN build (`dist-site/cdn/`, built from the same commit) via absolute URLs computed at runtime (`new URL('cdn/', location.href)`). GitHub Pages serves them with `Access-Control-Allow-Origin: *`, so the cross-origin sandbox can import them. The internal CDN isn't used.
+- **Sandbox security:**
+  - Keep playground-elements' default `sandbox-base-url` (unpkg.com). Its docs require the sandbox to be a different origin from the host page, and self-hosting it on `uvalib.github.io` would let a malicious share link run with the site's privileges.
+  - `cdnBaseUrl` stays at its default. Previews import only our components and Lit, both bundled into `cdn/`.
+- **Bundling:** Vite bundles `playground-elements`. `playground-typescript-worker.js` is copied next to the bundle, as the package README requires.
 - **Local dev:** `pnpm start` runs the Vite dev server for `site/` and `demo/`.
 - **Deploy:** `.github/workflows/pages.yml` (GitHub Actions) runs on pushes to `main` and on manual dispatch: install, test, `pnpm build && pnpm build:site`, `actions/upload-pages-artifact`, `actions/deploy-pages`. Releases stay on CodeBuild (§7).
   - **One-time repo setting:** set the Pages source to "GitHub Actions". This is a step for the repo owner.
 - **Testing:**
-  - A wtr test loads the built playground, applies each preset, and checks that the preview iframe defines its components and has exactly one `main`.
+  - A wtr test loads the built playground, applies each preset, and checks that the preview reports a load with no errors. The preview runs on the unpkg sandbox origin, so the DOM inside it can't be inspected. Separately, each preset's HTML is mounted directly against `dist-cdn` to check that its components are defined and there's exactly one `main`.
   - A round-trip test decodes the URL hash back to the original code.
   - axe runs on the gallery and playground pages.
 

@@ -490,55 +490,69 @@
 
 ---
 
-### Task 14: Playground site and GitHub Pages deploy
+### Task 14: Playground site (playground-elements) and GitHub Pages deploy
 
 **Files:**
 - Create:
-  - `site/index.html` (gallery)
-  - `site/playground.html`
-  - `site/src/gallery.ts`, `site/src/playground.ts`
-  - `site/src/presets.ts`
-  - `site/src/share.ts`
-  - `site/src/site.css`
-  - `vite.site.config.ts`
-  - `.github/workflows/pages.yml`
-- Modify: `package.json` (`start`, `build:site`)
-- Test: `test/share.test.ts`, `test/site.test.ts`
+  - `site/index.html`: the gallery.
+  - `site/playground.html`.
+  - `site/src/gallery.ts`, `site/src/playground.ts`, `site/src/presets.ts`, `site/src/share.ts`.
+  - `site/src/site.css`.
+  - `vite.site.config.ts`.
+  - `.github/workflows/pages.yml`.
+- Modify: `package.json` (add `playground-elements@^0.21.2` as a devDependency; add the `start` and `build:site` scripts).
+- Test: `test/share.test.ts`, `test/presets.test.ts`, `test/site.test.ts`.
 
 **Interfaces:**
-- Consumes: `dist-cdn/` (Task 9). Each preset loads `./cdn/<tag>.js`, and `./cdn/tokens.css` where needed.
+- Consumes: `dist-cdn/` from Task 9 and `expectNoAxeViolations` from Task 5.
 - Produces:
-  - `pnpm start` runs a Vite dev server with root `.`, so `site/` and `demo/` are browsable. In dev, `./cdn/*` imports resolve to `src/components/*/<tag>.ts` through a Vite alias plugin.
-  - `pnpm build:site` runs `vite build -c vite.site.config.ts` into `dist-site/` with `base: '/reusable-web-library/'`, then copies `dist-cdn/` to `dist-site/cdn/`.
-  - `presets.ts`: `export interface Preset { id: string; title: string; html: string }` and `export const presets: Preset[]`, with ids `full-page`, `vendor-header`, `light-dom-host-css`, `pre-footer`, `theming`. Each `html` is a complete document that loads components from `./cdn/`.
-  - `share.ts`: `encode(code: string): Promise<string>` and `decode(hash: string): Promise<string>`. These use `CompressionStream('deflate-raw')` / `DecompressionStream` and base64url, with no external dependency.
-  - Playground behavior:
-    - Layout: an editor `<textarea>` (with `spellcheck=false`, and Tab inserting two spaces) and a preset `<select>`.
-    - Preview: an `<iframe sandbox="allow-scripts" title="Preview">` whose `srcdoc` is set from the editor 300 ms after the last input. Before setting `srcdoc`, `./cdn/` is rewritten to the absolute `new URL('cdn/', location.href)`, because srcdoc has no base URL.
-    - Buttons: "Copy link" (encodes to `#code=`) and "Reset" (back to the selected preset).
-    - Loading: if the page loads with `#code=…`, the editor starts from the decoded content.
-  - Gallery: for each preset and each component variant, a live example in both shadow and `no-shadow-dom` modes. Each example sits inside a `<figure>` with a `<figcaption>` and a `<details><summary>Code</summary><pre><code>` block holding the markup.
-  - The site's own chrome is semantic: one `<main>`, `<nav aria-label="Site">` linking Gallery, Playground and README on GitHub. Follow modern-web-guidance for page landmarks.
-  - `pages.yml`:
+  - **`pnpm start`:** a Vite dev server rooted at `.` (serves `site/` and `demo/`). In dev, `cdn/<tag>.js` is served by a small Vite plugin that maps it to `src/components/<tag>/<tag>.ts`.
+  - **`pnpm build:site`:** `vite build -c vite.site.config.ts`, writing `dist-site/` with `base: '/reusable-web-library/'`. It copies `dist-cdn/` to `dist-site/cdn/` and `node_modules/playground-elements/playground-typescript-worker.js` next to the site's JS bundle, as the playground-elements README requires.
+  - **`presets.ts`:**
+    - `export interface Preset { id: string; title: string; description: string; files: Record<string, { content: string; hidden?: boolean }> }`
+    - `export const presets: Preset[]` with ids `full-page`, `vendor-header`, `light-dom-host-css`, `pre-footer`, `theming`. Each preset has an `index.html`, plus `styles.css` where useful.
+    - `export function withCdnBase(preset: Preset, cdnBase: string): Preset` replaces the token `{{CDN}}` in every file with `cdnBase`. Preset content uses `<script type="module" src="{{CDN}}site-page.js">`.
+    - At runtime the base is `new URL('cdn/', location.href).href`, an absolute URL, because previews run on the sandbox origin.
+  - **`share.ts`:**
+    - `encode(files: Record<string,{content:string}>): Promise<string>`
+    - `decode(hash: string): Promise<Record<string,{content:string}>>`
+    - JSON, then `CompressionStream('deflate-raw')`, then base64url. No external dependency.
+  - **Playground page:**
+    - One `<playground-ide resizable line-numbers editable-file-system>` and a preset `<select>` (`<label>`led).
+    - Selecting a preset sets `ide.config = { files: withCdnBase(preset, base).files }`.
+    - "Copy link" reads `ide.config` (or the project's `files`), encodes it into `#files=…`, and copies the URL.
+    - "Reset" restores the selected preset.
+    - On load with `#files=`, the IDE starts from the decoded files.
+  - **Gallery page:** a `<playground-ide>` for each preset, plus one per header variant × mode (`full`/`vendor` × shadow/`no-shadow-dom`). Each sits in a `<section>` with an `<h2>` and a one-line description of when to use it.
+  - **Sandbox:** keep the default `sandbox-base-url` (unpkg). Never set it to the site's own origin (spec §9a). The site's own chrome uses one `<main>` and `<nav aria-label="Site">` linking Gallery, Playground, and the GitHub README.
+  - **`pages.yml`:**
     - Triggers: `on: push: branches: [main]` and `workflow_dispatch`.
     - Permissions: `pages: write`, `id-token: write`, `contents: read`.
-    - Steps: checkout, `pnpm/action-setup`, `actions/setup-node` (24, pnpm cache), `pnpm install --frozen-lockfile`, `pnpm exec playwright install --with-deps chromium`, `pnpm test`, `pnpm build && pnpm build:site`, `actions/upload-pages-artifact` (path `dist-site`), then a separate `deploy` job using `actions/deploy-pages`.
-    - Use only official `actions/*` and `pnpm/action-setup` actions, pinned to major versions.
+    - Steps: checkout → `pnpm/action-setup` → `actions/setup-node` (Node 24, pnpm cache) → `pnpm install --frozen-lockfile` → `pnpm exec playwright install --with-deps chromium` → `pnpm test` → `pnpm build && pnpm build:site` → `actions/upload-pages-artifact` (path `dist-site`). A separate `deploy` job runs `actions/deploy-pages`.
+    - Use only official `actions/*` and `pnpm/action-setup`, pinned to major versions.
 
 - [ ] **Step 1: Write the failing tests.**
   - `test/share.test.ts`:
-    - `decode(await encode(s)) === s` for an ASCII document, a document with non-ASCII text (`"Café — ü"`), and a 50 KB document.
-    - The encoded output matches `/^[A-Za-z0-9_-]+$/`.
-  - `test/site.test.ts`, after a `before` hook that runs `pnpm build && pnpm build:site`, served by wtr from `dist-site/`:
-    - For each preset id, load `playground.html` with the preset selected and wait for the iframe `load` event.
-    - Assert that every custom element in the iframe document is `:defined` and that the iframe has exactly one `main`.
-    - Load `playground.html#code=<encode('<p id=x>hi</p>')>` and assert that the editor value equals `<p id=x>hi</p>`.
-    - Run `expectNoAxeViolations` on the gallery `document.body` and on the playground `document.body`.
-    - Use the controller-approved serving approach. If wtr can't serve `dist-site/` under `/reusable-web-library/`, build the test with `--base /` instead, and say so in the report.
+    - `decode(await encode(files))` deep-equals the input for ASCII content, for non-ASCII content (`"Café — ü"`), and for a 50 KB file.
+    - The encoded string matches `/^[A-Za-z0-9_-]+$/`.
+  - `test/presets.test.ts` (wtr, against `dist-cdn` built by the earlier node `before` hook):
+    - For each preset, take `withCdnBase(p, '/dist-cdn/')`.
+    - Mount its `index.html` in a same-origin `<iframe srcdoc>`. If the preset has `styles.css`, inline it as a `<style>` element.
+    - Assert that every custom element in it is `:defined`, that there is exactly one `main`, and that no `error` events fire.
+    - Assert that every preset's files contain `{{CDN}}` and no `unpkg.internal` URL.
+  - `test/site.test.ts`, run against `dist-site/` built with `--base /` for the test, because wtr serves from the root:
+    - The playground page defines `playground-ide`.
+    - Selecting each preset updates `ide.config.files['index.html'].content`.
+    - Loading `playground.html#files=<encode({ 'index.html': { content: '<p>hi</p>' } })>` puts `<p>hi</p>` in the IDE's `index.html`.
+    - `expectNoAxeViolations(document.body)` passes on both pages, scoped to the site chrome. Exclude `playground-ide` internals only if axe flags third-party markup, and name every excluded rule in the report.
 - [ ] **Step 2: Run `pnpm test`.** Expected: FAIL.
-- [ ] **Step 3: Implement the site, presets, share, the Vite site config, the scripts, and `pages.yml`.** Validate the workflow YAML with `node -e "require('yaml').parse(fs.readFileSync('.github/workflows/pages.yml','utf8'))"`, or with `actionlint` if it's installed.
-- [ ] **Step 4: Run `pnpm test`.** Expected: PASS. Then run `pnpm build:site && npx vite preview -c vite.site.config.ts`, open the printed URL in a browser, and check that the gallery and every playground preset render.
-- [ ] **Step 5: Commit** `feat: playground site and GitHub Pages workflow`.
+- [ ] **Step 3: Implement** the site, presets, share module, Vite site config, scripts, and `pages.yml`. Validate the workflow YAML with `node -e "require('yaml').parse(require('fs').readFileSync('.github/workflows/pages.yml','utf8'))"`, or with `actionlint` if it's installed.
+- [ ] **Step 4: Run `pnpm test`.** Expected: PASS.
+- [ ] **Step 5: Check the built site in a browser.** Run `pnpm build:site && npx vite preview -c vite.site.config.ts`, open the printed URL in a browser, and confirm three things:
+  - The gallery's IDEs render live previews. This needs internet access to unpkg.com for the sandbox.
+  - Editing an example updates its preview.
+  - "Copy link" round-trips.
+- [ ] **Step 6: Commit** `feat: playground site with playground-elements and GitHub Pages workflow`.
 
 ---
 
