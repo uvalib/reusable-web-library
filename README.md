@@ -255,7 +255,7 @@ See [docs/usage.md](docs/usage.md) for details, including sites that only use sc
 - `pnpm install`
 - `pnpm test` builds first (`pnpm build`, then the playground site with `--base /dist-site/`), then runs the Node tests and the browser tests (headless Chromium).
 - `pnpm test:node` runs the Node tests alone; it needs a prior `pnpm build`.
-- `pnpm test:browser` runs the browser tests alone; it needs a prior `pnpm build` and `pnpm build:site --base /dist-site/`. The playground tests (`presets` and `site`) run in a second, serial pass, because the full pages and editors they mount are heavy enough to slow test files running beside them.
+- `pnpm test:browser` runs the browser tests alone; it needs a prior `pnpm build` and `pnpm build:site --base /dist-site/`.
 - `pnpm build` builds the npm output (`dist/`, which also regenerates this README's component section and the skill's `reference/components.md`) and the CDN output (`dist-cdn/`).
 - `pnpm lint` runs ESLint and Prettier.
 - `pnpm start` runs the Vite dev server for the playground site (`site/`) and the demos (`demo/`), rooted at the repo: open `/site/` for the gallery and playground, or `/demo/` for the demo pages. In dev, `cdn/<tag>.js` is served straight from `src/components/`, so edits show up on reload.

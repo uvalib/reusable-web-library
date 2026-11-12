@@ -10,8 +10,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
@@ -29,16 +27,20 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
+      # Builds dist/ and dist-cdn/, plus dist-site/ with the test base (/dist-site/).
       - run: pnpm test
-      # Production base: vite.site.config.ts builds for /reusable-web-library/.
-      - run: pnpm build && pnpm build:site
-      - uses: actions/upload-pages-artifact@v3
+      # Rebuild only the site, with the production base (/reusable-web-library/).
+      - run: pnpm build:site
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: dist-site
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

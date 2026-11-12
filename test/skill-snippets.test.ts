@@ -1,4 +1,5 @@
 import { expect } from '@open-wc/testing';
+import { countMain, mount, whenAllDefined } from './helpers/page-probe.js';
 
 // Raw text of the skill files, served by the dev server at their repo paths.
 const files = ['SKILL.md', 'reference/snippets.md'];
@@ -12,37 +13,9 @@ for (const f of files) {
   );
 }
 
-// Registered before any other script in the document (capture phase also sees
-// script/link load failures, which do not bubble), so module-load errors are caught.
-const ERROR_PROBE = `<script>
-  window.__errors = [];
-  addEventListener('error', (e) => window.__errors.push(e.message || (e.target && e.target.src) || 'error'), true);
-  addEventListener('unhandledrejection', (e) => window.__errors.push(String(e.reason)));
-</script>`;
-
-function countMain(root: Document | ShadowRoot): number {
-  let n = root.querySelectorAll('main').length;
-  for (const el of root.querySelectorAll('*')) {
-    if (el.shadowRoot) n += countMain(el.shadowRoot);
-  }
-  return n;
-}
-
-async function mount(src: string): Promise<{ iframe: HTMLIFrameElement; errors: string[] }> {
-  const iframe = document.createElement('iframe');
-  document.body.append(iframe);
-  const loaded = new Promise<void>((resolve) =>
-    iframe.addEventListener('load', () => resolve(), { once: true }),
-  );
-  iframe.srcdoc = src.replace(/<head>/i, `<head>${ERROR_PROBE}`);
-  await loaded;
-  // Give module scripts and top-level awaits a moment to settle.
-  await new Promise((r) => setTimeout(r, 300));
-  const errors = (iframe.contentWindow as unknown as { __errors: string[] }).__errors;
-  return { iframe, errors };
-}
-
-describe('skill html snippets', () => {
+describe('skill html snippets', function () {
+  // Each snippet test waits up to 300 ms + 2000 ms (definitions) + 300 ms by itself.
+  this.timeout(5000);
   it('finds snippets in SKILL.md and reference/snippets.md', () => {
     expect(snippets.some((s) => s.name.startsWith('SKILL.md'))).to.equal(true);
     expect(snippets.some((s) => s.name.startsWith('reference/snippets.md'))).to.equal(true);
@@ -73,12 +46,7 @@ describe('skill html snippets', () => {
             .filter((n) => n.startsWith('site-')),
         );
         expect(tags.size).to.be.greaterThan(0);
-        await Promise.race([
-          Promise.all([...tags].map((t) => win.customElements.whenDefined(t))),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('not defined in 2s')), 2000),
-          ),
-        ]);
+        await whenAllDefined(win, tags);
         for (const t of tags) {
           expect(doc.querySelector(`${t}:not(:defined)`), `${t} defined`).to.equal(null);
         }

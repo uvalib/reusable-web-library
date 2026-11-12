@@ -2,9 +2,9 @@ import { expect } from '@open-wc/testing';
 import { expectNoAxeViolations } from './helpers/axe.js';
 import { galleryExamples, presets, withCdnBase, type Preset } from '../site/src/presets.js';
 import { decode, encode } from '../site/src/share.js';
+import { bombHash, deflateToBase64Url, toBase64Url } from './helpers/share-payloads.js';
 
-// Runs against the built site (`pnpm build:site --base /dist-site/`, part of `pnpm test`),
-// in a separate serial wtr pass (`pnpm test:browser`) so its IDEs do not slow other files.
+// Runs against the built site (`pnpm build:site --base /dist-site/`, part of `pnpm test`).
 // Previews run on the unpkg.com sandbox origin, so nothing here waits on them: the
 // assertions read the IDE's config and the site's own chrome only.
 const SITE = '/dist-site/';
@@ -31,16 +31,21 @@ async function open(page: string): Promise<{ win: Window; doc: Document }> {
   iframe = document.createElement('iframe');
   iframe.style.cssText = 'width:1200px;height:900px;border:0';
   document.body.append(iframe);
-  const loaded = new Promise((r) => iframe!.addEventListener('load', r, { once: true }));
-  iframe.src = SITE + page;
-  await loaded;
+  const url = new URL(SITE + page, location.href);
+  iframe.src = url.href;
+  // Not the iframe's load event: that also waits for the IDEs' unpkg.com sandbox frames,
+  // and these tests must not depend on unpkg being reachable. The hash is left out of the
+  // comparison because the page clears an unreadable #files= link.
+  const path = url.href.slice(0, url.href.length - url.hash.length);
+  await until(() => {
+    const doc = iframe!.contentDocument;
+    return doc?.URL.startsWith(path) === true && doc.readyState !== 'loading';
+  }, `${url.pathname} parsed`);
   const win = iframe.contentWindow!;
-  await Promise.race([
-    win.customElements.whenDefined('playground-ide'),
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('playground-ide undefined')), 5000),
-    ),
-  ]);
+  await until(
+    () => win.customElements.get('playground-ide') !== undefined,
+    'playground-ide defined',
+  );
   return { win, doc: iframe.contentDocument! };
 }
 
@@ -162,6 +167,23 @@ describe('playground share link', function () {
     const ide = doc.querySelector<Ide>('playground-ide')!;
     await until(() => indexHtml(ide) === '<p>hi</p>', 'shared files');
   });
+
+  const badLinks: Record<string, () => Promise<string>> = {
+    'is too long': async () => 'a'.repeat(256 * 1024 + 1),
+    'inflates past the size limit': bombHash,
+    'is not deflate data': async () => toBase64Url(new TextEncoder().encode('plain bytes')),
+    'has the wrong shape': () => deflateToBase64Url(new Blob(['{"styles.css":{"content":""}}'])),
+  };
+  for (const [name, hash] of Object.entries(badLinks)) {
+    it(`a link that ${name} shows the error status and the first preset`, async () => {
+      const { win, doc } = await open(`playground.html#files=${await hash()}`);
+      const status = doc.querySelector('[role="status"]')!;
+      await until(() => /could not be read/.test(status.textContent!), 'error status');
+      const ide = doc.querySelector<Ide>('playground-ide')!;
+      await until(() => indexHtml(ide) === expected(win, presets[0]!), 'first preset');
+      expect(win.location.hash).to.equal('');
+    });
+  }
 });
 
 describe('gallery page', function () {

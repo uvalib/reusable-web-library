@@ -1,22 +1,8 @@
 import { expect } from '@open-wc/testing';
+import { countMain, mount, whenAllDefined } from './helpers/page-probe.js';
 import { galleryExamples, presets, withCdnBase, type Preset } from '../site/src/presets.js';
 
-// Same probe as test/skill-snippets.test.ts: registered before any other script, in the
-// capture phase, so module-load and stylesheet-load failures are caught too.
-const ERROR_PROBE = `<script>
-  window.__errors = [];
-  addEventListener('error', (e) => window.__errors.push(e.message || (e.target && e.target.src) || 'error'), true);
-  addEventListener('unhandledrejection', (e) => window.__errors.push(String(e.reason)));
-</script>`;
 const STYLES_LINK = /<link rel="stylesheet" href="\.\/styles\.css"\s*\/?>/;
-
-function countMain(root: Document | ShadowRoot): number {
-  let n = root.querySelectorAll('main').length;
-  for (const el of root.querySelectorAll('*')) {
-    if (el.shadowRoot) n += countMain(el.shadowRoot);
-  }
-  return n;
-}
 
 /** The preview document: index.html with styles.css inlined in place of its link. */
 function previewSource(p: Preset): string {
@@ -26,16 +12,7 @@ function previewSource(p: Preset): string {
     expect(html, `${p.id} links styles.css`).to.match(STYLES_LINK);
     html = html.replace(STYLES_LINK, `<style>${css}</style>`);
   }
-  return html.replace(/<head>/i, `<head>${ERROR_PROBE}`);
-}
-
-async function mount(src: string): Promise<HTMLIFrameElement> {
-  const iframe = document.createElement('iframe');
-  document.body.append(iframe);
-  const loaded = new Promise((r) => iframe.addEventListener('load', r, { once: true }));
-  iframe.srcdoc = src;
-  await loaded;
-  return iframe;
+  return html;
 }
 
 describe('playground presets', function () {
@@ -89,20 +66,15 @@ describe('playground presets', function () {
       });
 
       it('renders against dist-cdn with defined components, one main and no errors', async () => {
-        const iframe = await mount(previewSource(withCdnBase(p, '/dist-cdn/')));
+        const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-cdn/')));
         try {
-          const win = iframe.contentWindow! as Window & { __errors: string[] };
+          const win = iframe.contentWindow!;
           const doc = iframe.contentDocument!;
           const tags = new Set(
             [...doc.querySelectorAll('*')].map((e) => e.localName).filter((n) => n.includes('-')),
           );
           expect(tags.size).to.be.greaterThan(0);
-          await Promise.race([
-            Promise.all([...tags].map((t) => win.customElements.whenDefined(t))),
-            new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('not defined in 2s')), 2000),
-            ),
-          ]);
+          await whenAllDefined(win, tags);
           for (const t of tags) {
             expect(doc.querySelector(`${t}:not(:defined)`), `${t} defined`).to.equal(null);
           }
@@ -110,7 +82,7 @@ describe('playground presets', function () {
             .updateComplete;
           await new Promise((r) => setTimeout(r, 300)); // header and footer render asynchronously
           expect(countMain(doc)).to.equal(1);
-          expect(win.__errors).to.deep.equal([]);
+          expect(errors).to.deep.equal([]);
         } finally {
           iframe.remove();
         }

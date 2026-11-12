@@ -41,7 +41,8 @@ function siteFiles(): Plugin {
       cpSync(join(root, 'dist-cdn'), join(outDir, 'cdn'), { recursive: true });
       // The worker imports ./internal/typescript.js, so that file goes with it. Vite also
       // emits a hashed copy of the worker, which is the one the bundle references; that
-      // copy needs the same sibling.
+      // copy needs the same sibling. The unhashed copy is kept because the
+      // playground-elements README says to copy the worker next to the bundle.
       const pkg = join(root, 'node_modules/playground-elements');
       mkdirSync(join(outDir, ASSETS, 'internal'), { recursive: true });
       for (const file of ['playground-typescript-worker.js', 'internal/typescript.js']) {

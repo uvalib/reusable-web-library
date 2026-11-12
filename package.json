@@ -62,7 +62,7 @@
   "scripts": {
     "test": "pnpm build && pnpm build:site --base /dist-site/ && pnpm test:node && pnpm test:browser",
     "test:node": "node --test test/*.test.mjs",
-    "test:browser": "wtr \"test/**/*.test.ts\" \"!test/presets.test.ts\" \"!test/site.test.ts\" --config web-test-runner.config.mjs && wtr test/presets.test.ts test/site.test.ts --concurrency 1 --config web-test-runner.config.mjs",
+    "test:browser": "wtr \"test/**/*.test.ts\" --config web-test-runner.config.mjs",
     "lint": "eslint . && prettier --check .",
     "build:npm": "tsc -p tsconfig.build.json && node scripts/emit-css.mjs dist && pnpm analyze && node scripts/gen-reference.mjs",
     "release": "node scripts/release.mjs",
