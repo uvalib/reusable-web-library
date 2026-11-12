@@ -6,6 +6,7 @@
   "type": "module",
   "sideEffects": [
     "./dist/components/*/site-*.js",
+    "./src/components/*/site-*.ts",
     "*.css"
   ],
   "customElements": "dist/custom-elements.json",
@@ -56,8 +57,8 @@
   },
   "packageManager": "pnpm@9.15.9",
   "scripts": {
-    "test": "pnpm test:node && wtr \"test/**/*.test.ts\" --config web-test-runner.config.mjs",
-    "test:node": "node --test --test-concurrency=1 test/*.test.mjs",
+    "test": "pnpm build && pnpm test:node && wtr \"test/**/*.test.ts\" --config web-test-runner.config.mjs",
+    "test:node": "node --test test/*.test.mjs",
     "lint": "eslint . && prettier --check .",
     "build:npm": "tsc -p tsconfig.build.json && node scripts/emit-css.mjs dist && pnpm analyze",
     "build": "pnpm build:npm && pnpm build:cdn",

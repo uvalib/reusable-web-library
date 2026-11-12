@@ -1,4 +1,4 @@
-import { test, before } from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -8,10 +8,6 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const TAGS = ['site-page', 'site-header', 'site-footer', 'site-analytics', 'site-style'];
-
-before(() => {
-  execSync('pnpm build', { cwd: root, stdio: 'pipe' });
-});
 
 const walk = (dir) =>
   readdirSync(dir).flatMap((n) => {
