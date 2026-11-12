@@ -83,7 +83,8 @@ reusable-web-library/
     release.mjs             # local release command
     build-manifest.mjs      # emits dist-cdn/manifest.json
   pipeline/
-    buildspec.yml           # CodeBuild: CI + release
+    buildspec-ci.yml        # CodeBuild CI (PRs, main)
+    buildspec-release.yml   # CodeBuild release (v* tags)
     codebuild.yml           # CloudFormation: project, role, webhook
   skills/
     uvalib-web-components/  # agent skill: SKILL.md + reference/ (see §9)
@@ -191,23 +192,34 @@ Same bucket (`s3://unpkg.internal.lib.virginia.edu`) and CloudFront distribution
 
 **Local step:** `pnpm release <patch|minor|major>` (`scripts/release.mjs`). It:
 
-1. Checks that the working tree is clean and on `main`.
-2. Runs lint, tests and build.
-3. Bumps `package.json`, prepends `CHANGELOG.md` entries from commits since the last tag, commits `release: vX.Y.Z`, tags `vX.Y.Z` and pushes.
+1. Checks that the working tree is clean, the branch is `main` and up to date with `origin/main`, and the tag doesn't already exist locally or on the remote.
+2. Runs lint, tests and build, then confirms the build left the tree clean.
+3. Bumps `package.json`, prepends `CHANGELOG.md` entries from commits since the last tag, commits `release: vX.Y.Z`, creates an annotated tag `vX.Y.Z`, and pushes with `git push --atomic origin main vX.Y.Z`.
 
-**CodeBuild** (`pipeline/buildspec.yml`), triggered through a GitHub webhook:
+**CodeBuild: two projects**, each triggered by a GitHub webhook. They're split so that pull-request code never runs with release credentials. (This revision follows the Task 11 review.)
 
-- Push or PR to `main`: install, lint, test (headless Chromium), and both builds. Nothing is published.
-- Tag `v*`:
-  1. Everything above.
-  2. Check that the tag matches `package.json`.
-  3. `npm publish --access public`, using a token read from SSM (`/web-components/npm-token`).
-  4. Upload `dist-cdn/` to `vX.Y.Z/`, after checking that the prefix doesn't already exist.
-  5. Sync to `vX/`.
-  6. Invalidate `/web-components/vX/*`.
-- If npm publishing succeeds but the S3 step fails, re-running the build skips the publish once that version exists on npm, and finishes the S3 steps.
+- **`web-components-ci`** (`pipeline/buildspec-ci.yml`):
+  - Runs on pushes to `main` and on PRs targeting `main`.
+  - Steps: install, lint, test (headless Chromium, which includes both builds).
+  - Its role has CloudWatch Logs permissions only: no SSM, no S3, no CloudFront. Nothing is published.
+- **`web-components-release`** (`pipeline/buildspec-release.yml`):
+  - Runs on pushes of `v*` tags only. An optional actor-account filter can restrict who can trigger it.
+  - Steps:
+    1. Install with `--ignore-scripts`, then lint and test.
+    2. Get the tag from the webhook trigger (or the source version, for retries) and check that it matches `package.json`.
+    3. Fetch the npm token from SSM (`/web-components/npm-token`) only in the publish step, then run `npm publish --access public`. This is skipped if that version is already on npm.
+    4. Run `pipeline/publish-cdn.sh`. It is **create-only and resumable**:
+       - Each file under `vX.Y.Z/` is uploaded with `put-object --if-none-match '*'`.
+       - Files that already exist with a matching checksum are skipped. A file that exists with a different checksum aborts the release.
+       - S3 listing errors fail closed.
+    5. Sync to `vX/`, then invalidate `/web-components/vX/*`. Both happen only when this is the highest `X.*.*` version present, so retrying an older release can't roll the alias back.
+- **Re-runs:** if npm publishing succeeds but the S3 step fails, re-running the release build skips the npm publish and finishes the S3 steps.
 
-**Infrastructure as code:** `pipeline/codebuild.yml` (CloudFormation) defines the CodeBuild project, its IAM role (S3 write on `web-components/v*`, CloudFront invalidation, SSM read on the token) and the webhook filters. The template is written as part of this project. Deploying it, creating the npm automation token, and providing the CloudFront distribution ID are steps for the repo owner or ops.
+**Infrastructure as code:** `pipeline/codebuild.yml` (CloudFormation) defines both projects, their separate IAM roles and the webhook filters. The release role can:
+- list and put objects under `web-components/v*`;
+- delete only under the major-alias prefixes (`v?/`, `v??/`);
+- create CloudFront invalidations;
+- read the SSM token. The template is written as part of this project. Deploying it, creating the npm automation token, and providing the CloudFront distribution ID are steps for the repo owner or ops.
 
 **Versioning:** semver. The first release is `1.0.0`. Breaking changes to tags, attributes, slots, parts or token names require a major version bump.
 
