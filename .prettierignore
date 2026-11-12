@@ -2,3 +2,4 @@
 docs
 test/baseline
 pnpm-lock.yaml
+src/styles/tokens.ts
