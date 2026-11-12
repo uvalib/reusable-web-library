@@ -87,6 +87,8 @@ reusable-web-library/
     codebuild.yml           # CloudFormation: project, role, webhook
   skills/
     uvalib-web-components/  # agent skill: SKILL.md + reference/ (see §9)
+  site/                     # GitHub Pages playground + gallery (see §9a)
+  .github/workflows/pages.yml
   docs/
     usage.md, migration.md, superpowers/specs/…
 ```
@@ -261,6 +263,32 @@ The project includes an agent skill that teaches coding agents (Claude Code and 
 - Every snippet in `SKILL.md` is extracted and loaded in a test page against the built output, and must render without errors.
 - The skill is authored and evaluated with the `skill-creator` workflow: a few realistic prompts, e.g. "add the library header and footer to this 11ty site", checked for correct output.
 
+## 9a. README component docs and GitHub Pages playground
+
+*Added 2026-11-12 at the repo owner's request.*
+
+**README** (`README.md`)
+- Covers an overview, install (npm and CDN script tag), a quick start, the shadow / `no-shadow-dom` / `no-style` modes, tokens and theming, a link to the playground, and how to install the agent skill.
+- **Component reference:** one section per component (attributes, slots, CSS parts, events, CSS custom properties).
+  - It is generated from `custom-elements.json` between `<!-- components:start -->` and `<!-- components:end -->`.
+  - The same generator writes the skill's `reference/components.md` (§9).
+  - `--check` mode runs in the test suite, so a stale README fails the build.
+
+**Playground** (`site/`, published to `https://uvalib.github.io/reusable-web-library/`)
+- A Vite multi-page site built into `dist-site/`.
+- **Gallery page:** every component and variant, shown live in both shadow and `no-shadow-dom` modes, with copyable markup next to each example.
+- **Playground page:** an HTML editor beside a sandboxed `<iframe srcdoc>` preview that updates as you type (debounced).
+  - **Presets:** full page; vendor header; light DOM styled by host CSS; pre-footer slot; theming with `--uva-*` tokens.
+  - **Sharing:** the editor content is stored in the URL hash, compressed with `CompressionStream` and base64url-encoded, so an example can be shared as a link.
+- **Component source:** the site loads its own copy of the CDN build (`dist-cdn/`, copied to `dist-site/cdn/`) built from the same commit. It does not use the internal CDN, which may not be reachable from outside UVA, and this keeps the demo matching `main`.
+- **Local dev:** `pnpm start` runs the Vite dev server for `site/` and `demo/`.
+- **Deploy:** `.github/workflows/pages.yml` (GitHub Actions) runs on pushes to `main` and on manual dispatch: install, test, `pnpm build && pnpm build:site`, `actions/upload-pages-artifact`, `actions/deploy-pages`. Releases stay on CodeBuild (§7).
+  - **One-time repo setting:** set the Pages source to "GitHub Actions". This is a step for the repo owner.
+- **Testing:**
+  - A wtr test loads the built playground, applies each preset, and checks that the preview iframe defines its components and has exactly one `main`.
+  - A round-trip test decodes the URL hash back to the original code.
+  - axe runs on the gallery and playground pages.
+
 ## 10. Testing
 
 - `@web/test-runner` with Playwright Chromium, run on every component in **both** shadow and `no-shadow-dom` modes:
@@ -285,4 +313,5 @@ The project includes an agent skill that teaches coding agents (Claude Code and 
 - ~~GitHub repo~~ — resolved: `https://github.com/uvalib/reusable-web-library` (origin).
 - npm automation token for the `@uvalib` org, stored in SSM.
 - Deploying `pipeline/codebuild.yml`: needs the CloudFront distribution ID and GitHub connection approval.
+- Enable GitHub Pages with source "GitHub Actions" in the repo settings (§9a).
 - Access to the draft design-system pages in Confluence. The Hoo Helper service account can read the UX meeting notes but not the component pages themselves.

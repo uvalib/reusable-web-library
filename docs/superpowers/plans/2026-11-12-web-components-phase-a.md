@@ -452,11 +452,102 @@
 
 ---
 
+### Task 13: README with generated component reference
+
+> Execution order: Tasks 13 and 14 run after Task 11 and before Task 12.
+
+**Files:**
+- Modify: `README.md`, `scripts/gen-skill-reference.mjs` (rename to `scripts/gen-reference.mjs`; update the call in `build:npm` and Task 10's test)
+- Test: `test/readme.test.mjs`
+
+**Interfaces:**
+- Consumes: `dist/custom-elements.json` (Task 8). The reference renderer from Task 10, `renderComponents(manifest): string`, is exported from the renamed script.
+- Produces:
+  - `node scripts/gen-reference.mjs [--check]` writes both `skills/uvalib-web-components/reference/components.md` and the README section between `<!-- components:start -->` and `<!-- components:end -->`, using the same renderer.
+  - With `--check` it exits 1 if either file is stale.
+- README sections, in order:
+  1. Title and one-paragraph overview, stating that library.virginia.edu is the style authority.
+  2. Playground link: `https://uvalib.github.io/reusable-web-library/`.
+  3. Install, with an npm snippet and a CDN `v1` script-tag snippet.
+  4. Quick start, using a full `<site-page>` example.
+  5. Rendering modes, a table of the four combinations from spec §4.1.
+  6. Tokens and theming.
+  7. Components, the generated section.
+  8. Agent skill, with the install command.
+  9. Development (`pnpm start`, `pnpm test`, `pnpm build`).
+  10. Releasing (`pnpm release`).
+  11. Migration, linking `docs/migration.md`.
+
+- [ ] **Step 1: Write the failing test** `test/readme.test.mjs`:
+  - `README.md` contains both markers.
+  - Running `gen-reference.mjs --check` exits 0.
+  - Each tag in the manifest appears under the markers as a `### \`<tag>\`` heading.
+  - The README contains `https://uvalib.github.io/reusable-web-library/` and `/web-components/v1/`.
+- [ ] **Step 2: Run `pnpm test:node`.** Expected: FAIL.
+- [ ] **Step 3: Rename and extend the generator, then write the README sections.**
+- [ ] **Step 4: Run `pnpm test`.** Expected: PASS.
+- [ ] **Step 5: Commit** `docs: README with generated component reference`.
+
+---
+
+### Task 14: Playground site and GitHub Pages deploy
+
+**Files:**
+- Create:
+  - `site/index.html` (gallery)
+  - `site/playground.html`
+  - `site/src/gallery.ts`, `site/src/playground.ts`
+  - `site/src/presets.ts`
+  - `site/src/share.ts`
+  - `site/src/site.css`
+  - `vite.site.config.ts`
+  - `.github/workflows/pages.yml`
+- Modify: `package.json` (`start`, `build:site`)
+- Test: `test/share.test.ts`, `test/site.test.ts`
+
+**Interfaces:**
+- Consumes: `dist-cdn/` (Task 9). Each preset loads `./cdn/<tag>.js`, and `./cdn/tokens.css` where needed.
+- Produces:
+  - `pnpm start` runs a Vite dev server with root `.`, so `site/` and `demo/` are browsable. In dev, `./cdn/*` imports resolve to `src/components/*/<tag>.ts` through a Vite alias plugin.
+  - `pnpm build:site` runs `vite build -c vite.site.config.ts` into `dist-site/` with `base: '/reusable-web-library/'`, then copies `dist-cdn/` to `dist-site/cdn/`.
+  - `presets.ts`: `export interface Preset { id: string; title: string; html: string }` and `export const presets: Preset[]`, with ids `full-page`, `vendor-header`, `light-dom-host-css`, `pre-footer`, `theming`. Each `html` is a complete document that loads components from `./cdn/`.
+  - `share.ts`: `encode(code: string): Promise<string>` and `decode(hash: string): Promise<string>`. These use `CompressionStream('deflate-raw')` / `DecompressionStream` and base64url, with no external dependency.
+  - Playground behavior:
+    - Layout: an editor `<textarea>` (with `spellcheck=false`, and Tab inserting two spaces) and a preset `<select>`.
+    - Preview: an `<iframe sandbox="allow-scripts" title="Preview">` whose `srcdoc` is set from the editor 300 ms after the last input. Before setting `srcdoc`, `./cdn/` is rewritten to the absolute `new URL('cdn/', location.href)`, because srcdoc has no base URL.
+    - Buttons: "Copy link" (encodes to `#code=`) and "Reset" (back to the selected preset).
+    - Loading: if the page loads with `#code=…`, the editor starts from the decoded content.
+  - Gallery: for each preset and each component variant, a live example in both shadow and `no-shadow-dom` modes. Each example sits inside a `<figure>` with a `<figcaption>` and a `<details><summary>Code</summary><pre><code>` block holding the markup.
+  - The site's own chrome is semantic: one `<main>`, `<nav aria-label="Site">` linking Gallery, Playground and README on GitHub. Follow modern-web-guidance for page landmarks.
+  - `pages.yml`:
+    - Triggers: `on: push: branches: [main]` and `workflow_dispatch`.
+    - Permissions: `pages: write`, `id-token: write`, `contents: read`.
+    - Steps: checkout, `pnpm/action-setup`, `actions/setup-node` (24, pnpm cache), `pnpm install --frozen-lockfile`, `pnpm exec playwright install --with-deps chromium`, `pnpm test`, `pnpm build && pnpm build:site`, `actions/upload-pages-artifact` (path `dist-site`), then a separate `deploy` job using `actions/deploy-pages`.
+    - Use only official `actions/*` and `pnpm/action-setup` actions, pinned to major versions.
+
+- [ ] **Step 1: Write the failing tests.**
+  - `test/share.test.ts`:
+    - `decode(await encode(s)) === s` for an ASCII document, a document with non-ASCII text (`"Café — ü"`), and a 50 KB document.
+    - The encoded output matches `/^[A-Za-z0-9_-]+$/`.
+  - `test/site.test.ts`, after a `before` hook that runs `pnpm build && pnpm build:site`, served by wtr from `dist-site/`:
+    - For each preset id, load `playground.html` with the preset selected and wait for the iframe `load` event.
+    - Assert that every custom element in the iframe document is `:defined` and that the iframe has exactly one `main`.
+    - Load `playground.html#code=<encode('<p id=x>hi</p>')>` and assert that the editor value equals `<p id=x>hi</p>`.
+    - Run `expectNoAxeViolations` on the gallery `document.body` and on the playground `document.body`.
+    - Use the controller-approved serving approach. If wtr can't serve `dist-site/` under `/reusable-web-library/`, build the test with `--base /` instead, and say so in the report.
+- [ ] **Step 2: Run `pnpm test`.** Expected: FAIL.
+- [ ] **Step 3: Implement the site, presets, share, the Vite site config, the scripts, and `pages.yml`.** Validate the workflow YAML with `node -e "require('yaml').parse(fs.readFileSync('.github/workflows/pages.yml','utf8'))"`, or with `actionlint` if it's installed.
+- [ ] **Step 4: Run `pnpm test`.** Expected: PASS. Then run `pnpm build:site && npx vite preview -c vite.site.config.ts`, open the printed URL in a browser, and check that the gallery and every playground preset render.
+- [ ] **Step 5: Commit** `feat: playground site and GitHub Pages workflow`.
+
+---
+
 ## Not in this plan (needs the repo owner)
 
 - Pushing to `origin` (`https://github.com/uvalib/reusable-web-library`, currently empty) — only with the user's go-ahead.
 - Storing the npm token in SSM.
 - Deploying `pipeline/codebuild.yml`.
+- Enabling GitHub Pages (source: GitHub Actions) in the repo settings.
 - Running `pnpm release major` for 1.0.0.
 - Swapping 11ty-template to `^1.0.0` and pushing the monorepo branch.
 
