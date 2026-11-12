@@ -1,4 +1,5 @@
 import { expect, fixture, html } from '@open-wc/testing';
+import { setViewport } from '@web/test-runner-commands';
 import '../src/components/site-header/site-header.js';
 import type { SiteHeader } from '../src/components/site-header/SiteHeader.js';
 import { expectNoAxeViolations } from './helpers/axe.js';
@@ -48,11 +49,43 @@ for (const mode of ['shadow', 'light'] as const) {
       expect(toggle.getAttribute('aria-controls')).to.equal(pop.id);
       expect(pop.matches(':popover-open')).to.equal(false);
       toggle.click();
-      await el.updateComplete;
       expect(pop.matches(':popover-open')).to.equal(true);
       toggle.click();
-      await el.updateComplete;
       expect(pop.matches(':popover-open')).to.equal(false);
+    });
+
+    describe('at 390x844', () => {
+      beforeEach(() => setViewport({ width: 390, height: 844 }));
+      afterEach(() => setViewport({ width: 800, height: 600 }));
+
+      it('keeps the vendor link visible and inside the viewport', async () => {
+        const el = await make('variant="vendor"');
+        const r = root(el).querySelector('nav a')!.getBoundingClientRect();
+        expect(r.width).to.be.greaterThan(0);
+        expect(r.left).to.be.at.least(0);
+        expect(r.right).to.be.at.most(window.innerWidth);
+      });
+
+      it('full variant shows the toggle and hides the inline nav', async () => {
+        const el = await make();
+        const toggle = root(el).querySelector('.menu-toggle')!.getBoundingClientRect();
+        const nav = root(el).querySelector('nav.inline')!.getBoundingClientRect();
+        expect(toggle.width).to.be.greaterThan(0);
+        expect(nav.width).to.equal(0);
+      });
+
+      it('opens the popover inside the viewport, below the toggle', async () => {
+        const el = await make();
+        const toggle = root(el).querySelector('.menu-toggle') as HTMLButtonElement;
+        const pop = root(el).querySelector('[popover]') as HTMLElement;
+        toggle.click();
+        const r = pop.getBoundingClientRect();
+        expect(pop.matches(':popover-open')).to.equal(true);
+        expect(r.left).to.be.at.least(0);
+        expect(r.right).to.be.at.most(window.innerWidth);
+        expect(r.bottom).to.be.at.most(window.innerHeight);
+        expect(r.top).to.be.at.least(toggle.getBoundingClientRect().bottom);
+      });
     });
 
     it('has no serious axe violations', async () => {

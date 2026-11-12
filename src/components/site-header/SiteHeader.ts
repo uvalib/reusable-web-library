@@ -3,7 +3,6 @@ import { property } from 'lit/decorators.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { siteLink } from '../link.js';
 import { accessible } from '../../styles/accessible.js';
-import { w3Subset } from '../../styles/w3-subset.js';
 
 const ACCOUNT_URL = 'https://search.lib.virginia.edu/account';
 
@@ -24,7 +23,6 @@ let menuCounter = 0;
 export class SiteHeader extends UvalibElement {
   static styles = [
     accessible,
-    w3Subset,
     css`
       :host {
         display: block;
@@ -48,13 +46,12 @@ export class SiteHeader extends UvalibElement {
         max-width: 225px;
         height: auto;
       }
-      nav ul,
-      [popover] {
+      nav ul {
         list-style-type: none;
         margin: 0;
         padding: 0;
       }
-      nav ul {
+      nav.inline ul {
         display: flex;
         gap: 1.5rem;
       }
@@ -72,10 +69,19 @@ export class SiteHeader extends UvalibElement {
         cursor: pointer;
       }
       [popover] {
-        position: absolute;
-        inset: auto 0 auto auto;
-        top: 100%;
-        margin: 0;
+        position: fixed;
+        inset: auto;
+        /* Fallback offset (about the header height) for engines without anchor(). */
+        top: 4.75rem;
+        top: anchor(var(--menu-anchor) bottom);
+        inset-inline-end: 1rem;
+        inline-size: min(80dvw, 24rem);
+        max-inline-size: calc(100dvw - 2rem);
+        block-size: fit-content;
+        max-block-size: calc(100dvh - 6rem);
+        overflow: auto;
+        box-sizing: border-box;
+        margin: 0.5rem 0 0;
         padding: 0.5rem 1rem;
         border: 1px solid #ccc;
         background: #ffffff;
@@ -84,7 +90,7 @@ export class SiteHeader extends UvalibElement {
         padding: 0.375rem 0;
       }
       @media screen and (max-width: 992px) {
-        header nav {
+        header:not(.vendor) nav.inline {
           display: none;
         }
         .menu-toggle {
@@ -116,14 +122,15 @@ export class SiteHeader extends UvalibElement {
     const links = vendor ? VENDOR_LINKS : FULL_LINKS;
     const items = links.map((l) => html`<li><a href=${siteLink(root, l.path)}>${l.label}</a></li>`);
     const id = this.menuId;
+    const anchor = `--${id}`;
     return html`
-      <header part="header">
+      <header part="header" class=${vendor ? 'vendor' : ''}>
         <a class="logo" href=${siteLink(root, '/')}
           ><img
             src=${siteLink(root, '/sites/default/files/2022-09/library_rgb.png')}
             alt="UVA Library home"
         /></a>
-        <nav aria-label="Utility">
+        <nav class="inline" aria-label="Utility">
           <ul>
             ${items}
           </ul>
@@ -131,7 +138,12 @@ export class SiteHeader extends UvalibElement {
         ${
           vendor
             ? nothing
-            : html`<button popovertarget=${id} aria-controls=${id} class="menu-toggle">
+            : html`<button
+                  popovertarget=${id}
+                  aria-controls=${id}
+                  class="menu-toggle"
+                  style="anchor-name: ${anchor}"
+                >
                   <svg
                     aria-hidden="true"
                     xmlns="http://www.w3.org/2000/svg"
@@ -150,9 +162,11 @@ export class SiteHeader extends UvalibElement {
                   </svg>
                   Menu
                 </button>
-                <ul id=${id} popover>
-                  ${items}
-                </ul>`
+                <nav aria-label="Utility menu">
+                  <ul id=${id} popover style="--menu-anchor: ${anchor}">
+                    ${items}
+                  </ul>
+                </nav>`
         }
       </header>
     `;
