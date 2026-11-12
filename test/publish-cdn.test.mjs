@@ -117,8 +117,9 @@ test('(a) fresh upload: put-object per file with if-none-match + immutable, then
   assert.equal(ct('f.bin'), 'application/octet-stream');
   assert.match(
     r.stdout,
-    /s3 sync .* s3:\/\/b\/web-components\/v1\/ --delete --cache-control public, max-age=300/,
+    /s3 sync .* s3:\/\/b\/web-components\/v1\/ --cache-control public, max-age=300/,
   );
+  assert.ok(!/s3 sync.*--delete/.test(r.stdout), 'alias sync must not delete');
   assert.match(
     r.stdout,
     /cloudfront create-invalidation --distribution-id DIST --paths \/web-components\/v1\/\*/,

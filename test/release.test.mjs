@@ -89,6 +89,13 @@ test('planRelease refuses unsafe states', () => {
   assert.match(planRelease({ ...ok, bump: 'nope' }).error, /bump/);
 });
 
+test('planRelease requires a major bump for the first release (0.0.0 -> 1.0.0)', () => {
+  const first = { ...ok, current: '0.0.0' };
+  assert.match(planRelease({ ...first, bump: 'patch' }).error, /pnpm release major/);
+  assert.match(planRelease({ ...first, bump: 'minor' }).error, /pnpm release major/);
+  assert.equal(planRelease({ ...first, bump: 'major' }).version, '1.0.0');
+});
+
 test('localDate uses local time, not UTC', () => {
   assert.equal(localDate(new Date(2026, 10, 12, 23, 59)), '2026-11-12');
   assert.equal(localDate(new Date(2026, 0, 5, 0, 1)), '2026-01-05');

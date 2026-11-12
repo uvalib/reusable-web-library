@@ -29,8 +29,7 @@ fi
 BUCKET="${BUCKET:-<bucket>}"
 DISTRIBUTION_ID="${DISTRIBUTION_ID:-<distribution-id>}"
 
-# A missing, empty or partial build must never reach S3: `sync --delete` from an empty
-# directory would empty the live alias.
+# A missing, empty or partial build must never reach S3.
 if [[ ! -d "$SRC" ]] || [[ ! -f "$SRC/manifest.json" ]] || [[ -z "$(find "$SRC" -type f -print -quit)" ]]; then
   echo "publish-cdn.sh: $SRC is missing, empty or has no manifest.json; run the build first" >&2
   exit 2
@@ -101,5 +100,8 @@ if [[ "$highest" != "$version" ]]; then
   exit 0
 fi
 
-run s3 sync "$SRC" "s3://$BUCKET/$PREFIX/v$major/" --delete --cache-control "public, max-age=300"
+# No --delete: browsers and CloudFront may still hold cached v<major>/*.js entries (300 s TTL)
+# that import hashed chunks/* files from the previous release. Hashed names never collide, so
+# old chunks are left in place.
+run s3 sync "$SRC" "s3://$BUCKET/$PREFIX/v$major/" --cache-control "public, max-age=300"
 run cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/$PREFIX/v$major/*"

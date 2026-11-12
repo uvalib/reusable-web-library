@@ -62,7 +62,10 @@ Resources:
         FilterGroups:
           - - { Type: EVENT, Pattern: PUSH }
             - { Type: HEAD_REF, Pattern: '^refs/heads/main$' }
-          - - { Type: EVENT, Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED' }
+          - - {
+                Type: EVENT,
+                Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED,PULL_REQUEST_REOPENED',
+              }
             - { Type: BASE_REF, Pattern: '^refs/heads/main$' }
 
   # ---- Release: tag pushes only; holds the S3/CloudFront/SSM permissions ----
@@ -91,14 +94,6 @@ Resources:
                 Effect: Allow
                 Action: [s3:GetObject, s3:PutObject]
                 Resource: !Sub arn:aws:s3:::${BucketName}/web-components/v*
-              # Delete is needed only by `s3 sync --delete` on the major alias (v1/, v12/), so it is
-              # not granted on exact-version folders (v1.2.3/).
-              - Sid: DeleteMajorAliasObjects
-                Effect: Allow
-                Action: s3:DeleteObject
-                Resource:
-                  - !Sub arn:aws:s3:::${BucketName}/web-components/v?/*
-                  - !Sub arn:aws:s3:::${BucketName}/web-components/v??/*
               - Sid: InvalidateMajorAlias
                 Effect: Allow
                 Action: cloudfront:CreateInvalidation

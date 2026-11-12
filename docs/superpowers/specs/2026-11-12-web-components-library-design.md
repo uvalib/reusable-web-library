@@ -181,8 +181,8 @@ Same bucket (`s3://unpkg.internal.lib.virginia.edu`) and CloudFront distribution
 
 | Path | Written when | Cache-Control |
 |---|---|---|
-| `/web-components/vX.Y.Z/…` | every release; **the upload fails if the prefix already exists** (immutable) | `public, max-age=31536000, immutable` |
-| `/web-components/vX/…` | every release of major X (replaced with `--delete`) | `public, max-age=300` |
+| `/web-components/vX.Y.Z/…` | every release; **create-only and resumable**: existing identical files are skipped, a file that exists with different content aborts the release (immutable) | `public, max-age=31536000, immutable` |
+| `/web-components/vX/…` | every release of major X that is the highest `X.*.*` (synced without `--delete`; old hashed chunks stay so cached `vX/*.js` entries keep working) | `public, max-age=300` |
 
 - The legacy `/web-components/latest/` and `/web-components/cdn-v*/` prefixes are **never written** by this project. Drupal, modern-library-biblio and site-mock keep loading them until phases B and C.
 - There is no new "latest across majors" alias. Sites use either an exact version or a major alias.
@@ -212,16 +212,15 @@ Same bucket (`s3://unpkg.internal.lib.virginia.edu`) and CloudFront distribution
        - Each file under `vX.Y.Z/` is uploaded with `put-object --if-none-match '*'`.
        - Files that already exist with a matching checksum are skipped. A file that exists with a different checksum aborts the release.
        - S3 listing errors fail closed.
-    5. Sync to `vX/`, then invalidate `/web-components/vX/*`. Both happen only when this is the highest `X.*.*` version present, so retrying an older release can't roll the alias back.
+    5. Sync to `vX/` (no `--delete`: hashed `chunks/*` files from earlier releases stay, because browsers and CloudFront may still hold cached `vX/*.js` entries that import them), then invalidate `/web-components/vX/*`. Both happen only when this is the highest `X.*.*` version present, so retrying an older release can't roll the alias back.
 - **Re-runs:** if npm publishing succeeds but the S3 step fails, re-running the release build skips the npm publish and finishes the S3 steps.
 
 **Infrastructure as code:** `pipeline/codebuild.yml` (CloudFormation) defines both projects, their separate IAM roles and the webhook filters. The release role can:
 - list and put objects under `web-components/v*`;
-- delete only under the major-alias prefixes (`v?/`, `v??/`);
 - create CloudFront invalidations;
 - read the SSM token. The template is written as part of this project. Deploying it, creating the npm automation token, and providing the CloudFront distribution ID are steps for the repo owner or ops.
 
-**Versioning:** semver. The first release is `1.0.0`. Breaking changes to tags, attributes, slots, parts or token names require a major version bump.
+**Versioning:** semver. The first release is `1.0.0` (`pnpm release major` from `0.0.0`; `planRelease` rejects other bumps). Breaking changes to tags, attributes, slots, parts or token names require a major version bump.
 
 ## 8. Consumer migration (Phase A)
 

@@ -58,6 +58,8 @@ export function planRelease({ current, bump, branch, headSha, originSha, tagExis
   if (dirty) return { error: 'working tree is not clean' };
   if (branch !== 'main') return { error: `must be on main (currently on ${branch})` };
   if (headSha !== originSha) return { error: 'HEAD is not origin/main; pull or push first' };
+  if (current === '0.0.0' && bump !== 'major')
+    return { error: 'the first release must be 1.0.0: run `pnpm release major`' };
   const version = nextVersion(current, bump);
   const tag = `v${version}`;
   if (tagExists) return { error: `tag ${tag} already exists (locally or on origin)` };
