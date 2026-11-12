@@ -10,10 +10,13 @@ export class UvalibElement extends LitElement {
   @property({ type: Boolean, attribute: 'no-style' }) noStyle = false;
 
   /** Fixed at the first createRenderRoot(); later attribute changes have no effect. */
-  protected lightDom!: boolean;
+  private _lightDom?: boolean;
+  protected get lightDom(): boolean {
+    return this._lightDom ?? false;
+  }
 
   protected override createRenderRoot(): HTMLElement | DocumentFragment {
-    this.lightDom ??= this.hasAttribute('no-shadow-dom');
+    this._lightDom ??= this.hasAttribute('no-shadow-dom') || this.noShadowDom;
     if (this.lightDom) return this;
     const root = super.createRenderRoot() as ShadowRoot;
     if (this.noStyle) root.adoptedStyleSheets = [];
@@ -23,9 +26,11 @@ export class UvalibElement extends LitElement {
   override connectedCallback(): void {
     super.connectedCallback(); // creates the render root
     if (this.lightDom && !this.noStyle) {
+      const node = this.getRootNode();
       installLightDomStyles(
         this.localName,
         (this.constructor as typeof LitElement).elementStyles as CSSResultGroup,
+        { root: node instanceof ShadowRoot || node instanceof Document ? node : undefined },
       );
     }
   }
