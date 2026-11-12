@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>site-footer demo</title>
+    <script type="module" src="../src/components/site-footer/site-footer.ts"></script>
+  </head>
+  <body>
+    <h1>site-footer</h1>
+    <h2>Shadow DOM, with pre-footer</h2>
+    <site-footer>
+      <p slot="pre-footer">Pre-footer announcement (slotted).</p>
+    </site-footer>
+    <h2>Shadow DOM, no pre-footer</h2>
+    <site-footer></site-footer>
+    <h2>no-shadow-dom, with pre-footer</h2>
+    <site-footer no-shadow-dom>
+      <p slot="pre-footer">Pre-footer announcement (moved in light DOM).</p>
+    </site-footer>
+    <h2>no-shadow-dom, no pre-footer</h2>
+    <site-footer no-shadow-dom></site-footer>
+    <h2>root-link-domain="https://bov.example.edu"</h2>
+    <site-footer root-link-domain="https://bov.example.edu"></site-footer>
+  </body>
+</html>
