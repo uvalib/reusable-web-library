@@ -73,7 +73,6 @@ export class SiteHeader extends UvalibElement {
         inset: auto;
         /* Fallback offset (about the header height) for engines without anchor(). */
         top: 4.75rem;
-        top: anchor(var(--menu-anchor) bottom);
         inset-inline-end: 1rem;
         inline-size: min(80dvw, 24rem);
         max-inline-size: calc(100dvw - 2rem);
@@ -88,6 +87,14 @@ export class SiteHeader extends UvalibElement {
       }
       [popover] li {
         padding: 0.375rem 0;
+      }
+      nav.menu {
+        display: contents;
+      }
+      @supports (top: anchor(--x bottom)) {
+        [popover] {
+          top: anchor(var(--menu-anchor) bottom);
+        }
       }
       @media screen and (max-width: 992px) {
         header:not(.vendor) nav.inline {
@@ -162,7 +169,7 @@ export class SiteHeader extends UvalibElement {
                   </svg>
                   Menu
                 </button>
-                <nav aria-label="Utility menu">
+                <nav class="menu" aria-label="Utility menu">
                   <ul id=${id} popover style="--menu-anchor: ${anchor}">
                     ${items}
                   </ul>

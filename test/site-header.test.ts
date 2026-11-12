@@ -88,6 +88,57 @@ for (const mode of ['shadow', 'light'] as const) {
       });
     });
 
+    describe('layout', () => {
+      afterEach(() => setViewport({ width: 800, height: 600 }));
+
+      it('toggle sits at the right edge at 390x844', async () => {
+        await setViewport({ width: 390, height: 844 });
+        const el = await make();
+        const header = root(el).querySelector('header')!.getBoundingClientRect();
+        const toggle = root(el).querySelector('.menu-toggle')!.getBoundingClientRect();
+        expect(header.right - toggle.right).to.be.lessThan(24);
+      });
+
+      it('nav and logo hug the edges at 1280x900', async () => {
+        await setViewport({ width: 1280, height: 900 });
+        const el = await make();
+        const header = root(el).querySelector('header')!.getBoundingClientRect();
+        const nav = root(el).querySelector('nav.inline')!.getBoundingClientRect();
+        const logo = root(el).querySelector('.logo')!.getBoundingClientRect();
+        expect(header.right - nav.right).to.be.lessThan(24);
+        expect(logo.left - header.left).to.be.lessThan(24);
+      });
+    });
+
+    it('anchors the popover only inside @supports, keeping a fixed fallback', async () => {
+      const el = await make();
+      const sheets =
+        mode === 'shadow'
+          ? [...(el.shadowRoot as ShadowRoot).adoptedStyleSheets]
+          : [...document.adoptedStyleSheets];
+      // Flatten nested rules (@layer, @media, @supports), remembering the @supports ancestors.
+      const flat: { rule: CSSStyleRule; inSupports: string[] }[] = [];
+      const walk = (rules: CSSRuleList, inSupports: string[]) => {
+        for (const r of rules) {
+          if (r instanceof CSSStyleRule) flat.push({ rule: r, inSupports });
+          else if (r instanceof CSSSupportsRule) walk(r.cssRules, [...inSupports, r.conditionText]);
+          else if ('cssRules' in r) walk((r as CSSGroupingRule).cssRules, inSupports);
+        }
+      };
+      sheets.forEach((sh) => walk(sh.cssRules, []));
+      const popover = flat.filter(({ rule }) => rule.selectorText.includes('[popover]'));
+      const anchored = popover.filter(({ rule }) =>
+        rule.cssText.includes('anchor(var(--menu-anchor)'),
+      );
+      expect(anchored.length).to.be.greaterThan(0);
+      for (const a of anchored) expect(a.inSupports.join()).to.contain('top: anchor(');
+      const base = popover.filter(
+        ({ rule, inSupports }) =>
+          !inSupports.length && /(^|[^-])(top|inset): 4\.75rem/.test(rule.cssText),
+      );
+      expect(base.length, 'unconditional top: 4.75rem fallback').to.be.greaterThan(0);
+    });
+
     it('has no serious axe violations', async () => {
       const el = await make();
       await expectNoAxeViolations(el);
