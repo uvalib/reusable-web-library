@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { renderComponents } from '../scripts/gen-skill-reference.mjs';
+import { renderComponents } from '../scripts/gen-reference.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const skillDir = join(root, 'skills/uvalib-web-components');
@@ -29,8 +29,8 @@ test('SKILL.md never recommends the legacy CDN paths', () => {
   assert.ok(!/unpkg\.internal\.lib\.virginia\.edu\/web-components\/(latest|cdn-v)/.test(text));
 });
 
-test('gen-skill-reference --check passes for the committed components.md', () => {
-  const r = run('scripts/gen-skill-reference.mjs', '--check');
+test('gen-reference --check passes for the committed components.md', () => {
+  const r = run('scripts/gen-reference.mjs', '--check');
   assert.equal(r.status, 0, r.stderr);
 });
 

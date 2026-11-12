@@ -1,6 +1,6 @@
 # Component reference
 
-<!-- Generated from dist/custom-elements.json by scripts/gen-skill-reference.mjs. Do not edit by hand. -->
+<!-- Generated from dist/custom-elements.json by scripts/gen-reference.mjs. Do not edit by hand. -->
 
 ## `<site-analytics>`
 
