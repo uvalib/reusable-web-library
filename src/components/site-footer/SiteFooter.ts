@@ -1,4 +1,4 @@
-import { html, css, type PropertyValues } from 'lit';
+import { html, css } from 'lit';
 import { property } from 'lit/decorators.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { siteLink } from '../link.js';
@@ -120,7 +120,7 @@ export class SiteFooter extends UvalibElement {
     return this.renderRoot.querySelector('.footer--pre');
   }
 
-  protected override firstUpdated(_changed: PropertyValues): void {
+  protected override firstUpdated(): void {
     if (!this.lightDom) return;
     // Light DOM has no slots: move the host's pre-footer children into the wrapper.
     const wrapper = this.preFooter;
