@@ -107,7 +107,7 @@ Each component's `<name>.ts` file only calls `customElements.define()`, guarded 
 | (none) | Renders into an open shadow root. Styles are applied through `adoptedStyleSheets` from shared `CSSStyleSheet` objects, so there is one parse per class. |
 | `no-shadow-dom` | `createRenderRoot()` returns `this`, so the element renders into light DOM. On first connect, the class's styles (with `:host` rewritten to the tag name) are installed **once per document per tag** as a constructed sheet appended to `document.adoptedStyleSheets`. No per-instance `<style>` element. |
 | `no-shadow-dom no-style` | Light DOM with no component styles installed. The host page's CSS styles everything, which is how library.virginia.edu uses it. |
-| `no-style` (shadow) | Shadow DOM with only structural styles. |
+| `no-style` (shadow) | Shadow DOM with no component styles: the shadow root adopts none. *(Corrected 2026-11-12 to match the implementation.)* |
 
 Rules for every component:
 

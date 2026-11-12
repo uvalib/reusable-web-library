@@ -69,7 +69,9 @@ Caveat: replacing a light-mode `<site-page>`'s children wholesale (`innerHTML` o
 | (none)                   | Shadow DOM, styled by the library. The default.                                                                                                             |
 | `no-shadow-dom`          | Light DOM. Component styles are installed in `@layer uvalib` and scoped to the tag, so unlayered host CSS wins. Content added later is moved into `<main>`. |
 | `no-shadow-dom no-style` | Light DOM with no component styles. The host page styles everything, as library.virginia.edu does.                                                          |
-| `no-style` (shadow)      | Shadow DOM with structural styles only.                                                                                                                     |
+| `no-style` (shadow)      | Shadow DOM; the shadow root adopts no component styles.                                                                                                     |
+
+`no-style` does not stop `<site-page>` from installing the global tokens, base and accessibility styles or the Typekit link. When the host owns base typography, also set `no-global-styles`.
 
 The mode is read once, at first connect; do not toggle it afterwards.
 
@@ -262,18 +264,18 @@ See [docs/usage.md](docs/usage.md) for details, including sites that only use sc
 From a clean, up-to-date `main`:
 
 ```sh
-pnpm release <patch|minor|major> --dry-run   # show the plan, change nothing
+pnpm release <patch|minor|major> --dry-run   # runs the lint/test/build checks, prints the plan; commits, tags and pushes nothing
 pnpm release <patch|minor|major>             # lint, test, build, bump, tag vX.Y.Z, push
 ```
 
 The tag push triggers two AWS CodeBuild projects, defined in `pipeline/codebuild.yml`:
 
 - `web-components-ci` runs on pushes and PRs to `main` (install, lint, test). It has no publish credentials.
-- `web-components-release` runs on `v*` tags only. It publishes to npm, then uploads to the CDN: `vX.Y.Z/` (immutable, create-only) and the `vX/` major alias, then invalidates `/web-components/vX/*`. It never writes the legacy `latest/` or `cdn-v*` prefixes.
+- `web-components-release` runs on `v*` tags only. It publishes to npm, then uploads to the CDN: `vX.Y.Z/` (immutable, create-only) and the `vX/` major alias, then invalidates `/web-components/vX/*`. The alias is updated and invalidated only when the release is the highest `X.*.*` version present. It never writes the legacy `latest/` or `cdn-v*` prefixes.
 
 One-time setup for the repo owner:
 
-1. Deploy `pipeline/codebuild.yml`, providing the CloudFront distribution ID (`DistributionId`) and approving the GitHub connection.
+1. Deploy `pipeline/codebuild.yml`, providing the CloudFront distribution ID (`DistributionId`) and, once, authorizing CodeBuild to access GitHub manually in the console (the template uses a GitHub source with no connection resource).
 2. Store the npm automation token in SSM at `/web-components/npm-token`.
 3. Set `ReleaseActorAccountIds` to the GitHub account IDs allowed to trigger releases (empty means no actor filter).
 4. Enable GitHub Pages for the repository with source "GitHub Actions" (for the playground).
