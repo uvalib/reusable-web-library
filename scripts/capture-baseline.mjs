@@ -1,4 +1,6 @@
-// Usage: node scripts/capture-baseline.mjs --site <dir> --pages <path,...> --out <dir> [--axe]
+// Usage: node scripts/capture-baseline.mjs --site <dir> --pages <path,...> --out <dir> [--axe] [--node-fetch]
+// --node-fetch: fetch non-local requests from Node instead of the browser (for hosts where
+// Chromium itself has no outbound network but Node does).
 import { createServer } from 'node:http';
 import { readFile, mkdir, writeFile, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -15,6 +17,7 @@ const site = opt('site');
 const pages = opt('pages')?.split(',').filter(Boolean);
 const out = opt('out');
 const withAxe = args.includes('--axe');
+const nodeFetch = args.includes('--node-fetch');
 if (!site || !pages?.length || !out) {
   console.error('Usage: capture-baseline.mjs --site <dir> --pages <path,...> --out <dir> [--axe]');
   process.exit(2);
@@ -77,6 +80,12 @@ const browser = await chromium.launch();
 try {
   for (const vp of viewports) {
     const context = await browser.newContext({ viewport: { width: vp.width, height: vp.height } });
+    if (nodeFetch) {
+      await context.route(
+        (url) => !['127.0.0.1', 'localhost'].includes(url.hostname),
+        (route) => route.fetch().then((res) => route.fulfill({ response: res }), () => route.abort()),
+      );
+    }
     for (const p of pages) {
       const page = await context.newPage();
       const scripts = new Set();
