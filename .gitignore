@@ -1,0 +1,6 @@
+.superpowers/
+node_modules
+dist
+dist-cdn
+coverage
+test/baseline/**/*.png

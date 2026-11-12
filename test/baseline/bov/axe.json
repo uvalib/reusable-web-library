@@ -1,0 +1,184 @@
+{
+  "/": {
+    "desktop": {
+      "violations": [
+        {
+          "id": "region",
+          "impact": "moderate",
+          "help": "All page content should be contained by landmarks",
+          "nodes": [
+            [
+              [
+                "site-page",
+                ".focusable"
+              ]
+            ]
+          ]
+        }
+      ],
+      "incomplete": [
+        "color-contrast"
+      ]
+    },
+    "mobile": {
+      "violations": [
+        {
+          "id": "region",
+          "impact": "moderate",
+          "help": "All page content should be contained by landmarks",
+          "nodes": [
+            [
+              [
+                "site-page",
+                ".focusable"
+              ]
+            ]
+          ]
+        }
+      ],
+      "incomplete": [
+        "color-contrast"
+      ]
+    }
+  },
+  "/minutes-old/1973-10-26/": {
+    "desktop": {
+      "violations": [
+        {
+          "id": "document-title",
+          "impact": "serious",
+          "help": "Documents must have <title> element to aid in navigation",
+          "nodes": [
+            [
+              "html"
+            ]
+          ]
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "help": "All page content should be contained by landmarks",
+          "nodes": [
+            [
+              [
+                "site-page",
+                ".focusable"
+              ]
+            ]
+          ]
+        }
+      ],
+      "incomplete": [
+        "color-contrast"
+      ]
+    },
+    "mobile": {
+      "violations": [
+        {
+          "id": "document-title",
+          "impact": "serious",
+          "help": "Documents must have <title> element to aid in navigation",
+          "nodes": [
+            [
+              "html"
+            ]
+          ]
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "help": "All page content should be contained by landmarks",
+          "nodes": [
+            [
+              [
+                "site-page",
+                ".focusable"
+              ]
+            ]
+          ]
+        }
+      ],
+      "incomplete": [
+        "color-contrast"
+      ]
+    }
+  },
+  "/search.html": {
+    "desktop": {
+      "violations": [
+        {
+          "id": "document-title",
+          "impact": "serious",
+          "help": "Documents must have <title> element to aid in navigation",
+          "nodes": [
+            [
+              "html"
+            ]
+          ]
+        },
+        {
+          "id": "page-has-heading-one",
+          "impact": "moderate",
+          "help": "Page should contain a level-one heading",
+          "nodes": [
+            [
+              "html"
+            ]
+          ]
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "help": "All page content should be contained by landmarks",
+          "nodes": [
+            [
+              [
+                "site-page",
+                ".focusable"
+              ]
+            ]
+          ]
+        }
+      ],
+      "incomplete": []
+    },
+    "mobile": {
+      "violations": [
+        {
+          "id": "document-title",
+          "impact": "serious",
+          "help": "Documents must have <title> element to aid in navigation",
+          "nodes": [
+            [
+              "html"
+            ]
+          ]
+        },
+        {
+          "id": "page-has-heading-one",
+          "impact": "moderate",
+          "help": "Page should contain a level-one heading",
+          "nodes": [
+            [
+              "html"
+            ]
+          ]
+        },
+        {
+          "id": "region",
+          "impact": "moderate",
+          "help": "All page content should be contained by landmarks",
+          "nodes": [
+            [
+              [
+                "site-page",
+                ".focusable"
+              ]
+            ]
+          ]
+        }
+      ],
+      "incomplete": []
+    }
+  }
+}
