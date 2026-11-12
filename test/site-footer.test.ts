@@ -58,6 +58,21 @@ for (const mode of ['shadow', 'light'] as const) {
       expect(text).to.not.contain('2450 Old Ivy');
     });
 
+    it('restores the old social icon size, FDLP logo width and italic address', async () => {
+      const el = await make();
+      const icons = [...root(el).querySelectorAll('.social-media svg')];
+      expect(icons.length).to.equal(2);
+      for (const icon of icons) {
+        const r = icon.getBoundingClientRect();
+        expect([r.width, r.height]).to.deep.equal([17, 17]);
+      }
+      const fdlp = root(el).querySelector('.footer--post svg')!.getBoundingClientRect();
+      expect(fdlp.width).to.equal(17);
+      const address = root(el).querySelector('address')!;
+      expect(getComputedStyle(address).fontStyle).to.equal('italic');
+      expect(getComputedStyle(address.querySelector('a')!).fontStyle).to.equal('italic');
+    });
+
     it('hides .footer--pre without pre-footer content', async () => {
       const el = await make();
       expect(getComputedStyle(pre(el)).display).to.equal('none');

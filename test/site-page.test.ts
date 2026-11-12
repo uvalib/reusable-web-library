@@ -1,4 +1,5 @@
 import { expect, fixture, nextFrame } from '@open-wc/testing';
+import { setViewport } from '@web/test-runner-commands';
 import '../src/components/site-page/site-page.js';
 import type { SitePage } from '../src/components/site-page/SitePage.js';
 import type { SiteFooter } from '../src/components/site-footer/SiteFooter.js';
@@ -50,6 +51,33 @@ for (const mode of ['shadow', 'light'] as const) {
       expect(main.id).to.equal('main-content');
       expect(main.getAttribute('tabindex')).to.equal('-1');
       expect(main.getAttribute('part')).to.equal('main');
+    });
+
+    describe('content padding (old main-box layout)', () => {
+      afterEach(() => setViewport({ width: 800, height: 600 }));
+
+      for (const [w, h] of [
+        [1280, 900],
+        [390, 844],
+      ] as const) {
+        it(`pads <main> 40px horizontally at ${w}px`, async () => {
+          await setViewport({ width: w, height: h });
+          const el = await make('', '<p id="c">content</p>');
+          const main = root(el).querySelector('main')!;
+          const cs = getComputedStyle(main);
+          expect([cs.paddingLeft, cs.paddingRight]).to.deep.equal(['40px', '40px']);
+          const c = document.getElementById('c')!.getBoundingClientRect();
+          expect(c.left).to.equal(40);
+        });
+      }
+
+      it('caps and centres <main> at 1600px', async () => {
+        await setViewport({ width: 1800, height: 900 });
+        const el = await make('', '<p>content</p>');
+        const r = root(el).querySelector('main')!.getBoundingClientRect();
+        expect(r.width).to.equal(1600);
+        expect(r.left).to.equal(100);
+      });
     });
 
     it('renders skip link, header, main, footer in order', async () => {

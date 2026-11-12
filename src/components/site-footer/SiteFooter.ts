@@ -85,7 +85,17 @@ export class SiteFooter extends UvalibElement {
         padding-left: 0;
       }
       .footer--main address {
-        font-style: normal;
+        font-style: italic;
+      }
+      /* Old shared sheet sized every inline svg at 17px, nudged by the same offsets. */
+      .footer--main svg,
+      .footer--post svg {
+        display: inline-block;
+        width: 17px;
+        height: 17px;
+        position: relative;
+        top: 4px;
+        left: -5px;
       }
       .footer--main .social-media {
         display: flex;

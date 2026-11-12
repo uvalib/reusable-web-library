@@ -54,6 +54,26 @@ for (const mode of ['shadow', 'light'] as const) {
       expect(pop.matches(':popover-open')).to.equal(false);
     });
 
+    describe('old look', () => {
+      beforeEach(() => setViewport({ width: 1280, height: 900 }));
+      afterEach(() => setViewport({ width: 800, height: 600 }));
+
+      it('utility links use the old teal-blue (--uva-blue-alt-dark #005679)', async () => {
+        const el = await make();
+        const a = root(el).querySelector('nav[aria-label="Utility"] a')!;
+        expect(getComputedStyle(a).color).to.equal('rgb(0, 86, 121)');
+      });
+
+      it('logo and nav sit at the old vertical offset', async () => {
+        const el = await make();
+        const top = root(el).querySelector('header')!.getBoundingClientRect().top;
+        const logo = root(el).querySelector('.logo img')!.getBoundingClientRect().top - top;
+        const nav = root(el).querySelector('nav a')!.getBoundingClientRect().top - top;
+        expect(logo).to.be.within(8, 10); // old: 0.5rem padding, no effective logo margin
+        expect(nav).to.be.within(24, 28); // old: nav hangs from the top, below the default ul margin
+      });
+    });
+
     describe('at 390x844', () => {
       beforeEach(() => setViewport({ width: 390, height: 844 }));
       afterEach(() => setViewport({ width: 800, height: 600 }));

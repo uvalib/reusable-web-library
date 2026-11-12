@@ -81,7 +81,8 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 
 | Property | Default | Description |
 |---|---|---|
-| `--uva-brand-blue` | `#232d4b` | Link and menu button colour. |
+| `--uva-blue-alt-dark` | `#005679` | Utility link colour. |
+| `--uva-grey-darkest` | `#2b2b2b` | Menu button colour. |
 | `--uva-brand-orange` | `#e57200` | Focus ring colour. |
 
 ## `<site-page>`

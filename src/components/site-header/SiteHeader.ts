@@ -25,7 +25,8 @@ let menuCounter = 0;
  *
  * @tagname site-header
  * @csspart header - The `<header>` element.
- * @cssprop [--uva-brand-blue=#232d4b] - Link and menu button colour.
+ * @cssprop [--uva-blue-alt-dark=#005679] - Utility link colour.
+ * @cssprop [--uva-grey-darkest=#2b2b2b] - Menu button colour.
  * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour.
  */
 export class SiteHeader extends UvalibElement {
@@ -38,15 +39,14 @@ export class SiteHeader extends UvalibElement {
       }
       header {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: space-between;
         position: relative;
         background-color: #ffffff;
-        padding: 0.5rem 1rem;
+        padding: 0.5rem 16px; /* old: .w3-container 16px side padding */
       }
       .logo {
         display: block;
-        margin-top: 4px;
         text-decoration: none;
       }
       .logo img {
@@ -59,12 +59,14 @@ export class SiteHeader extends UvalibElement {
         margin: 0;
         padding: 0;
       }
+      /* Old nav hung from the top of the header below the default 1em list margin. */
       nav.inline ul {
+        margin: 1em 0;
         display: flex;
         gap: 1.5rem;
       }
       a {
-        color: var(--uva-brand-blue, #232d4b);
+        color: var(--uva-blue-alt-dark, #005679);
       }
       .menu-toggle {
         display: none;
@@ -72,9 +74,14 @@ export class SiteHeader extends UvalibElement {
         gap: 0.25rem;
         background: none;
         border: none;
-        color: var(--uva-brand-blue, #232d4b);
+        color: var(--uva-grey-darkest, #2b2b2b);
         font: inherit;
         cursor: pointer;
+      }
+      /* Old shared sheet sized every inline svg at 17px. */
+      .menu-toggle svg {
+        width: 17px;
+        height: 17px;
       }
       [popover] {
         position: fixed;

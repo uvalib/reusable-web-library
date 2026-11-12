@@ -44,6 +44,19 @@ export class SitePage extends UvalibElement {
         display: block;
         width: 100%;
       }
+      /* Old layout: .main-container-inner (max 1600px, centred) > .w3-row-padding 8px
+         > .w3-col 8px > .d8-fade 24px = 40px each side; 12px margin + 24px padding below. */
+      main {
+        box-sizing: border-box;
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 36px 40px;
+      }
+      @media screen and (min-width: 993px) {
+        main {
+          padding-top: 24px; /* old: .breadcrumb-found dropped its 12px top margin */
+        }
+      }
     `,
   ];
 
