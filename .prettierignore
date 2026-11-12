@@ -3,3 +3,4 @@ docs
 test/baseline
 pnpm-lock.yaml
 src/styles/tokens.ts
+skills/uvalib-web-components/reference/components.md

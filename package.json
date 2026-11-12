@@ -45,6 +45,9 @@
     "./manifest.json": "./dist-cdn/manifest.json",
     "./skills/*": "./skills/*"
   },
+  "bin": {
+    "uvalib-web-components": "bin/install-skill.mjs"
+  },
   "files": [
     "dist",
     "dist-cdn",
@@ -60,7 +63,7 @@
     "test": "pnpm build && pnpm test:node && wtr \"test/**/*.test.ts\" --config web-test-runner.config.mjs",
     "test:node": "node --test test/*.test.mjs",
     "lint": "eslint . && prettier --check .",
-    "build:npm": "tsc -p tsconfig.build.json && node scripts/emit-css.mjs dist && pnpm analyze",
+    "build:npm": "tsc -p tsconfig.build.json && node scripts/emit-css.mjs dist && pnpm analyze && node scripts/gen-skill-reference.mjs",
     "build": "pnpm build:npm && pnpm build:cdn",
     "analyze": "cem analyze --litelement --globs \"src/**/*.ts\" --outdir dist",
     "build:cdn": "vite build && node scripts/emit-css.mjs dist-cdn && node -e \"require('fs').copyFileSync('dist/custom-elements.json','dist-cdn/custom-elements.json')\" && node scripts/build-manifest.mjs && node scripts/copy-skills.mjs"

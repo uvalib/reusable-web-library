@@ -56,3 +56,7 @@ test('./manifest.json is exported and exists', () => {
   assert.equal(pkg.exports['./manifest.json'], './dist-cdn/manifest.json');
   assert.ok(pkg.files.includes('dist-cdn'));
 });
+
+test('the agent skill is copied into dist-cdn/skills', () => {
+  assert.ok(existsSync(join(cdn, 'skills/uvalib-web-components/SKILL.md')));
+});

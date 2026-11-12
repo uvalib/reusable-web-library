@@ -23,8 +23,6 @@ test('every path in exports exists (wildcards need a matching directory)', () =>
   assert.ok(targets.length > 0);
   for (const t of targets) {
     const path = t.includes('*') ? dirname(t) : t;
-    // ./skills/* is populated by a later task; its directory is not required yet.
-    if (t.startsWith('./skills/')) continue;
     assert.ok(existsSync(join(root, path)), `missing export target ${t}`);
   }
 });
@@ -52,7 +50,7 @@ test('npm pack lists the css and the manifest', () => {
   assert.ok(paths.includes('dist-cdn/manifest.json'));
 });
 
-test('npm pack lists the agent skill', { todo: 'skill arrives in Task 10' }, () => {
+test('npm pack lists the agent skill', () => {
   const out = execSync('npm pack --dry-run --json', {
     cwd: root,
     stdio: ['ignore', 'pipe', 'ignore'],

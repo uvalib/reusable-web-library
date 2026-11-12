@@ -1,0 +1,223 @@
+---
+name: uvalib-web-components
+description: Use when building or editing UVA Library web pages or sites, adding the UVA Library header, footer or page wrapper to a page, using the custom elements <site-page>, <site-header>, <site-footer>, <site-analytics> or <site-style>, working with the @uvalib/web-components npm package, or editing script/link URLs on unpkg.internal.lib.virginia.edu (including migrating old /web-components/latest/ or cdn-v URLs). Covers CDN vs npm, version pinning, shadow vs light DOM, theming with --uva-* tokens, and a verification checklist.
+---
+
+# UVA Library web components
+
+`@uvalib/web-components` provides the UVA Library page chrome as custom elements: `<site-page>` (skip link, header, one `<main>`, footer), `<site-header>`, `<site-footer>`, `<site-analytics>` (Matomo) and `<site-style>` (legacy compatibility). Tag names are stable.
+
+Authority rule: https://www.library.virginia.edu and the UVA Library design system are the source of truth for how the chrome looks and what it says. Do not re-create, copy or restyle the header, footer, logo or links by hand. Use the components, and change appearance only through the theming surface below.
+
+For the full attribute, slot, part, event and custom-property lists see [reference/components.md](reference/components.md). To update an existing project from old URLs or package names see [reference/migration.md](reference/migration.md).
+
+## 1. Choose how to load it
+
+| Situation                                                        | Use                                                                                      |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Plain HTML, 11ty, Drupal template, anything without a JS bundler | CDN `<script type="module">`                                                             |
+| App with a bundler (Vite, webpack, ...)                          | npm: `npm i @uvalib/web-components`, then `import '@uvalib/web-components/site-page.js'` |
+
+CDN URLs (all files at one prefix):
+
+- Major alias: `https://unpkg.internal.lib.virginia.edu/web-components/v1/<tag>.js`. Updates within major 1 within about 5 minutes. Default choice.
+- Exact version: `https://unpkg.internal.lib.virginia.edu/web-components/vX.Y.Z/<tag>.js`. Immutable. Use when the site must not change without a deploy.
+- `tokens.css` and `base.css` live at the same prefix (`.../v1/tokens.css`).
+- NEVER write or recommend `/web-components/latest/...` or `/web-components/cdn-vX.Y.Z/...`. Those are legacy paths for old components. If you see them, migrate (see migration.md). There is no cross-major "latest" alias.
+
+Loading rules:
+
+- One script is enough for the page chrome: `site-page.js` also loads the header and footer. Add `site-analytics.js` only when the site needs Matomo.
+- npm: the define entries (`@uvalib/web-components/site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `site-style.js`) register the element. Importing the package root (`@uvalib/web-components`) gives the classes only and registers nothing. If you use the `SitePage` class directly, also import the header and footer define entries.
+- Do not load the same component from both the CDN and npm on one page.
+
+## 2. Required page structure
+
+- Exactly one `<site-page>` per page, wrapping all page content.
+- `<site-page>` renders the one skip link, the header, one `<main id="main-content">` and the footer. Never add your own `<main>`, skip link, `<header>`/`<footer>` site chrome, or `role="main"`. If the page already has them, remove them and keep only the content that was inside `<main>`.
+- Sidebars, breadcrumbs and article content all go inside `<site-page>` as ordinary elements (use `<nav aria-label="...">` for navigation, no ARIA menu roles).
+- Content for a band above the footer: put an element with `slot="pre-footer"` inside `<site-page>`.
+- Third-party or vendor sites that are not library.virginia.edu: `<site-page header-variant="vendor">` (logo plus Ask a Librarian only). Links default to `root-link-domain="https://www.library.virginia.edu"`; set it only for a non-production domain.
+- Do not replace a light-mode page's children wholesale (`innerHTML` or `textContent` on `<site-page>`): that destroys the chrome. Append, or update a child container inside it.
+
+## 3. Shadow DOM or light DOM
+
+- Default (shadow DOM): the chrome is encapsulated and styled by the library. Use this unless the host site needs to restyle it.
+- `no-shadow-dom`: renders into light DOM. Use it ONLY when the host site's own CSS should own the styling of the chrome (the host stylesheet needs to reach into the header, footer or content). Component styles are installed in `@layer uvalib` and scoped to the tag, so any unlayered host CSS wins. Content added to `<site-page>` later is moved into `<main>`.
+- `no-shadow-dom no-style`: light DOM and no component styles at all. Use only when the host site styles everything itself (library.virginia.edu does this).
+- Do not add `no-shadow-dom` just to "make it work". The mode is read once at first connect; do not toggle it later.
+- `no-global-styles` on `<site-page>` stops it installing `base.css` (html/body font rules). Use it when the host page already sets its own base typography.
+- `<site-style no-shadow-dom>` is legacy markup that only installs tokens and base styles. Keep it where it already exists; do not add it to new pages.
+
+## 4. Theming
+
+Theme only through the documented surface, never by reaching into internals:
+
+- Inherited `--uva-*` custom properties (colors such as `--uva-brand-blue`, `--uva-brand-orange`; `--uva-font-family`, `--uva-font-size-base`). Set them on `:root` or an ancestor of `<site-page>`. The full set is in `tokens.css`; per-component ones are in reference/components.md. Prefer the library's values; override only with a stated reason.
+- `::part()` in shadow mode: `site-page::part(main)`, `site-header::part(header)`, `site-footer::part(footer)`. Parts do not exist in light mode; style the elements with ordinary selectors there.
+- Never pierce shadow roots with JS, depend on internal class names, or use `!important` to fight the chrome.
+
+## 5. Snippets
+
+Plain HTML (CDN, version `v1`):
+
+```html snippet
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Example page</title>
+    <script
+      type="module"
+      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
+    ></script>
+  </head>
+  <body>
+    <site-page>
+      <h1>Example page</h1>
+      <p>Page content goes here. Do not add a second main element.</p>
+    </site-page>
+  </body>
+</html>
+```
+
+Host CSS owns the styling (`no-shadow-dom`):
+
+```html snippet
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Host-styled page</title>
+    <style>
+      /* Unlayered host CSS wins over the components' @layer uvalib styles. */
+      site-header a {
+        color: #232d4b;
+      }
+    </style>
+    <script
+      type="module"
+      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
+    ></script>
+  </head>
+  <body>
+    <site-page no-shadow-dom>
+      <h1>Host-styled page</h1>
+      <p>The site stylesheet styles the header, footer and content.</p>
+    </site-page>
+  </body>
+</html>
+```
+
+(For an exact pin replace `v1` with `vX.Y.Z`, for example `v1.0.0`.)
+
+Existing page with a sidebar nav and its own `<main>`: delete the page's `<main>`, header and footer, and keep the sidebar and article as plain children:
+
+```html snippet
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Page with sidebar</title>
+    <script
+      type="module"
+      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
+    ></script>
+  </head>
+  <body>
+    <site-page>
+      <div class="layout">
+        <nav aria-label="Section">
+          <ul>
+            <li><a href="/a">Section A</a></li>
+            <li><a href="/b">Section B</a></li>
+          </ul>
+        </nav>
+        <article>
+          <h1>Page with sidebar</h1>
+          <p>Article content.</p>
+        </article>
+      </div>
+    </site-page>
+  </body>
+</html>
+```
+
+Vendor or third-party site:
+
+```html snippet
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vendor-hosted page</title>
+    <script
+      type="module"
+      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
+    ></script>
+  </head>
+  <body>
+    <site-page header-variant="vendor">
+      <h1>Vendor-hosted page</h1>
+      <p>Logo and Ask a Librarian only in the header.</p>
+    </site-page>
+  </body>
+</html>
+```
+
+11ty (Nunjucks layout). Wrap the layout's content in `<site-page>`; remove the layout's own `<main>`, header and footer markup. With `@uvalib/11ty-template`, its custom-elements plugin adds the script for each known tag in the page and pins the major with the `webComponentsVersion` option (default `"1"`; set an exact version to pin). Without that plugin, add the script tag yourself:
+
+```njk snippet
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ title }}</title>
+    <script type="module" src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"></script>
+  </head>
+  <body>
+    <site-page>
+      {{ content | safe }}
+    </site-page>
+  </body>
+</html>
+```
+
+Bundled app (Vite or similar):
+
+```js snippet
+// npm i @uvalib/web-components
+import '@uvalib/web-components/site-page.js'; // registers site-page, site-header, site-footer
+import '@uvalib/web-components/tokens.css'; // optional: tokens for your own CSS
+// <site-page> is then used in your HTML or templates exactly as in the plain HTML snippet.
+```
+
+Analytics (add when the site needs Matomo; events are listened for on `document`):
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-analytics.js"
+></script>
+<site-analytics matomoid="12"></site-analytics>
+<script>
+  document.dispatchEvent(
+    new CustomEvent('site-analytics-event', { detail: { event: ['Category', 'Action'] } }),
+  );
+</script>
+```
+
+## 6. Verification checklist
+
+Before finishing, load the page in a browser (or test) and confirm:
+
+1. Every used tag is defined: `customElements.get('site-page')` (and header/footer) is not undefined.
+2. Exactly one `<main>` in the page, including inside open shadow roots (shadow mode puts it in `site-page`'s shadow root), and exactly one skip link.
+3. No `<script>`/`<link>` URL contains `/web-components/latest/` or `/cdn-v`; the URL pins `v1` or `vX.Y.Z`.
+4. No console errors and no failed network requests for the component files.
+5. An axe pass (for example `axe-core` or the axe browser extension) reports no new violations.
+6. `no-shadow-dom` appears only where the host CSS is meant to own the styling.
