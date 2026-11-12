@@ -48,14 +48,24 @@ export class SiteAnalytics extends UvalibElement {
     }
 
     this.initMatomo();
+  }
 
-    // Add event listeners
-    document.addEventListener('site-analytics-search', this.logSearch.bind(this) as EventListener);
-    document.addEventListener('site-analytics-event', this.logEvent.bind(this) as EventListener);
-    document.addEventListener(
-      'site-analytics-pageview',
-      this.logPageView.bind(this) as EventListener,
-    );
+  private readonly onSearch = this.logSearch.bind(this) as EventListener;
+  private readonly onEvent = this.logEvent.bind(this) as EventListener;
+  private readonly onPageView = this.logPageView.bind(this) as EventListener;
+
+  override connectedCallback() {
+    super.connectedCallback();
+    document.addEventListener('site-analytics-search', this.onSearch);
+    document.addEventListener('site-analytics-event', this.onEvent);
+    document.addEventListener('site-analytics-pageview', this.onPageView);
+  }
+
+  override disconnectedCallback() {
+    document.removeEventListener('site-analytics-search', this.onSearch);
+    document.removeEventListener('site-analytics-event', this.onEvent);
+    document.removeEventListener('site-analytics-pageview', this.onPageView);
+    super.disconnectedCallback();
   }
 
   private getMatomoIdFromCurrentUrl(): number | undefined {

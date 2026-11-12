@@ -56,4 +56,36 @@ describe('<site-analytics>', () => {
       '3',
     ]);
   });
+
+  const searchEvent = () =>
+    document.dispatchEvent(
+      new CustomEvent('site-analytics-search', {
+        detail: { searchQuery: 'q', resultCount: 3 },
+        bubbles: true,
+      }),
+    );
+  const searches = () => paq.filter((e) => e[0] === 'trackSiteSearch').length;
+
+  it('removes its listeners when disconnected', async () => {
+    const el = await fixture(html`<site-analytics matomoId="5"></site-analytics>`);
+    el.remove();
+    await fixture(html`<site-analytics matomoId="5"></site-analytics>`);
+    searchEvent();
+    expect(searches()).to.equal(1);
+  });
+
+  it('still tracks after being removed and re-appended', async () => {
+    const el = await fixture(html`<site-analytics matomoId="5"></site-analytics>`);
+    const parent = el.parentElement!;
+    el.remove();
+    parent.appendChild(el);
+    searchEvent();
+    expect(searches()).to.equal(1);
+  });
+
+  it('spa markup sets the site id without an initial pageview', async () => {
+    await fixture(html`<site-analytics spa matomoId="41"></site-analytics>`);
+    expect(paq).to.deep.include(['setSiteId', '41']);
+    expect(paq).to.not.deep.include(['trackPageView']);
+  });
 });
