@@ -53,6 +53,7 @@ import {
   localDate,
   checkCleanAfterBuild,
   pushFailureHint,
+  runCommands,
 } from '../scripts/release.mjs';
 
 const ok = {
@@ -107,7 +108,9 @@ test('pushFailureHint lists the recovery steps in order', () => {
     'git tag -d v1.3.0',
     'git reset --soft HEAD~1',
     'git restore --staged package.json CHANGELOG.md',
-    'pull',
+    'git checkout -- package.json CHANGELOG.md',
+    'git pull --ff-only',
+    'pnpm release',
   ];
   let at = -1;
   for (const step of order) {
@@ -115,4 +118,46 @@ test('pushFailureHint lists the recovery steps in order', () => {
     assert.ok(i > at, `${step} missing or out of order`);
     at = i;
   }
+});
+
+test('runCommands prints the recovery hint and fails when git push throws', () => {
+  const plan = planRelease(ok);
+  const seen = [];
+  const logged = [];
+  const exec = (cmd, args) => {
+    seen.push([cmd, ...args].join(' '));
+    if (args[0] === 'push') throw new Error('rejected');
+  };
+  const r = runCommands(plan.commands, exec, plan.tag, (m) => logged.push(m));
+  assert.equal(r.ok, false);
+  assert.match(r.error.message, /rejected/);
+  assert.equal(seen.length, plan.commands.length);
+  assert.match(logged.join('\n'), /git tag -d v1\.3\.0/);
+});
+
+test('runCommands stops at an earlier failure without the push hint, and succeeds otherwise', () => {
+  const plan = planRelease(ok);
+  const logged = [];
+  const seen = [];
+  const r = runCommands(
+    plan.commands,
+    (cmd, args) => {
+      seen.push(args[0]);
+      if (args[0] === 'commit') throw new Error('hook failed');
+    },
+    plan.tag,
+    (m) => logged.push(m),
+  );
+  assert.equal(r.ok, false);
+  assert.deepEqual(seen, ['add', 'commit']);
+  assert.equal(logged.length, 0);
+  assert.deepEqual(
+    runCommands(
+      plan.commands,
+      () => {},
+      plan.tag,
+      () => {},
+    ),
+    { ok: true },
+  );
 });

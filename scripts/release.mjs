@@ -83,13 +83,30 @@ export function checkCleanAfterBuild(porcelain) {
 /** Recovery steps printed when the final push fails after the local commit and tag exist. */
 export function pushFailureHint(tag) {
   return [
-    `git push failed; nothing was published. Undo the local release commit and tag, then retry:`,
-    `  git tag -d ${tag}`,
-    `  git reset --soft HEAD~1`,
-    `  git restore --staged package.json CHANGELOG.md`,
-    `  (discard the version/changelog edits with: git checkout -- package.json CHANGELOG.md)`,
-    `  then pull the latest main and run pnpm release again`,
+    'git push failed; nothing was published. Undo the local release commit and tag, then retry:',
+    `  1. git tag -d ${tag}`,
+    '  2. git reset --soft HEAD~1',
+    '  3. git restore --staged package.json CHANGELOG.md',
+    '  4. git checkout -- package.json CHANGELOG.md',
+    '  5. git pull --ff-only',
+    '  6. pnpm release <patch|minor|major>',
   ].join('\n');
+}
+
+/**
+ * Runs the planned argv commands in order with an injected exec. If the push fails, writes the
+ * recovery hint via `log` and returns { ok: false, error }; otherwise { ok: true }.
+ */
+export function runCommands(commands, exec, tag, log = console.error) {
+  for (const [cmd, ...args] of commands) {
+    try {
+      exec(cmd, args);
+    } catch (error) {
+      if (cmd === 'git' && args[0] === 'push') log(`\n${pushFailureHint(tag)}`);
+      return { ok: false, error };
+    }
+  }
+  return { ok: true };
 }
 
 function main(argv) {
@@ -165,8 +182,12 @@ function main(argv) {
   const clPath = join(root, 'CHANGELOG.md');
   const existing = existsSync(clPath) ? readFileSync(clPath, 'utf8') : '# Changelog\n';
   writeFileSync(clPath, prependChangelog(existing, section));
-  for (const [cmd, ...args] of plan.commands)
-    execFileSync(cmd, args, { cwd: root, stdio: 'inherit' });
+  const result = runCommands(
+    plan.commands,
+    (cmd, args) => execFileSync(cmd, args, { cwd: root, stdio: 'inherit' }),
+    plan.tag,
+  );
+  if (!result.ok) fail(`${result.error.message}`);
   console.log(`Released ${plan.tag}`);
 }
 
