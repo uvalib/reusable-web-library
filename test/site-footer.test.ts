@@ -1,4 +1,4 @@
-import { expect, fixture, aTimeout } from '@open-wc/testing';
+import { expect, fixture, aTimeout, nextFrame } from '@open-wc/testing';
 import '../src/components/site-footer/site-footer.js';
 import type { SiteFooter } from '../src/components/site-footer/SiteFooter.js';
 import { expectNoAxeViolations } from './helpers/axe.js';
@@ -85,6 +85,19 @@ for (const mode of ['shadow', 'light'] as const) {
       expect(getComputedStyle(pre(el)).display).to.not.equal('none');
     });
 
+    it('moves/shows a late-appended pre-footer child', async () => {
+      const el = await make();
+      expect(getComputedStyle(pre(el)).display).to.equal('none');
+      el.append(
+        Object.assign(document.createElement('p'), { slot: 'pre-footer', textContent: 'late' }),
+      );
+      await nextFrame();
+      await aTimeout(0);
+      if (mode === 'light')
+        expect(pre(el).querySelector('p[slot="pre-footer"]')).to.not.equal(null);
+      expect(getComputedStyle(pre(el)).display).to.not.equal('none');
+    });
+
     it('has only h2 headings, no skipped levels', async () => {
       const el = await make();
       const hs = [...root(el).querySelectorAll('h1,h2,h3,h4,h5,h6')];
@@ -96,8 +109,24 @@ for (const mode of ['shadow', 'light'] as const) {
       ]);
     });
 
-    it('has no axe violations', async () => {
+    it('has no axe violations with pre-footer content', async () => {
       await expectNoAxeViolations(await make('', '<p slot="pre-footer">x</p>'));
+    });
+
+    it('has no axe violations without pre-footer content', async () => {
+      await expectNoAxeViolations(await make());
     });
   });
 }
+
+describe('site-footer ids', () => {
+  it('two light-mode footers produce no duplicate ids', async () => {
+    await fixture(
+      '<div><site-footer no-shadow-dom></site-footer><site-footer no-shadow-dom></site-footer></div>',
+    );
+    await aTimeout(0);
+    const ids = [...document.querySelectorAll('[id]')].map((e) => e.id);
+    expect(new Set(ids).size).to.equal(ids.length);
+    expect(document.querySelectorAll('site-footer [id]').length).to.equal(0);
+  });
+});

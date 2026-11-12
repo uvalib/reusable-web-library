@@ -120,15 +120,39 @@ export class SiteFooter extends UvalibElement {
     return this.renderRoot.querySelector('.footer--pre');
   }
 
+  private observer?: MutationObserver;
+
+  /** Light DOM has no slots: move host children marked slot="pre-footer" into the wrapper. */
+  private adoptPreFooterChildren(): void {
+    const wrapper = this.preFooter;
+    if (!wrapper) return;
+    const moved = [...this.children].filter(
+      (c) => c.getAttribute('slot') === 'pre-footer' && !wrapper.contains(c),
+    );
+    wrapper.append(...moved);
+    if (moved.length) wrapper.classList.add('has-content');
+  }
+
+  private observe(): void {
+    this.observer ??= new MutationObserver(() => this.adoptPreFooterChildren());
+    this.observer.observe(this, { childList: true });
+  }
+
   protected override firstUpdated(): void {
     if (!this.lightDom) return;
-    // Light DOM has no slots: move the host's pre-footer children into the wrapper.
-    const wrapper = this.preFooter;
-    const moved = [...this.children].filter(
-      (c) => c.getAttribute('slot') === 'pre-footer' && !wrapper?.contains(c),
-    );
-    wrapper?.append(...moved);
-    wrapper?.classList.toggle('has-content', moved.length > 0);
+    this.adoptPreFooterChildren();
+    this.observe();
+  }
+
+  override connectedCallback(): void {
+    super.connectedCallback();
+    // Reconnect after a disconnect; the first connect starts observing in firstUpdated.
+    if (this.lightDom && this.hasUpdated) this.observe();
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this.observer?.disconnect();
   }
 
   private onPreSlotChange(e: Event): void {
