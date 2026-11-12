@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>site-page demo (no-shadow-dom)</title>
+    <style>
+      /* Unlayered host CSS: it wins over the components' @layer uvalib rules. */
+      a {
+        color: #8b008b;
+        text-decoration: wavy underline;
+      }
+      site-footer a {
+        color: #ffd54a;
+      }
+    </style>
+    <script type="module" src="../src/components/site-page/site-page.ts"></script>
+  </head>
+  <body>
+    <site-page no-shadow-dom>
+      <h1>site-page (no-shadow-dom)</h1>
+      <p>
+        Content is moved into the single <code>&lt;main&gt;</code>. Host CSS restyles every link
+        (purple with a wavy underline, yellow in the footer), proving page CSS wins.
+      </p>
+      <p><a href="#top">An ordinary link</a></p>
+      <p slot="pre-footer">Pre-footer announcement (moved into the footer).</p>
+    </site-page>
+    <script type="module">
+      // Content added after first render is routed too.
+      setTimeout(() => {
+        const p = document.createElement('p');
+        p.textContent = 'This paragraph was appended one second after load.';
+        document.querySelector('site-page').append(p);
+      }, 1000);
+    </script>
+  </body>
+</html>

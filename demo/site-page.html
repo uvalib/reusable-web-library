@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>site-page demo (shadow DOM)</title>
+    <script type="module" src="../src/components/site-page/site-page.ts"></script>
+  </head>
+  <body>
+    <site-page>
+      <h1>site-page (shadow DOM)</h1>
+      <p>
+        Content is slotted into the single <code>&lt;main&gt;</code>. Press Tab to reveal the skip
+        link, then Enter to move focus to the main content.
+      </p>
+      <p><a href="#top">An ordinary link</a></p>
+      <p slot="pre-footer">Pre-footer announcement (forwarded slot).</p>
+    </site-page>
+  </body>
+</html>

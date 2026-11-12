@@ -27,11 +27,18 @@ export class UvalibElement extends LitElement {
     super.connectedCallback(); // creates the render root
     if (this.lightDom && !this.noStyle) {
       const node = this.getRootNode();
-      installLightDomStyles(
-        this.localName,
-        (this.constructor as typeof LitElement).elementStyles as CSSResultGroup,
-        { root: node instanceof ShadowRoot || node instanceof Document ? node : undefined },
+      this.installLightStyles(
+        node instanceof ShadowRoot || node instanceof Document ? node : undefined,
       );
     }
+  }
+
+  /** Light mode: install `static styles` into `root`, scoped to the tag. Subclasses may override. */
+  protected installLightStyles(root?: Document | ShadowRoot): void {
+    installLightDomStyles(
+      this.localName,
+      (this.constructor as typeof LitElement).elementStyles as CSSResultGroup,
+      { root },
+    );
   }
 }

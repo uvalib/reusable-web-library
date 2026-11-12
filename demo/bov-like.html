@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BOV-like page demo</title>
+    <!-- Mirrors ../monorepo/apps/bov-minutes/_includes/base.njk with static content. -->
+    <link
+      rel="stylesheet"
+      media="all"
+      href="https://www.library.virginia.edu/themes/uvalib-drupal-theme/css/main.css"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      .main-content {
+        margin: 0 auto;
+        margin-left: 3em;
+        margin-right: 3em;
+        max-width: 800px;
+        padding: 1em;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+        font-size: 18px;
+        text-align: left;
+      }
+      thead th {
+        background-color: #f2f2f2;
+        color: #333;
+        font-weight: bold;
+        padding: 10px;
+        border-bottom: 2px solid #ddd;
+      }
+      tbody td {
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+      }
+      tbody tr:nth-child(even) {
+        background-color: #f9f9f9;
+      }
+      tbody tr:last-child {
+        font-weight: bold;
+      }
+      tbody tr:last-child td {
+        border-top: 2px solid #ddd;
+      }
+      tbody tr:hover {
+        background-color: #f1f1f1;
+      }
+      td:last-child {
+        text-align: right;
+      }
+      .breadcrumb {
+        display: flex;
+        align-items: center;
+        font-size: 16px;
+        margin: 20px 0;
+        list-style: none;
+        padding: 0;
+      }
+      .breadcrumb a {
+        color: #0275d8;
+        text-decoration: none;
+      }
+      .breadcrumb a:hover {
+        text-decoration: underline;
+      }
+      .breadcrumb li + li:before {
+        content: '>';
+        padding: 0 8px;
+        color: #555;
+      }
+    </style>
+    <script type="module" src="../src/components/site-style/site-style.ts"></script>
+    <script type="module" src="../src/components/site-page/site-page.ts"></script>
+  </head>
+  <body>
+    <site-style no-shadow-dom></site-style>
+    <site-page>
+      <!-- Breadcrumb -->
+      <nav aria-label="breadcrumb">
+        <ul class="breadcrumb">
+          <li><a href="/">Home</a></li>
+          <li>Minutes, October 26, 1973</li>
+        </ul>
+      </nav>
+
+      <div class="main-content">
+        <h1>Board of Visitors Minutes</h1>
+        <p>October 26, 1973</p>
+        <p>
+          The Board of Visitors of the University of Virginia met in regular session on Friday,
+          October 26, 1973, in the Board Room of the Rotunda.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Operating budget</td>
+              <td>$1,000</td>
+            </tr>
+            <tr>
+              <td>Capital outlay</td>
+              <td>$500</td>
+            </tr>
+            <tr>
+              <td>Total</td>
+              <td>$1,500</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </site-page>
+  </body>
+</html>
