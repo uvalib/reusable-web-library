@@ -110,6 +110,8 @@ Page wrapper: skip link, header, a single `<main>`, footer, and global page styl
 | Part | Description |
 |---|---|
 | `main` | The `<main>` landmark. |
+| `header` | The `<header>` element inside `<site-header>` (shadow mode; exported through `exportparts`). |
+| `footer` | The `<footer>` element inside `<site-footer>` (shadow mode; exported through `exportparts`). |
 
 ### CSS custom properties
 

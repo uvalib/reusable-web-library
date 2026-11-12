@@ -179,3 +179,29 @@ describe('site-page global styles', () => {
     expect(typekitLinks().length).to.equal(0);
   });
 });
+
+describe('site-page exported parts (shadow mode)', () => {
+  for (const [part, selector] of [
+    ['header', 'site-header'],
+    ['footer', 'site-footer'],
+  ] as const) {
+    it(`document CSS site-page::part(${part}) styles the inner <${part}>`, async () => {
+      const style = document.createElement('style');
+      style.textContent = `site-page::part(${part}) { outline: 3px solid rgb(1, 2, 3); }`;
+      document.head.append(style);
+      try {
+        const el = await fixture<SitePage>('<site-page></site-page>');
+        await footerReady(el);
+        const host = el.shadowRoot!.querySelector(selector) as HTMLElement & {
+          updateComplete: Promise<unknown>;
+        };
+        await host.updateComplete;
+        await nextFrame();
+        const inner = host.shadowRoot!.querySelector(part)!;
+        expect(getComputedStyle(inner).outlineColor).to.equal('rgb(1, 2, 3)');
+      } finally {
+        style.remove();
+      }
+    });
+  }
+});

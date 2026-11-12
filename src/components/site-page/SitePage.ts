@@ -17,6 +17,8 @@ const isPreFooter = (n: Node): boolean =>
  * @slot - Main page content, rendered inside the single `<main>`.
  * @slot pre-footer - Optional content shown in a band above the footer.
  * @csspart main - The `<main>` landmark.
+ * @csspart header - The `<header>` element inside `<site-header>` (shadow mode; exported through `exportparts`).
+ * @csspart footer - The `<footer>` element inside `<site-footer>` (shadow mode; exported through `exportparts`).
  * @cssprop [--uva-brand-blue=#232d4b] - Skip link background (and header and footer link colours).
  * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour.
  * @cssprop [--uva-font-family=franklin-gothic-urw, Arial, Helvetica, sans-serif] - Page font family (global styles).
@@ -124,6 +126,7 @@ export class SitePage extends UvalibElement {
     return html`
       <a class="skip-link" href="#main-content" @click=${this.onSkip}>Skip to main content</a>
       <site-header
+        exportparts="header"
         ?no-shadow-dom=${light}
         ?no-style=${this.noStyle}
         variant=${this.headerVariant}
@@ -141,7 +144,10 @@ export class SitePage extends UvalibElement {
               ?no-style=${this.noStyle}
               root-link-domain=${this.rootLinkDomain}
             ></site-footer>`
-          : html`<site-footer ?no-style=${this.noStyle} root-link-domain=${this.rootLinkDomain}
+          : html`<site-footer
+              exportparts="footer"
+              ?no-style=${this.noStyle}
+              root-link-domain=${this.rootLinkDomain}
               ><slot name="pre-footer" slot="pre-footer"></slot
             ></site-footer>`
       }

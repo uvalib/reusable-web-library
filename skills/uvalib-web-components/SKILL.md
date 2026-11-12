@@ -54,7 +54,7 @@ Loading rules:
 Theme only through the documented surface, never by reaching into internals:
 
 - Inherited `--uva-*` custom properties (colors such as `--uva-brand-blue`, `--uva-brand-orange`; `--uva-font-family`, `--uva-font-size-base`). Set them on `:root` or an ancestor of `<site-page>`. The full set is in `tokens.css`; per-component ones are in reference/components.md. Prefer the library's values; override only with a stated reason.
-- `::part()` in shadow mode: `site-page::part(main)`, `site-header::part(header)`, `site-footer::part(footer)`. Parts do not exist in light mode; style the elements with ordinary selectors there.
+- `::part()` in shadow mode. On a page, use `site-page::part(header)`, `site-page::part(footer)` and `site-page::part(main)` (`<site-page>` re-exports the header and footer parts; `site-header::part(header)` cannot reach through its shadow root). For a standalone `<site-header>` or `<site-footer>` use `site-header::part(header)` / `site-footer::part(footer)`. In light mode there are no shadow parts; style the elements with ordinary selectors.
 - Never pierce shadow roots with JS, depend on internal class names, or use `!important` to fight the chrome.
 
 ## 5. Snippets
@@ -82,94 +82,9 @@ Plain HTML (CDN, version `v1`):
 </html>
 ```
 
-Host CSS owns the styling (`no-shadow-dom`):
+More complete pages (host-CSS `no-shadow-dom`, page with a sidebar and its own `<main>`, vendor header, analytics) are in [reference/snippets.md](reference/snippets.md).
 
-```html snippet
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Host-styled page</title>
-    <style>
-      /* Unlayered host CSS wins over the components' @layer uvalib styles. */
-      site-header a {
-        color: #232d4b;
-      }
-    </style>
-    <script
-      type="module"
-      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
-    ></script>
-  </head>
-  <body>
-    <site-page no-shadow-dom>
-      <h1>Host-styled page</h1>
-      <p>The site stylesheet styles the header, footer and content.</p>
-    </site-page>
-  </body>
-</html>
-```
-
-(For an exact pin replace `v1` with `vX.Y.Z`, for example `v1.0.0`.)
-
-Existing page with a sidebar nav and its own `<main>`: delete the page's `<main>`, header and footer, and keep the sidebar and article as plain children:
-
-```html snippet
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Page with sidebar</title>
-    <script
-      type="module"
-      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
-    ></script>
-  </head>
-  <body>
-    <site-page>
-      <div class="layout">
-        <nav aria-label="Section">
-          <ul>
-            <li><a href="/a">Section A</a></li>
-            <li><a href="/b">Section B</a></li>
-          </ul>
-        </nav>
-        <article>
-          <h1>Page with sidebar</h1>
-          <p>Article content.</p>
-        </article>
-      </div>
-    </site-page>
-  </body>
-</html>
-```
-
-Vendor or third-party site:
-
-```html snippet
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Vendor-hosted page</title>
-    <script
-      type="module"
-      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
-    ></script>
-  </head>
-  <body>
-    <site-page header-variant="vendor">
-      <h1>Vendor-hosted page</h1>
-      <p>Logo and Ask a Librarian only in the header.</p>
-    </site-page>
-  </body>
-</html>
-```
-
-11ty (Nunjucks layout). Wrap the layout's content in `<site-page>`; remove the layout's own `<main>`, header and footer markup. With `@uvalib/11ty-template`, its custom-elements plugin adds the script for each known tag in the page and pins the major with the `webComponentsVersion` option (default `"1"`; set an exact version to pin). Without that plugin, add the script tag yourself:
+11ty (Nunjucks layout). Wrap the layout's content in `<site-page>`; remove the layout's own `<main>`, header and footer markup. With `@uvalib/11ty-template`, its custom-elements plugin adds the script for each known tag in the page and pins the major with the `webComponentsVersion` option (default `"1"`; set an exact version to pin). The plugin option `webComponentsVersion` lands with the monorepo migration (11ty-template change); until then add the script tag yourself:
 
 ```njk snippet
 <!doctype html>
@@ -196,20 +111,7 @@ import '@uvalib/web-components/tokens.css'; // optional: tokens for your own CSS
 // <site-page> is then used in your HTML or templates exactly as in the plain HTML snippet.
 ```
 
-Analytics (add when the site needs Matomo; events are listened for on `document`):
-
-```html
-<script
-  type="module"
-  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-analytics.js"
-></script>
-<site-analytics matomoid="12"></site-analytics>
-<script>
-  document.dispatchEvent(
-    new CustomEvent('site-analytics-event', { detail: { event: ['Category', 'Action'] } }),
-  );
-</script>
-```
+Analytics: add `site-analytics.js` and a `<site-analytics>` element only when the site needs Matomo; see the analytics page in [reference/snippets.md](reference/snippets.md). It listens on `document`, so dispatch its events only after it is defined, from a user action.
 
 ## 6. Verification checklist
 

@@ -57,11 +57,11 @@ Caveat: in light-DOM mode, replacing `<site-page>`'s children wholesale (`innerH
 
 ## Tokens and parts
 
-Theme through inherited `--uva-*` custom properties (see `tokens.css`) set on `:root` or an ancestor, and through `::part(header)`, `::part(footer)` and `::part(main)` in shadow mode. Components read tokens with fallbacks and never set them.
+Theme through inherited `--uva-*` custom properties (see `tokens.css`) set on `:root` or an ancestor, and through parts in shadow mode: `site-page::part(header)`, `site-page::part(footer)` and `site-page::part(main)` on a page, or `site-header::part(header)` / `site-footer::part(footer)` for standalone elements. Light mode has no shadow parts; use ordinary selectors. Components read tokens with fallbacks and never set them.
 
 ## Analytics
 
-`<site-analytics matomoid="12" spa>` loads Matomo. It listens on `document` for `site-analytics-pageview`, `site-analytics-search` and `site-analytics-event`; dispatch those events to record data.
+`<site-analytics matomoid="12" spa>` loads Matomo. It listens on `document` for `site-analytics-pageview`, `site-analytics-search` and `site-analytics-event`; dispatch those events to record data, but only after the element is defined (`await customElements.whenDefined('site-analytics')`), ideally from a user action. Events fired before the Matomo tracker has loaded may be dropped.
 
 ## Agent skill
 
