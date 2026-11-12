@@ -41,10 +41,12 @@
     "./tokens.css": "./dist/tokens.css",
     "./base.css": "./dist/base.css",
     "./custom-elements.json": "./dist/custom-elements.json",
+    "./manifest.json": "./dist-cdn/manifest.json",
     "./skills/*": "./skills/*"
   },
   "files": [
     "dist",
+    "dist-cdn",
     "skills",
     "bin",
     "CHANGELOG.md"
@@ -55,11 +57,12 @@
   "packageManager": "pnpm@9.15.9",
   "scripts": {
     "test": "pnpm test:node && wtr \"test/**/*.test.ts\" --config web-test-runner.config.mjs",
-    "test:node": "node --test test/*.test.mjs",
+    "test:node": "node --test --test-concurrency=1 test/*.test.mjs",
     "lint": "eslint . && prettier --check .",
     "build:npm": "tsc -p tsconfig.build.json && node scripts/emit-css.mjs dist && pnpm analyze",
-    "build": "pnpm build:npm",
-    "analyze": "cem analyze --litelement --globs \"src/**/*.ts\" --outdir dist"
+    "build": "pnpm build:npm && pnpm build:cdn",
+    "analyze": "cem analyze --litelement --globs \"src/**/*.ts\" --outdir dist",
+    "build:cdn": "vite build && node scripts/emit-css.mjs dist-cdn && node -e \"require('fs').copyFileSync('dist/custom-elements.json','dist-cdn/custom-elements.json')\" && node scripts/build-manifest.mjs && node scripts/copy-skills.mjs"
   },
   "dependencies": {
     "lit": "^3.2.0"

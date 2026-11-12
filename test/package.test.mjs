@@ -10,7 +10,7 @@ const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const TAGS = ['site-page', 'site-header', 'site-footer', 'site-analytics', 'site-style'];
 
 before(() => {
-  execSync('pnpm build:npm', { cwd: root, stdio: 'pipe' });
+  execSync('pnpm build', { cwd: root, stdio: 'pipe' });
 });
 
 const walk = (dir) =>
@@ -53,6 +53,7 @@ test('npm pack lists the css and the manifest', () => {
   assert.ok(paths.includes('dist/tokens.css'));
   assert.ok(paths.includes('dist/base.css'));
   assert.ok(paths.includes('dist/custom-elements.json'));
+  assert.ok(paths.includes('dist-cdn/manifest.json'));
 });
 
 test('npm pack lists the agent skill', { todo: 'skill arrives in Task 10' }, () => {
