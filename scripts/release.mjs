@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Local release: pnpm release <patch|minor|major> [--dry-run]
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -47,6 +47,39 @@ export function prependChangelog(existing, section) {
   return `${header}\n${section}${body.trim() ? `\n${body.replace(/^\n+/, '')}` : ''}`;
 }
 
+export function localDate(d = new Date()) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/** Pure pre-flight + plan. Returns { error } or { version, tag, commands } (commands are argv arrays). */
+export function planRelease({ current, bump, branch, headSha, originSha, tagExists, dirty }) {
+  if (!BUMPS.includes(bump)) return { error: `Unknown bump "${bump}"; use ${BUMPS.join('|')}` };
+  if (dirty) return { error: 'working tree is not clean' };
+  if (branch !== 'main') return { error: `must be on main (currently on ${branch})` };
+  if (headSha !== originSha) return { error: 'HEAD is not origin/main; pull or push first' };
+  const version = nextVersion(current, bump);
+  const tag = `v${version}`;
+  if (tagExists) return { error: `tag ${tag} already exists (locally or on origin)` };
+  const message = `release: ${tag}`;
+  return {
+    version,
+    tag,
+    commands: [
+      ['git', 'add', 'package.json', 'CHANGELOG.md'],
+      ['git', 'commit', '-m', message],
+      ['git', 'tag', '-a', tag, '-m', message],
+      ['git', 'push', '--atomic', 'origin', 'main', tag],
+    ],
+  };
+}
+
+/** `pnpm build` regenerates tracked files; they must be committed before releasing. */
+export function checkCleanAfterBuild(porcelain) {
+  if (!porcelain.trim()) return undefined;
+  return `the build changed tracked files; commit the regenerated files first, then re-run:\n${porcelain}`;
+}
+
 function main(argv) {
   const dryRun = argv.includes('--dry-run');
   const bump = argv.find((a) => !a.startsWith('--'));
@@ -56,60 +89,73 @@ function main(argv) {
   }
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
   const sh = (cmd, opts = {}) => execSync(cmd, { cwd: root, encoding: 'utf8', ...opts }).trim();
-  const step = (cmd) => execSync(cmd, { cwd: root, stdio: 'inherit' });
+  const quiet = { stdio: ['ignore', 'pipe', 'ignore'] };
   const fail = (msg) => {
     console.error(`release: ${msg}`);
     process.exit(1);
   };
 
-  if (sh('git status --porcelain')) fail('working tree is not clean');
-  const branch = sh('git rev-parse --abbrev-ref HEAD');
-  if (branch !== 'main') fail(`must be on main (currently on ${branch})`);
-
   const pkgPath = join(root, 'package.json');
   const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
-  const version = nextVersion(pkg.version, bump);
-  const tag = `v${version}`;
-  const date = new Date().toISOString().slice(0, 10);
+  const tag = `v${nextVersion(pkg.version, bump)}`;
+
+  sh('git fetch origin --tags');
+  let localTag = false;
+  try {
+    sh(`git rev-parse -q --verify refs/tags/${tag}`, quiet);
+    localTag = true;
+  } catch {
+    /* not present */
+  }
+  const remoteTag = Boolean(sh(`git ls-remote --tags origin refs/tags/${tag}`));
+  const plan = planRelease({
+    current: pkg.version,
+    bump,
+    branch: sh('git rev-parse --abbrev-ref HEAD'),
+    headSha: sh('git rev-parse HEAD'),
+    originSha: sh('git rev-parse origin/main'),
+    tagExists: localTag || remoteTag,
+    dirty: Boolean(sh('git status --porcelain')),
+  });
+  if (plan.error) fail(plan.error);
 
   let lastTag = '';
   try {
-    lastTag = sh('git describe --tags --abbrev=0 --match "v[0-9]*"', {
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
+    lastTag = sh('git describe --tags --abbrev=0 --match "v[0-9]*"', quiet);
   } catch {
     /* no previous tag: use every commit */
   }
   const range = lastTag ? `${lastTag}..HEAD` : '';
   const subjects = sh(`git log ${range} --format=%s`).split('\n').filter(Boolean);
-  const section = renderChangelog(version, date, subjects);
+  const section = renderChangelog(plan.version, localDate(), subjects);
 
-  console.log(`Checks: pnpm lint && pnpm test && pnpm build`);
-  step('pnpm lint && pnpm test && pnpm build');
+  console.log('Checks: pnpm lint && pnpm test && pnpm build');
+  execSync('pnpm lint && pnpm test && pnpm build', { cwd: root, stdio: 'inherit' });
+  const dirtyMsg = checkCleanAfterBuild(sh('git status --porcelain'));
+  if (dirtyMsg) fail(dirtyMsg);
 
   if (dryRun) {
     console.log(
-      `\n[dry-run] ${pkg.version} -> ${version} (${bump}), since ${lastTag || 'the first commit'}`,
+      `\n[dry-run] ${pkg.version} -> ${plan.version} (${bump}), since ${lastTag || 'the first commit'}`,
     );
     console.log(
-      `[dry-run] would write package.json version and prepend to CHANGELOG.md:\n\n${section}`,
+      `[dry-run] would set package.json version and prepend to CHANGELOG.md:\n\n${section}`,
     );
-    console.log(
-      `[dry-run] would run: git commit -am "release: ${tag}"; git tag ${tag}; git push --follow-tags`,
-    );
+    for (const c of plan.commands)
+      console.log(
+        `[dry-run] would run: ${c.map((a) => (/\s/.test(a) ? JSON.stringify(a) : a)).join(' ')}`,
+      );
     return;
   }
 
-  pkg.version = version;
+  pkg.version = plan.version;
   writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
   const clPath = join(root, 'CHANGELOG.md');
   const existing = existsSync(clPath) ? readFileSync(clPath, 'utf8') : '# Changelog\n';
   writeFileSync(clPath, prependChangelog(existing, section));
-  step('git add package.json CHANGELOG.md');
-  step(`git commit -m "release: ${tag}"`);
-  step(`git tag ${tag}`);
-  step('git push --follow-tags');
-  console.log(`Released ${tag}`);
+  for (const [cmd, ...args] of plan.commands)
+    execFileSync(cmd, args, { cwd: root, stdio: 'inherit' });
+  console.log(`Released ${plan.tag}`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url))

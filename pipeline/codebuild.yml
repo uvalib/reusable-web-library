@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: CodeBuild project that tests @uvalib/web-components and, on v* tags, publishes to npm and the CDN.
+Description: CodeBuild projects for @uvalib/web-components - unprivileged CI, and a tag-only release project that publishes to npm and the CDN.
 
 Parameters:
   GitHubRepoUrl:
@@ -11,9 +11,62 @@ Parameters:
   DistributionId:
     Type: String
     Description: CloudFront distribution ID that fronts the bucket.
+  ReleaseActorAccountIds:
+    Type: String
+    Default: ''
+    Description: Optional comma-separated GitHub account IDs allowed to trigger releases by pushing a tag. Empty means no actor filter.
+
+Conditions:
+  HasReleaseActors: !Not [!Equals [!Ref ReleaseActorAccountIds, '']]
 
 Resources:
-  BuildRole:
+  # ---- CI: runs untrusted PR code, so it gets logs and nothing else ----
+  CiRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: codebuild.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: logs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents]
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/web-components-ci*
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/web-components-ci*:*
+
+  CiProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: web-components-ci
+      Description: Lint and test every push and PR to main. Publishes nothing.
+      ServiceRole: !GetAtt CiRole.Arn
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_MEDIUM
+        Image: aws/codebuild/standard:7.0
+      Source:
+        Type: GITHUB
+        Location: !Ref GitHubRepoUrl
+        BuildSpec: pipeline/buildspec-ci.yml
+      Triggers:
+        Webhook: true
+        FilterGroups:
+          - - { Type: EVENT, Pattern: PUSH }
+            - { Type: HEAD_REF, Pattern: '^refs/heads/main$' }
+          - - { Type: EVENT, Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED' }
+            - { Type: BASE_REF, Pattern: '^refs/heads/main$' }
+
+  # ---- Release: tag pushes only; holds the S3/CloudFront/SSM permissions ----
+  ReleaseRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
@@ -34,29 +87,39 @@ Resources:
                 Condition:
                   StringLike:
                     's3:prefix': ['web-components/v*']
-              - Sid: WriteVersionPrefixes
+              - Sid: GetPutVersionObjects
                 Effect: Allow
-                Action: [s3:PutObject, s3:DeleteObject]
+                Action: [s3:GetObject, s3:PutObject]
                 Resource: !Sub arn:aws:s3:::${BucketName}/web-components/v*
+              # Delete is needed only by `s3 sync --delete` on the major alias (v1/, v12/), so it is
+              # not granted on exact-version folders (v1.2.3/).
+              - Sid: DeleteMajorAliasObjects
+                Effect: Allow
+                Action: s3:DeleteObject
+                Resource:
+                  - !Sub arn:aws:s3:::${BucketName}/web-components/v?/*
+                  - !Sub arn:aws:s3:::${BucketName}/web-components/v??/*
               - Sid: InvalidateMajorAlias
                 Effect: Allow
                 Action: cloudfront:CreateInvalidation
                 Resource: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${DistributionId}
               - Sid: ReadNpmToken
                 Effect: Allow
-                Action: ssm:GetParameters
+                Action: ssm:GetParameter
                 Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/web-components/npm-token
               - Sid: Logs
                 Effect: Allow
                 Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents]
-                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*
+                Resource:
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/web-components-release*
+                  - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/web-components-release*:*
 
-  BuildProject:
+  ReleaseProject:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: web-components
-      Description: Test every push and PR to main; publish on v* tags.
-      ServiceRole: !GetAtt BuildRole.Arn
+      Name: web-components-release
+      Description: Publish to npm and the CDN when a v* tag is pushed.
+      ServiceRole: !GetAtt ReleaseRole.Arn
       Artifacts:
         Type: NO_ARTIFACTS
       Environment:
@@ -69,13 +132,16 @@ Resources:
       Source:
         Type: GITHUB
         Location: !Ref GitHubRepoUrl
-        BuildSpec: pipeline/buildspec.yml
+        BuildSpec: pipeline/buildspec-release.yml
       Triggers:
         Webhook: true
         FilterGroups:
           - - { Type: EVENT, Pattern: PUSH }
             - { Type: HEAD_REF, Pattern: '^refs/tags/v.*' }
-          - - { Type: EVENT, Pattern: PUSH }
-            - { Type: HEAD_REF, Pattern: '^refs/heads/main$' }
-          - - { Type: EVENT, Pattern: 'PULL_REQUEST_CREATED,PULL_REQUEST_UPDATED' }
-            - { Type: BASE_REF, Pattern: '^refs/heads/main$' }
+            - !If
+              - HasReleaseActors
+              - Type: ACTOR_ACCOUNT_ID
+                Pattern: !Sub
+                  - '^(${Ids})$'
+                  - Ids: !Join ['|', !Split [',', !Ref ReleaseActorAccountIds]]
+              - !Ref AWS::NoValue
