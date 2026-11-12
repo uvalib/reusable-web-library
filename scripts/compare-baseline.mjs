@@ -10,7 +10,9 @@ import { PNG } from 'pngjs';
 const args = process.argv.slice(2);
 const diffIdx = args.indexOf('--diff-dir');
 const diffDir = diffIdx === -1 ? undefined : args[diffIdx + 1];
-const [beforeDir, afterDir] = args.filter((a, i) => !a.startsWith('--') && i !== diffIdx + 1);
+const [beforeDir, afterDir] = args.filter(
+  (a, i) => !a.startsWith('--') && (diffIdx === -1 || i !== diffIdx + 1),
+);
 if (!beforeDir || !afterDir) {
   console.error('Usage: compare-baseline.mjs <before-dir> <after-dir> [--diff-dir <dir>]');
   process.exit(2);

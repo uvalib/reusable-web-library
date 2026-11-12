@@ -3,6 +3,14 @@
   "version": "0.0.0",
   "description": "UVA Library reusable web components",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/uvalib/reusable-web-library.git"
+  },
+  "homepage": "https://uvalib.github.io/reusable-web-library/",
+  "bugs": {
+    "url": "https://github.com/uvalib/reusable-web-library/issues"
+  },
   "type": "module",
   "sideEffects": [
     "./dist/components/*/site-*.js",
@@ -43,6 +51,7 @@
     "./base.css": "./dist/base.css",
     "./custom-elements.json": "./dist/custom-elements.json",
     "./manifest.json": "./dist-cdn/manifest.json",
+    "./package.json": "./package.json",
     "./skills/*": "./skills/*"
   },
   "bin": {

@@ -73,6 +73,8 @@ Caveat: replacing a light-mode `<site-page>`'s children wholesale (`innerHTML` o
 
 `no-style` does not stop `<site-page>` from installing the global tokens, base and accessibility styles or the Typekit link. When the host owns base typography, also set `no-global-styles`.
 
+Light-mode styles live in `@layer uvalib`. Unlayered host CSS always wins. Cascade layers declared earlier have lower priority, and `uvalib` is created when its first rule is parsed, so a host's own named layers that were declared before it (for example Tailwind v4's) are ordered before `uvalib` and lose to it. To let host layers win, put the host CSS unlayered, or declare `@layer uvalib` first in the host stylesheet (`@layer uvalib, base, utilities;`).
+
 The mode is read once, at first connect; do not toggle it afterwards.
 
 ## Tokens and theming
@@ -139,10 +141,10 @@ UVA Library site footer: link columns, contact details and copyright.
 
 | Property | Default | Description |
 |---|---|---|
-| `--uva-brand-blue` | `#232d4b` | Main footer background. |
+| `--uva-brand-blue` | `#232d4b` | Main footer background (also the skip-link background in the shared accessibility sheet, which the footer does not render). |
 | `--uva-blue-alt-300` | `#bfe7f7` | Pre-footer band background. |
 | `--uva-blue-alt-darkest` | `#141e3c` | Copyright bar background. |
-| `--uva-brand-orange` | `#e57200` | Social icon hover colour and focus ring. |
+| `--uva-brand-orange` | `#e57200` | Social icon hover colour and focus-visible outline. Footer link and text colours are fixed white. |
 
 ### `<site-header>`
 
@@ -169,7 +171,8 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 |---|---|---|
 | `--uva-blue-alt-dark` | `#005679` | Utility link colour. |
 | `--uva-grey-darkest` | `#2b2b2b` | Menu button colour. |
-| `--uva-brand-orange` | `#e57200` | Focus ring colour. |
+| `--uva-brand-orange` | `#e57200` | Focus ring colour (focus-visible outline). |
+| `--uva-brand-blue` | `#232d4b` | Skip-link background from the shared accessibility sheet (the header renders no skip link itself). |
 
 ### `<site-page>`
 
@@ -204,22 +207,22 @@ Page wrapper: skip link, header, a single `<main>`, footer, and global page styl
 
 | Property | Default | Description |
 |---|---|---|
-| `--uva-brand-blue` | `#232d4b` | Skip link background (and header and footer link colours). |
-| `--uva-brand-orange` | `#e57200` | Focus ring colour. |
+| `--uva-brand-blue` | `#232d4b` | Skip link background. |
+| `--uva-brand-orange` | `#e57200` | Focus ring colour (focus-visible outline). |
 | `--uva-font-family` | `franklin-gothic-urw, Arial, Helvetica, sans-serif` | Page font family (global styles). |
 | `--uva-font-size-base` | `17px` | Page base font size (global styles). |
 | `--uva-grey-darkest` | `#2b2b2b` | Page text colour (global styles). |
 
 ### `<site-style>`
 
-Compatibility element: shadow mode styles its slotted content; light mode (`no-shadow-dom`) installs the tokens and base page styles on the document.
+Compatibility element. Light mode (`no-shadow-dom`) installs the tokens and base page styles on the document. Shadow mode only styles inside its own shadow root, so the `:root` and `html, body` rules of those sheets match nothing there and the slotted content is not restyled; it inherits whatever inherited tokens and fonts the page already provides.
 
 #### Attributes
 
 | Attribute | Type | Default | Description |
 |---|---|---|---|
 | `imports` | `{ [key: string]: string }` | `{}` | Map of tag name to a module URL whose default export is a stylesheet; ported as is. |
-| `importedstyles` | `string` | `''` | Accumulated text of the stylesheets loaded through `imports`. |
+| `importedstyles` | `string` | `''` | Accumulated text of the stylesheets loaded through `imports`. Carried over from the old component for compatibility; it is not rendered anywhere. |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -227,7 +230,7 @@ Compatibility element: shadow mode styles its slotted content; light mode (`no-s
 
 | Slot | Description |
 |---|---|
-| (default) | Content styled with the UVA Library tokens and base styles. |
+| (default) | Content rendered in shadow mode; it is not restyled by this element. In light mode there is no shadow root and the children stay in place. |
 
 #### CSS custom properties
 
@@ -273,10 +276,12 @@ pnpm release <patch|minor|major> --dry-run   # runs the lint/test/build checks, 
 pnpm release <patch|minor|major>             # lint, test, build, bump, tag vX.Y.Z, push
 ```
 
-The tag push triggers two AWS CodeBuild projects, defined in `pipeline/codebuild.yml`:
+The first release must be `pnpm release major` (0.0.0 → 1.0.0).
+
+Two AWS CodeBuild projects, defined in `pipeline/codebuild.yml`, react to GitHub events: pushes and PRs to `main` trigger CI, and `v*` tags trigger the release.
 
 - `web-components-ci` runs on pushes and PRs to `main` (install, lint, test). It has no publish credentials.
-- `web-components-release` runs on `v*` tags only. It publishes to npm, then uploads to the CDN: `vX.Y.Z/` (immutable, create-only) and the `vX/` major alias, then invalidates `/web-components/vX/*`. The alias is updated and invalidated only when the release is the highest `X.*.*` version present. It never writes the legacy `latest/` or `cdn-v*` prefixes.
+- `web-components-release` runs on `v*` tags only. It publishes to npm, then uploads to the CDN: `vX.Y.Z/` (immutable, create-only) and the `vX/` major alias (synced without `--delete`, so hashed chunks from earlier releases stay available to cached entry files), then invalidates `/web-components/vX/*`. The alias is updated and invalidated only when the release is the highest `X.*.*` version present. It never writes the legacy `latest/` or `cdn-v*` prefixes.
 
 One-time setup for the repo owner:
 

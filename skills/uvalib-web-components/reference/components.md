@@ -53,10 +53,10 @@ UVA Library site footer: link columns, contact details and copyright.
 
 | Property | Default | Description |
 |---|---|---|
-| `--uva-brand-blue` | `#232d4b` | Main footer background. |
+| `--uva-brand-blue` | `#232d4b` | Main footer background (also the skip-link background in the shared accessibility sheet, which the footer does not render). |
 | `--uva-blue-alt-300` | `#bfe7f7` | Pre-footer band background. |
 | `--uva-blue-alt-darkest` | `#141e3c` | Copyright bar background. |
-| `--uva-brand-orange` | `#e57200` | Social icon hover colour and focus ring. |
+| `--uva-brand-orange` | `#e57200` | Social icon hover colour and focus-visible outline. Footer link and text colours are fixed white. |
 
 ## `<site-header>`
 
@@ -83,7 +83,8 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 |---|---|---|
 | `--uva-blue-alt-dark` | `#005679` | Utility link colour. |
 | `--uva-grey-darkest` | `#2b2b2b` | Menu button colour. |
-| `--uva-brand-orange` | `#e57200` | Focus ring colour. |
+| `--uva-brand-orange` | `#e57200` | Focus ring colour (focus-visible outline). |
+| `--uva-brand-blue` | `#232d4b` | Skip-link background from the shared accessibility sheet (the header renders no skip link itself). |
 
 ## `<site-page>`
 
@@ -118,22 +119,22 @@ Page wrapper: skip link, header, a single `<main>`, footer, and global page styl
 
 | Property | Default | Description |
 |---|---|---|
-| `--uva-brand-blue` | `#232d4b` | Skip link background (and header and footer link colours). |
-| `--uva-brand-orange` | `#e57200` | Focus ring colour. |
+| `--uva-brand-blue` | `#232d4b` | Skip link background. |
+| `--uva-brand-orange` | `#e57200` | Focus ring colour (focus-visible outline). |
 | `--uva-font-family` | `franklin-gothic-urw, Arial, Helvetica, sans-serif` | Page font family (global styles). |
 | `--uva-font-size-base` | `17px` | Page base font size (global styles). |
 | `--uva-grey-darkest` | `#2b2b2b` | Page text colour (global styles). |
 
 ## `<site-style>`
 
-Compatibility element: shadow mode styles its slotted content; light mode (`no-shadow-dom`) installs the tokens and base page styles on the document.
+Compatibility element. Light mode (`no-shadow-dom`) installs the tokens and base page styles on the document. Shadow mode only styles inside its own shadow root, so the `:root` and `html, body` rules of those sheets match nothing there and the slotted content is not restyled; it inherits whatever inherited tokens and fonts the page already provides.
 
 ### Attributes
 
 | Attribute | Type | Default | Description |
 |---|---|---|---|
 | `imports` | `{ [key: string]: string }` | `{}` | Map of tag name to a module URL whose default export is a stylesheet; ported as is. |
-| `importedstyles` | `string` | `''` | Accumulated text of the stylesheets loaded through `imports`. |
+| `importedstyles` | `string` | `''` | Accumulated text of the stylesheets loaded through `imports`. Carried over from the old component for compatibility; it is not rendered anywhere. |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -141,7 +142,7 @@ Compatibility element: shadow mode styles its slotted content; light mode (`no-s
 
 | Slot | Description |
 |---|---|
-| (default) | Content styled with the UVA Library tokens and base styles. |
+| (default) | Content rendered in shadow mode; it is not restyled by this element. In light mode there is no shadow root and the children stay in place. |
 
 ### CSS custom properties
 

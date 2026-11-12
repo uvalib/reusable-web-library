@@ -27,7 +27,8 @@ let menuCounter = 0;
  * @csspart header - The `<header>` element.
  * @cssprop [--uva-blue-alt-dark=#005679] - Utility link colour.
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Menu button colour.
- * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour.
+ * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour (focus-visible outline).
+ * @cssprop [--uva-brand-blue=#232d4b] - Skip-link background from the shared accessibility sheet (the header renders no skip link itself).
  */
 export class SiteHeader extends UvalibElement {
   static styles = [

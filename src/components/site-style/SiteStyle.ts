@@ -6,11 +6,13 @@ import { tokens } from '../../styles/tokens.js';
 import { base } from '../../styles/base.js';
 
 /**
- * Compatibility element: shadow mode styles its slotted content; light mode
- * (`no-shadow-dom`) installs the tokens and base page styles on the document.
+ * Compatibility element. Light mode (`no-shadow-dom`) installs the tokens and base page
+ * styles on the document. Shadow mode only styles inside its own shadow root, so the
+ * `:root` and `html, body` rules of those sheets match nothing there and the slotted content
+ * is not restyled; it inherits whatever inherited tokens and fonts the page already provides.
  *
  * @tagname site-style
- * @slot - Content styled with the UVA Library tokens and base styles.
+ * @slot - Content rendered in shadow mode; it is not restyled by this element. In light mode there is no shadow root and the children stay in place.
  * @cssprop [--uva-font-family=franklin-gothic-urw, Arial, Helvetica, sans-serif] - Font family.
  * @cssprop [--uva-font-size-base=17px] - Base font size.
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Text colour.
@@ -21,7 +23,10 @@ export class SiteStyle extends UvalibElement {
   /** Map of tag name to a module URL whose default export is a stylesheet; ported as is. */
   @property({ type: Object }) imports: { [key: string]: string } = {};
 
-  /** Accumulated text of the stylesheets loaded through `imports`. */
+  /**
+   * Accumulated text of the stylesheets loaded through `imports`. Carried over from the old
+   * component for compatibility; it is not rendered anywhere.
+   */
   @property({ type: String }) importedStyles = '';
 
   /**

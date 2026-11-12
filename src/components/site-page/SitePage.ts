@@ -19,8 +19,8 @@ const isPreFooter = (n: Node): boolean =>
  * @csspart main - The `<main>` landmark.
  * @csspart header - The `<header>` element inside `<site-header>` (shadow mode; exported through `exportparts`).
  * @csspart footer - The `<footer>` element inside `<site-footer>` (shadow mode; exported through `exportparts`).
- * @cssprop [--uva-brand-blue=#232d4b] - Skip link background (and header and footer link colours).
- * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour.
+ * @cssprop [--uva-brand-blue=#232d4b] - Skip link background.
+ * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour (focus-visible outline).
  * @cssprop [--uva-font-family=franklin-gothic-urw, Arial, Helvetica, sans-serif] - Page font family (global styles).
  * @cssprop [--uva-font-size-base=17px] - Page base font size (global styles).
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Page text colour (global styles).

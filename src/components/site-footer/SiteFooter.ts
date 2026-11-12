@@ -29,10 +29,10 @@ const ABOUT: FooterLink[] = [
  * @tagname site-footer
  * @slot pre-footer - Optional content shown in a band above the footer links.
  * @csspart footer - The `<footer>` element.
- * @cssprop [--uva-brand-blue=#232d4b] - Main footer background.
+ * @cssprop [--uva-brand-blue=#232d4b] - Main footer background (also the skip-link background in the shared accessibility sheet, which the footer does not render).
  * @cssprop [--uva-blue-alt-300=#bfe7f7] - Pre-footer band background.
  * @cssprop [--uva-blue-alt-darkest=#141e3c] - Copyright bar background.
- * @cssprop [--uva-brand-orange=#e57200] - Social icon hover colour and focus ring.
+ * @cssprop [--uva-brand-orange=#e57200] - Social icon hover colour and focus-visible outline. Footer link and text colours are fixed white.
  */
 export class SiteFooter extends UvalibElement {
   @property({ type: String, attribute: 'root-link-domain' }) rootLinkDomain =
