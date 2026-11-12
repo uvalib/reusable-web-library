@@ -7,7 +7,7 @@ phases:
     runtime-versions:
       nodejs: 22
     commands:
-      - npm i -g n && n 24 && hash -r
+      - npm i -g n@11.0.0 && n 24 && hash -r
       - test "$(node -p "process.versions.node.split(\".\")[0]")" = "24"
       - corepack enable
       # Dependency install scripts are not run in the release build (it holds publish credentials).
@@ -34,6 +34,14 @@ phases:
         fi
         if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
           echo "No release tag found (trigger='${CODEBUILD_WEBHOOK_TRIGGER:-}', source='${CODEBUILD_SOURCE_VERSION:-}')" >&2
+          exit 1
+        fi
+        # Only publish tags whose commit is on main.
+        git fetch --unshallow >/dev/null 2>&1 || true
+        git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+        TAG_COMMIT="$(git rev-parse "refs/tags/$TAG^{commit}" 2>/dev/null || echo "${CODEBUILD_RESOLVED_SOURCE_VERSION:-}")"
+        if [ -z "$TAG_COMMIT" ] || ! git merge-base --is-ancestor "$TAG_COMMIT" origin/main; then
+          echo "Tag $TAG (commit ${TAG_COMMIT:-unknown}) is not on main; refusing to publish" >&2
           exit 1
         fi
         VERSION="${TAG#v}"

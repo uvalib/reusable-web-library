@@ -6,7 +6,7 @@ phases:
     runtime-versions:
       nodejs: 22
     commands:
-      - npm i -g n && n 24 && hash -r
+      - npm i -g n@11.0.0 && n 24 && hash -r
       - test "$(node -p "process.versions.node.split(\".\")[0]")" = "24"
       - corepack enable
       - pnpm install --frozen-lockfile

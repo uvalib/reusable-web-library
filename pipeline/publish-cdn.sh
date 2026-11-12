@@ -29,6 +29,13 @@ fi
 BUCKET="${BUCKET:-<bucket>}"
 DISTRIBUTION_ID="${DISTRIBUTION_ID:-<distribution-id>}"
 
+# A missing, empty or partial build must never reach S3: `sync --delete` from an empty
+# directory would empty the live alias.
+if [[ ! -d "$SRC" ]] || [[ ! -f "$SRC/manifest.json" ]] || [[ -z "$(find "$SRC" -type f -print -quit)" ]]; then
+  echo "publish-cdn.sh: $SRC is missing, empty or has no manifest.json; run the build first" >&2
+  exit 2
+fi
+
 # Mutating commands: printed in dry-run, executed otherwise.
 run() {
   if [[ "$DRY_RUN" == "1" ]]; then

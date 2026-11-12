@@ -17,6 +17,7 @@ const files = {
   'sub/d.js.map': '{"version":3}\n',
   'sub/e.md': '# e\n',
   'f.bin': 'bin',
+  'manifest.json': '{"entries":[]}\n',
 };
 const md5 = (s) => createHash('md5').update(s).digest('hex');
 const keyOf = (version, name) => `web-components/v${version}/${name}`;
@@ -31,12 +32,20 @@ const listing = (version, names, { etag = md5 } = {}) =>
  */
 function run(
   args,
-  { objects = 'None', prefixes = 'None', listFail = '', dry = true, env = {} } = {},
+  {
+    objects = 'None',
+    prefixes = 'None',
+    listFail = '',
+    dry = true,
+    env = {},
+    srcFiles = files,
+  } = {},
 ) {
   const dir = mkdtempSync(join(tmpdir(), 'publish-cdn-'));
   try {
     const src = join(dir, 'src');
-    for (const [name, body] of Object.entries(files)) {
+    mkdirSync(src, { recursive: true });
+    for (const [name, body] of Object.entries(srcFiles)) {
       mkdirSync(dirname(join(src, name)), { recursive: true });
       writeFileSync(join(src, name), body);
     }
@@ -193,4 +202,17 @@ test('non-dry-run requires BUCKET and DISTRIBUTION_ID', () => {
   assert.match(r.stderr, /BUCKET/);
   assert.match(r.stderr, /DISTRIBUTION_ID/);
   assert.equal(puts(r).length, 0);
+});
+
+test('an empty or manifest-less dist-cdn aborts before any aws call', () => {
+  for (const srcFiles of [{}, { 'a.js': 'x' }]) {
+    const r = run(['1.0.0'], { srcFiles });
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /manifest\.json|empty|missing/i);
+    assert.equal(r.calls, '');
+    assert.equal(r.stdout, '');
+  }
+  const r = run(['1.0.0'], { srcFiles: {}, env: { SRC: '/nonexistent-dist-cdn' } });
+  assert.notEqual(r.status, 0);
+  assert.equal(r.calls, '');
 });

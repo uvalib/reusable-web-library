@@ -48,7 +48,12 @@ test('prependChangelog inserts under the header, newest first', () => {
   assert.ok(second.startsWith('# Changelog\n'));
 });
 
-import { planRelease, localDate, checkCleanAfterBuild } from '../scripts/release.mjs';
+import {
+  planRelease,
+  localDate,
+  checkCleanAfterBuild,
+  pushFailureHint,
+} from '../scripts/release.mjs';
 
 const ok = {
   current: '1.2.3',
@@ -94,4 +99,20 @@ test('checkCleanAfterBuild flags regenerated tracked files', () => {
     checkCleanAfterBuild(' M skills/x/reference/components.md\n'),
     /commit.*components\.md/s,
   );
+});
+
+test('pushFailureHint lists the recovery steps in order', () => {
+  const h = pushFailureHint('v1.3.0');
+  const order = [
+    'git tag -d v1.3.0',
+    'git reset --soft HEAD~1',
+    'git restore --staged package.json CHANGELOG.md',
+    'pull',
+  ];
+  let at = -1;
+  for (const step of order) {
+    const i = h.indexOf(step);
+    assert.ok(i > at, `${step} missing or out of order`);
+    at = i;
+  }
 });

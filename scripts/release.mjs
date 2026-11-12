@@ -80,6 +80,18 @@ export function checkCleanAfterBuild(porcelain) {
   return `the build changed tracked files; commit the regenerated files first, then re-run:\n${porcelain}`;
 }
 
+/** Recovery steps printed when the final push fails after the local commit and tag exist. */
+export function pushFailureHint(tag) {
+  return [
+    `git push failed; nothing was published. Undo the local release commit and tag, then retry:`,
+    `  git tag -d ${tag}`,
+    `  git reset --soft HEAD~1`,
+    `  git restore --staged package.json CHANGELOG.md`,
+    `  (discard the version/changelog edits with: git checkout -- package.json CHANGELOG.md)`,
+    `  then pull the latest main and run pnpm release again`,
+  ].join('\n');
+}
+
 function main(argv) {
   const dryRun = argv.includes('--dry-run');
   const bump = argv.find((a) => !a.startsWith('--'));

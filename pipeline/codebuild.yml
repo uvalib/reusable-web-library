@@ -133,6 +133,7 @@ Resources:
         Type: GITHUB
         Location: !Ref GitHubRepoUrl
         BuildSpec: pipeline/buildspec-release.yml
+        GitCloneDepth: 0
       Triggers:
         Webhook: true
         FilterGroups:
