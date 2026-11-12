@@ -4,3 +4,4 @@ dist
 dist-cdn
 coverage
 test/baseline/**/*.png
+dist-site

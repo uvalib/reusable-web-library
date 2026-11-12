@@ -60,14 +60,17 @@
   },
   "packageManager": "pnpm@9.15.9",
   "scripts": {
-    "test": "pnpm build && pnpm test:node && wtr \"test/**/*.test.ts\" --config web-test-runner.config.mjs",
+    "test": "pnpm build && pnpm build:site --base /dist-site/ && pnpm test:node && pnpm test:browser",
     "test:node": "node --test test/*.test.mjs",
+    "test:browser": "wtr \"test/**/*.test.ts\" \"!test/presets.test.ts\" \"!test/site.test.ts\" --config web-test-runner.config.mjs && wtr test/presets.test.ts test/site.test.ts --concurrency 1 --config web-test-runner.config.mjs",
     "lint": "eslint . && prettier --check .",
     "build:npm": "tsc -p tsconfig.build.json && node scripts/emit-css.mjs dist && pnpm analyze && node scripts/gen-reference.mjs",
     "release": "node scripts/release.mjs",
     "build": "pnpm build:npm && pnpm build:cdn",
     "analyze": "cem analyze --litelement --globs \"src/**/*.ts\" --outdir dist",
-    "build:cdn": "vite build && node scripts/emit-css.mjs dist-cdn && node -e \"require('fs').copyFileSync('dist/custom-elements.json','dist-cdn/custom-elements.json')\" && node scripts/build-manifest.mjs && node scripts/copy-skills.mjs"
+    "build:cdn": "vite build && node scripts/emit-css.mjs dist-cdn && node -e \"require('fs').copyFileSync('dist/custom-elements.json','dist-cdn/custom-elements.json')\" && node scripts/build-manifest.mjs && node scripts/copy-skills.mjs",
+    "build:site": "vite build -c vite.site.config.ts",
+    "start": "vite -c vite.site.config.ts --open /site/"
   },
   "dependencies": {
     "lit": "^3.2.0"
@@ -82,6 +85,7 @@
     "@web/test-runner-playwright": "^1.0.1",
     "axe-core": "^4.14.0",
     "eslint": "^10.14.0",
+    "playground-elements": "^0.21.2",
     "playwright": "^1.65.0",
     "prettier": "^3.10.1",
     "typescript": "^5.9.3",

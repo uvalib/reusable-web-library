@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Playground · UVA Library web components</title>
+    <meta
+      name="description"
+      content="Edit a UVA Library page built with the web components, and share it as a link."
+    />
+    <link rel="stylesheet" href="./src/site.css" />
+    <script type="module" src="./src/playground.ts"></script>
+  </head>
+  <body class="full">
+    <a class="skip-link" href="#content">Skip to content</a>
+    <header class="site-bar">
+      <a class="brand" href="./">@uvalib/web-components</a>
+      <nav aria-label="Site">
+        <ul>
+          <li><a href="./">Gallery</a></li>
+          <li><a href="playground.html" aria-current="page">Playground</a></li>
+          <li><a href="https://github.com/uvalib/reusable-web-library#readme">README</a></li>
+        </ul>
+      </nav>
+    </header>
+    <main id="content" tabindex="-1">
+      <h1>Playground</h1>
+      <div class="toolbar">
+        <label for="preset">Preset</label>
+        <select id="preset"></select>
+        <button type="button" id="reset">Reset</button>
+        <span class="copy">
+          <button type="button" id="copy-link">Copy link</button>
+          <span class="status" role="status"></span>
+        </span>
+      </div>
+      <p id="preset-description" class="description"></p>
+      <playground-ide resizable line-numbers editable-file-system></playground-ide>
+    </main>
+  </body>
+</html>

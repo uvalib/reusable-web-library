@@ -253,11 +253,15 @@ See [docs/usage.md](docs/usage.md) for details, including sites that only use sc
 ## Development
 
 - `pnpm install`
-- `pnpm test` builds first, then runs the Node tests and the browser tests (headless Chromium).
+- `pnpm test` builds first (`pnpm build`, then the playground site with `--base /dist-site/`), then runs the Node tests and the browser tests (headless Chromium).
 - `pnpm test:node` runs the Node tests alone; it needs a prior `pnpm build`.
+- `pnpm test:browser` runs the browser tests alone; it needs a prior `pnpm build` and `pnpm build:site --base /dist-site/`. The playground tests (`presets` and `site`) run in a second, serial pass, because the full pages and editors they mount are heavy enough to slow test files running beside them.
 - `pnpm build` builds the npm output (`dist/`, which also regenerates this README's component section and the skill's `reference/components.md`) and the CDN output (`dist-cdn/`).
 - `pnpm lint` runs ESLint and Prettier.
-- `pnpm start` (the playground and demo dev server) is coming with the playground.
+- `pnpm start` runs the Vite dev server for the playground site (`site/`) and the demos (`demo/`), rooted at the repo: open `/site/` for the gallery and playground, or `/demo/` for the demo pages. In dev, `cdn/<tag>.js` is served straight from `src/components/`, so edits show up on reload.
+- Previews run on the playground-elements sandbox at unpkg.com (never self-hosted: share links run untrusted code), which needs internet access. Locally, that public origin has to load the components from `http://localhost`; Vite's localhost-only CORS policy and Chrome's local network protections block this, so the components may not render in previews under `pnpm start` or `vite preview`. The editors, plain HTML previews and share links still work. Components render in previews on GitHub Pages, which serves `cdn/` with `Access-Control-Allow-Origin: *`.
+- `pnpm build:site` builds the playground site into `dist-site/` for GitHub Pages (base `/reusable-web-library/`). It needs a prior `pnpm build`, and copies `dist-cdn/` to `dist-site/cdn/`. Serve it locally with `npx vite preview -c vite.site.config.ts`.
+- The playground deploys from `.github/workflows/pages.yml` on every push to `main` (and on manual dispatch): install, test, `pnpm build && pnpm build:site`, then upload and deploy to GitHub Pages.
 
 ## Releasing
 
@@ -278,7 +282,7 @@ One-time setup for the repo owner:
 1. Deploy `pipeline/codebuild.yml`, providing the CloudFront distribution ID (`DistributionId`) and, once, authorizing CodeBuild to access GitHub manually in the console (the template uses a GitHub source with no connection resource).
 2. Store the npm automation token in SSM at `/web-components/npm-token`.
 3. Set `ReleaseActorAccountIds` to the GitHub account IDs allowed to trigger releases (empty means no actor filter).
-4. Enable GitHub Pages for the repository with source "GitHub Actions" (for the playground).
+4. Enable GitHub Pages for the repository with source "GitHub Actions" (Settings > Pages), so `.github/workflows/pages.yml` can deploy the playground.
 
 ## Migration
 

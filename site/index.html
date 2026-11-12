@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gallery · UVA Library web components</title>
+    <meta
+      name="description"
+      content="Every UVA Library web component and mode, live and editable."
+    />
+    <link rel="stylesheet" href="./src/site.css" />
+    <script type="module" src="./src/gallery.ts"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Skip to content</a>
+    <header class="site-bar">
+      <a class="brand" href="./">@uvalib/web-components</a>
+      <nav aria-label="Site">
+        <ul>
+          <li><a href="./" aria-current="page">Gallery</a></li>
+          <li><a href="playground.html">Playground</a></li>
+          <li><a href="https://github.com/uvalib/reusable-web-library#readme">README</a></li>
+        </ul>
+      </nav>
+    </header>
+    <main id="content" tabindex="-1">
+      <h1>Gallery</h1>
+      <p class="lede">
+        Each example is a live, editable page. Change the HTML or CSS and the preview updates. For a
+        bigger editor and shareable links, open the
+        <a href="playground.html">playground</a>.
+      </p>
+      <div id="examples"></div>
+    </main>
+  </body>
+</html>
