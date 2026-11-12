@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-empty-object-type -- ported verbatim from the monorepo */
+/* eslint-disable @typescript-eslint/no-explicit-any -- ported verbatim from the monorepo */
 import { expect, fixture, html } from '@open-wc/testing';
 import { findMatomoId } from '../src/data/sites.js';
 import '../src/components/site-analytics/site-analytics.js';
