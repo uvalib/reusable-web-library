@@ -5,14 +5,14 @@ import { installLightDomStyles } from '../../base/light-dom-styles.js';
 import { tokens } from '../../styles/tokens.js';
 import { base, TYPEKIT_URL } from '../../styles/base.js';
 import { accessible } from '../../styles/accessible.js';
-import '../site-header/site-header.js';
-// The footer sits at the bottom of the page, so it loads asynchronously.
-import('../site-footer/site-footer.js');
 
 const isPreFooter = (n: Node): boolean =>
   n instanceof Element && n.getAttribute('slot') === 'pre-footer';
 
-/** Page wrapper: skip link, header, a single `<main>`, footer, and global page styles. */
+/**
+ * Page wrapper: skip link, header, a single `<main>`, footer, and global page styles.
+ * Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`.
+ */
 export class SitePage extends UvalibElement {
   @property({ type: String, attribute: 'root-link-domain' }) rootLinkDomain =
     'https://www.library.virginia.edu';

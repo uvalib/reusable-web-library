@@ -18,7 +18,10 @@ export class SiteStyle extends UvalibElement {
   /** Accumulated text of the stylesheets loaded through `imports`. */
   @property({ type: String }) importedStyles = '';
 
-  /** Page-level styles: unscoped, on the document, under their own dedupe key. */
+  /**
+   * Page-level styles: unscoped, under their own dedupe key, always on the owner
+   * document (not the root node) because `:root` tokens inherit into shadow roots.
+   */
   protected override installLightStyles(): void {
     installLightDomStyles('uvalib-site-style', SiteStyle.styles, {
       root: this.ownerDocument,

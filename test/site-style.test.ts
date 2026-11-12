@@ -32,16 +32,20 @@ describe('site-style (light)', () => {
   });
 
   it('installs the document sheet only once and no tag-scoped copy', async () => {
-    await fixture(
-      '<div><site-style no-shadow-dom></site-style><site-style no-shadow-dom></site-style></div>',
-    );
+    const first = await fixture<SiteStyle>('<site-style no-shadow-dom></site-style>');
+    const before = document.adoptedStyleSheets.length;
+    const second = document.createElement('site-style') as SiteStyle;
+    second.setAttribute('no-shadow-dom', '');
+    first.after(second);
+    await second.updateComplete;
+    expect(document.adoptedStyleSheets.length).to.equal(before);
     const rules = document.adoptedStyleSheets.flatMap((s) =>
       [...s.cssRules].flatMap((l) => [...((l as CSSLayerBlockRule).cssRules ?? [])]),
     );
-    const roots = rules.filter((r) => (r as CSSStyleRule).selectorText === ':root');
-    expect(roots.length).to.equal(1);
+    expect(rules.filter((r) => (r as CSSStyleRule).selectorText === ':root').length).to.equal(1);
     expect(rules.some((r) => (r as CSSStyleRule).selectorText?.startsWith('site-style'))).to.equal(
       false,
     );
+    second.remove();
   });
 });
