@@ -391,13 +391,15 @@ Pull requests to `main` run `.github/workflows/ci.yml` in GitHub Actions (instal
 Releases run in an AWS CodePipeline defined in the UVA Library's `terraform-infrastructure` repo (`aws_cicd/pipelines/reusable-web-library/`). Pushing a `v*` tag starts it, and its CodeBuild stage runs `pipeline/buildspec-release.yml`:
 
 - It takes the release tag from the checked-out commit (exactly one `vX.Y.Z` tag), and refuses to publish unless that commit is on `main` and the tag matches `package.json`.
-- It publishes to npm (skipped if that version is already there), then uploads to the CDN: `vX.Y.Z/` (immutable, create-only) and the `vX/` major alias (synced without `--delete`, so hashed chunks from earlier releases stay available to cached entry files), then invalidates `/web-components/vX/*`. The alias is updated and invalidated only when the release is the highest `X.*.*` version present. It never writes the legacy `latest/` or `cdn-v*` prefixes; its IAM role can only list, read and write `web-components/v*` keys.
+- It publishes to npm (skipped if that version is already there), then uploads to the CDN: `vX.Y.Z/` (immutable, create-only) and the `vX/` major alias (synced without `--delete`, so hashed chunks from earlier releases stay available to cached entry files), then invalidates `/web-components/vX/*`. The alias is updated and invalidated only when the release is the highest `X.*.*` version present. It never writes the legacy `latest/` or `cdn-v*` prefixes.
+- Its IAM role is tightly scoped on the CDN bucket (list, read and write `web-components/v*` keys only) and explicitly denied the escalation paths the shared pipeline policy would otherwise grant (Secrets Manager, other SSM parameters, ECR, ECS, CodeCommit, CodeBuild, Terraform state, other pipelines' artifacts). The npm token, though, is readable by any code running in the build, because the role has to read it. That is inherent; the mitigations are `pnpm install --ignore-scripts` and a granular npm token.
 
 One-time setup for the repo owner:
 
 1. Apply `aws_cicd/pipelines/reusable-web-library/` in `terraform-infrastructure`, and make sure the GitHub connection's app installation includes this repository.
-2. Store the npm automation token as an SSM SecureString at `/web-components/npm-token`.
-3. Enable GitHub Pages for the repository with source "GitHub Actions" (Settings > Pages), so `.github/workflows/pages.yml` can deploy the playground.
+2. Store a granular npm token as an SSM SecureString at `/web-components/npm-token`: publish-only, scoped to `@uvalib/web-components`, and IP-allowlisted to the build's egress addresses if possible.
+3. Add a GitHub tag ruleset that restricts creating `v*` tags to maintainers, since pushing one releases.
+4. Enable GitHub Pages for the repository with source "GitHub Actions" (Settings > Pages), so `.github/workflows/pages.yml` can deploy the playground.
 
 ## Migration
 

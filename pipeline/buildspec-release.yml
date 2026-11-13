@@ -1,7 +1,8 @@
 version: 0.2
 
 # Tag v*: lint, test (builds), then publish to npm and the CDN. The npm token is read from
-# SSM only inside the publish step and is never echoed.
+# SSM only inside the publish step and is never echoed. Any code running in this build could
+# read it too (the role must allow it), hence --ignore-scripts and a granular publish-only token.
 # Runs from the terraform-infrastructure CodePipeline (aws_cicd/pipelines/reusable-web-library),
 # which starts on v* tag pushes and hands CodeBuild a full clone checked out at the tagged commit.
 phases:
@@ -9,9 +10,6 @@ phases:
     runtime-versions:
       nodejs: 22
     commands:
-      # The shared CodePipeline module injects these from Secrets Manager; this build never uses
-      # them and runs third-party npm code, so drop them before anything else runs.
-      - unset GITHUB_TOKEN GITLAB_TOKEN
       - npm i -g n@11.0.0 && n 24 && hash -r
       - test "$(node -p "process.versions.node.split(\".\")[0]")" = "24"
       - corepack enable
@@ -21,15 +19,19 @@ phases:
       - pnpm exec playwright install --with-deps chromium
   build:
     commands:
+      # The pipeline sets inject_repo_tokens = false; fail closed if repo tokens ever reappear.
+      - '[ -z "${GITHUB_TOKEN+x}${GITLAB_TOKEN+x}" ] || { echo "repo tokens present" >&2; exit 1; }'
       - pnpm lint && pnpm test
   post_build:
     commands:
+      # The pipeline sets inject_repo_tokens = false; fail closed if repo tokens ever reappear.
+      - '[ -z "${GITHUB_TOKEN+x}${GITLAB_TOKEN+x}" ] || { echo "repo tokens present" >&2; exit 1; }'
       - |
         set -eu
         if [ "$CODEBUILD_BUILD_SUCCEEDING" != "1" ]; then echo "Build failed; not publishing"; exit 0; fi
         # The repo is public: fetch main and the release tags anonymously rather than enabling the
         # git credential helper (which would expose the connection's token to the build).
-        REPO_URL="${REPO_URL:-https://github.com/uvalib/reusable-web-library.git}"
+        REPO_URL="https://github.com/uvalib/reusable-web-library.git"
         git fetch --unshallow >/dev/null 2>&1 || true
         git fetch --no-tags --force "$REPO_URL" \
           '+refs/heads/main:refs/remotes/origin/main' '+refs/tags/v*:refs/tags/v*'
