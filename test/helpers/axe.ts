@@ -26,15 +26,19 @@ function loadAxe(win: AxeWindow): Promise<typeof AxeCore> {
 /**
  * Run axe on `el` (walking open shadow roots) and throw if violations of the given impacts exist.
  * `exclude` lists selectors of subtrees to leave out, such as third-party widgets.
+ * `rules` restricts the run to those axe rule ids (this also enables rules that are off by default).
  */
 export async function expectNoAxeViolations(
   el: Element,
   impacts: string[] = ['serious', 'critical'],
-  { exclude }: { exclude?: string[][] } = {},
+  { exclude, rules }: { exclude?: string[][]; rules?: string[] } = {},
 ): Promise<void> {
   const axe = await loadAxe(el.ownerDocument.defaultView as AxeWindow);
   const context = exclude ? { include: [el], exclude } : el;
-  const results = await axe.run(context as AxeCore.ElementContext, { resultTypes: ['violations'] });
+  const results = await axe.run(context as AxeCore.ElementContext, {
+    resultTypes: ['violations'],
+    ...(rules && { runOnly: { type: 'rule', values: rules } }),
+  });
   const bad = results.violations.filter((v) => v.impact && impacts.includes(v.impact));
   if (bad.length) {
     throw new Error(

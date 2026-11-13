@@ -20,14 +20,10 @@ async function footerReady(el: SitePage): Promise<SiteFooter> {
 const typekitLinks = () => document.head.querySelectorAll(`link[href="${TYPEKIT_URL}"]`);
 const removeTypekitLinks = () => typekitLinks().forEach((l) => l.remove());
 
-/** Document sheets holding the unscoped global page styles (a bare `:root` rule inside @layer). */
+/** Document sheets holding the unscoped global page styles (a bare top-level `:root` rule). */
 const globalSheets = () =>
   document.adoptedStyleSheets.filter((s) =>
-    [...s.cssRules].some((l) =>
-      [...((l as CSSLayerBlockRule).cssRules ?? [])].some(
-        (r) => (r as CSSStyleRule).selectorText === ':root',
-      ),
-    ),
+    [...s.cssRules].some((r) => (r as CSSStyleRule).selectorText === ':root'),
   );
 
 for (const mode of ['shadow', 'light'] as const) {
@@ -85,10 +81,34 @@ for (const mode of ['shadow', 'light'] as const) {
       const order = [...root(el).children]
         .filter((c) => c.matches('a.skip-link, site-header, main, site-footer'))
         .map((c) => c.localName);
-      expect(order).to.deep.equal(['a', 'site-header', 'main', 'site-footer']);
+      // Shadow mode slots the skip link into <site-header>'s <header> landmark instead.
+      expect(order).to.deep.equal(
+        mode === 'light'
+          ? ['a', 'site-header', 'main', 'site-footer']
+          : ['site-header', 'main', 'site-footer'],
+      );
       const skip = root(el).querySelector('.skip-link')!;
       expect(skip.getAttribute('href')).to.equal('#main-content');
       expect(skip.textContent!.trim()).to.equal('Skip to main content');
+    });
+
+    it('keeps the skip link the first focusable element, inside the header landmark in shadow mode', async () => {
+      const el = await make('', '<p>content</p>');
+      const header = root(el).querySelector('site-header') as HTMLElement & {
+        updateComplete: Promise<unknown>;
+      };
+      await header.updateComplete;
+      const skip = root(el).querySelector('.skip-link') as HTMLAnchorElement;
+      if (mode === 'shadow') {
+        const slot = header.shadowRoot!.querySelector(
+          'header > slot[name="skip-link"]',
+        ) as HTMLSlotElement;
+        expect(slot.assignedElements()).to.deep.equal([skip]);
+        expect(header.shadowRoot!.querySelector('header')!.firstElementChild).to.equal(slot);
+      } else {
+        expect(el.firstElementChild).to.equal(skip);
+      }
+      expect(root(el).querySelectorAll('.skip-link').length).to.equal(1);
     });
 
     it('clicking the skip link focuses main', async () => {
@@ -205,6 +225,44 @@ describe('site-page global styles', () => {
       '<div><site-page no-global-styles></site-page><site-page no-shadow-dom no-global-styles></site-page></div>',
     );
     expect(typekitLinks().length).to.equal(0);
+  });
+});
+
+describe('site-page landmarks', () => {
+  for (const attrs of ['', 'no-shadow-dom']) {
+    it(`has no axe region violations on a full page (${attrs || 'shadow'})`, async () => {
+      const el = await fixture<SitePage>(`<site-page ${attrs}><h1>Title</h1><p>x</p></site-page>`);
+      await footerReady(el);
+      await expectNoAxeViolations(document.body, ['minor', 'moderate', 'serious', 'critical'], {
+        rules: ['region'],
+      });
+    });
+  }
+});
+
+describe('site-page global styles vs. an unlayered host reset', () => {
+  for (const attrs of ['', 'no-shadow-dom']) {
+    it(`still give html the library font family (${attrs || 'shadow'})`, async () => {
+      const reset = document.createElement('style');
+      reset.textContent =
+        'html { font-family: serif; } a { color: rgb(9, 9, 9); } h2 { font-weight: 400; }';
+      document.head.append(reset);
+      try {
+        await fixture<SitePage>(`<site-page ${attrs}></site-page>`);
+        expect(getComputedStyle(document.documentElement).fontFamily).to.contain(
+          'franklin-gothic-urw',
+        );
+      } finally {
+        reset.remove();
+      }
+    });
+  }
+
+  it('installs the global sheet unlayered', async () => {
+    await fixture('<site-page></site-page>');
+    expect(globalSheets().length).to.equal(1);
+    const text = globalSheets()[0].cssRules[0].cssText;
+    expect(text).to.not.match(/^@layer/);
   });
 });
 

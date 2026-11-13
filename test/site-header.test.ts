@@ -166,6 +166,29 @@ for (const mode of ['shadow', 'light'] as const) {
   });
 }
 
+describe('site-header component styles stay layered (light)', () => {
+  it('an unlayered host rule of lower specificity beats a component rule', async () => {
+    const host = document.createElement('style');
+    host.textContent = 'header { background-color: rgb(1, 2, 3); }';
+    document.head.append(host);
+    try {
+      const el = await fixture<SiteHeader>('<site-header no-shadow-dom></site-header>');
+      expect(getComputedStyle(el.querySelector('header')!).backgroundColor).to.equal(
+        'rgb(1, 2, 3)',
+      );
+    } finally {
+      host.remove();
+    }
+  });
+
+  it('installs the component sheet inside @layer uvalib', async () => {
+    await fixture<SiteHeader>('<site-header no-shadow-dom></site-header>');
+    const texts = document.adoptedStyleSheets.map((s) => s.cssRules[0]?.cssText ?? '');
+    const mine = texts.find((t) => t.includes('site-header header'));
+    expect(mine).to.match(/^@layer uvalib/);
+  });
+});
+
 describe('site-header ids', () => {
   it('gives light-DOM instances distinct popover ids', async () => {
     const wrap = await fixture(

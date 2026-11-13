@@ -105,7 +105,7 @@ Each component's `<name>.ts` file only calls `customElements.define()`, guarded 
 | Attribute | Behaviour |
 |---|---|
 | (none) | Renders into an open shadow root. Styles are applied through `adoptedStyleSheets` from shared `CSSStyleSheet` objects, so there is one parse per class. |
-| `no-shadow-dom` | `createRenderRoot()` returns `this`, so the element renders into light DOM. On first connect, the class's styles (with `:host` rewritten to the tag name) are installed **once per document per tag** as a constructed sheet appended to `document.adoptedStyleSheets`. No per-instance `<style>` element. |
+| `no-shadow-dom` | `createRenderRoot()` returns `this`, so the element renders into light DOM. On first connect, the class's styles (with `:host` rewritten to the tag name) are installed **once per document per tag** as a constructed sheet appended to `document.adoptedStyleSheets`. No per-instance `<style>` element. *(Amended 2026-11-12: component sheets are wrapped in `@layer uvalib`; the page-level base sheets installed by `site-page` and `site-style` are unlayered. See §4.3.)* |
 | `no-shadow-dom no-style` | Light DOM with no component styles installed. The host page's CSS styles everything, which is how library.virginia.edu uses it. |
 | `no-style` (shadow) | Shadow DOM with no component styles: the shadow root adopts none. *(Corrected 2026-11-12 to match the implementation.)* |
 
@@ -129,6 +129,7 @@ Rules for every component:
 - `tokens.css` and `base.css` are published as npm exports and CDN files, so plain HTML pages can link them without any component.
 - **`site-page` global styles become explicit:**
   - By default `site-page` still installs `base.css` (html/body rules, Typekit font link), so BOV looks the same.
+    > **Note, 2026-11-12:** "looks the same" held only in part. The first implementation wrapped these page-level styles in `@layer uvalib`, so a host's unlayered reset (BOV's Tailwind preflight) beat the UVA base typography, unlike the old library, which injected them unlayered. Decision: page-level base styles (`site-page`'s global install, `site-style`'s light-mode install) are now unlayered (`installLightDomStyles(..., { scope: false, layer: false })`) and win ties against equal-specificity host resets, as before. Component styles (`scope: true`) stay in `@layer uvalib`, so unlayered host CSS still overrides components. A deliberate difference remains: in shadow mode the skip link is slotted into the header landmark rather than rendered before it.
   - `site-page no-global-styles` turns this off.
   - The `* { font-family … !important }` rule is replaced by setting the font on `html` and `body`. That way the font inherits instead of overriding everything with `!important`.
 

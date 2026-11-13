@@ -71,6 +71,12 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
+### Slots
+
+| Slot | Description |
+|---|---|
+| `skip-link` | Shadow mode only: optional skip link, rendered first inside `<header>` (`<site-page>` uses it). |
+
 ### CSS parts
 
 | Part | Description |
@@ -88,7 +94,7 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 
 ## `<site-page>`
 
-Page wrapper: skip link, header, a single `<main>`, footer, and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`.
+Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer, and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`.
 
 ### Attributes
 

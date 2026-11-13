@@ -24,6 +24,7 @@ let menuCounter = 0;
  * UVA Library site header: logo, utility navigation, and a popover menu on narrow screens.
  *
  * @tagname site-header
+ * @slot skip-link - Shadow mode only: optional skip link, rendered first inside `<header>` (`<site-page>` uses it).
  * @csspart header - The `<header>` element.
  * @cssprop [--uva-blue-alt-dark=#005679] - Utility link colour.
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Menu button colour.
@@ -148,6 +149,7 @@ export class SiteHeader extends UvalibElement {
     const anchor = `--${id}`;
     return html`
       <header part="header" class=${vendor ? 'vendor' : ''}>
+        ${this.lightDom ? nothing : html`<slot name="skip-link"></slot>`}
         <a class="logo" href=${siteLink(root, '/')}
           ><img
             src=${siteLink(root, '/sites/default/files/2022-09/library_rgb.png')}

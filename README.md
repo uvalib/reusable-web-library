@@ -64,16 +64,18 @@ Caveat: replacing a light-mode `<site-page>`'s children wholesale (`innerHTML` o
 
 ## Rendering modes
 
-| Attributes               | Rendering                                                                                                                                                   |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| (none)                   | Shadow DOM, styled by the library. The default.                                                                                                             |
-| `no-shadow-dom`          | Light DOM. Component styles are installed in `@layer uvalib` and scoped to the tag, so unlayered host CSS wins. Content added later is moved into `<main>`. |
-| `no-shadow-dom no-style` | Light DOM with no component styles. The host page styles everything, as library.virginia.edu does.                                                          |
-| `no-style` (shadow)      | Shadow DOM; the shadow root adopts no component styles.                                                                                                     |
+| Attributes               | Rendering                                                                                                                                                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| (none)                   | Shadow DOM, styled by the library. The default.                                                                                                                                                               |
+| `no-shadow-dom`          | Light DOM. Component styles are installed in `@layer uvalib` and scoped to the tag, so unlayered host CSS wins. Page-level base styles are unlayered (see below). Content added later is moved into `<main>`. |
+| `no-shadow-dom no-style` | Light DOM with no component styles. The host page styles everything, as library.virginia.edu does.                                                                                                            |
+| `no-style` (shadow)      | Shadow DOM; the shadow root adopts no component styles.                                                                                                                                                       |
 
 `no-style` does not stop `<site-page>` from installing the global tokens, base and accessibility styles or the Typekit link. When the host owns base typography, also set `no-global-styles`.
 
-Light-mode styles live in `@layer uvalib`. Unlayered host CSS always wins. Cascade layers declared earlier have lower priority, and `uvalib` is created when its first rule is parsed, so a host's own named layers that were declared before it (for example Tailwind v4's) are ordered before `uvalib` and lose to it. To let host layers win, put the host CSS unlayered, or declare `@layer uvalib` first in the host stylesheet (`@layer uvalib, base, utilities;`).
+Light-mode component styles live in `@layer uvalib`, scoped to their tag. Unlayered host CSS always wins over them. Cascade layers declared earlier have lower priority, and `uvalib` is created when its first rule is parsed, so a host's own named layers that were declared before it (for example Tailwind v4's) are ordered before `uvalib` and lose to it. To let host layers win, put the host CSS unlayered, or declare `@layer uvalib` first in the host stylesheet (`@layer uvalib, base, utilities;`).
+
+The page-level base styles are the exception: the tokens, base typography and accessibility rules that `<site-page>` installs (unless `no-global-styles`) and that `<site-style no-shadow-dom>` installs are **unlayered**. They are adopted after the document's own stylesheets, so they win ties against a host reset of equal specificity, such as Tailwind's preflight setting `html { font-family }`, and the library typography applies. A host can still override them with a more specific selector or `!important`, or opt out with `no-global-styles`.
 
 The mode is read once, at first connect; do not toggle it afterwards.
 
@@ -159,6 +161,12 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
+#### Slots
+
+| Slot | Description |
+|---|---|
+| `skip-link` | Shadow mode only: optional skip link, rendered first inside `<header>` (`<site-page>` uses it). |
+
 #### CSS parts
 
 | Part | Description |
@@ -176,7 +184,7 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 
 ### `<site-page>`
 
-Page wrapper: skip link, header, a single `<main>`, footer, and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`.
+Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer, and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`.
 
 #### Attributes
 

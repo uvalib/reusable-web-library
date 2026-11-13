@@ -30,13 +30,14 @@ export class SiteStyle extends UvalibElement {
   @property({ type: String }) importedStyles = '';
 
   /**
-   * Page-level styles: unscoped, under their own dedupe key, always on the owner
+   * Page-level styles: unscoped and unlayered (so they beat host resets of equal specificity), under their own dedupe key, always on the owner
    * document (not the root node) because `:root` tokens inherit into shadow roots.
    */
   protected override installLightStyles(): void {
     installLightDomStyles('uvalib-site-style', SiteStyle.styles, {
       root: this.ownerDocument,
       scope: false,
+      layer: false,
     });
   }
 

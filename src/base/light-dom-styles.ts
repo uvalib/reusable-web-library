@@ -99,15 +99,17 @@ function sheetConstructor(root: Root): typeof CSSStyleSheet {
 }
 
 /**
- * Install `styles` once per tag per root as an adopted constructed sheet inside
- * `@layer uvalib` (so unlayered page CSS always wins). With `scope` (default) every
- * selector is confined to `tag` and `:host` is rewritten to it. Returns true only on
- * first successful install.
+ * Install `styles` once per tag per root as an adopted constructed sheet. With `layer`
+ * (default) the sheet is wrapped in `@layer uvalib`, so unlayered page CSS always wins;
+ * with `layer: false` it is unlayered and, adopted after the document's own stylesheets,
+ * wins ties against host rules of equal specificity (used for page-level base styles).
+ * With `scope` (default) every selector is confined to `tag` and `:host` is rewritten to
+ * it. Returns true only on first successful install.
  */
 export function installLightDomStyles(
   tag: string,
   styles: CSSResultGroup,
-  opts: { root?: Root; scope?: boolean } = {},
+  opts: { root?: Root; scope?: boolean; layer?: boolean } = {},
 ): boolean {
   const root = opts.root ?? document;
   const tags = installed.get(root) ?? new Set<string>();
@@ -123,7 +125,7 @@ export function installLightDomStyles(
     body = scopeRules(tmp.cssRules, tag);
   }
   const sheet = new Ctor();
-  sheet.replaceSync(`@layer uvalib{${body}}`);
+  sheet.replaceSync((opts.layer ?? true) ? `@layer uvalib{${body}}` : body);
   root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
   tags.add(tag);
   installed.set(root, tags);

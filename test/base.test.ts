@@ -111,7 +111,7 @@ describe('installLightDomStyles', () => {
     expect(text).to.match(/@media \(min-width: 1px\)\s*\{\s*x-scope \.a b/);
   });
 
-  it('scope:false leaves selectors alone but still layers', () => {
+  it('scope:false leaves selectors alone but still layers by default', () => {
     installLightDomStyles(
       'x-global',
       css`
@@ -125,6 +125,21 @@ describe('installLightDomStyles', () => {
     expect(text).to.match(/^@layer uvalib/);
     expect(text).to.contain('p {');
     expect(text).to.not.contain('x-global');
+  });
+
+  it('layer:false installs the sheet unlayered', () => {
+    installLightDomStyles(
+      'x-unlayered',
+      css`
+        p {
+          a: b;
+        }
+      `,
+      { scope: false, layer: false },
+    );
+    const text = layerText(document.adoptedStyleSheets[prior.length]);
+    expect(text).to.not.match(/^@layer/);
+    expect(text).to.contain('p {');
   });
 
   it('adopts into a same-origin iframe document, exactly once', async () => {

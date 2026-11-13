@@ -1,4 +1,5 @@
-import { html, css, type PropertyValues } from 'lit';
+import { html, css, nothing, type PropertyValues } from 'lit';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import { property } from 'lit/decorators.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
@@ -10,7 +11,7 @@ const isPreFooter = (n: Node): boolean =>
   n instanceof Element && n.getAttribute('slot') === 'pre-footer';
 
 /**
- * Page wrapper: skip link, header, a single `<main>`, footer, and global page styles.
+ * Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer, and global page styles.
  * Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`.
  *
  * @tagname site-page
@@ -87,6 +88,7 @@ export class SitePage extends UvalibElement {
     installLightDomStyles('uvalib-global', [tokens, base, accessible], {
       root: doc,
       scope: false,
+      layer: false,
     });
     if (!doc.head.querySelector(`link[href="${TYPEKIT_URL}"]`)) {
       const link = doc.createElement('link');
@@ -136,15 +138,27 @@ export class SitePage extends UvalibElement {
   protected override render() {
     const light = this.lightDom;
     // Light mode keeps <main> and <site-footer> free of Lit parts so moved content is never cleared.
+    const skip = html`<a
+      class="skip-link"
+      href="#main-content"
+      slot=${ifDefined(light ? undefined : 'skip-link')}
+      @click=${this.onSkip}
+      >Skip to main content</a
+    >`;
+    // Shadow mode: the link is slotted into <site-header>'s <header> landmark, because axe
+    // looks the #main-content target up on the document and cannot see it in this shadow root,
+    // so it would flag a skip link that sits outside every landmark ("region").
+    // Light mode: the link stays the first child, where the target resolves.
     return html`
-      <a class="skip-link" href="#main-content" @click=${this.onSkip}>Skip to main content</a>
+      ${light ? skip : nothing}
       <site-header
         exportparts="header"
         ?no-shadow-dom=${light}
         ?no-style=${this.noStyle}
         variant=${this.headerVariant}
         root-link-domain=${this.rootLinkDomain}
-      ></site-header>
+        >${light ? nothing : skip}</site-header
+      >
       ${
         light
           ? html`<main id="main-content" tabindex="-1" part="main"></main>`

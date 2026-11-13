@@ -39,13 +39,37 @@ describe('site-style (light)', () => {
     first.after(second);
     await second.updateComplete;
     expect(document.adoptedStyleSheets.length).to.equal(before);
-    const rules = document.adoptedStyleSheets.flatMap((s) =>
-      [...s.cssRules].flatMap((l) => [...((l as CSSLayerBlockRule).cssRules ?? [])]),
-    );
+    const rules = document.adoptedStyleSheets.flatMap((s) => [...s.cssRules]);
     expect(rules.filter((r) => (r as CSSStyleRule).selectorText === ':root').length).to.equal(1);
     expect(rules.some((r) => (r as CSSStyleRule).selectorText?.startsWith('site-style'))).to.equal(
       false,
     );
     second.remove();
+  });
+});
+
+describe('site-style (light) vs. an unlayered host reset', () => {
+  it('still gives html the library font family', async () => {
+    const reset = document.createElement('style');
+    reset.textContent =
+      'html { font-family: serif; } a { color: rgb(9, 9, 9); } h2 { font-weight: 400; }';
+    document.head.append(reset);
+    try {
+      await fixture<SiteStyle>('<site-style no-shadow-dom></site-style>');
+      expect(getComputedStyle(document.documentElement).fontFamily).to.contain(
+        'franklin-gothic-urw',
+      );
+    } finally {
+      reset.remove();
+    }
+  });
+
+  it('installs its document sheet unlayered', async () => {
+    const before = document.adoptedStyleSheets.length;
+    await fixture<SiteStyle>('<site-style no-shadow-dom></site-style>');
+    const sheets = document.adoptedStyleSheets.slice(before - 1);
+    const text = sheets.flatMap((s) => [...s.cssRules].map((r) => r.cssText)).join('\n');
+    expect(text).to.contain('--uva-brand-blue');
+    expect(text).to.not.contain('@layer');
   });
 });
