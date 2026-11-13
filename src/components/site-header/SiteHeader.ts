@@ -53,9 +53,8 @@ const LINK_ATTRS = ['href', 'aria-current', 'target', 'rel', 'hreflang'];
  * @slot site-links - Optional `<a href>` elements that replace the library utility links in the inline nav and the Menu popover (ignored by the `vendor` variant). In light mode they are moved into a hidden holder.
  * @csspart header - The `<header>` element.
  * @cssprop [--uva-blue-alt-dark=#005679] - Utility link colour.
- * @cssprop [--uva-brand-orange=#e57200] - Underline colour of the current-page link (`aria-current`), which is also bold with a thick underline.
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Menu button colour.
- * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour (focus-visible outline).
+ * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour (focus-visible outline), and the underline colour of an `aria-current` link (also bold, with a 3px underline).
  * @cssprop [--uva-brand-blue=#232d4b] - Skip-link background for a skip link slotted into `skip-link` (shadow mode, shared accessibility sheet).
  */
 export class SiteHeader extends UvalibElement {
@@ -168,7 +167,7 @@ export class SiteHeader extends UvalibElement {
   @property({ type: String, attribute: 'root-link-domain' }) rootLinkDomain =
     'https://www.library.virginia.edu';
   @property({ type: String, reflect: true }) variant: 'full' | 'vendor' = 'full';
-  /** Accessible name of the navigation when site links replace the utility links. */
+  /** Accessible name of the nav when site links replace the utility links (default "Site"; the popover nav's name adds " menu"). */
   @property({ type: String, attribute: 'site-links-label' }) siteLinksLabel?: string;
 
   /** The site's own links, or null to show the library utility links. */

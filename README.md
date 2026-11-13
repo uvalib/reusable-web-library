@@ -62,6 +62,21 @@ Use one `<site-page>` per page. It renders the skip link, the header, a single `
 
 Caveat: replacing a light-mode `<site-page>`'s children wholesale (`innerHTML` or `textContent`) destroys the chrome. Append content, or update a container inside it.
 
+### Site navigation
+
+A site with its own navigation puts it in the header instead of the library utility links (My account, Ask a Librarian, Hours, Give, Alerts, Search). Give `<site-page>` (or a standalone `<site-header>`) `<a slot="site-links">` children:
+
+```html
+<site-page site-links-label="Playground">
+  <a slot="site-links" href="./">Gallery</a>
+  <a slot="site-links" href="./playground.html" aria-current="page">Playground</a>
+  <a slot="site-links" href="https://github.com/uvalib/reusable-web-library#readme">README</a>
+  …page content…
+</site-page>
+```
+
+The links replace the utility links in both the inline nav on wide screens and the Menu popover on narrow ones, in order. Their `href` is used as written (not joined to `root-link-domain`), and `aria-current`, `target`, `rel` and `hreflang` are kept; mark the current page with `aria-current="page"`, which is shown bold with a thick underline. `site-links-label` names the nav (default `Site`; the popover's nav is "… menu"). Adding, removing or editing the links later updates the header. Children that are not `<a href>` are ignored with a console warning. Without site links the header is unchanged. The `vendor` header variant ignores site links and keeps its reduced link set.
+
 ## Rendering modes
 
 | Attributes               | Rendering                                                                                                                                                   |
@@ -183,7 +198,7 @@ UVA Library site footer: link columns, contact details and copyright.
 
 ### `<site-header>`
 
-UVA Library site header: logo, utility navigation, and a popover menu on narrow screens.
+UVA Library site header: logo, utility navigation, and a popover menu on narrow screens. A site can replace the library utility links (My account, Ask a Librarian, Hours, Give, Alerts, Search) with its own: give the header `<a slot="site-links" href="…">` children. They are shown, in order, in the inline nav and the Menu popover, with `href` as written (not joined to `root-link-domain`) and their `aria-current`, `target`, `rel` and `hreflang`. The source anchors themselves stay hidden. Children that are not `<a href>` are ignored with one console warning. The `vendor` variant ignores site links and keeps its own reduced link set.
 
 #### Attributes
 
@@ -191,6 +206,7 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 |---|---|---|---|
 | `root-link-domain` | `string` | `'https://www.library.virginia.edu'` |  |
 | `variant` | `'full' \| 'vendor'` | `'full'` |  |
+| `site-links-label` | `string \| undefined` |  | Accessible name of the nav when site links replace the utility links (default "Site"; the popover nav's name adds " menu"). |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -199,6 +215,7 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 | Slot | Description |
 |---|---|
 | `skip-link` | Shadow mode only: optional skip link, rendered first inside `<header>` (`<site-page>` uses it). |
+| `site-links` | Optional `<a href>` elements that replace the library utility links in the inline nav and the Menu popover (ignored by the `vendor` variant). In light mode they are moved into a hidden holder. |
 
 #### CSS parts
 
@@ -212,7 +229,7 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 |---|---|---|
 | `--uva-blue-alt-dark` | `#005679` | Utility link colour. |
 | `--uva-grey-darkest` | `#2b2b2b` | Menu button colour. |
-| `--uva-brand-orange` | `#e57200` | Focus ring colour (focus-visible outline). |
+| `--uva-brand-orange` | `#e57200` | Focus ring colour (focus-visible outline), and the underline colour of an `aria-current` link (also bold, with a 3px underline). |
 | `--uva-brand-blue` | `#232d4b` | Skip-link background for a skip link slotted into `skip-link` (shadow mode, shared accessibility sheet). |
 
 ### `<site-page>`
@@ -226,6 +243,7 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 | `root-link-domain` | `string` | `'https://www.library.virginia.edu'` |  |
 | `header-variant` | `'full' \| 'vendor'` | `'full'` |  |
 | `no-global-styles` | `boolean` | `false` |  |
+| `site-links-label` | `string \| undefined` |  | Accessible name of the header navigation when site links are given (default "Site"). |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -235,6 +253,7 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 |---|---|
 | (default) | Main page content, rendered inside the single `<main>`. |
 | `pre-footer` | Optional content shown in a band above the footer. |
+| `site-links` | Optional `<a href>` elements, forwarded to `<site-header>`, that replace the library utility links in the header (inline nav and Menu popover). Ignored with `header-variant="vendor"`. |
 
 #### CSS parts
 

@@ -37,6 +37,7 @@ Loading rules:
 - `<site-page>` renders the one skip link, the header, one `<main id="main-content">` and the footer. Never add your own `<main>`, skip link, `<header>`/`<footer>` site chrome, or `role="main"`. If the page already has them, remove them and keep only the content that was inside `<main>`.
 - Sidebars, breadcrumbs and article content all go inside `<site-page>` as ordinary elements (use `<nav aria-label="...">` for navigation, no ARIA menu roles).
 - Content for a band above the footer: put an element with `slot="pre-footer"` inside `<site-page>`.
+- A site's own navigation (its home, sections, docs) goes in the header: give `<site-page>` `<a slot="site-links" href="…">` children and a `site-links-label` (see section 5). They replace the library utility links in the header and its Menu popover. Do not add a separate nav row or bar at the top of the content for it. Mark the current page with `aria-current="page"`. The `vendor` variant ignores site links: it is for third-party sites that only need the library logo and Ask a Librarian.
 - Third-party or vendor sites that are not library.virginia.edu: `<site-page header-variant="vendor">` (logo plus Ask a Librarian only). Links default to `root-link-domain="https://www.library.virginia.edu"`; set it only for a non-production domain.
 - Do not replace a light-mode page's children wholesale (`innerHTML` or `textContent` on `<site-page>`): that destroys the chrome. Append, or update a child container inside it.
 
@@ -77,6 +78,32 @@ Plain HTML (CDN, version `v1`):
     <site-page>
       <h1>Example page</h1>
       <p>Page content goes here. Do not add a second main element.</p>
+    </site-page>
+  </body>
+</html>
+```
+
+A site with its own navigation (links replace the library utility links in the header):
+
+```html snippet
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Current exhibits</title>
+    <script
+      type="module"
+      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
+    ></script>
+  </head>
+  <body>
+    <site-page site-links-label="Exhibits">
+      <a slot="site-links" href="/exhibits/">Home</a>
+      <a slot="site-links" href="/exhibits/current/" aria-current="page">Current exhibits</a>
+      <a slot="site-links" href="/exhibits/past/">Past exhibits</a>
+      <h1>Current exhibits</h1>
+      <p>Page content goes here.</p>
     </site-page>
   </body>
 </html>
