@@ -1,8 +1,9 @@
 version: 0.2
 
-# Tag v*: lint, test (builds), then publish to npm and the CDN. The npm token is read from
-# SSM only inside the publish step and is never echoed. Any code running in this build could
-# read it too (the role must allow it), hence --ignore-scripts and a granular publish-only token.
+# Tag v*: lint, test (builds), then publish the CDN files. npm is published separately by
+# .github/workflows/release-npm.yml (GitHub Actions trusted publishing) on the same tag, so this
+# build holds no npm credential and its role needs no SSM access. Dependency install scripts are
+# still skipped (--ignore-scripts) because the role can write to the CDN bucket.
 # Runs from the terraform-infrastructure CodePipeline (aws_cicd/pipelines/reusable-web-library),
 # which starts on v* tag pushes and hands CodeBuild a full clone checked out at the tagged commit.
 phases:
@@ -15,7 +16,7 @@ phases:
       - npm i -g n@11.0.0 && n 24 && hash -r
       - test "$(node -p "process.versions.node.split(\".\")[0]")" = "24"
       - corepack enable
-      # Dependency install scripts are not run in the release build (it holds publish credentials).
+      # Dependency install scripts are not run in the release build (it holds CDN publish credentials).
       # Nothing here needs them: playwright's browser is installed explicitly below.
       - pnpm install --frozen-lockfile --ignore-scripts
       - pnpm exec playwright install --with-deps chromium
@@ -69,15 +70,5 @@ phases:
         if [ "$TAG" != "v$PKG_VERSION" ]; then
           echo "Tag $TAG does not match package.json version v$PKG_VERSION" >&2
           exit 1
-        fi
-        if [ "$(npm view "@uvalib/web-components@$VERSION" version 2>/dev/null || true)" = "$VERSION" ]; then
-          echo "@uvalib/web-components@$VERSION is already on npm; skipping publish"
-        else
-          NPM_TOKEN="$(aws ssm get-parameter --name /web-components/npm-token --with-decryption --query Parameter.Value --output text)"
-          export NPM_TOKEN
-          printf '%s\n' '//registry.npmjs.org/:_authToken=${NPM_TOKEN}' > .npmrc
-          npm publish --access public
-          rm -f .npmrc
-          unset NPM_TOKEN
         fi
         bash pipeline/publish-cdn.sh "$VERSION"
