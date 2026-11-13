@@ -390,7 +390,7 @@ Pull requests to `main` run `.github/workflows/ci.yml` in GitHub Actions (instal
 
 One `v*` tag starts two independent releases. Each can be re-run on its own, and no npm token is stored anywhere:
 
-- **npm:** `.github/workflows/release-npm.yml` (GitHub Actions) publishes `@uvalib/web-components` with npm Trusted Publishing (OIDC). It runs in the `npm` GitHub environment with `id-token: write` and no secrets. It checks that the tag is `vX.Y.Z`, that its commit is the checked-out commit and is on `main`, and that it matches `package.json`; then installs with `--ignore-scripts`, runs lint and tests, and runs `npm publish --access public` (provenance is automatic for a public repo). A version already on npm is skipped. Re-run it from Actions, or with `workflow_dispatch` and the tag.
+- **npm:** `.github/workflows/release-npm.yml` (GitHub Actions) publishes `@uvalib/web-components` with npm Trusted Publishing (OIDC), with no secrets. It has two jobs. `verify` has a read-only token and no publish identity: it checks that the tag is `vX.Y.Z`, that its commit is the checked-out commit and is on `main`, and that it matches `package.json`, then installs with `--ignore-scripts` and runs lint and tests. `publish` waits for `verify`, runs in the `npm` GitHub environment with `id-token: write`, repeats the tag checks, installs a pinned npm, installs with `--ignore-scripts`, builds, and runs `npm publish --access public` (provenance is automatic for a public repo). A version already on npm is skipped. To re-run it, use "Re-run jobs" on the tag's workflow run; after GitHub's 30-day retention, push a new patch tag instead. There is no manual trigger.
 - **CDN:** an AWS CodePipeline defined in the UVA Library's `terraform-infrastructure` repo (`aws_cicd/pipelines/reusable-web-library/`) runs `pipeline/buildspec-release.yml`:
   - It takes the release tag from the checked-out commit (exactly one `vX.Y.Z` tag), and refuses to publish unless that commit is on `main` and the tag matches `package.json`.
   - After lint and tests it uploads to the CDN: `vX.Y.Z/` (immutable, create-only) and the `vX/` major alias (synced without `--delete`, so hashed chunks from earlier releases stay available to cached entry files), then invalidates `/web-components/vX/*`. The alias is updated and invalidated only when the release is the highest `X.*.*` version present. It never writes the legacy `latest/` or `cdn-v*` prefixes.
@@ -399,8 +399,13 @@ One `v*` tag starts two independent releases. Each can be re-run on its own, and
 One-time setup for the repo owner:
 
 1. Apply `aws_cicd/pipelines/reusable-web-library/` in `terraform-infrastructure`, and make sure the GitHub connection's app installation includes this repository.
-2. Add a GitHub tag ruleset that restricts creating `v*` tags to maintainers, since pushing one releases.
-3. Create a GitHub environment named `npm` (Settings > Environments). Optionally add required reviewers, and restrict deployments to `v*` tags, so each npm publish needs approval.
+2. Add a GitHub tag ruleset that restricts creating, updating and deleting `v*` tags to maintainers, since pushing one releases.
+3. Create the GitHub environment `npm` (Settings > Environments) and configure it as required, not optional:
+   - Deployment branches and tags: "Selected", with a single **tag** rule `v*` and no branch rules.
+   - Required reviewers, with "Prevent self-review" on and administrator bypass disabled.
+
+   Why: npm's trusted publisher checks the repository, workflow filename and environment, but not the ref. The workflow that runs is the tag's own copy, so a write-access user could otherwise push a branch with a modified `release-npm.yml` and publish from it. The environment's tag rule, the reviewers and the tag ruleset are the real controls. The ancestry check inside the workflow catches mistakes, not a malicious maintainer.
+
 4. Enable GitHub Pages for the repository with source "GitHub Actions" (Settings > Pages), so `.github/workflows/pages.yml` can deploy the playground.
 5. Bootstrap npm for 1.0.0 (below).
 
@@ -408,8 +413,8 @@ One-time setup for the repo owner:
 
 A trusted publisher can only be added from an existing package's settings page, so 1.0.0 needs one manual publish:
 
-1. `pnpm release major` pushes `v1.0.0`. The CDN release runs. The npm workflow fails, because no trusted publisher exists yet.
-2. A maintainer publishes 1.0.0 from a clean checkout of the tag, with 2FA and no token: `pnpm install --frozen-lockfile && pnpm build && npm publish --access public`.
+1. `pnpm release major` pushes `v1.0.0`. The CDN release runs. The npm workflow's `publish` job waits for environment approval: **reject** it, because no trusted publisher exists yet and 1.0.0 is published by hand.
+2. A maintainer publishes 1.0.0 from a clean checkout of the tag, in an interactive `npm login` session with 2FA and no token: `pnpm install --frozen-lockfile --ignore-scripts && pnpm lint && pnpm test && npm publish --access public`. (`pnpm test` builds, which `npm publish` needs.)
 3. On npmjs.com, open the package's Settings > Trusted publishing and add a GitHub Actions publisher: organization `uvalib`, repository `reusable-web-library`, workflow `release-npm.yml`, environment `npm`, and allow direct `npm publish`.
 4. Set publishing access to "Require two-factor authentication and disallow tokens".
 
