@@ -155,7 +155,43 @@ export class UvalibFilter extends UvalibElement {
 
   private facetName?: string;
 
+  /** The focused control inside this component (checkbox, scope chip or see more/less button). */
+  private get focused(): HTMLElement | null {
+    const active =
+      this.renderRoot instanceof ShadowRoot
+        ? this.renderRoot.activeElement
+        : this.contains(document.activeElement)
+          ? document.activeElement
+          : null;
+    return active instanceof HTMLElement ? active : null;
+  }
+
+  /** Identifies the focused control by something that survives re-rendering: `kind:key`. */
+  private focusKey?: string;
+
+  private findByFocusKey(key: string): HTMLElement | undefined {
+    const [kind, ...rest] = key.split(':');
+    const value = rest.join(':');
+    const root = this.renderRoot as ParentNode;
+    if (kind === 'part')
+      return root.querySelector<HTMLElement>(`button[part="${value}"]`) ?? undefined;
+    const selector = kind === 'box' ? 'input[type=checkbox]' : 'button.scope';
+    return [...root.querySelectorAll<HTMLInputElement | HTMLButtonElement>(selector)].find(
+      (n) => n.value === value,
+    );
+  }
+
+  private keyOf(el: HTMLElement): string | undefined {
+    if (el instanceof HTMLInputElement && el.type === 'checkbox') return `box:${el.value}`;
+    if (el.classList.contains('scope')) return `scope:${(el as HTMLButtonElement).value}`;
+    const part = el.getAttribute('part');
+    return part ? `part:${part}` : undefined;
+  }
+
   protected override willUpdate(changed: PropertyValues<this>) {
+    // Moving a focused node (a reordered bucket) drops focus to <body>; remember it to restore.
+    const focused = this.hasUpdated ? this.focused : null;
+    this.focusKey = focused ? this.keyOf(focused) : undefined;
     if (!changed.has('limit') && !changed.has('filter')) return;
     const total = this.buckets.length;
     const name = this.filter?.name;
@@ -169,6 +205,13 @@ export class UvalibFilter extends UvalibElement {
       this.currentLimit = Math.max(this.limit, Math.min(this.currentLimit, total));
     }
     this.facetName = name;
+  }
+
+  protected override updated() {
+    const key = this.focusKey;
+    this.focusKey = undefined;
+    if (!key || this.focused) return; // focus is still inside, or was never ours
+    this.findByFocusKey(key)?.focus({ preventScroll: true });
   }
 
   private showMore() {

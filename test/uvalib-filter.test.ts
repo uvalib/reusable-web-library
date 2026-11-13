@@ -177,6 +177,63 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       }
     });
 
+    describe('focus follows a bucket that moves', () => {
+      const letters = 'ABCDEFGHIJ'.split('');
+      const lettered = (order: string[]) => ({
+        name: 'participants',
+        title: 'Participants',
+        position: 0,
+        buckets: order.map((key, i) => ({ key, doc_count: i + 1, selected: false })),
+      });
+      const active = (el: Element) =>
+        mode === 'shadow' ? el.shadowRoot!.activeElement : document.activeElement;
+      const box = (el: Element, key: string) => boxes(el).find((b) => b.value === key);
+
+      it('keeps focus on a checkbox that moves to the top', async () => {
+        const el = await make({ filter: lettered(letters) });
+        const f = box(el, 'F')!;
+        f.focus();
+        f.click();
+        el.filter = lettered(['F', ...letters.filter((l) => l !== 'F')]);
+        await el.updateComplete;
+        expect(boxes(el)[0]!.value).to.equal('F');
+        expect(active(el) === box(el, 'F'), 'F focused').to.equal(true);
+        expect(box(el, 'F')!.checked).to.equal(true);
+      });
+
+      it('does not steal focus when the bucket is gone or focus was elsewhere', async () => {
+        const el = await make({ filter: lettered(letters) });
+        const f = box(el, 'F')!;
+        f.focus();
+        el.filter = lettered(letters.filter((l) => l !== 'F'));
+        await el.updateComplete;
+        expect(box(el, 'F') === undefined).to.equal(true);
+        expect(boxes(el).includes(active(el) as HTMLInputElement)).to.equal(false);
+        const other = await fixture<HTMLButtonElement>('<button>elsewhere</button>');
+        other.focus();
+        el.filter = lettered(['F', ...letters.filter((l) => l !== 'F')]);
+        await el.updateComplete;
+        expect(document.activeElement === other, 'focus stayed').to.equal(true);
+      });
+
+      it('keeps focus on a scope chip and on see more across re-renders', async () => {
+        const el = await make({ filter: lettered(letters), scopes }, 'limit="3"');
+        const chip = root(el).querySelectorAll<HTMLButtonElement>('button.scope')[1]!;
+        chip.focus();
+        el.scopes = scopes.map((s) => ({ ...s })); // new objects: Lit re-renders the chips
+        el.filter = lettered(letters);
+        await el.updateComplete;
+        expect(
+          active(el) === root(el).querySelectorAll('button.scope')[1],
+          'chip focused',
+        ).to.equal(true);
+        button(el, 'see-more')!.focus();
+        el.filter = lettered(letters);
+        await el.updateComplete;
+        expect(active(el) === button(el, 'see-more'), 'see more focused').to.equal(true);
+      });
+    });
+
     it('without a limit shows everything and no see more/less', async () => {
       const el = await make({ filter: filter(12) });
       expect(boxes(el).length).to.equal(12);

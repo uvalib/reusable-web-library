@@ -1,4 +1,5 @@
 import { expect, fixture } from '@open-wc/testing';
+import { sendMouse } from '@web/test-runner-commands';
 import '../src/components/uvalib-date-range/uvalib-date-range.js';
 import type { UvalibDateRange } from '../src/components/uvalib-date-range/UvalibDateRange.js';
 import { expectNoAxeViolations } from './helpers/axe.js';
@@ -151,6 +152,63 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       });
       expect(sliders(el).length).to.equal(2);
       expect(warns.length).to.equal(1);
+    });
+
+    describe('pointer dragging', () => {
+      const WEBKIT_THUMB = 24; // matches ::-webkit-slider-thumb width in the component CSS
+      const thumb = (input: HTMLInputElement) => {
+        const r = input.getBoundingClientRect();
+        const frac =
+          (Number(input.value) - Number(input.min)) / (Number(input.max) - Number(input.min));
+        return {
+          x: Math.round(r.left + WEBKIT_THUMB / 2 + frac * (r.width - WEBKIT_THUMB)),
+          y: Math.round(r.top + r.height / 2),
+          width: r.width,
+        };
+      };
+      const drag = async (from: { x: number; y: number }, dx: number) => {
+        await sendMouse({ type: 'move', position: [from.x, from.y] });
+        await sendMouse({ type: 'down' });
+        for (let i = 1; i <= 8; i++)
+          await sendMouse({ type: 'move', position: [Math.round(from.x + (dx * i) / 8), from.y] });
+        await sendMouse({ type: 'up' });
+      };
+
+      it('dragging the start thumb right and the end thumb left changes the range', async () => {
+        const el = await make('min="1900-01-01" max="2000-12-31"');
+        el.style.width = '400px';
+        await el.updateComplete;
+        const events: string[][] = [];
+        el.addEventListener('date-range-change', (e) =>
+          events.push((e as CustomEvent).detail.value),
+        );
+        const [start, end] = sliders(el);
+        const s0 = thumb(start!);
+        await drag(s0, s0.width / 4);
+        expect(events.length, 'start thumb drag fired').to.be.greaterThan(0);
+        expect(Number(events.at(-1)![0]!.slice(0, 4))).to.be.greaterThan(1900 + 15);
+        const e0 = thumb(end!);
+        const before = events.length;
+        await drag(e0, -e0.width / 4);
+        expect(events.length, 'end thumb drag fired').to.be.greaterThan(before);
+        expect(Number(events.at(-1)![1]!.slice(0, 4))).to.be.lessThan(2000 - 15);
+      });
+
+      it('thumbs stacked at the right edge can still be pulled apart by dragging left', async () => {
+        const el = await make('min="1900-01-01" max="2000-12-31"');
+        el.style.width = '400px';
+        el.value = ['2000-12-31', '2000-12-31'];
+        await el.updateComplete;
+        const events: string[][] = [];
+        el.addEventListener('date-range-change', (e) =>
+          events.push((e as CustomEvent).detail.value),
+        );
+        const t = thumb(sliders(el)[0]!);
+        await drag(t, -t.width / 4);
+        expect(events.length).to.be.greaterThan(0);
+        expect(Number(events.at(-1)![0]!.slice(0, 4))).to.be.lessThan(2000 - 15);
+        expect(events.at(-1)![1]).to.equal('2000-12-31');
+      });
     });
 
     it('two instances have unique ids and every label points at an input', async () => {

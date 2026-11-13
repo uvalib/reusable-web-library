@@ -95,6 +95,11 @@ export class UvalibDateRange extends UvalibElement {
     input[type='range']:focus {
       outline: none;
     }
+    /* The end input is later in the DOM, so it is on top. When both thumbs sit on the same year
+       in the upper half, the start input goes on top so the pair can still be pulled apart. */
+    input[type='range'].on-top {
+      z-index: 4;
+    }
     input[type='range']::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
@@ -281,6 +286,7 @@ export class UvalibDateRange extends UvalibElement {
               .min=${String(minYear)}
               .max=${String(maxYear)}
               .value=${String(startYear)}
+              class=${startYear === endYear && startYear * 2 > minYear + maxYear ? 'on-top' : ''}
               @input=${this.onStartYearInput}
               aria-label="${this.label}: start year"
             />
