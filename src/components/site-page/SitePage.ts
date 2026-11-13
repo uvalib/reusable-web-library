@@ -10,7 +10,7 @@ import { accessible } from '../../styles/accessible.js';
 const slotOf = (n: Node): string | null => (n instanceof Element ? n.getAttribute('slot') : null);
 
 /**
- * Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer, and global page styles.
+ * Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles.
  * Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`.
  *
  * @tagname site-page
@@ -32,6 +32,12 @@ export class SitePage extends UvalibElement {
   @property({ type: String, attribute: 'header-variant' }) headerVariant: 'full' | 'vendor' =
     'full';
   @property({ type: Boolean, attribute: 'no-global-styles' }) noGlobalStyles = false;
+  /**
+   * Hide the footer (and any pre-footer band), for tools and app-like pages where the site
+   * footer does not belong. The footer is kept hidden rather than removed, so toggling the
+   * attribute keeps pre-footer content.
+   */
+  @property({ type: Boolean, attribute: 'no-footer', reflect: true }) noFooter = false;
   /** Accessible name of the header navigation when site links are given (default "Site"). */
   @property({ type: String, attribute: 'site-links-label' }) siteLinksLabel?: string;
 
@@ -46,6 +52,9 @@ export class SitePage extends UvalibElement {
       main {
         display: block;
         width: 100%;
+      }
+      site-footer[hidden] {
+        display: none;
       }
       /* Old layout: .main-container-inner (max 1600px, centred) > .w3-row-padding 8px
          > .w3-col 8px > .d8-fade 24px = 40px each side; 12px margin + 24px padding below. */
@@ -181,11 +190,13 @@ export class SitePage extends UvalibElement {
         light
           ? html`<site-footer
               no-shadow-dom
+              ?hidden=${this.noFooter}
               ?no-style=${this.noStyle}
               root-link-domain=${this.rootLinkDomain}
             ></site-footer>`
           : html`<site-footer
               exportparts="footer"
+              ?hidden=${this.noFooter}
               ?no-style=${this.noStyle}
               root-link-domain=${this.rootLinkDomain}
               ><slot name="pre-footer" slot="pre-footer"></slot

@@ -115,6 +115,9 @@ function expectChrome(doc: Document, current: string) {
   // The page content lands in that single <main>.
   const h1 = doc.querySelector('site-page > h1')!;
   expect(h1.assignedSlot?.closest('main')).to.not.equal(null);
+  // The playground is a tool page, so it leaves the site footer off; the gallery keeps it.
+  const footer = doc.querySelector('site-page')!.shadowRoot!.querySelector('site-footer')!;
+  expect(getComputedStyle(footer).display).to.equal(current === 'Playground' ? 'none' : 'block');
 }
 
 function expectDefaultSandbox(doc: Document) {

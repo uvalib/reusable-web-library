@@ -96,7 +96,7 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 
 ## `<site-page>`
 
-Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer, and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`.
+Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`.
 
 ### Attributes
 
@@ -105,6 +105,7 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 | `root-link-domain` | `string` | `'https://www.library.virginia.edu'` |  |
 | `header-variant` | `'full' \| 'vendor'` | `'full'` |  |
 | `no-global-styles` | `boolean` | `false` |  |
+| `no-footer` | `boolean` | `false` | Hide the footer (and any pre-footer band), for tools and app-like pages where the site footer does not belong. The footer is kept hidden rather than removed, so toggling the attribute keeps pre-footer content. |
 | `site-links-label` | `string \| undefined` |  | Accessible name of the header navigation when site links are given (default "Site"). |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |

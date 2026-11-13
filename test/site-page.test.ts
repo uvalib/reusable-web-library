@@ -144,6 +144,55 @@ for (const mode of ['shadow', 'light'] as const) {
       else expect(pf.assignedSlot?.assignedSlot?.getRootNode()).to.equal(footer.shadowRoot);
     });
 
+    describe('no-footer', () => {
+      it('renders the footer by default', async () => {
+        const el = await make('', '<p>body</p>');
+        const footer = await footerReady(el);
+        expect(footer.hidden).to.equal(false);
+        expect(getComputedStyle(footer).display).to.equal('block');
+        expect(el.hasAttribute('no-footer')).to.equal(false);
+      });
+
+      it('hides the footer and its pre-footer band', async () => {
+        const el = await make(
+          'no-footer',
+          '<p>body</p><p slot="pre-footer" id="pf">announcement</p>',
+        );
+        const footer = await footerReady(el);
+        expect(footer.hidden).to.equal(true);
+        expect(getComputedStyle(footer).display).to.equal('none');
+        expect(document.getElementById('pf')!.checkVisibility()).to.equal(false);
+        // No contentinfo landmark is exposed.
+        const inner = (footer.shadowRoot ?? footer).querySelector('footer')!;
+        expect(inner.checkVisibility()).to.equal(false);
+        // Main content is unaffected.
+        expect(root(el).querySelector('main')!.checkVisibility()).to.equal(true);
+      });
+
+      it('toggles at runtime and keeps pre-footer content', async () => {
+        const el = await make('', '<p>body</p><p slot="pre-footer" id="pf">announcement</p>');
+        const footer = await footerReady(el);
+        el.noFooter = true;
+        await el.updateComplete;
+        expect(el.hasAttribute('no-footer')).to.equal(true);
+        expect(getComputedStyle(footer).display).to.equal('none');
+        el.removeAttribute('no-footer');
+        await el.updateComplete;
+        await nextFrame();
+        expect(root(el).querySelector('site-footer')).to.equal(footer);
+        expect(getComputedStyle(footer).display).to.equal('block');
+        const pf = document.getElementById('pf')!;
+        expect(pf.checkVisibility()).to.equal(true);
+        expect(pf.textContent).to.equal('announcement');
+      });
+
+      it('has no serious axe violations without a footer', async () => {
+        const el = await make('no-footer', '<h1>Page title</h1><p>Body</p>');
+        await footerReady(el);
+        await expectNoAxeViolations(document.body);
+      });
+    });
+
     it('has no serious axe violations on a full page', async () => {
       const el = await make(
         '',

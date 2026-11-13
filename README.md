@@ -58,7 +58,7 @@ The define entries are `site-page.js`, `site-header.js`, `site-footer.js`, `site
 </html>
 ```
 
-Use one `<site-page>` per page. It renders the skip link, the header, a single `<main id="main-content">` and the footer around your content, so do not add your own `<main>`, skip link, header or footer. Put content for a band above the footer in an element with `slot="pre-footer"`. Third-party sites use `<site-page header-variant="vendor">`. Links default to `root-link-domain="https://www.library.virginia.edu"`.
+Use one `<site-page>` per page. It renders the skip link, the header, a single `<main id="main-content">` and the footer around your content, so do not add your own `<main>`, skip link, header or footer. Put content for a band above the footer in an element with `slot="pre-footer"`. Tool and app-like pages where the site footer does not belong (such as this repo's playground) add `no-footer`, which hides the footer and any pre-footer band. Third-party sites use `<site-page header-variant="vendor">`. Links default to `root-link-domain="https://www.library.virginia.edu"`.
 
 Caveat: replacing a light-mode `<site-page>`'s children wholesale (`innerHTML` or `textContent`) destroys the chrome. Append content, or update a container inside it.
 
@@ -234,7 +234,7 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 
 ### `<site-page>`
 
-Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer, and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`.
+Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`.
 
 #### Attributes
 
@@ -243,6 +243,7 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 | `root-link-domain` | `string` | `'https://www.library.virginia.edu'` |  |
 | `header-variant` | `'full' \| 'vendor'` | `'full'` |  |
 | `no-global-styles` | `boolean` | `false` |  |
+| `no-footer` | `boolean` | `false` | Hide the footer (and any pre-footer band), for tools and app-like pages where the site footer does not belong. The footer is kept hidden rather than removed, so toggling the attribute keeps pre-footer content. |
 | `site-links-label` | `string \| undefined` |  | Accessible name of the header navigation when site links are given (default "Site"). |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
