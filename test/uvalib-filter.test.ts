@@ -1,6 +1,7 @@
 import { expect, fixture } from '@open-wc/testing';
 import '../src/components/uvalib-filter/uvalib-filter.js';
 import type { UvalibFilter } from '../src/components/uvalib-filter/UvalibFilter.js';
+import { sendKeys } from '@web/test-runner-commands';
 import { expectNoAxeViolations } from './helpers/axe.js';
 
 const buckets = (n: number) =>
@@ -109,6 +110,71 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       await el.updateComplete;
       expect(boxes(el).length).to.equal(5);
       expect(button(el, 'see-less')).to.equal(null);
+    });
+
+    it('keeps the expansion, checked state and focus when a fresh filter with the same name is set', async () => {
+      const el = await make({ filter: filter(12) }, 'limit="5"');
+      button(el, 'see-more')!.click();
+      await el.updateComplete;
+      expect(boxes(el).length).to.equal(10);
+      const seventh = boxes(el)[6]!;
+      seventh.focus();
+      seventh.click(); // fires filter-change; the host then re-sets filter and value as BOV does
+      el.filter = filter(12);
+      await el.updateComplete;
+      expect(boxes(el).length).to.equal(10);
+      expect(boxes(el)[6]!.checked).to.equal(true);
+      expect(boxes(el)[6]).to.equal(seventh);
+      const active = (el.shadowRoot ?? document).activeElement;
+      expect(active).to.equal(seventh);
+    });
+
+    it('collapses again when the filter name or the limit changes', async () => {
+      const el = await make({ filter: filter(12) }, 'limit="5"');
+      button(el, 'see-more')!.click();
+      await el.updateComplete;
+      el.filter = filter(12, 'locations');
+      await el.updateComplete;
+      expect(boxes(el).length).to.equal(5);
+      button(el, 'see-more')!.click();
+      await el.updateComplete;
+      el.limit = 4;
+      await el.updateComplete;
+      expect(boxes(el).length).to.equal(4);
+    });
+
+    it('unchecking removes the value case-insensitively (value and scopeValue)', async () => {
+      const el = await make({
+        filter: filter(3),
+        value: ['person 2'],
+        scopes,
+        scopeValue: ['staff'],
+      });
+      let detail: unknown;
+      el.addEventListener('filter-change', (e) => (detail = (e as CustomEvent).detail));
+      boxes(el)[1]!.click();
+      expect(detail).to.deep.equal({ name: 'participants', value: [] });
+      el.addEventListener('scope-change', (e) => (detail = (e as CustomEvent).detail));
+      root(el).querySelectorAll<HTMLButtonElement>('button.scope')[1]!.click();
+      expect(detail).to.deep.equal({ value: [] });
+    });
+
+    it('draws focus rings from --uva-brand-orange on chips, buttons and checkboxes', async () => {
+      const el = await make({ filter: filter(12), scopes }, 'limit="5"');
+      el.style.setProperty('--uva-brand-orange', 'rgb(1, 2, 3)');
+      const targets = [
+        root(el).querySelector<HTMLElement>('button.scope')!,
+        button(el, 'see-more')!,
+        boxes(el)[0]!,
+      ];
+      for (const t of targets) {
+        t.focus();
+        // :focus-visible only matches after keyboard modality; force via a key press.
+        await sendKeys({ press: 'Shift' });
+        expect(getComputedStyle(t).outlineColor, t.outerHTML).to.equal('rgb(1, 2, 3)');
+        expect(getComputedStyle(t).outlineStyle).to.equal('solid');
+        expect(getComputedStyle(t).outlineWidth).to.equal('2px');
+      }
     });
 
     it('without a limit shows everything and no see more/less', async () => {

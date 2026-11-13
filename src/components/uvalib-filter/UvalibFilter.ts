@@ -1,5 +1,6 @@
 import { html, css, nothing, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
+import { repeat } from 'lit/directives/repeat.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { accessible } from '../../styles/accessible.js';
 
@@ -93,6 +94,12 @@ export class UvalibFilter extends UvalibElement {
       input[type='checkbox'] {
         margin-right: 0.5rem;
       }
+      .scope:focus-visible,
+      button[part]:focus-visible,
+      input[type='checkbox']:focus-visible {
+        outline: 2px solid var(--uva-brand-orange, #e57200);
+        outline-offset: 2px;
+      }
     `,
   ];
 
@@ -131,10 +138,8 @@ export class UvalibFilter extends UvalibElement {
 
   private onChange(e: Event) {
     const input = e.target as HTMLInputElement;
-    const values = new Set(this.value);
-    if (input.checked) values.add(input.value);
-    else values.delete(input.value);
-    this.value = Array.from(values);
+    const rest = this.value.filter((v) => v.toLowerCase() !== input.value.toLowerCase());
+    this.value = input.checked ? [...rest, input.value] : rest;
     this.dispatchEvent(
       new CustomEvent('filter-change', { detail: { name: this.filter.name, value: this.value } }),
     );
@@ -143,18 +148,27 @@ export class UvalibFilter extends UvalibElement {
   private toggleScope(key: string, e: Event) {
     e.preventDefault();
     e.stopPropagation();
-    const values = new Set(this.scopeValue);
-    if (values.has(key)) values.delete(key);
-    else values.add(key);
-    this.scopeValue = Array.from(values);
+    const rest = this.scopeValue.filter((v) => v.toLowerCase() !== key.toLowerCase());
+    this.scopeValue = rest.length < this.scopeValue.length ? rest : [...rest, key];
     this.dispatchEvent(new CustomEvent('scope-change', { detail: { value: this.scopeValue } }));
   }
 
+  private facetName?: string;
+
   protected override willUpdate(changed: PropertyValues<this>) {
-    // A new filter or limit starts collapsed again.
-    if (changed.has('limit') || changed.has('filter')) {
-      this.currentLimit = this.limit > 0 ? this.limit : this.buckets.length;
+    if (!changed.has('limit') && !changed.has('filter')) return;
+    const total = this.buckets.length;
+    const name = this.filter?.name;
+    if (this.limit <= 0) {
+      this.currentLimit = total;
+    } else if (changed.has('limit') || name !== this.facetName) {
+      // A different facet or limit starts collapsed again.
+      this.currentLimit = this.limit;
+    } else {
+      // The same facet with fresh data (BOV re-sets it after every search) stays expanded.
+      this.currentLimit = Math.max(this.limit, Math.min(this.currentLimit, total));
     }
+    this.facetName = name;
   }
 
   private showMore() {
@@ -198,20 +212,24 @@ export class UvalibFilter extends UvalibElement {
             : nothing
         }
         <div id=${listId}>
-          ${this.buckets.slice(0, shown).map((bucket, idx) => {
-            const id = `${this.uid}-${idx}`;
-            return html`<div class="checkbox">
-              <input
-                type="checkbox"
-                id=${id}
-                name=${this.filter.name}
-                value=${bucket.key}
-                @change=${this.onChange}
-                .checked=${this.value.some((v) => lower(v) === lower(bucket.key))}
-              />
-              <label for=${id}>${bucket.key || '(empty)'} (${bucket.doc_count})</label>
-            </div>`;
-          })}
+          ${repeat(
+            this.buckets.slice(0, shown),
+            (bucket) => bucket.key,
+            (bucket, idx) => {
+              const id = `${this.uid}-${idx}`;
+              return html`<div class="checkbox">
+                <input
+                  type="checkbox"
+                  id=${id}
+                  name=${this.filter.name}
+                  value=${bucket.key}
+                  @change=${this.onChange}
+                  .checked=${this.value.some((v) => lower(v) === lower(bucket.key))}
+                />
+                <label for=${id}>${bucket.key || '(empty)'} (${bucket.doc_count})</label>
+              </div>`;
+            },
+          )}
         </div>
         ${
           collapsible && shown < total

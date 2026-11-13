@@ -101,7 +101,8 @@ The mode is read once, at first connect; do not toggle it afterwards.
 
 <uvalib-filter id="people" limit="5"></uvalib-filter>
 <uvalib-date-range id="dates" min="1819-01-01" max="2026-12-31"></uvalib-date-range>
-<script>
+<script type="module">
+  const people = document.querySelector('#people');
   people.filter = {
     name: 'people',
     title: 'People',
@@ -109,7 +110,9 @@ The mode is read once, at first connect; do not toggle it afterwards.
     buckets: [{ key: 'Ada', doc_count: 3, selected: false }],
   };
   people.addEventListener('filter-change', (e) => (people.value = e.detail.value));
-  dates.addEventListener('date-range-change', (e) => console.log(e.detail.value));
+  document
+    .querySelector('#dates')
+    .addEventListener('date-range-change', (e) => console.log(e.detail.value));
 </script>
 ```
 

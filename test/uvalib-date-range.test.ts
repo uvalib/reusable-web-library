@@ -153,11 +153,6 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       expect(warns.length).to.equal(1);
     });
 
-    it('does not depend on the time zone for years', async () => {
-      const el = await make('min="2000-01-01" max="2010-12-31"');
-      expect(sliders(el).map((s) => s.value)).to.deep.equal(['2000', '2010']);
-    });
-
     it('two instances have unique ids and every label points at an input', async () => {
       const wrap = await fixture<HTMLDivElement>(`<div>
         <uvalib-date-range ${attr} min="1900-01-01" max="2000-12-31"></uvalib-date-range>

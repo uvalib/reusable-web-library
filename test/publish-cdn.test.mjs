@@ -94,12 +94,15 @@ const lines = (s, re) => s.split('\n').filter((l) => re.test(l));
 // In dry-run, mutating commands are printed by the script (stdout); the stub only sees list calls.
 const puts = (r) => lines(r.stdout, /s3api put-object/);
 // Only S3 key and URI arguments are inspected: local paths (the random temp dir name, once
-// matched `cdn-v`) are not part of what gets published. Keys appear as `--key <k>` in dry-run
+// matched `cdn-v`) are not part of what gets published. CloudFront `--paths` values count too. Keys appear as `--key <k>` in dry-run
 // output and as an `ARG:--key` line followed by an `ARG:<k>` line in argv mode.
 const s3Targets = (text) => [
   ...[...text.matchAll(/--key (\S+)/g)].map((m) => m[1]),
   ...[...text.matchAll(/^ARG:--key\nARG:(.*)$/gm)].map((m) => m[1]),
   ...(text.match(/s3:\/\/\S+/g) ?? []),
+  // CloudFront invalidation paths: `--paths <p>` (dry-run) or an `ARG:--paths` line then `ARG:<p>`.
+  ...[...text.matchAll(/--paths (\S+)/g)].map((m) => m[1]),
+  ...[...text.matchAll(/^ARG:--paths\nARG:(.*)$/gm)].map((m) => m[1]),
 ];
 const noLegacy = (r) => {
   const targets = s3Targets(r.all);

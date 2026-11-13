@@ -194,7 +194,8 @@ describe('standalone site-header (shadow)', () => {
     const el = await fixture<SiteHeader>('<site-header></site-header>');
     expect(el.shadowRoot!.querySelector('.skip-link')).to.equal(null);
     expect(
-      el.shadowRoot!.querySelector('slot[name="skip-link"]')!.assignedElements().length,
+      el.shadowRoot!.querySelector<HTMLSlotElement>('slot[name="skip-link"]')!.assignedElements()
+        .length,
     ).to.equal(0);
   });
 });
