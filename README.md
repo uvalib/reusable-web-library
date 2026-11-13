@@ -399,14 +399,14 @@ One `v*` tag starts two independent releases. Each can be re-run on its own, and
 One-time setup for the repo owner:
 
 1. Apply `aws_cicd/pipelines/reusable-web-library/` in `terraform-infrastructure`, and make sure the GitHub connection's app installation includes this repository.
-2. Add a GitHub tag ruleset that restricts creating, updating and deleting `v*` tags to maintainers, since pushing one releases.
-3. Create the GitHub environment `npm` (Settings > Environments) and configure it as required, not optional:
+2. A GitHub tag ruleset restricts creating, updating and deleting `v*` tags, since pushing one releases. _Configured 2026-11-13:_ ruleset "release tags (v*)". Only the repository admin role and org owners can bypass it.
+3. A GitHub environment `npm` (Settings > Environments) is required, not optional. _Configured 2026-11-13:_
    - Deployment branches and tags: "Selected", with a single **tag** rule `v*` and no branch rules.
-   - Required reviewers, with "Prevent self-review" on and administrator bypass disabled.
+   - Required reviewers: dougchestnut, mikedurbin, nestorw. Self-review is allowed. Administrator bypass is disabled, so every npm release needs one of them to approve.
 
    Why: npm's trusted publisher checks the repository, workflow filename and environment, but not the ref. The workflow that runs is the tag's own copy, so a write-access user could otherwise push a branch with a modified `release-npm.yml` and publish from it. The environment's tag rule, the reviewers and the tag ruleset are the real controls. The ancestry check inside the workflow catches mistakes, not a malicious maintainer.
 
-4. Enable GitHub Pages for the repository with source "GitHub Actions" (Settings > Pages), so `.github/workflows/pages.yml` can deploy the playground.
+4. GitHub Pages uses source "GitHub Actions" (Settings > Pages), so `.github/workflows/pages.yml` can deploy the playground. _Configured._
 5. Bootstrap npm for 1.0.0 (below).
 
 ### First npm release (1.0.0 bootstrap)
