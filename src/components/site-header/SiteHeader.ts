@@ -310,6 +310,8 @@ export class SiteHeader extends UvalibElement {
           ><img
             src=${siteLink(root, '/sites/default/files/2022-09/library_rgb.png')}
             alt="UVA Library home"
+            width="304"
+            height="69"
         /></a>
         <nav class="inline" aria-label=${label}>
           <ul>

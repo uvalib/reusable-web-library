@@ -64,6 +64,13 @@ for (const mode of ['shadow', 'light'] as const) {
         expect(getComputedStyle(a).color).to.equal('rgb(0, 86, 121)');
       });
 
+      it('logo renders at 225x51', async () => {
+        const el = await make();
+        const r = root(el).querySelector('.logo img')!.getBoundingClientRect();
+        expect(r.width).to.equal(225);
+        expect(Math.round(r.height)).to.equal(51);
+      });
+
       it('logo and nav sit at the old vertical offset', async () => {
         const el = await make();
         const top = root(el).querySelector('header')!.getBoundingClientRect().top;
@@ -84,6 +91,18 @@ for (const mode of ['shadow', 'light'] as const) {
         expect(r.width).to.be.greaterThan(0);
         expect(r.left).to.be.at.least(0);
         expect(r.right).to.be.at.most(window.innerWidth);
+      });
+
+      it('logo renders at 225x51', async () => {
+        const el = await make();
+        const img = root(el).querySelector('.logo img')!;
+        expect([img.getAttribute('width'), img.getAttribute('height')]).to.deep.equal([
+          '304',
+          '69',
+        ]);
+        const r = img.getBoundingClientRect();
+        expect(r.width).to.equal(225);
+        expect(Math.round(r.height)).to.equal(51);
       });
 
       it('full variant shows the toggle and hides the inline nav', async () => {
