@@ -45,12 +45,13 @@ const LINK_ATTRS = ['href', 'aria-current', 'target', 'rel', 'hreflang'];
  * They are shown, in order, in the inline nav and the Menu popover, with `href` as written
  * (not joined to `root-link-domain`) and their `aria-current`, `target`, `rel` and
  * `hreflang`. The source anchors themselves stay hidden. Children that are not `<a href>`
- * are ignored with one console warning. The `vendor` variant ignores site links and keeps
+ * with text (empty or whitespace-only text counts as none) are ignored with one console
+ * warning. The `vendor` variant ignores site links and keeps
  * its own reduced link set.
  *
  * @tagname site-header
  * @slot skip-link - Shadow mode only: optional skip link, rendered first inside `<header>` (`<site-page>` uses it).
- * @slot site-links - Optional `<a href>` elements that replace the library utility links in the inline nav and the Menu popover (ignored by the `vendor` variant). In light mode they are moved into a hidden holder.
+ * @slot site-links - Optional `<a href>` elements with text that replace the library utility links in the inline nav and the Menu popover (ignored by the `vendor` variant). In light mode they are moved into a hidden holder.
  * @csspart header - The `<header>` element.
  * @cssprop [--uva-blue-alt-dark=#005679] - Utility link colour.
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Menu button colour.
@@ -219,14 +220,16 @@ export class SiteHeader extends UvalibElement {
     const items: SiteLinkItem[] = [];
     let invalid = false;
     for (const el of sources) {
-      if (!(el instanceof HTMLAnchorElement) || !el.hasAttribute('href')) {
+      const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+      // A link with no text would have no accessible name.
+      if (!(el instanceof HTMLAnchorElement) || !el.hasAttribute('href') || !text) {
         invalid = true;
         continue;
       }
       const attr = (name: string) => el.getAttribute(name) ?? undefined;
       items.push({
         href: el.getAttribute('href')!,
-        text: (el.textContent ?? '').replace(/\s+/g, ' ').trim(),
+        text,
         current: attr('aria-current'),
         target: attr('target'),
         rel: attr('rel'),
@@ -236,7 +239,7 @@ export class SiteHeader extends UvalibElement {
     if (invalid && !this.warnedInvalid) {
       this.warnedInvalid = true;
       console.warn(
-        `${this.localName}: ignoring slot="${SITE_LINKS}" children that are not <a href> elements.`,
+        `${this.localName}: ignoring slot="${SITE_LINKS}" children that are not <a href> elements with text.`,
       );
     }
     this.siteLinks = items.length ? items : null;

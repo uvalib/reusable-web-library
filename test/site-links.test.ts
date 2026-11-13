@@ -208,6 +208,29 @@ for (const mode of ['shadow', 'light'] as const) {
       );
     });
 
+    it('ignores site links with empty or whitespace-only text, warning once', async () => {
+      const warn = console.warn;
+      const calls: unknown[][] = [];
+      console.warn = (...args: unknown[]) => void calls.push(args);
+      try {
+        const el = await make(
+          '',
+          `<a slot="site-links" href="/empty"></a><a slot="site-links" href="/blank">  \n </a>${LINKS}`,
+        );
+        expectBoth(el, EXPECTED);
+        const late = siteLink('', '/late-empty');
+        el.append(late);
+        await settle(el);
+        expectBoth(el, EXPECTED);
+        late.textContent = 'Now named';
+        await settle(el);
+        expect(rows(inline(el))[3]).to.deep.equal(['Now named', '/late-empty', null]);
+        expect(calls.length).to.equal(1);
+      } finally {
+        console.warn = warn;
+      }
+    });
+
     it('ignores site-links children that are not <a href>, warning once', async () => {
       const warn = console.warn;
       const calls: unknown[][] = [];
