@@ -1,5 +1,5 @@
 # Builds and deploys the playground site (site/) to GitHub Pages:
-# https://uvalib.github.io/reusable-web-library/ (spec §9a). Releases stay on CodeBuild.
+# https://uvalib.github.io/reusable-web-library/ (spec §9a). PRs run ci.yml; releases run in AWS CodePipeline.
 # One-time repo setting: Settings > Pages > Source: "GitHub Actions".
 name: Pages
 

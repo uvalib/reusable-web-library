@@ -86,6 +86,7 @@ reusable-web-library/
     buildspec-ci.yml        # CodeBuild CI (PRs, main)
     buildspec-release.yml   # CodeBuild release (v* tags)
     codebuild.yml           # CloudFormation: project, role, webhook
+                            # (2026-11-13: buildspec-ci.yml and codebuild.yml removed; see §7 note)
   skills/
     uvalib-web-components/  # agent skill: SKILL.md + reference/ (see §9)
   site/                     # GitHub Pages playground + gallery (see §9a)
@@ -190,6 +191,8 @@ Same bucket (`s3://unpkg.internal.lib.virginia.edu`) and CloudFront distribution
 - Each release invalidates CloudFront for `/web-components/vX/*` only. Exact-version paths are new on every release, so they never need invalidating.
 
 ## 7. Release pipeline (AWS CodeBuild)
+
+> **Note, 2026-11-13:** the CloudFormation deployment below is superseded, and `pipeline/codebuild.yml` and `pipeline/buildspec-ci.yml` are deleted. PR CI now runs in GitHub Actions (`.github/workflows/ci.yml`: `pull_request` to `main`, `contents: read`, no secrets; pushes to `main` are tested by `pages.yml`). The release is an AWS CodePipeline in the `terraform-infrastructure` repo, `aws_cicd/pipelines/reusable-web-library/`, built on the shared `modules/codepipeline`. It starts on `v*` tag pushes only (the module's new `trigger_tags`) and hands CodeBuild a full clone (`CODEBUILD_CLONE_REF`) at the tagged commit. With no webhook variables, `buildspec-release.yml` now takes the tag from the checked-out commit (exactly one `vX.Y.Z` tag via `git tag --points-at HEAD`), fetches `main` and tags anonymously from the public repo, and keeps the on-`main` and `package.json` checks. The build role gets a project-local allow policy with the same scope as the old release role (list/get/put `web-components/v*`, invalidate the distribution, read `/web-components/npm-token`; no `DeleteObject`, since the alias sync has no `--delete`), plus an explicit deny on Secrets Manager (except the two tokens the module injects), every other SSM parameter and the Terraform state bucket. The actor-account filter has no CodePipeline equivalent and is dropped. The text below is kept as originally written.
 
 **Local step:** `pnpm release <patch|minor|major>` (`scripts/release.mjs`). It:
 
@@ -333,5 +336,6 @@ The project includes an agent skill that teaches coding agents (Claude Code and 
 - ~~GitHub repo~~ — resolved: `https://github.com/uvalib/reusable-web-library` (origin).
 - npm automation token for the `@uvalib` org, stored in SSM.
 - Deploying `pipeline/codebuild.yml`: needs the CloudFront distribution ID and GitHub connection approval.
+  - **Note, 2026-11-13:** superseded (see the §7 note). Instead: apply `aws_cicd/pipelines/reusable-web-library/` in `terraform-infrastructure`, and make sure the GitHub connection's app installation includes this repository. The distribution ID comes from the `unpkg.lib.virginia.edu/production` Terraform state.
 - Enable GitHub Pages with source "GitHub Actions" in the repo settings (§9a).
 - Access to the draft design-system pages in Confluence. The Hoo Helper service account can read the UX meeting notes but not the component pages themselves.

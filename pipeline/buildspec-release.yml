@@ -2,11 +2,16 @@ version: 0.2
 
 # Tag v*: lint, test (builds), then publish to npm and the CDN. The npm token is read from
 # SSM only inside the publish step and is never echoed.
+# Runs from the terraform-infrastructure CodePipeline (aws_cicd/pipelines/reusable-web-library),
+# which starts on v* tag pushes and hands CodeBuild a full clone checked out at the tagged commit.
 phases:
   install:
     runtime-versions:
       nodejs: 22
     commands:
+      # The shared CodePipeline module injects these from Secrets Manager; this build never uses
+      # them and runs third-party npm code, so drop them before anything else runs.
+      - unset GITHUB_TOKEN GITLAB_TOKEN
       - npm i -g n@11.0.0 && n 24 && hash -r
       - test "$(node -p "process.versions.node.split(\".\")[0]")" = "24"
       - corepack enable
@@ -22,26 +27,37 @@ phases:
       - |
         set -eu
         if [ "$CODEBUILD_BUILD_SUCCEEDING" != "1" ]; then echo "Build failed; not publishing"; exit 0; fi
+        # The repo is public: fetch main and the release tags anonymously rather than enabling the
+        # git credential helper (which would expose the connection's token to the build).
+        REPO_URL="${REPO_URL:-https://github.com/uvalib/reusable-web-library.git}"
+        git fetch --unshallow >/dev/null 2>&1 || true
+        git fetch --no-tags --force "$REPO_URL" \
+          '+refs/heads/main:refs/remotes/origin/main' '+refs/tags/v*:refs/tags/v*'
         TAG=""
         case "${CODEBUILD_WEBHOOK_TRIGGER:-}" in
           tag/v*) TAG="${CODEBUILD_WEBHOOK_TRIGGER#tag/}" ;;
         esac
         if [ -z "$TAG" ]; then
-          # Manual StartBuild or retry: the source version is the tag ref.
-          case "${CODEBUILD_SOURCE_VERSION:-}" in
-            refs/tags/v*) TAG="${CODEBUILD_SOURCE_VERSION#refs/tags/}" ;;
-          esac
+          # CodePipeline: no webhook variables; the release tag is the one on the checked-out commit.
+          TAGS="$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true)"
+          if [ "$(printf '%s\n' "$TAGS" | grep -c .)" != "1" ]; then
+            echo "Expected exactly one vX.Y.Z tag on $(git rev-parse HEAD), found: ${TAGS:-none}" >&2
+            exit 1
+          fi
+          TAG="$TAGS"
         fi
         if ! printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
-          echo "No release tag found (trigger='${CODEBUILD_WEBHOOK_TRIGGER:-}', source='${CODEBUILD_SOURCE_VERSION:-}')" >&2
+          echo "No release tag found (trigger='${CODEBUILD_WEBHOOK_TRIGGER:-}', tag='$TAG')" >&2
           exit 1
         fi
-        # Only publish tags whose commit is on main.
-        git fetch --unshallow >/dev/null 2>&1 || true
-        git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
-        TAG_COMMIT="$(git rev-parse "refs/tags/$TAG^{commit}" 2>/dev/null || echo "${CODEBUILD_RESOLVED_SOURCE_VERSION:-}")"
-        if [ -z "$TAG_COMMIT" ] || ! git merge-base --is-ancestor "$TAG_COMMIT" origin/main; then
-          echo "Tag $TAG (commit ${TAG_COMMIT:-unknown}) is not on main; refusing to publish" >&2
+        # Only publish tags whose commit is the one built here and is on main.
+        TAG_COMMIT="$(git rev-parse --verify --quiet "refs/tags/$TAG^{commit}" || true)"
+        if [ -z "$TAG_COMMIT" ] || [ "$TAG_COMMIT" != "$(git rev-parse HEAD)" ]; then
+          echo "Tag $TAG (commit ${TAG_COMMIT:-unknown}) is not the checked-out commit; refusing to publish" >&2
+          exit 1
+        fi
+        if ! git merge-base --is-ancestor "$TAG_COMMIT" origin/main; then
+          echo "Tag $TAG (commit $TAG_COMMIT) is not on main; refusing to publish" >&2
           exit 1
         fi
         VERSION="${TAG#v}"

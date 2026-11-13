@@ -386,17 +386,18 @@ pnpm release <patch|minor|major>             # lint, test, build, bump, tag vX.Y
 
 The first release must be `pnpm release major` (0.0.0 → 1.0.0).
 
-Two AWS CodeBuild projects, defined in `pipeline/codebuild.yml`, react to GitHub events: pushes and PRs to `main` trigger CI, and `v*` tags trigger the release.
+Pull requests to `main` run `.github/workflows/ci.yml` in GitHub Actions (install, lint, test) with a read-only token and no secrets; pushes to `main` are tested by `.github/workflows/pages.yml`.
 
-- `web-components-ci` runs on pushes and PRs to `main` (install, lint, test). It has no publish credentials.
-- `web-components-release` runs on `v*` tags only. It publishes to npm, then uploads to the CDN: `vX.Y.Z/` (immutable, create-only) and the `vX/` major alias (synced without `--delete`, so hashed chunks from earlier releases stay available to cached entry files), then invalidates `/web-components/vX/*`. The alias is updated and invalidated only when the release is the highest `X.*.*` version present. It never writes the legacy `latest/` or `cdn-v*` prefixes.
+Releases run in an AWS CodePipeline defined in the UVA Library's `terraform-infrastructure` repo (`aws_cicd/pipelines/reusable-web-library/`). Pushing a `v*` tag starts it, and its CodeBuild stage runs `pipeline/buildspec-release.yml`:
+
+- It takes the release tag from the checked-out commit (exactly one `vX.Y.Z` tag), and refuses to publish unless that commit is on `main` and the tag matches `package.json`.
+- It publishes to npm (skipped if that version is already there), then uploads to the CDN: `vX.Y.Z/` (immutable, create-only) and the `vX/` major alias (synced without `--delete`, so hashed chunks from earlier releases stay available to cached entry files), then invalidates `/web-components/vX/*`. The alias is updated and invalidated only when the release is the highest `X.*.*` version present. It never writes the legacy `latest/` or `cdn-v*` prefixes; its IAM role can only list, read and write `web-components/v*` keys.
 
 One-time setup for the repo owner:
 
-1. Deploy `pipeline/codebuild.yml`, providing the CloudFront distribution ID (`DistributionId`) and, once, authorizing CodeBuild to access GitHub manually in the console (the template uses a GitHub source with no connection resource).
-2. Store the npm automation token in SSM at `/web-components/npm-token`.
-3. Set `ReleaseActorAccountIds` to the GitHub account IDs allowed to trigger releases (empty means no actor filter).
-4. Enable GitHub Pages for the repository with source "GitHub Actions" (Settings > Pages), so `.github/workflows/pages.yml` can deploy the playground.
+1. Apply `aws_cicd/pipelines/reusable-web-library/` in `terraform-infrastructure`, and make sure the GitHub connection's app installation includes this repository.
+2. Store the npm automation token as an SSM SecureString at `/web-components/npm-token`.
+3. Enable GitHub Pages for the repository with source "GitHub Actions" (Settings > Pages), so `.github/workflows/pages.yml` can deploy the playground.
 
 ## Migration
 
