@@ -209,6 +209,22 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         expect(Number(events.at(-1)![0]!.slice(0, 4))).to.be.lessThan(2000 - 15);
         expect(events.at(-1)![1]).to.equal('2000-12-31');
       });
+
+      it('thumbs stacked at the left edge can still be pulled apart by dragging right', async () => {
+        const el = await make('min="1900-01-01" max="2000-12-31"');
+        el.style.width = '400px';
+        el.value = ['1900-01-01', '1900-01-01'];
+        await el.updateComplete;
+        const events: string[][] = [];
+        el.addEventListener('date-range-change', (e) =>
+          events.push((e as CustomEvent).detail.value),
+        );
+        const t = thumb(sliders(el)[1]!);
+        await drag(t, t.width / 4);
+        expect(events.length).to.be.greaterThan(0);
+        expect(events.at(-1)![0]).to.equal('1900-01-01');
+        expect(Number(events.at(-1)![1]!.slice(0, 4))).to.be.greaterThan(1900);
+      });
     });
 
     it('two instances have unique ids and every label points at an input', async () => {
