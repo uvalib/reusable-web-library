@@ -11,6 +11,17 @@ const status = document.querySelector('.copy [role="status"]')!;
 
 for (const p of presets) select.add(new Option(p.title, p.id));
 
+// The full-height IDE fills the viewport below its own top edge (see site.css). Its top
+// moves when site-page's header renders or the preset description wraps, so it is
+// measured whenever the page resizes. The IDE's height does not move its top, so setting
+// the property cannot loop.
+const root = document.documentElement;
+function measureIdeTop() {
+  const top = `${Math.round(ide.getBoundingClientRect().top + scrollY)}px`;
+  if (root.style.getPropertyValue('--ide-top') !== top) root.style.setProperty('--ide-top', top);
+}
+new ResizeObserver(measureIdeTop).observe(document.body);
+
 function showPreset() {
   const preset = presets.find((p) => p.id === select.value) ?? presets[0]!;
   description.textContent = preset.description;

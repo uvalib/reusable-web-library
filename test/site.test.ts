@@ -150,6 +150,19 @@ describe('playground page', function () {
     expectDefaultSandbox(doc);
   });
 
+  it('sizes the IDE from its measured top (--ide-top)', async () => {
+    await chromeReady(doc);
+    const top = () => Math.round(ide.getBoundingClientRect().top + win.scrollY);
+    await until(
+      () => doc.documentElement.style.getPropertyValue('--ide-top') === `${top()}px`,
+      '--ide-top set to the IDE top',
+    );
+    const gap = 1.5 * parseFloat(getComputedStyle(doc.documentElement).fontSize);
+    const height = ide.getBoundingClientRect().height;
+    const minimum = 28 * parseFloat(getComputedStyle(doc.documentElement).fontSize);
+    expect(height).to.be.closeTo(Math.max(minimum, win.innerHeight - top() - gap), 1);
+  });
+
   it('starts with the first preset', async () => {
     await until(() => indexHtml(ide) === expected(win, presets[0]!), 'first preset');
   });

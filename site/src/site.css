@@ -103,10 +103,10 @@ playground-ide,
   border-radius: 4px;
 }
 
-/* Fill the viewport below site-page's header, the heading and the toolbar (18.5rem at the
-   17px base size). */
+/* Fill the viewport below the IDE's top edge, which playground.ts measures into --ide-top
+   (the fallback is about the header, heading and toolbar), less a bottom gap. */
 .full playground-ide {
-  height: max(28rem, calc(100dvh - 18.5rem));
+  height: max(28rem, calc(100dvh - var(--ide-top, 18.5rem) - 1.5rem));
 }
 
 /* Narrow screens: stack the editor above the preview. The IDE's panes size themselves
