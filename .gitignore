@@ -7,3 +7,4 @@ test/baseline/**/*.png
 dist-site
 test/baseline/bov-ab-*/
 test/baseline/bov-after*/
+test/baseline/bovweb-*/

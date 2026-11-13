@@ -232,7 +232,10 @@ Same bucket (`s3://unpkg.internal.lib.virginia.edu`) and CloudFront distribution
 - Add `@uvalib/web-components` as a dependency.
 
 **`apps/bov-minutes`**
-- No template changes are expected. It picks up the new URLs through 11ty-template.
+
+> **Note, 2026-11-12:** this subsection is superseded. BOV is not the monorepo's `apps/bov-minutes` (an obsolete copy, now removed from the monorepo); the live site is its own repo, `uvalib/bov-web`. It does not use 11ty-template. It loads the components from the CDN with script tags built from an Eleventy global, `webComponentsBase` (`_data/webComponentsBase.js`), which defaults to the `v1` major alias (`https://unpkg.internal.lib.virginia.edu/web-components/v1`) and can be overridden with `WEB_COMPONENTS_BASE_URL`. To suit the new `<site-page>`, which renders the header, the one `<main>` and the footer itself, its layout (`layouts/base.njk`) drops its own `<header>` and `<main>` landmarks. The reference page is `demo/bov-like.html`. The text below is kept as originally written; the "no template changes" line no longer applies, and the before/after screenshot and axe verification was run against bov-web.
+
+- *(Original text.)* No template changes are expected. It picks up the new URLs through 11ty-template.
 - Verification:
   1. Before migrating, capture Playwright screenshots of the BOV home page, one minutes page and the search page.
   2. After migrating, capture them again and compare.
