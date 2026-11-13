@@ -9,21 +9,15 @@
       content="Edit a UVA Library page built with the web components, and share it as a link."
     />
     <link rel="stylesheet" href="./src/site.css" />
+    <!-- The site's own copy of the CDN build (dist-site/cdn/; in dev, the component source). -->
+    <script type="module" src="./cdn/site-page.js" vite-ignore></script>
     <script type="module" src="./src/playground.ts"></script>
   </head>
   <body class="full">
-    <a class="skip-link" href="#content">Skip to content</a>
-    <header class="site-bar">
-      <a class="brand" href="./">@uvalib/web-components</a>
-      <nav aria-label="Site">
-        <ul>
-          <li><a href="./">Gallery</a></li>
-          <li><a href="playground.html" aria-current="page">Playground</a></li>
-          <li><a href="https://github.com/uvalib/reusable-web-library#readme">README</a></li>
-        </ul>
-      </nav>
-    </header>
-    <main id="content" tabindex="-1">
+    <site-page site-links-label="Playground">
+      <a slot="site-links" href="./">Gallery</a>
+      <a slot="site-links" href="playground.html" aria-current="page">Playground</a>
+      <a slot="site-links" href="https://github.com/uvalib/reusable-web-library#readme">README</a>
       <h1>Playground</h1>
       <div class="toolbar">
         <label for="preset">Preset</label>
@@ -36,6 +30,6 @@
       </div>
       <p id="preset-description" class="description"></p>
       <playground-ide resizable line-numbers editable-file-system></playground-ide>
-    </main>
+    </site-page>
   </body>
 </html>

@@ -23,6 +23,7 @@ describe('playground presets', function () {
       'vendor-header',
       'light-dom-host-css',
       'pre-footer',
+      'site-navigation',
       'theming',
       'search-facets',
     ]);

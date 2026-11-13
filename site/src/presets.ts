@@ -150,6 +150,27 @@ site-footer footer {
     },
   },
   {
+    id: 'site-navigation',
+    title: 'Site navigation',
+    description:
+      'A site with its own navigation gives site-page <a slot="site-links"> children: they replace the library utility links in the header and its Menu popover, and site-links-label names the nav. Mark the current page with aria-current="page".',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Site navigation',
+          body: `    <site-page site-links-label="Exhibits">
+      <a slot="site-links" href="./">Home</a>
+      <a slot="site-links" href="#current" aria-current="page">Current exhibits</a>
+      <a slot="site-links" href="#past">Past exhibits</a>
+      <a slot="site-links" href="#visit">Visit</a>
+      <h1>Current exhibits</h1>
+      <p>The header shows this site's links instead of the library utility links. Narrow the preview to see them in the Menu popover.</p>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'theming',
     title: 'Theming with tokens and parts',
     description:

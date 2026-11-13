@@ -1,88 +1,25 @@
-/* The demo site's own chrome. Deliberately plain and separate from the components it
-   demos: it uses its own --site-* properties, never the library's --uva-* tokens. */
+/* Layout for the demo site's page content. The page chrome (skip link, header, main and
+   footer) and the base typography come from <site-page>; this sheet only lays out what is
+   inside <main>, with its own --site-* properties for the controls. */
 :root {
-  --site-text: #1f2328;
   --site-muted: #4f5761;
   --site-bg: #ffffff;
-  --site-bar-bg: #f4f5f7;
+  --site-hover-bg: #f4f5f7;
   --site-border: #d0d4da;
   --site-link: #0b5cad;
-  --site-focus: #0b5cad;
   --site-gutter: 16px;
   color-scheme: light;
-  font-family: system-ui, sans-serif;
-  line-height: 1.5;
-  color: var(--site-text);
-  background: var(--site-bg);
 }
 
-body {
-  margin: 0;
-  background: var(--site-bg);
+/* site-page pads <main> 40px each side; on phones give the editor the width instead. */
+@media (width < 48rem) {
+  site-page::part(main) {
+    padding-inline: var(--site-gutter);
+  }
 }
 
 a {
   color: var(--site-link);
-}
-
-:focus-visible {
-  outline: 3px solid var(--site-focus);
-  outline-offset: 2px;
-}
-
-.skip-link {
-  position: absolute;
-  inset-inline-start: var(--site-gutter);
-  inset-block-start: -10rem;
-  padding: 0.5rem 1rem;
-  background: var(--site-bg);
-  border: 1px solid var(--site-border);
-}
-
-.skip-link:focus {
-  inset-block-start: 0.5rem;
-}
-
-.site-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem 1.5rem;
-  padding: 0.75rem var(--site-gutter);
-  background: var(--site-bar-bg);
-  border-block-end: 1px solid var(--site-border);
-}
-
-.brand {
-  font-weight: 700;
-  color: inherit;
-  text-decoration: none;
-}
-
-.site-bar ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1.25rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.site-bar a[aria-current='page'] {
-  font-weight: 700;
-  text-decoration-thickness: 3px;
-  text-underline-offset: 0.3em;
-}
-
-main {
-  max-inline-size: 90rem;
-  margin-inline: auto;
-  padding: 1rem var(--site-gutter) 3rem;
-}
-
-main:focus {
-  outline: none;
 }
 
 h1 {
@@ -143,7 +80,7 @@ button {
 }
 
 button:hover {
-  background: var(--site-bar-bg);
+  background: var(--site-hover-bg);
 }
 
 .copy {
@@ -166,8 +103,10 @@ playground-ide,
   border-radius: 4px;
 }
 
+/* Fill the viewport below site-page's header, the heading and the toolbar (18.5rem at the
+   17px base size). */
 .full playground-ide {
-  height: max(28rem, calc(100dvh - 14rem));
+  height: max(28rem, calc(100dvh - 18.5rem));
 }
 
 /* Narrow screens: stack the editor above the preview. The IDE's panes size themselves

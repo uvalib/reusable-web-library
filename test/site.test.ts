@@ -68,20 +68,53 @@ const indexHtml = (ide: Ide) => ide.config?.files?.['index.html']?.content;
 const expected = (win: Window, p: Preset) =>
   withCdnBase(p, new URL('cdn/', win.location.href).href).files['index.html']!.content;
 
+/** Every element matching `selector` in `root` and its open shadow roots. */
+function deepAll(root: Document | ShadowRoot, selector: string): Element[] {
+  const found = [...root.querySelectorAll(selector)];
+  for (const el of root.querySelectorAll('*')) {
+    if (el.shadowRoot) found.push(...deepAll(el.shadowRoot, selector));
+  }
+  return found;
+}
+
+/** The rendered <site-header> inside the page's <site-page> (shadow mode). */
+function siteHeader(doc: Document): ShadowRoot | null | undefined {
+  return doc.querySelector('site-page')?.shadowRoot?.querySelector('site-header')?.shadowRoot;
+}
+
+/** Wait for <site-page> to render its header with the site links. */
+async function chromeReady(doc: Document): Promise<void> {
+  await until(
+    () => siteHeader(doc)?.querySelector('nav[aria-label="Playground"] a') != null,
+    'site-page header with the site links',
+  );
+}
+
 function expectChrome(doc: Document, current: string) {
-  expect(doc.querySelectorAll('main').length).to.equal(1);
-  const nav = doc.querySelector('nav[aria-label="Site"]')!;
-  expect(nav).to.not.equal(null);
-  const links = [...nav.querySelectorAll('a')];
-  expect(links.map((a) => a.textContent!.trim())).to.deep.equal([
-    'Gallery',
-    'Playground',
-    'README',
-  ]);
-  expect(
-    links.find((a) => a.getAttribute('aria-current') === 'page')?.textContent!.trim(),
-  ).to.equal(current);
-  expect(links[2]!.href).to.equal('https://github.com/uvalib/reusable-web-library#readme');
+  // One <main>, the one site-page renders; the page has no chrome of its own.
+  expect(deepAll(doc, 'main').length).to.equal(1);
+  expect(doc.querySelectorAll('main, header, nav[aria-label="Site"], .skip-link').length).to.equal(
+    0,
+  );
+  const header = siteHeader(doc)!;
+  for (const selector of ['nav.inline', '[popover]']) {
+    const links = [...header.querySelectorAll(`${selector} a`)];
+    expect(
+      links.map((a) => a.textContent!.trim()),
+      selector,
+    ).to.deep.equal(['Gallery', 'Playground', 'README']);
+    expect(
+      links.find((a) => a.getAttribute('aria-current') === 'page')?.textContent!.trim(),
+    ).to.equal(current);
+    expect((links[2] as HTMLAnchorElement).href).to.equal(
+      'https://github.com/uvalib/reusable-web-library#readme',
+    );
+  }
+  expect(header.querySelector('nav.inline')!.getAttribute('aria-label')).to.equal('Playground');
+  expect(header.querySelector('nav[aria-label="Utility"]')).to.equal(null);
+  // The page content lands in that single <main>.
+  const h1 = doc.querySelector('site-page > h1')!;
+  expect(h1.assignedSlot?.closest('main')).to.not.equal(null);
 }
 
 function expectDefaultSandbox(doc: Document) {
@@ -104,7 +137,8 @@ describe('playground page', function () {
   });
   after(() => iframe?.remove());
 
-  it('has the site chrome, a labelled preset select and the default sandbox', () => {
+  it('has the site chrome, a labelled preset select and the default sandbox', async () => {
+    await chromeReady(doc);
     expectChrome(doc, 'Playground');
     for (const attr of ['resizable', 'line-numbers', 'editable-file-system']) {
       expect(ide.hasAttribute(attr), attr).to.equal(true);
@@ -196,9 +230,10 @@ describe('gallery page', function () {
   after(() => iframe?.remove());
 
   it('has one section per preset and header variant, each with an IDE', async () => {
+    await chromeReady(doc);
     expectChrome(doc, 'Gallery');
     const examples = [...presets, ...galleryExamples];
-    const sections = [...doc.querySelectorAll('main section')];
+    const sections = [...doc.querySelectorAll('#examples > section')];
     expect(sections.length).to.equal(examples.length);
     examples.forEach((p, i) => {
       const s = sections[i]!;

@@ -9,21 +9,15 @@
       content="Every UVA Library web component and mode, live and editable."
     />
     <link rel="stylesheet" href="./src/site.css" />
+    <!-- The site's own copy of the CDN build (dist-site/cdn/; in dev, the component source). -->
+    <script type="module" src="./cdn/site-page.js" vite-ignore></script>
     <script type="module" src="./src/gallery.ts"></script>
   </head>
   <body>
-    <a class="skip-link" href="#content">Skip to content</a>
-    <header class="site-bar">
-      <a class="brand" href="./">@uvalib/web-components</a>
-      <nav aria-label="Site">
-        <ul>
-          <li><a href="./" aria-current="page">Gallery</a></li>
-          <li><a href="playground.html">Playground</a></li>
-          <li><a href="https://github.com/uvalib/reusable-web-library#readme">README</a></li>
-        </ul>
-      </nav>
-    </header>
-    <main id="content" tabindex="-1">
+    <site-page site-links-label="Playground">
+      <a slot="site-links" href="./" aria-current="page">Gallery</a>
+      <a slot="site-links" href="playground.html">Playground</a>
+      <a slot="site-links" href="https://github.com/uvalib/reusable-web-library#readme">README</a>
       <h1>Gallery</h1>
       <p class="lede">
         Each example is a live, editable page. Change the HTML or CSS and the preview updates. For a
@@ -31,6 +25,6 @@
         <a href="playground.html">playground</a>.
       </p>
       <div id="examples"></div>
-    </main>
+    </site-page>
   </body>
 </html>
