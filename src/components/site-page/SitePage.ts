@@ -7,8 +7,7 @@ import { tokens } from '../../styles/tokens.js';
 import { base, TYPEKIT_URL } from '../../styles/base.js';
 import { accessible } from '../../styles/accessible.js';
 
-const isPreFooter = (n: Node): boolean =>
-  n instanceof Element && n.getAttribute('slot') === 'pre-footer';
+const slotOf = (n: Node): string | null => (n instanceof Element ? n.getAttribute('slot') : null);
 
 /**
  * Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer, and global page styles.
@@ -17,6 +16,7 @@ const isPreFooter = (n: Node): boolean =>
  * @tagname site-page
  * @slot - Main page content, rendered inside the single `<main>`.
  * @slot pre-footer - Optional content shown in a band above the footer.
+ * @slot site-links - Optional `<a href>` elements, forwarded to `<site-header>`, that replace the library utility links in the header (inline nav and Menu popover). Ignored with `header-variant="vendor"`.
  * @csspart main - The `<main>` landmark.
  * @csspart header - The `<header>` element inside `<site-header>` (shadow mode; exported through `exportparts`).
  * @csspart footer - The `<footer>` element inside `<site-footer>` (shadow mode; exported through `exportparts`).
@@ -32,6 +32,8 @@ export class SitePage extends UvalibElement {
   @property({ type: String, attribute: 'header-variant' }) headerVariant: 'full' | 'vendor' =
     'full';
   @property({ type: Boolean, attribute: 'no-global-styles' }) noGlobalStyles = false;
+  /** Accessible name of the header navigation when site links are given (default "Site"). */
+  @property({ type: String, attribute: 'site-links-label' }) siteLinksLabel?: string;
 
   static styles = [
     accessible,
@@ -120,16 +122,21 @@ export class SitePage extends UvalibElement {
     this.observer.observe(this, { childList: true });
   }
 
-  /** Light mode has no slots: move content into `<main>` and pre-footer nodes to the footer. */
+  /**
+   * Light mode has no slots: move content into `<main>`, pre-footer nodes to the footer and
+   * site links to the header.
+   */
   private route(nodes: Iterable<Node>): void {
     const main = this.querySelector(':scope > main');
+    const header = this.querySelector(':scope > site-header');
     const footer = this.querySelector(':scope > site-footer');
-    if (!main || !footer) return;
+    if (!main || !header || !footer) return;
     for (const n of [...nodes]) {
       if (n.parentNode !== this || this.chrome.has(n)) continue;
       if (n.nodeType === Node.TEXT_NODE && !n.textContent?.trim()) continue;
-      // The footer adopts its own slot="pre-footer" children, even before it upgrades.
-      (isPreFooter(n) ? footer : main).append(n);
+      // The header and footer adopt their own slotted children, even before they upgrade.
+      const slot = slotOf(n);
+      (slot === 'pre-footer' ? footer : slot === 'site-links' ? header : main).append(n);
     }
   }
 
@@ -160,7 +167,10 @@ export class SitePage extends UvalibElement {
         ?no-style=${this.noStyle}
         variant=${this.headerVariant}
         root-link-domain=${this.rootLinkDomain}
-        >${light ? nothing : skip}</site-header
+        site-links-label=${ifDefined(this.siteLinksLabel)}
+        >${
+          light ? nothing : html`${skip}<slot name="site-links" slot="site-links"></slot>`
+        }</site-header
       >
       ${
         light
