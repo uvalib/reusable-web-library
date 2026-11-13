@@ -20,10 +20,10 @@ async function footerReady(el: SitePage): Promise<SiteFooter> {
 const typekitLinks = () => document.head.querySelectorAll(`link[href="${TYPEKIT_URL}"]`);
 const removeTypekitLinks = () => typekitLinks().forEach((l) => l.remove());
 
-/** Document sheets holding the unscoped global page styles (a bare top-level `:root` rule). */
+/** Document sheets holding the unscoped global page styles (a top-level `html, body` rule). */
 const globalSheets = () =>
   document.adoptedStyleSheets.filter((s) =>
-    [...s.cssRules].some((r) => (r as CSSStyleRule).selectorText === ':root'),
+    [...s.cssRules].some((r) => (r as CSSStyleRule).selectorText === 'html, body'),
   );
 
 for (const mode of ['shadow', 'light'] as const) {
@@ -263,6 +263,34 @@ describe('site-page global styles vs. an unlayered host reset', () => {
     expect(globalSheets().length).to.equal(1);
     const text = globalSheets()[0].cssRules[0].cssText;
     expect(text).to.not.match(/^@layer/);
+  });
+});
+
+describe('site-page layering trade-offs', () => {
+  it('a host unlayered :root token override wins over the library token', async () => {
+    const host = document.createElement('style');
+    host.textContent = ':root { --uva-brand-blue: rgb(1, 2, 3); }';
+    document.head.append(host);
+    try {
+      await fixture('<site-page></site-page>');
+      expect(
+        getComputedStyle(document.documentElement).getPropertyValue('--uva-brand-blue').trim(),
+      ).to.equal('rgb(1, 2, 3)');
+    } finally {
+      host.remove();
+    }
+  });
+
+  it('host layered CSS loses to the unlayered base margin', async () => {
+    const host = document.createElement('style');
+    host.textContent = '@layer base { body { margin: 7px; } }';
+    document.head.append(host);
+    try {
+      await fixture('<site-page no-shadow-dom></site-page>');
+      expect(getComputedStyle(document.body).marginTop).to.equal('0px');
+    } finally {
+      host.remove();
+    }
   });
 });
 

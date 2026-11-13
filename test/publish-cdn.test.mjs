@@ -41,7 +41,7 @@ function run(
     srcFiles = files,
   } = {},
 ) {
-  const dir = mkdtempSync(join(tmpdir(), 'publish-cdn-'));
+  const dir = mkdtempSync(join(tmpdir(), 'pub-'));
   try {
     const src = join(dir, 'src');
     mkdirSync(src, { recursive: true });
@@ -93,6 +93,7 @@ const readCalls = (p) => readFileSync(p, 'utf8');
 const lines = (s, re) => s.split('\n').filter((l) => re.test(l));
 // In dry-run, mutating commands are printed by the script (stdout); the stub only sees list calls.
 const puts = (r) => lines(r.stdout, /s3api put-object/);
+// The random temp dir name must not be able to spell a legacy marker (it once matched `cdn-v`).
 const noLegacy = (r) => assert.ok(!/latest|cdn-v/.test(r.all), r.all);
 
 test('(a) fresh upload: put-object per file with if-none-match + immutable, then alias sync and invalidation', () => {
@@ -142,8 +143,10 @@ test('(c) partial upload: only missing keys are put', () => {
   const r = run(['1.0.0'], { objects: listing('1.0.0', have) });
   assert.equal(r.status, 0, r.stderr);
   const p = puts(r);
-  assert.equal(p.length, Object.keys(files).length - have.length);
-  for (const name of have) assert.ok(!p.some((l) => l.includes(`--key ${keyOf('1.0.0', name)} `)));
+  const ctx = `status=${r.status} stderr=${r.stderr}\n${r.stdout}`;
+  assert.equal(p.length, Object.keys(files).length - have.length, ctx);
+  for (const name of have)
+    assert.ok(!p.some((l) => l.includes(`--key ${keyOf('1.0.0', name)} `)), ctx);
   noLegacy(r);
 });
 
@@ -151,9 +154,9 @@ test('(d) existing key with a different ETag exits 3 before any put or alias cha
   const r = run(['1.0.0'], {
     objects: listing('1.0.0', ['a.js'], { etag: () => 'deadbeef' }),
   });
-  assert.equal(r.status, 3);
+  assert.equal(r.status, 3, r.stderr);
   assert.match(r.stderr, /a\.js/);
-  assert.equal(puts(r).length, 0);
+  assert.equal(puts(r).length, 0, r.stdout);
   assert.ok(!/s3 sync|create-invalidation/.test(r.stdout));
 });
 

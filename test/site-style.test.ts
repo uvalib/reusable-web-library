@@ -39,7 +39,9 @@ describe('site-style (light)', () => {
     first.after(second);
     await second.updateComplete;
     expect(document.adoptedStyleSheets.length).to.equal(before);
-    const rules = document.adoptedStyleSheets.flatMap((s) => [...s.cssRules]);
+    const rules = document.adoptedStyleSheets.flatMap((s) =>
+      [...s.cssRules].flatMap((l) => [l, ...[...((l as CSSLayerBlockRule).cssRules ?? [])]]),
+    );
     expect(rules.filter((r) => (r as CSSStyleRule).selectorText === ':root').length).to.equal(1);
     expect(rules.some((r) => (r as CSSStyleRule).selectorText?.startsWith('site-style'))).to.equal(
       false,
@@ -69,7 +71,25 @@ describe('site-style (light) vs. an unlayered host reset', () => {
     await fixture<SiteStyle>('<site-style no-shadow-dom></site-style>');
     const sheets = document.adoptedStyleSheets.slice(before - 1);
     const text = sheets.flatMap((s) => [...s.cssRules].map((r) => r.cssText)).join('\n');
-    expect(text).to.contain('--uva-brand-blue');
+    expect(text).to.contain('html, body');
     expect(text).to.not.contain('@layer');
+    const tokensSheet = document.adoptedStyleSheets.find((s) =>
+      s.cssRules[0]?.cssText.includes('--uva-brand-blue'),
+    )!;
+    expect(tokensSheet.cssRules[0].cssText).to.match(/^@layer uvalib/);
+  });
+});
+
+describe('site-style (light) tokens', () => {
+  it('a host unlayered :root token override wins', async () => {
+    const host = document.createElement('style');
+    host.textContent = ':root { --uva-brand-blue: rgb(1, 2, 3); }';
+    document.head.append(host);
+    try {
+      await fixture<SiteStyle>('<site-style no-shadow-dom></site-style>');
+      expect(brandBlue()).to.equal('rgb(1, 2, 3)');
+    } finally {
+      host.remove();
+    }
   });
 });

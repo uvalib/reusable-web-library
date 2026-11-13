@@ -30,11 +30,13 @@ export class SiteStyle extends UvalibElement {
   @property({ type: String }) importedStyles = '';
 
   /**
-   * Page-level styles: unscoped and unlayered (so they beat host resets of equal specificity), under their own dedupe key, always on the owner
+   * Page-level styles: unscoped; the base rules are unlayered (so they beat host resets), the tokens layered, under their own dedupe key, always on the owner
    * document (not the root node) because `:root` tokens inherit into shadow roots.
    */
   protected override installLightStyles(): void {
-    installLightDomStyles('uvalib-site-style', SiteStyle.styles, {
+    // Tokens layered (host `:root` overrides win), base unlayered (beats host resets).
+    installLightDomStyles('uvalib-tokens', [tokens], { root: this.ownerDocument, scope: false });
+    installLightDomStyles('uvalib-site-style', [base], {
       root: this.ownerDocument,
       scope: false,
       layer: false,

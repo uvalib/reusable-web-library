@@ -69,7 +69,7 @@ to_put=()
 while IFS= read -r file; do
   rel="${file#"$SRC"/}"
   key="$version_prefix$rel"
-  remote_etag="$(printf '%s\n' "$existing" | awk -F'\t' -v k="$key" '$1 == k { gsub(/"/, "", $2); print $2; exit }')"
+  remote_etag="$(awk -F'\t' -v k="$key" '$1 == k { gsub(/"/, "", $2); print $2 }' <<<"$existing")"
   if [[ -z "$remote_etag" ]]; then
     to_put+=("$rel")
   elif [[ "$remote_etag" == "$(md5_of "$file")" ]]; then

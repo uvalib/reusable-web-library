@@ -90,7 +90,7 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 | `--uva-blue-alt-dark` | `#005679` | Utility link colour. |
 | `--uva-grey-darkest` | `#2b2b2b` | Menu button colour. |
 | `--uva-brand-orange` | `#e57200` | Focus ring colour (focus-visible outline). |
-| `--uva-brand-blue` | `#232d4b` | Skip-link background from the shared accessibility sheet (the header renders no skip link itself). |
+| `--uva-brand-blue` | `#232d4b` | Skip-link background for a skip link slotted into `skip-link` (shadow mode, shared accessibility sheet). |
 
 ## `<site-page>`
 

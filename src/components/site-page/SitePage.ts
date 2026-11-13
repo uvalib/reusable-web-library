@@ -85,7 +85,10 @@ export class SitePage extends UvalibElement {
   }
 
   private installGlobalStyles(doc: Document): void {
-    installLightDomStyles('uvalib-global', [tokens, base, accessible], {
+    // Tokens stay layered so a host's own `:root { --uva-*: … }` wins; base and accessibility
+    // rules are unlayered so they beat host resets.
+    installLightDomStyles('uvalib-tokens', [tokens], { root: doc, scope: false });
+    installLightDomStyles('uvalib-global', [base, accessible], {
       root: doc,
       scope: false,
       layer: false,

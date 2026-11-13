@@ -189,6 +189,16 @@ describe('site-header component styles stay layered (light)', () => {
   });
 });
 
+describe('standalone site-header (shadow)', () => {
+  it('renders no skip link', async () => {
+    const el = await fixture<SiteHeader>('<site-header></site-header>');
+    expect(el.shadowRoot!.querySelector('.skip-link')).to.equal(null);
+    expect(
+      el.shadowRoot!.querySelector('slot[name="skip-link"]')!.assignedElements().length,
+    ).to.equal(0);
+  });
+});
+
 describe('site-header ids', () => {
   it('gives light-DOM instances distinct popover ids', async () => {
     const wrap = await fixture(
