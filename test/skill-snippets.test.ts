@@ -30,6 +30,30 @@ describe('skill html snippets', function () {
     expect(errors.length).to.be.greaterThan(0);
   });
 
+  it('the error probe names a failed first-party resource and ignores third-party ones', async () => {
+    const { iframe, errors } = await mount(
+      `<!doctype html><html><head><title>x</title>
+       <link rel="stylesheet" href="https://use.typekit.net/uvalib-probe-missing.css" />
+       <script src="/dist-cdn/missing-classic.js"></script>
+       <script>throw new Error('boom');</script></head><body>
+       <img alt="" src="https://www.library.virginia.edu/uvalib-probe-missing.png" /></body></html>`,
+    );
+    await new Promise((r) => setTimeout(r, 500));
+    iframe.remove();
+    expect(
+      errors.some((e) => e.includes('/dist-cdn/missing-classic.js')),
+      errors.join(),
+    ).to.equal(true);
+    expect(
+      errors.some((e) => e.includes('boom')),
+      errors.join(),
+    ).to.equal(true);
+    expect(
+      errors.some((e) => /typekit|library\.virginia\.edu/.test(e)),
+      errors.join(),
+    ).to.equal(false);
+  });
+
   snippets.forEach(({ name, src }) => {
     it(`${name} is a complete document that renders with one main`, async () => {
       expect(src).to.match(/^<!doctype html>/i);

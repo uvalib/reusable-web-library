@@ -4,10 +4,26 @@
 // Registered before any other script in the document (capture phase also sees
 // script/link load failures, which do not bubble), so module-load errors are caught.
 // It also flags DOMContentLoaded, which fires once the page's module scripts have run.
+// A resource failure is recorded with its URL. Failures from the third-party hosts in
+// THIRD_PARTY_HOSTS (fonts, the logo) are network blips, not page bugs, so they are
+// ignored; first-party resource failures and JS errors are always recorded.
+export const THIRD_PARTY_HOSTS = ['use.typekit.net', 'www.library.virginia.edu'];
+
 export const ERROR_PROBE = `<script>
   window.__errors = [];
   addEventListener('DOMContentLoaded', () => (window.__ready = true));
-  addEventListener('error', (e) => window.__errors.push(e.message || (e.target && e.target.src) || 'error'), true);
+  addEventListener('error', (e) => {
+    const t = e.target;
+    if (t && t !== window && t.nodeType === 1) {
+      const url = t.src || t.href || '';
+      let host = '';
+      try { host = new URL(url, location.href).host; } catch {}
+      if (${JSON.stringify(THIRD_PARTY_HOSTS)}.includes(host)) return;
+      window.__errors.push('failed to load ' + (url || t.localName));
+      return;
+    }
+    window.__errors.push(e.message || 'error');
+  }, true);
   addEventListener('unhandledrejection', (e) => window.__errors.push(String(e.reason)));
 </script>`;
 
