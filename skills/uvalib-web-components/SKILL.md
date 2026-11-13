@@ -1,11 +1,11 @@
 ---
 name: uvalib-web-components
-description: Use when building or editing UVA Library web pages or sites, adding the UVA Library header, footer or page wrapper to a page, using the custom elements <site-page>, <site-header>, <site-footer>, <site-analytics> or <site-style>, working with the @uvalib/web-components npm package, or editing script/link URLs on unpkg.internal.lib.virginia.edu (including migrating old /web-components/latest/ or cdn-v URLs). Covers CDN vs npm, version pinning, shadow vs light DOM, theming with --uva-* tokens, and a verification checklist.
+description: Use when building or editing UVA Library web pages or sites, adding the UVA Library header, footer or page wrapper to a page, using the custom elements <site-page>, <site-header>, <site-footer>, <site-analytics>, <site-style>, <uvalib-filter> or <uvalib-date-range>, working with the @uvalib/web-components npm package, or editing script/link URLs on unpkg.internal.lib.virginia.edu (including migrating old /web-components/latest/ or cdn-v URLs). Covers CDN vs npm, version pinning, shadow vs light DOM, theming with --uva-* tokens, and a verification checklist.
 ---
 
 # UVA Library web components
 
-`@uvalib/web-components` provides the UVA Library page chrome as custom elements: `<site-page>` (skip link, header, one `<main>`, footer), `<site-header>`, `<site-footer>`, `<site-analytics>` (Matomo) and `<site-style>` (legacy compatibility). Tag names are stable.
+`@uvalib/web-components` provides the UVA Library page chrome as custom elements: `<site-page>` (skip link, header, one `<main>`, footer), `<site-header>`, `<site-footer>`, `<site-analytics>` (Matomo) and `<site-style>` (legacy compatibility). It also ships two search-page components, `<uvalib-filter>` and `<uvalib-date-range>` (section 6). Tag names are stable.
 
 Authority rule: https://www.library.virginia.edu and the UVA Library design system are the source of truth for how the chrome looks and what it says. Do not re-create, copy or restyle the header, footer, logo or links by hand. Use the components, and change appearance only through the theming surface below.
 
@@ -28,7 +28,7 @@ CDN URLs (all files at one prefix):
 Loading rules:
 
 - One script is enough for the page chrome: `site-page.js` also loads the header and footer. Add `site-analytics.js` only when the site needs Matomo.
-- npm: the define entries (`@uvalib/web-components/site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `site-style.js`) register the element. Importing the package root (`@uvalib/web-components`) gives the classes only and registers nothing. If you use the `SitePage` class directly, also import the header and footer define entries.
+- npm: the define entries (`@uvalib/web-components/site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`) register the element. Importing the package root (`@uvalib/web-components`) gives the classes only and registers nothing. If you use the `SitePage` class directly, also import the header and footer define entries.
 - Do not load the same component from both the CDN and npm on one page.
 
 ## 2. Required page structure
@@ -113,7 +113,64 @@ import '@uvalib/web-components/tokens.css'; // optional: tokens for your own CSS
 
 Analytics: add `site-analytics.js` and a `<site-analytics>` element only when the site needs Matomo; see the analytics page in [reference/snippets.md](reference/snippets.md). It listens on `document`, so dispatch its events only after it is defined, from a user action.
 
-## 6. Verification checklist
+## 6. Search facets
+
+For a search results page that needs a checkbox facet or a date-range picker, use `<uvalib-filter>` and `<uvalib-date-range>` instead of hand-built fieldsets and sliders. They are not page chrome: use them inside `<site-page>` alongside your own results, and load each from its own script (`uvalib-filter.js`, `uvalib-date-range.js`; npm: `@uvalib/web-components/uvalib-filter.js`).
+
+- `<uvalib-filter>`: set `filter` (`{ name, title, position, buckets: [{ key, doc_count, selected }] }`), `value` (selected keys), and optionally `scopes` (`[{ value, label }]` chips), `scopeValue` and `scopesLabel`. `limit="5"` shows five buckets with See more / See less. Events: `filter-change` (`detail: { name, value }`) and `scope-change` (`detail: { value }`).
+- `<uvalib-date-range>`: `min` and `max` (`YYYY-MM-DD`) are required; without them nothing renders and a console warning is logged. Set `value` to `[start, end]`; `label` renames the legend. Event: `date-range-change` (`detail: { value: [start, end] }`).
+- Both are controlled: update `value` / `scopeValue` from your own state after each event, and re-run your search.
+- Do not hard-code ids on their inner inputs; ids are unique per instance and the markup is internal.
+
+```html snippet
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Search facets</title>
+    <script
+      type="module"
+      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
+    ></script>
+    <script
+      type="module"
+      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-filter.js"
+    ></script>
+    <script
+      type="module"
+      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-date-range.js"
+    ></script>
+  </head>
+  <body>
+    <site-page>
+      <h1>Search facets</h1>
+      <uvalib-filter id="type" limit="5"></uvalib-filter>
+      <uvalib-date-range id="dates" min="1819-01-01" max="2026-12-31"></uvalib-date-range>
+    </site-page>
+    <script type="module">
+      const type = document.querySelector('#type');
+      type.filter = {
+        name: 'type',
+        title: 'Type',
+        position: 0,
+        buckets: [
+          { key: 'Minutes', doc_count: 12, selected: false },
+          { key: 'Reports', doc_count: 7, selected: false },
+        ],
+      };
+      type.addEventListener('filter-change', (e) => {
+        type.value = e.detail.value; // controlled: you own the selection state
+      });
+      document.querySelector('#dates').addEventListener('date-range-change', (e) => {
+        console.log(e.detail.value); // [start, end] as YYYY-MM-DD
+      });
+    </script>
+  </body>
+</html>
+```
+
+## 7. Verification checklist
 
 Before finishing, load the page in a browser (or test) and confirm:
 

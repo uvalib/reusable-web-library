@@ -16,10 +16,13 @@ function page({
   title,
   body,
   styles = false,
+  components = [],
 }: {
   title: string;
   body: string;
   styles?: boolean;
+  /** Extra component entries to load besides site-page. */
+  components?: string[];
 }): string {
   const link = styles ? '\n    <link rel="stylesheet" href="./styles.css" />' : '';
   return `<!doctype html>
@@ -28,7 +31,9 @@ function page({
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${title}</title>${link}
-    <script type="module" src="${CDN_TOKEN}site-page.js"></script>
+    <script type="module" src="${CDN_TOKEN}site-page.js"></script>${components
+      .map((c) => `\n    <script type="module" src="${CDN_TOKEN}${c}.js"></script>`)
+      .join('')}
   </head>
   <body>
 ${body}
@@ -186,10 +191,83 @@ site-page::part(footer) {
       },
     },
   },
+  {
+    id: 'search-facets',
+    title: 'Search facets',
+    description:
+      'uvalib-filter (checkbox facet with scope chips and a limit) and uvalib-date-range (year slider plus date inputs). Both are controlled: set their properties from your search state and listen for filter-change, scope-change and date-range-change.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Search facets',
+          styles: true,
+          components: ['uvalib-filter', 'uvalib-date-range'],
+          body: `    <site-page>
+      <h1>Search facets</h1>
+      <div class="facets">
+        <uvalib-filter id="people" limit="3"></uvalib-filter>
+        <uvalib-date-range
+          id="dates"
+          min="1819-01-01"
+          max="2026-12-31"
+          label="Meeting date"
+        ></uvalib-date-range>
+      </div>
+      <h2>Events</h2>
+      <pre id="log" aria-live="polite">Change a facet to see its event.</pre>
+    </site-page>
+    <script type="module">
+      const log = (name, detail) => {
+        document.querySelector('#log').textContent = name + ' ' + JSON.stringify(detail, null, 2);
+      };
+
+      const people = document.querySelector('#people');
+      await customElements.whenDefined('uvalib-filter');
+      people.filter = {
+        name: 'participants',
+        title: 'Participants',
+        position: 0,
+        buckets: ['Thomas Jefferson', 'James Madison', 'James Monroe', 'John Hartwell Cocke', 'Joseph C. Cabell'].map(
+          (key, i) => ({ key, doc_count: 40 - i * 7, selected: false }),
+        ),
+      };
+      people.scopes = [
+        { value: 'Board member', label: 'Board' },
+        { value: 'Staff', label: 'Staff' },
+      ];
+      people.scopesLabel = 'Show participants by role';
+      people.addEventListener('filter-change', (e) => log('filter-change', e.detail));
+      people.addEventListener('scope-change', (e) => log('scope-change', e.detail));
+
+      const dates = document.querySelector('#dates');
+      await customElements.whenDefined('uvalib-date-range');
+      dates.addEventListener('date-range-change', (e) => log('date-range-change', e.detail));
+    </script>`,
+        }),
+      },
+      'styles.css': {
+        content: `/* The facets are plain children of site-page; lay them out like a search sidebar. */
+.facets {
+  display: grid;
+  gap: 1.5rem;
+  max-inline-size: 22rem;
+  padding: 1rem 0;
+}
+
+pre {
+  min-block-size: 4rem;
+  padding: 0.5rem;
+  background: #f1f1f1;
+  white-space: pre-wrap;
+}
+`,
+      },
+    },
+  },
 ];
 
 /** One gallery example per header variant and rendering mode. */
-export const galleryExamples: Preset[] = (['full', 'vendor'] as const).flatMap((variant) =>
+const headerExamples: Preset[] = (['full', 'vendor'] as const).flatMap((variant) =>
   [false, true].map((light) => {
     const mode = light ? 'no-shadow-dom' : 'shadow DOM';
     const name = variant === 'full' ? 'Full header' : 'Vendor header';
@@ -216,6 +294,60 @@ export const galleryExamples: Preset[] = (['full', 'vendor'] as const).flatMap((
     };
   }),
 );
+
+/** Gallery examples for the search components, in shadow and no-shadow-dom modes. */
+const searchExamples: Preset[] = [
+  {
+    id: 'uvalib-filter',
+    title: 'uvalib-filter',
+    components: ['uvalib-filter'],
+    body: (attrs: string) => `      <uvalib-filter id="el" ${attrs} limit="3"></uvalib-filter>
+    </site-page>
+    <script type="module">
+      await customElements.whenDefined('uvalib-filter');
+      document.querySelector('#el').filter = {
+        name: 'locations',
+        title: 'Locations',
+        position: 0,
+        buckets: ['Charlottesville', 'Richmond', 'Washington', 'Norfolk', 'Roanoke'].map(
+          (key, i) => ({ key, doc_count: 30 - i * 5, selected: false }),
+        ),
+      };
+    </script>`,
+    description:
+      'A checkbox facet; "See more" appears when limit is smaller than the bucket count.',
+  },
+  {
+    id: 'uvalib-date-range',
+    title: 'uvalib-date-range',
+    components: ['uvalib-date-range'],
+    body: (attrs: string) =>
+      `      <uvalib-date-range ${attrs} min="1819-01-01" max="2026-12-31"></uvalib-date-range>
+    </site-page>`,
+    description: 'A year slider plus date inputs; min and max are required.',
+  },
+].flatMap(({ id, title, components, body, description }) =>
+  [false, true].map((light) => ({
+    id: `${id}-${light ? 'light' : 'shadow'}`,
+    title: `${title}, ${light ? 'no-shadow-dom' : 'shadow DOM'}`,
+    description: `${description} ${
+      light
+        ? 'Rendered into light DOM so the host stylesheet can style it.'
+        : 'Encapsulated in shadow DOM (the default).'
+    }`,
+    files: {
+      'index.html': {
+        content: page({
+          title: `${title}, ${light ? 'no-shadow-dom' : 'shadow DOM'}`,
+          components,
+          body: `    <site-page>\n      <h1>${title}</h1>\n${body(light ? 'no-shadow-dom' : '')}`,
+        }),
+      },
+    },
+  })),
+);
+
+export const galleryExamples: Preset[] = [...headerExamples, ...searchExamples];
 
 /** A copy of `preset` with every `{{CDN}}` token replaced by `cdnBase`. */
 export function withCdnBase(preset: Preset, cdnBase: string): Preset {

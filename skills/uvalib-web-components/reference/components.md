@@ -157,3 +157,70 @@ Compatibility element. Light mode (`no-shadow-dom`) installs the tokens and base
 | `--uva-font-family` | `franklin-gothic-urw, Arial, Helvetica, sans-serif` | Font family. |
 | `--uva-font-size-base` | `17px` | Base font size. |
 | `--uva-grey-darkest` | `#2b2b2b` | Text colour. |
+
+## `<uvalib-date-range>`
+
+A date-range picker: a two-thumb year slider plus "From" and "To" date inputs. `min` and `max` (ISO dates, `YYYY-MM-DD`) are required; without valid ones the element renders nothing and logs a console warning once. The start can never pass the end, and both stay within `min`..`max`.
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `min` | `string` | `''` | Earliest selectable date, `YYYY-MM-DD`. Required. |
+| `max` | `string` | `''` | Latest selectable date, `YYYY-MM-DD`. Required. |
+| `value` | `string[]` | `[]` | Selected `[start, end]` ISO dates. Missing, invalid or out-of-range entries fall back to `min` / `max`. |
+| `label` | `string` | `'Date range'` | Legend text; the two sliders are named from it ("<label>: start year"). |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### Events
+
+| Event | Description |
+|---|---|
+| `date-range-change` | The range changed from a slider or a date input. `detail` is `{ value: [start, end] }` (ISO dates). Bubbles and is composed. |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-brand-blue` | `#232d4b` | Selected slider range, thumbs, legend and focused date input border. |
+| `--uva-brand-orange` | `#e57200` | Focus ring colour (focus-visible outline). |
+| `--uva-font-family` | `inherit` | Font family. |
+
+## `<uvalib-filter>`
+
+A faceted-search filter: a fieldset of checkboxes (value plus result count), optional toggle chips ("scopes") above them, and "See more" / "See less" buttons when `limit` is set. It is controlled: set `filter`, `value` and `scopeValue` from your search state and listen for the change events.
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `filter` | `FilterFacet` | `{ name: '', title: '', position: 0, buckets: [] }` | The facet to show: `{ name, title, position, buckets: [{ key, doc_count, selected }] }`. |
+| `value` | `string[]` | `[]` | Selected bucket keys (matched case-insensitively). |
+| `scopes` | `FilterScopeOption[]` | `[]` | Optional toggle chips shown under the legend (for example attendee types): `[{ value, label }]`. |
+| `scopevalue` | `string[]` | `[]` | Pressed scope values (matched case-insensitively). |
+| `scopes-label` | `string` | `''` | Accessible name of the scope chip group. Empty (the default) means `Filter <title> by type`. |
+| `limit` | `number` | `0` | Maximum buckets to show at first; 0 shows all. "See more" doubles it, "See less" halves it back. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### CSS parts
+
+| Part | Description |
+|---|---|
+| `see-more` | The "See more" button (shadow mode). |
+| `see-less` | The "See less" button (shadow mode). |
+
+### Events
+
+| Event | Description |
+|---|---|
+| `filter-change` | A checkbox was toggled. `detail` is `{ name, value }`: the facet name and the new array of selected keys. Does not bubble. |
+| `scope-change` | A scope chip was toggled. `detail` is `{ value }`: the new array of pressed scope values. Does not bubble. |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-brand-blue` | `#232d4b` | Scope chip text, hover border and pressed background. |
+| `--uva-brand-orange` | `#e57200` | Focus ring colour (focus-visible outline). |

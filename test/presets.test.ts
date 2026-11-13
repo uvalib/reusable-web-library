@@ -17,13 +17,14 @@ function previewSource(p: Preset): string {
 
 describe('playground presets', function () {
   this.timeout(5000); // each test mounts a full page from dist-cdn
-  it('has the five presets from the spec, in order', () => {
+  it('has the presets from the spec, in order', () => {
     expect(presets.map((p) => p.id)).to.deep.equal([
       'full-page',
       'vendor-header',
       'light-dom-host-css',
       'pre-footer',
       'theming',
+      'search-facets',
     ]);
   });
 

@@ -43,7 +43,7 @@ describe('skill html snippets', function () {
         const tags = new Set(
           [...doc.querySelectorAll('*')]
             .map((e) => e.localName)
-            .filter((n) => n.startsWith('site-')),
+            .filter((n) => n.startsWith('site-') || n.startsWith('uvalib-')),
         );
         expect(tags.size).to.be.greaterThan(0);
         await whenAllDefined(win, tags);

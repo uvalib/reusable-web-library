@@ -7,7 +7,15 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-const TAGS = ['site-page', 'site-header', 'site-footer', 'site-analytics', 'site-style'];
+const TAGS = [
+  'site-page',
+  'site-header',
+  'site-footer',
+  'site-analytics',
+  'site-style',
+  'uvalib-filter',
+  'uvalib-date-range',
+];
 
 const walk = (dir) =>
   readdirSync(dir).flatMap((n) => {
@@ -27,7 +35,7 @@ test('every path in exports exists (wildcards need a matching directory)', () =>
   }
 });
 
-test('the five component entries and the base entry are exported with types', () => {
+test('the component entries and the base entry are exported with types', () => {
   for (const tag of TAGS) {
     const e = pkg.exports[`./${tag}.js`];
     assert.equal(e.default, `./dist/components/${tag}/${tag}.js`);
@@ -59,7 +67,7 @@ test('npm pack lists the agent skill', () => {
   assert.ok(paths.includes('skills/uvalib-web-components/SKILL.md'));
 });
 
-test('manifest declares all five tags', () => {
+test('manifest declares all tags', () => {
   const m = JSON.parse(readFileSync(join(root, 'dist/custom-elements.json'), 'utf8'));
   const tags = m.modules.flatMap((mod) => mod.declarations ?? []).map((d) => d.tagName);
   for (const tag of TAGS) assert.ok(tags.includes(tag), `manifest lacks ${tag}`);

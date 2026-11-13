@@ -14,7 +14,9 @@
   "type": "module",
   "sideEffects": [
     "./dist/components/*/site-*.js",
+    "./dist/components/*/uvalib-*.js",
     "./src/components/*/site-*.ts",
+    "./src/components/*/uvalib-*.ts",
     "*.css"
   ],
   "customElements": "dist/custom-elements.json",
@@ -46,6 +48,14 @@
     "./site-style.js": {
       "types": "./dist/components/site-style/site-style.d.ts",
       "default": "./dist/components/site-style/site-style.js"
+    },
+    "./uvalib-filter.js": {
+      "types": "./dist/components/uvalib-filter/uvalib-filter.d.ts",
+      "default": "./dist/components/uvalib-filter/uvalib-filter.js"
+    },
+    "./uvalib-date-range.js": {
+      "types": "./dist/components/uvalib-date-range/uvalib-date-range.d.ts",
+      "default": "./dist/components/uvalib-date-range/uvalib-date-range.js"
     },
     "./tokens.css": "./dist/tokens.css",
     "./base.css": "./dist/base.css",

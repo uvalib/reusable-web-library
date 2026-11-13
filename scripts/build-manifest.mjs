@@ -6,7 +6,15 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-const TAGS = ['site-page', 'site-header', 'site-footer', 'site-analytics', 'site-style'];
+const TAGS = [
+  'site-page',
+  'site-header',
+  'site-footer',
+  'site-analytics',
+  'site-style',
+  'uvalib-filter',
+  'uvalib-date-range',
+];
 
 const manifest = {
   version: pkg.version,

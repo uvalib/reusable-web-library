@@ -93,8 +93,19 @@ const readCalls = (p) => readFileSync(p, 'utf8');
 const lines = (s, re) => s.split('\n').filter((l) => re.test(l));
 // In dry-run, mutating commands are printed by the script (stdout); the stub only sees list calls.
 const puts = (r) => lines(r.stdout, /s3api put-object/);
-// The random temp dir name must not be able to spell a legacy marker (it once matched `cdn-v`).
-const noLegacy = (r) => assert.ok(!/latest|cdn-v/.test(r.all), r.all);
+// Only S3 key and URI arguments are inspected: local paths (the random temp dir name, once
+// matched `cdn-v`) are not part of what gets published. Keys appear as `--key <k>` in dry-run
+// output and as an `ARG:--key` line followed by an `ARG:<k>` line in argv mode.
+const s3Targets = (text) => [
+  ...[...text.matchAll(/--key (\S+)/g)].map((m) => m[1]),
+  ...[...text.matchAll(/^ARG:--key\nARG:(.*)$/gm)].map((m) => m[1]),
+  ...(text.match(/s3:\/\/\S+/g) ?? []),
+];
+const noLegacy = (r) => {
+  const targets = s3Targets(r.all);
+  assert.ok(targets.length > 0, `no S3 keys or URIs found in:\n${r.all}`);
+  for (const t of targets) assert.ok(!/latest|cdn-v/.test(t), `legacy S3 target ${t}`);
+};
 
 test('(a) fresh upload: put-object per file with if-none-match + immutable, then alias sync and invalidation', () => {
   const r = run(['1.0.0']);
