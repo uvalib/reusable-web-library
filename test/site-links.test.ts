@@ -202,6 +202,10 @@ for (const mode of ['shadow', 'light'] as const) {
       for (const a of el.querySelectorAll('[slot="site-links"]')) {
         expect(a.checkVisibility()).to.equal(false);
       }
+      // Exactly main's vendor header markup.
+      expect(normalizeMarkup(root(el).querySelector('header')!.outerHTML)).to.equal(
+        HEADER_SNAPSHOT[mode === 'shadow' ? 'vendorShadow' : 'vendorLight'],
+      );
     });
 
     it('ignores site-links children that are not <a href>, warning once', async () => {
