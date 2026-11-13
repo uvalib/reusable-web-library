@@ -388,18 +388,32 @@ The first release must be `pnpm release major` (0.0.0 → 1.0.0).
 
 Pull requests to `main` run `.github/workflows/ci.yml` in GitHub Actions (install, lint, test) with a read-only token and no secrets; pushes to `main` are tested by `.github/workflows/pages.yml`.
 
-Releases run in an AWS CodePipeline defined in the UVA Library's `terraform-infrastructure` repo (`aws_cicd/pipelines/reusable-web-library/`). Pushing a `v*` tag starts it, and its CodeBuild stage runs `pipeline/buildspec-release.yml`:
+One `v*` tag starts two independent releases. Each can be re-run on its own, and no npm token is stored anywhere:
 
-- It takes the release tag from the checked-out commit (exactly one `vX.Y.Z` tag), and refuses to publish unless that commit is on `main` and the tag matches `package.json`.
-- It publishes to npm (skipped if that version is already there), then uploads to the CDN: `vX.Y.Z/` (immutable, create-only) and the `vX/` major alias (synced without `--delete`, so hashed chunks from earlier releases stay available to cached entry files), then invalidates `/web-components/vX/*`. The alias is updated and invalidated only when the release is the highest `X.*.*` version present. It never writes the legacy `latest/` or `cdn-v*` prefixes.
-- Its IAM role is tightly scoped on the CDN bucket (list, read and write `web-components/v*` keys only) and explicitly denied the escalation paths the shared pipeline policy would otherwise grant (Secrets Manager, other SSM parameters, ECR, ECS, CodeCommit, CodeBuild, Terraform state, other pipelines' artifacts). The npm token, though, is readable by any code running in the build, because the role has to read it. That is inherent; the mitigations are `pnpm install --ignore-scripts` and a granular npm token.
+- **npm:** `.github/workflows/release-npm.yml` (GitHub Actions) publishes `@uvalib/web-components` with npm Trusted Publishing (OIDC). It runs in the `npm` GitHub environment with `id-token: write` and no secrets. It checks that the tag is `vX.Y.Z`, that its commit is the checked-out commit and is on `main`, and that it matches `package.json`; then installs with `--ignore-scripts`, runs lint and tests, and runs `npm publish --access public` (provenance is automatic for a public repo). A version already on npm is skipped. Re-run it from Actions, or with `workflow_dispatch` and the tag.
+- **CDN:** an AWS CodePipeline defined in the UVA Library's `terraform-infrastructure` repo (`aws_cicd/pipelines/reusable-web-library/`) runs `pipeline/buildspec-release.yml`:
+  - It takes the release tag from the checked-out commit (exactly one `vX.Y.Z` tag), and refuses to publish unless that commit is on `main` and the tag matches `package.json`.
+  - After lint and tests it uploads to the CDN: `vX.Y.Z/` (immutable, create-only) and the `vX/` major alias (synced without `--delete`, so hashed chunks from earlier releases stay available to cached entry files), then invalidates `/web-components/vX/*`. The alias is updated and invalidated only when the release is the highest `X.*.*` version present. It never writes the legacy `latest/` or `cdn-v*` prefixes.
+  - Its IAM role is tightly scoped on the CDN bucket (list, read and write `web-components/v*` keys only) and explicitly denied the escalation paths the shared pipeline policy would otherwise grant (Secrets Manager, all of SSM, ECR, ECS, CodeCommit, CodeBuild, Terraform state, other pipelines' artifacts). It holds no npm credential.
 
 One-time setup for the repo owner:
 
 1. Apply `aws_cicd/pipelines/reusable-web-library/` in `terraform-infrastructure`, and make sure the GitHub connection's app installation includes this repository.
-2. Store a granular npm token as an SSM SecureString at `/web-components/npm-token`: publish-only, scoped to `@uvalib/web-components`, and IP-allowlisted to the build's egress addresses if possible.
-3. Add a GitHub tag ruleset that restricts creating `v*` tags to maintainers, since pushing one releases.
+2. Add a GitHub tag ruleset that restricts creating `v*` tags to maintainers, since pushing one releases.
+3. Create a GitHub environment named `npm` (Settings > Environments). Optionally add required reviewers, and restrict deployments to `v*` tags, so each npm publish needs approval.
 4. Enable GitHub Pages for the repository with source "GitHub Actions" (Settings > Pages), so `.github/workflows/pages.yml` can deploy the playground.
+5. Bootstrap npm for 1.0.0 (below).
+
+### First npm release (1.0.0 bootstrap)
+
+A trusted publisher can only be added from an existing package's settings page, so 1.0.0 needs one manual publish:
+
+1. `pnpm release major` pushes `v1.0.0`. The CDN release runs. The npm workflow fails, because no trusted publisher exists yet.
+2. A maintainer publishes 1.0.0 from a clean checkout of the tag, with 2FA and no token: `pnpm install --frozen-lockfile && pnpm build && npm publish --access public`.
+3. On npmjs.com, open the package's Settings > Trusted publishing and add a GitHub Actions publisher: organization `uvalib`, repository `reusable-web-library`, workflow `release-npm.yml`, environment `npm`, and allow direct `npm publish`.
+4. Set publishing access to "Require two-factor authentication and disallow tokens".
+
+npm expires a new trusted-publisher configuration that has not completed a successful publish within 2 days, and an expired one cannot be used or edited. Re-running the workflow on `v1.0.0` would not help: it skips, because 1.0.0 is already published, so nothing validates the configuration. Plan to ship the next release (for example 1.0.1) within 2 days of step 3. If it has expired, delete the configuration, add it again, and publish within 2 days. `package.json` `repository.url` is `git+https://github.com/uvalib/reusable-web-library.git`, which is npm's normal form and matches the repository as npm requires.
 
 ## Migration
 
