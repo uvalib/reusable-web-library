@@ -13,7 +13,8 @@ phases:
     commands:
       # The pipeline sets inject_repo_tokens = false; fail closed before any third-party code runs.
       - '[ -z "${GITHUB_TOKEN+x}${GITLAB_TOKEN+x}" ] || { echo "repo tokens present" >&2; exit 1; }'
-      - npm i -g n@11.0.0 && n 24 && hash -r
+      # standard:7.0 ships `n` (CodeBuild uses it for runtime-versions), so use it rather than installing another.
+      - n 24 && hash -r
       - test "$(node -p "process.versions.node.split(\".\")[0]")" = "24"
       - corepack enable
       # Dependency install scripts are not run in the release build (it holds CDN publish credentials).
