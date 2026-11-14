@@ -9,6 +9,8 @@ export default tseslint.config(
       'coverage/**',
       'node_modules/**',
       'test/baseline/**',
+      // Agent worktrees and local Claude Code files: other branches' checkouts.
+      '.claude/**',
     ],
   },
   ...tseslint.configs.recommended,

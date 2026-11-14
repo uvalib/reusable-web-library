@@ -8,3 +8,6 @@ dist-site
 test/baseline/bov-ab-*/
 test/baseline/bov-after*/
 test/baseline/bovweb-*/
+
+# Agent worktrees (other branches checked out inside this repo)
+.claude/worktrees/
