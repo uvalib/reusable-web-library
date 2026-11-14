@@ -1,5 +1,10 @@
 export * from './base.js';
-export { SitePage } from './components/site-page/SitePage.js';
+export {
+  SitePage,
+  ALERTS_PRODUCTION_SRC,
+  ALERTS_STAGING_SRC,
+} from './components/site-page/SitePage.js';
+export type { AlertsEnv } from './components/site-page/SitePage.js';
 export { SiteHeader } from './components/site-header/SiteHeader.js';
 export { SiteFooter } from './components/site-footer/SiteFooter.js';
 export { SiteAnalytics } from './components/site-analytics/SiteAnalytics.js';

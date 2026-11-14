@@ -6,12 +6,26 @@ import { installLightDomStyles } from '../../base/light-dom-styles.js';
 import { tokens } from '../../styles/tokens.js';
 import { base, TYPEKIT_URL } from '../../styles/base.js';
 import { accessible } from '../../styles/accessible.js';
+import { ALERTS_TAG, alertsBase, isAlertsEnv, loadAlerts } from './alerts.js';
+
+export { ALERTS_PRODUCTION_SRC, ALERTS_STAGING_SRC } from './alerts.js';
+export type { AlertsEnv } from './alerts.js';
+
+/** The alert elements, in document order: header banner, alert list, regional alerts. */
+const ALERT_SHOWS = ['header', 'list', 'regional'] as const;
 
 const slotOf = (n: Node): string | null => (n instanceof Element ? n.getAttribute('slot') : null);
 
 /**
  * Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles.
  * Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`.
+ *
+ * Shows live UVA Library alerts by default: a `<uvalib-alerts show="header">` banner inside
+ * the header landmark, after the skip link, and `<uvalib-alerts show="list">` then
+ * `show="regional"` as the first children of `<main>`. The alerts component is loaded once
+ * per document, with a module script, from the alerts CDN (`alerts-env`, or `alerts-src`);
+ * if it fails to load, one console warning is logged and the page works as before.
+ * `no-alerts` renders no alert elements and loads nothing.
  *
  * @tagname site-page
  * @slot - Main page content, rendered inside the single `<main>`.
@@ -40,6 +54,18 @@ export class SitePage extends UvalibElement {
   @property({ type: Boolean, attribute: 'no-footer', reflect: true }) noFooter = false;
   /** Accessible name of the header navigation when site links are given (default "Site"). */
   @property({ type: String, attribute: 'site-links-label' }) siteLinksLabel?: string;
+  /**
+   * Alerts environment: `production` (default) or `staging`. Any other value logs one
+   * console warning and uses production. Ignored when `alerts-src` is set.
+   */
+  @property({ type: String, attribute: 'alerts-env' }) alertsEnv = 'production';
+  /**
+   * Alerts base URL (holding `config.json`, `alerts.json` and `v1/uvalib-alerts.js`); overrides
+   * `alerts-env`. For a custom domain, local development and tests.
+   */
+  @property({ type: String, attribute: 'alerts-src' }) alertsSrc?: string;
+  /** Render no alert elements and load no alerts script. */
+  @property({ type: Boolean, attribute: 'no-alerts' }) noAlerts = false;
 
   static styles = [
     accessible,
@@ -76,6 +102,10 @@ export class SitePage extends UvalibElement {
   private chrome = new WeakSet<Node>();
   private observer?: MutationObserver;
   private globalsInstalled = false;
+  /** The alerts base URL in use, from `alerts-src` or `alerts-env`. */
+  private alertsUrl = alertsBase('production');
+  /** Light mode: the alert elements this element created (header, list, regional). */
+  private lightAlerts?: HTMLElement[];
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -110,6 +140,50 @@ export class SitePage extends UvalibElement {
       link.href = TYPEKIT_URL;
       doc.head.append(link);
     }
+  }
+
+  protected override willUpdate(changed: PropertyValues): void {
+    if (changed.has('alertsEnv') && this.alertsEnv && !isAlertsEnv(this.alertsEnv)) {
+      console.warn(
+        `${this.localName}: unknown alerts-env "${this.alertsEnv}"; using production. Valid values: production, staging.`,
+      );
+    }
+    this.alertsUrl = alertsBase(this.alertsEnv, this.alertsSrc);
+  }
+
+  protected override updated(): void {
+    if (this.lightDom) this.syncLightAlerts();
+    if (!this.noAlerts) loadAlerts(this.ownerDocument, this.alertsUrl);
+  }
+
+  /**
+   * Light mode keeps <main> free of Lit parts, so the alert elements are managed here: the
+   * header one is handed to <site-header> as a `slot="alerts"` child (it moves it into its
+   * <header>), and list and regional stay the first children of <main>. They are chrome, so
+   * route() never moves them.
+   */
+  private syncLightAlerts(): void {
+    const main = this.querySelector(':scope > main');
+    const header = this.querySelector(':scope > site-header');
+    if (!main || !header) return;
+    if (this.noAlerts) {
+      for (const a of this.lightAlerts ?? []) a.remove();
+      this.lightAlerts = undefined;
+      return;
+    }
+    this.lightAlerts ??= ALERT_SHOWS.map((show) => {
+      const a = this.ownerDocument.createElement(ALERTS_TAG);
+      a.setAttribute('show', show);
+      if (show === 'header') a.slot = 'alerts';
+      this.chrome.add(a);
+      return a;
+    });
+    const [top, list, regional] = this.lightAlerts as [HTMLElement, HTMLElement, HTMLElement];
+    for (const a of this.lightAlerts) {
+      if (a.getAttribute('src') !== this.alertsUrl) a.setAttribute('src', this.alertsUrl);
+    }
+    if (!header.contains(top)) header.append(top);
+    if (main.firstChild !== list || list.nextSibling !== regional) main.prepend(list, regional);
   }
 
   protected override update(changed: PropertyValues): void {
@@ -168,6 +242,13 @@ export class SitePage extends UvalibElement {
     // looks the #main-content target up on the document and cannot see it in this shadow root,
     // so it would flag a skip link that sits outside every landmark ("region").
     // Light mode: the link stays the first child, where the target resolves.
+    const alerts = !this.noAlerts && !light;
+    const alert = (show: (typeof ALERT_SHOWS)[number]) =>
+      html`<uvalib-alerts
+        slot=${ifDefined(show === 'header' ? 'alerts' : undefined)}
+        show=${show}
+        src=${this.alertsUrl}
+      ></uvalib-alerts>`;
     return html`
       ${light ? skip : nothing}
       <site-header
@@ -178,13 +259,20 @@ export class SitePage extends UvalibElement {
         root-link-domain=${this.rootLinkDomain}
         site-links-label=${ifDefined(this.siteLinksLabel)}
         >${
-          light ? nothing : html`${skip}<slot name="site-links" slot="site-links"></slot>`
+          light
+            ? nothing
+            : html`${skip}${alerts ? alert('header') : nothing}<slot
+                  name="site-links"
+                  slot="site-links"
+                ></slot>`
         }</site-header
       >
       ${
         light
           ? html`<main id="main-content" tabindex="-1" part="main"></main>`
-          : html`<main id="main-content" tabindex="-1" part="main"><slot></slot></main>`
+          : html`<main id="main-content" tabindex="-1" part="main">
+              ${alerts ? html`${alert('list')}${alert('regional')}` : nothing}<slot></slot>
+            </main>`
       }
       ${
         light

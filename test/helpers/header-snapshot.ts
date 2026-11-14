@@ -14,8 +14,15 @@ export const HEADER_SNAPSHOT = {
     '<header part="header" class="vendor"><a class="logo" href="https://www.library.virginia.edu/"><img alt="UVA Library home" width="304" height="69" src="https://www.library.virginia.edu/sites/default/files/2022-09/library_rgb.png"></a><nav class="inline" aria-label="Utility"><ul><li><a href="https://www.library.virginia.edu/askalibrarian">Ask a Librarian</a></li></ul></nav></header>',
 };
 
+// <site-page>'s header alert is page content handed to the header's `alerts` slot: in shadow
+// mode it is slotted and so absent from the header's own markup; in light mode it is moved
+// into <header>. It is dropped here so both modes compare the header's own markup.
 export function normalizeMarkup(html: string): string {
   return html
+    .replace(
+      /<uvalib-alerts\b[^>]*\bslot="alerts"[^>]*>(?:(?!<\/uvalib-alerts>)[\s\S])*<\/uvalib-alerts>/g,
+      '',
+    )
     .replace(/<!--[^>]*-->/g, '')
     .replace(/utility-menu-\d+/g, 'utility-menu-N')
     .replace(/\s+/g, ' ')
