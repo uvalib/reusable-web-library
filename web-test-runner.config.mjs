@@ -24,6 +24,9 @@ export default {
   filterBrowserLogs: (log) =>
     !log.args.some((a) => typeof a === 'string' && a.includes('Lit is in dev mode')),
   plugins: [esbuildPlugin({ ts: true, tsconfig: './tsconfig.json' }), hoursClockPlugin()],
+  // Full-page axe runs take close to mocha's 2s default when the whole suite runs in
+  // parallel, which made them flaky; suites that mount whole pages still set more.
+  testFramework: { config: { timeout: 5000 } },
   files: ['test/**/*.test.ts', `!${TZ_FILES}`],
   browsers: [chromium()],
   groups: [
