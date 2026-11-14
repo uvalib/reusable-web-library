@@ -100,22 +100,31 @@ for (const mode of ['shadow', 'light'] as const) {
       }
     });
 
-    it('lays the alerts out as a full-width row above the logo row', async () => {
-      const el = await fixture<SiteHeader>(
-        `<site-header ${light}><div slot="alerts" id="a" style="height: 20px">notice</div></site-header>`,
-      );
-      await settle(el);
-      const a = document.getElementById('a')!.getBoundingClientRect();
-      const header = root(el).querySelector('header')!;
-      const logo = header.querySelector('.logo')!.getBoundingClientRect();
-      const inner = header.getBoundingClientRect();
-      const cs = getComputedStyle(header);
-      expect(a.width).to.be.closeTo(
-        inner.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight),
-        1,
-      );
-      expect(logo.top).to.be.at.least(a.bottom - 0.5);
-    });
+    for (const width of [1280, 768, 390]) {
+      it(`lays the alerts out full-bleed above the logo row at ${width}px`, async () => {
+        await setViewport({ width, height: 800 });
+        try {
+          const el = await fixture<SiteHeader>(
+            `<site-header ${light}><div slot="alerts" id="a" style="height: 20px">notice</div></site-header>`,
+          );
+          await settle(el);
+          const a = document.getElementById('a')!.getBoundingClientRect();
+          const header = root(el).querySelector('header')!;
+          const box = header.getBoundingClientRect();
+          const logo = header.querySelector('.logo')!.getBoundingClientRect();
+          // Flush with the top and both edges of the header box: no header padding around it.
+          expect(a.left).to.be.closeTo(box.left, 0.5);
+          expect(a.right).to.be.closeTo(box.right, 0.5);
+          expect(a.top).to.be.closeTo(box.top, 0.5);
+          expect(a.height).to.be.closeTo(20, 0.5);
+          // The logo row keeps its own top padding below the alerts.
+          const padTop = parseFloat(getComputedStyle(header).paddingTop);
+          expect(logo.top - a.bottom).to.be.closeTo(padTop, 0.5);
+        } finally {
+          await setViewport({ width: 800, height: 600 });
+        }
+      });
+    }
   });
 
   describe(`site-header geometry without alert content (${mode})`, () => {

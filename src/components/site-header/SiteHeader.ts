@@ -54,7 +54,7 @@ const LINK_ATTRS = ['href', 'aria-current', 'target', 'rel', 'hreflang'];
  *
  * @tagname site-header
  * @slot skip-link - Shadow mode only: optional skip link, rendered first inside `<header>` (`<site-page>` uses it).
- * @slot alerts - Optional alert banner (`<site-page>` passes its `<uvalib-alerts show="header">`), shown as a full-width row inside `<header>`, after the skip link and before the logo row. In light mode the children are moved to the start of `<header>`. The header never loads alerts itself.
+ * @slot alerts - Optional alert banner (`<site-page>` passes its `<uvalib-alerts show="header">`), shown as a full-bleed row at the very top of `<header>` (flush with its top and both edges, outside its padding), after the skip link and before the logo row. In light mode the children are moved to the start of `<header>`. The header never loads alerts itself.
  * @slot site-links - Optional `<a href>` elements with text that replace the library utility links in the inline nav and the Menu popover (ignored by the `vendor` variant). In light mode they are moved into a hidden holder.
  * @csspart header - The `<header>` element.
  * @cssprop [--uva-blue-alt-dark=#005679] - Utility link colour.
@@ -79,18 +79,24 @@ export class SiteHeader extends UvalibElement {
         align-items: start;
         position: relative;
         background-color: #ffffff;
-        padding: 0.5rem 16px; /* old: .w3-container 16px side padding */
+        --_pad-block: 0.5rem;
+        --_pad-inline: 16px; /* old: .w3-container 16px side padding */
+        padding: var(--_pad-block) var(--_pad-inline);
       }
       header > :not(.logo) {
         grid-column: 2;
         justify-self: end;
       }
-      /* The alerts (slot="alerts") take the full width above the logo row. */
+      /* The alerts (slot="alerts") are a full-bleed row above the logo row, as in Virgo:
+         negative margins equal to the header's padding put them flush with the top and both
+         edges, and the bottom margin gives the logo row back its top padding. With no
+         alerts content they take no space, so the logo row is exactly where it was. */
       ::slotted([slot='alerts']),
       header > [slot='alerts'] {
         grid-column: 1 / -1;
         justify-self: stretch;
         min-inline-size: 0;
+        margin: calc(-1 * var(--_pad-block)) calc(-1 * var(--_pad-inline)) var(--_pad-block);
       }
       .logo {
         display: block;
