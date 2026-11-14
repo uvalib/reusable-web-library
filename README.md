@@ -136,11 +136,11 @@ The links replace the utility links in both the inline nav on wide screens and t
 Every full header shows the UVA Library main navigation, as on library.virginia.edu: About, Using the Library, Research & teaching support and Get help. It is on by default for `<site-page>` and a standalone `<site-header>`, with or without site links. Above 992px it is a full-width row under the logo row, with the brand-blue rule under it; at 992px and below it leads the Menu popover as accordions, above the utility or site links. The `vendor` header variant never shows it.
 
 - **Turn it off** with `no-main-nav` on `<site-page>` or `<site-header>`. The header is then exactly what it was before the main navigation existed.
-- **Its name** is "Main" (`main-nav-label` changes it).
+- **Its name** is "Main" (`main-nav-label` changes it). Exactly one main navigation landmark is visible at a time: the row above 992px, the accordion inside the open Menu popover at 992px and below (and none while the popover is closed).
 - **Replace its links**, in this order of precedence:
   1. A `<nav slot="main-nav">` child of `<site-page>` or `<site-header>`. `<li><a href>` is a direct link; `<li><span>Group</span><ul><li><a href>…</a></li></ul></li>` is a group. The source markup stays hidden; adding, removing or editing it later updates the header. Invalid entries are skipped with one console warning, and links nested deeper than a group are shown in their group.
-  2. The `items` property of `<site-main-nav>` (`MainNavItem[]`: `{ label, href }` or `{ label, items: [{ label, href }] }`).
-  3. `main-nav-src` on `<site-page>` or `<site-header>` (`items-src` on `<site-main-nav>`): a URL of JSON in the same shape, which needs CORS. The bundled menu shows until it loads. If it fails (network error, 10-second timeout, or no valid entries) the bundled menu stays and `site-main-nav-error` is fired once, with `detail` `{ src, message }`.
+  2. The `items` property of a standalone `<site-main-nav>` (`MainNavItem[]`: `{ label, href }` or `{ label, items: [{ label, href }] }`). `<site-page>` and `<site-header>` have no such property; use the slot or `main-nav-src` there.
+  3. `main-nav-src` on `<site-page>` or `<site-header>` (`items-src` on `<site-main-nav>`): a URL of JSON in the same shape, which needs CORS. The bundled menu shows until it loads. It is tried twice, a second apart, and each attempt times out after 10 seconds. If both fail (network errors, timeouts, or no valid entries), after about 21 seconds at worst, the bundled menu stays and `site-main-nav-error` is fired once, with `detail` `{ src, message }`.
   4. Otherwise: the bundled snapshot of the live menu.
 
   ```html
@@ -162,8 +162,9 @@ Every full header shows the UVA Library main navigation, as on library.virginia.
 
 - **Links:** relative hrefs are joined to `root-link-domain`; absolute ones are kept as written.
 - **Keyboard:** it is a disclosure navigation (buttons with `aria-expanded` and lists of links), not an ARIA menu, so Tab moves through everything as usual. Click, Enter or Space opens or closes a group, and only one is open at a time. Escape closes it and returns focus to its button. ArrowDown on an open group's button moves into its links; the arrow keys, Home and End move between the group buttons and between a group's links. On wide screens a group also closes when focus leaves the navigation or on a click outside it. Nothing opens on hover.
-- **Current page:** the link matching the page's URL (host and path; the query, the hash, a trailing slash and a leading `www.` are ignored) gets `aria-current="page"`, and its group's button `aria-current="true"`. Both are shown bold with a thick orange underline, not by colour alone. When two links differ only by hash, one is marked: the one with the page's hash, else the one without a hash. A single-page app that changes the URL without reloading sets `current` on `<site-main-nav>` to the new URL.
+- **Current page:** the link matching the page's URL (host and path; the query, the hash, a trailing slash and a leading `www.` are ignored) gets `aria-current="page"`, and its group's button `aria-current="true"`. Both are shown bold with a thick orange underline, not by colour alone. When two links differ only by hash, one is marked: the one with the page's hash, else the one without a hash. The marking follows same-document navigations (`popstate`, `hashchange`, and the Navigation API's `currententrychange` where the browser has it), so a single-page app that changes the URL needs nothing more. An app whose route is not its URL sets `main-nav-current` on `<site-page>` or `<site-header>` (`current` on `<site-main-nav>`) to the URL to mark; while it is set, the location is not followed.
 - **Keeping it current:** the menu is a snapshot of the desktop "Main navigation" menu on library.virginia.edu, committed in `src/components/site-main-nav/main-nav-data.ts`. There is no runtime fetch. `pnpm sync:main-nav` regenerates it from the live home page (the desktop menu is canonical; Drupal's separate "Mobile Main Nav" menu has drifted and is ignored). Review the diff and release.
+- **Accessibility:** focus rings sit inside the controls and keep 3:1 contrast (orange on white, brand blue on the grey of a hovered or open group). In forced-colors mode the open panel keeps an edge and the open group and hovered controls are outlined.
 - **Header height:** above 992px the header is about 54px taller (the main navigation row). At 992px and below it is unchanged.
 
 ### Alerts
@@ -386,7 +387,7 @@ UVA Library site footer: link columns, contact details and copyright.
 
 ### `<site-header>`
 
-UVA Library site header: logo, utility navigation, and a popover menu on narrow screens. A site can replace the library utility links (My account, Ask a Librarian, Hours, Give, Alerts, Search) with its own: give the header `<a slot="site-links" href="…">` children. They are shown, in order, in the inline nav and the Menu popover, with `href` as written (not joined to `root-link-domain`) and their `aria-current`, `target`, `rel` and `hreflang`. The source anchors themselves stay hidden. Children that are not `<a href>` with text (empty or whitespace-only text counts as none) are ignored with one console warning. The `vendor` variant ignores site links and keeps its own reduced link set. The full header also shows the UVA Library main navigation (`<site-main-nav>`): a row under the logo row on wide screens, and an accordion at the top of the Menu popover on narrow ones (992px and below), above the utility or site links. `no-main-nav` turns it off, leaving the header exactly as it was without it; the `vendor` variant never shows it. A `<nav slot="main-nav">` child replaces its links (see `<site-main-nav>`), and `main-nav-src` loads them from JSON.
+UVA Library site header: logo, utility navigation, and a popover menu on narrow screens. A site can replace the library utility links (My account, Ask a Librarian, Hours, Give, Alerts, Search) with its own: give the header `<a slot="site-links" href="…">` children. They are shown, in order, in the inline nav and the Menu popover, with `href` as written (not joined to `root-link-domain`) and their `aria-current`, `target`, `rel` and `hreflang`. The source anchors themselves stay hidden. Children that are not `<a href>` with text (empty or whitespace-only text counts as none) are ignored with one console warning. The `vendor` variant ignores site links and keeps its own reduced link set. The full header also shows the UVA Library main navigation (`<site-main-nav>`): a row under the logo row on wide screens, and an accordion at the top of the Menu popover on narrow ones (992px and below), above the utility or site links. `no-main-nav` turns it off, leaving the header exactly as it was without it; the `vendor` variant never shows it. A `<nav slot="main-nav">` child replaces its links (see `<site-main-nav>`), and `main-nav-src` loads them from JSON; `main-nav-current` sets the URL marked current.
 
 #### Attributes
 
@@ -398,6 +399,7 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 | `no-main-nav` | `boolean` | `false` | Hide the UVA Library main navigation (the row under the logo and the popover accordion). |
 | `main-nav-label` | `string \| undefined` |  | Accessible name of the main navigation (default "Main"). |
 | `main-nav-src` | `string \| undefined` |  | URL of JSON main navigation items (`MainNavItem[]`, needs CORS), passed to `<site-main-nav items-src>`. |
+| `main-nav-current` | `string \| undefined` |  | The URL whose main-navigation link is marked current, passed to `<site-main-nav current>`. Default: the page location, followed through same-document navigations. |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -460,7 +462,7 @@ Today's hours for the UVA libraries, as on the library.virginia.edu home page: t
 
 ### `<site-main-nav>`
 
-The UVA Library main navigation (About, Using the Library, Research & teaching support, Get help), as on library.virginia.edu, following the WAI-ARIA disclosure navigation pattern: one `<nav>` landmark; each group is a `<button aria-expanded aria-controls>` followed by its list of links, and an entry with no group is a plain link. Click, Enter or Space toggles a group and only one is open at a time; Escape closes it and returns focus to its button; arrow keys, Home and End move between the buttons and between a panel's links, and ArrowDown on an open button moves into its panel. In the `bar` layout a panel also closes when focus leaves the nav or on a pointer press outside it. There is no hover-to-open. The items come from, in order of precedence: a `<nav slot="main-nav">` child holding `<ul><li><a href>…</a></li></ul>` (a direct link) or `<li><span>Group</span><ul><li><a href>…` (a group), kept hidden and watched for changes; the `items` property; JSON at `items-src`; and the snapshot of the live menu bundled with the component (see `pnpm sync:main-nav`). Invalid entries are skipped and levels deeper than two are flattened, each with one console warning. Relative hrefs are joined to `root-link-domain`; absolute ones are kept. The link for the current page (`current`, default the page location; host and path, ignoring the query, the hash, a trailing slash and a leading `www.`) gets `aria-current="page"`, and its group button `aria-current="true"`, shown bold with a thick underline. `<site-header>` renders it: as a row under the logo on wide screens and as an accordion in the Menu popover on narrow ones.
+The UVA Library main navigation (About, Using the Library, Research & teaching support, Get help), as on library.virginia.edu, following the WAI-ARIA disclosure navigation pattern: one `<nav>` landmark; each group is a `<button aria-expanded aria-controls>` followed by its list of links, and an entry with no group is a plain link. Click, Enter or Space toggles a group and only one is open at a time; Escape closes it and returns focus to its button; arrow keys, Home and End move between the buttons and between a panel's links, and ArrowDown on an open button moves into its panel. In the `bar` layout a panel also closes when focus leaves the nav or on a pointer press outside it. There is no hover-to-open. The items come from, in order of precedence: a `<nav slot="main-nav">` child holding `<ul><li><a href>…</a></li></ul>` (a direct link) or `<li><span>Group</span><ul><li><a href>…` (a group), kept hidden and watched for changes; the `items` property; JSON at `items-src`; and the snapshot of the live menu bundled with the component (see `pnpm sync:main-nav`). Invalid entries are skipped and levels deeper than two are flattened, each with one console warning. Relative hrefs are joined to `root-link-domain`; absolute ones are kept. The link for the current page (`current`, default the page location, followed through same-document navigations; host and path, ignoring the query, the hash, a trailing slash and a leading `www.`) gets `aria-current="page"`, and its group button `aria-current="true"`, shown bold with a thick underline. `<site-header>` renders it: as a row under the logo on wide screens and as an accordion in the Menu popover on narrow ones.
 
 #### Attributes
 
@@ -470,7 +472,7 @@ The UVA Library main navigation (About, Using the Library, Research & teaching s
 | `root-link-domain` | `string` | `'https://www.library.virginia.edu'` |  |
 | `items-src` | `string \| undefined` |  | URL of JSON in the `MainNavItem[]` shape (needs CORS); the snapshot is shown until it loads, and if it fails. |
 | `layout` | `'bar' \| 'accordion'` | `'bar'` | `bar` (a row of buttons with floating panels) or `accordion` (stacked, panels in flow). |
-| `current` | `string \| undefined` |  | The URL whose link is marked current. Default: the page location. |
+| `current` | `string \| undefined` |  | The URL whose link is marked current. Default: the page location, followed through same-document navigations (`popstate`, `hashchange`, and the Navigation API's `currententrychange` where supported). |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -484,8 +486,7 @@ The UVA Library main navigation (About, Using the Library, Research & teaching s
 
 | Event | Description |
 |---|---|
-| `ERROR_EVENT` |  |
-| `site-main-nav-error` | `items-src` could not be loaded (network error, timeout after 10 s, or no valid entries); the nav shows the bundled snapshot. `detail` is `{ src, message }`. Bubbles and is composed. |
+| `site-main-nav-error` | `items-src` could not be loaded: both attempts failed (network error, a 10 s timeout per attempt, or no valid entries), after about 21 s at worst; the nav shows the bundled snapshot. `detail` is `{ src, message }`. Bubbles and is composed. |
 
 #### CSS custom properties
 
@@ -513,6 +514,7 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 | `no-main-nav` | `boolean` | `false` | Hide the UVA Library main navigation in the header. |
 | `main-nav-label` | `string \| undefined` |  | Accessible name of the header's main navigation (default "Main"). |
 | `main-nav-src` | `string \| undefined` |  | URL of JSON main navigation items, forwarded to `<site-header main-nav-src>`. |
+| `main-nav-current` | `string \| undefined` |  | The URL whose main-navigation link is marked current, forwarded to `<site-header main-nav-current>`. Default: the page location, followed through same-document navigations; set it when a single-page app's route is not its URL. |
 | `alerts-env` | `string` | `'production'` | Alerts environment: `production` (default) or `staging`. Any other value logs one console warning and uses production. Ignored when `alerts-src` is set. |
 | `alerts-src` | `string \| undefined` |  | Alerts base URL (holding `config.json`, `alerts.json` and `v1/uvalib-alerts.js`); overrides `alerts-env`. For a custom domain, local development and tests. |
 | `no-alerts` | `boolean` | `false` | Render no alert elements and load no alerts script. |
