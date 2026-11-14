@@ -171,6 +171,25 @@ site-footer footer {
     },
   },
   {
+    id: 'alerts',
+    title: 'Library alerts',
+    description:
+      'site-page shows live UVA Library alerts by default: a banner in the header and the alert list and regional alerts at the top of main. Staging deployments use alerts-env="staging"; an app that renders alerts itself sets no-alerts.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Library alerts',
+          body: `    <!-- Production alerts are the default. Staging sites use alerts-env="staging";
+         an app that shows alerts itself uses <site-page no-alerts>. -->
+    <site-page alerts-env="staging">
+      <h1>Library alerts</h1>
+      <p>Current staging alerts appear in the header and above this heading. Without alerts nothing is shown.</p>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'theming',
     title: 'Theming with tokens and parts',
     description:

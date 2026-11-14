@@ -24,6 +24,7 @@ describe('playground presets', function () {
       'light-dom-host-css',
       'pre-footer',
       'site-navigation',
+      'alerts',
       'theming',
       'search-facets',
     ]);
