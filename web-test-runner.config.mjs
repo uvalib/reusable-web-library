@@ -2,13 +2,14 @@ import { esbuildPlugin } from '@web/dev-server-esbuild';
 import { playwrightLauncher } from '@web/test-runner-playwright';
 import { interceptAlerts } from './test/helpers/alerts-intercept.mjs';
 import { hoursClockPlugin, interceptHours } from './test/helpers/hours-intercept.mjs';
+import { interceptMainNav } from './test/helpers/main-nav-intercept.mjs';
 
 const TZ_FILES = 'test/**/*-tz.test.ts';
 const HOURS_TZ_FILES = 'test/library-hours-tz.test.ts';
 
 /**
- * A Chromium launcher whose every context routes the alerts CDN and the library-hours
- * endpoints to local fixtures, so no test reaches the network for either. Service workers
+ * A Chromium launcher whose every context routes the alerts CDN, the library-hours
+ * endpoints and the main-nav test hosts to local fixtures, so no test reaches the network for either. Service workers
  * are blocked so every request, including from the playground's preview frames, goes
  * through the routes (a worker's own fetches would not).
  */
@@ -16,7 +17,11 @@ const chromium = (options = {}) =>
   playwrightLauncher({
     product: 'chromium',
     createBrowserContext: ({ browser }) =>
-      interceptAlerts(interceptHours(browser.newContext({ serviceWorkers: 'block', ...options }))),
+      interceptAlerts(
+        interceptHours(
+          interceptMainNav(browser.newContext({ serviceWorkers: 'block', ...options })),
+        ),
+      ),
   });
 
 export default {
