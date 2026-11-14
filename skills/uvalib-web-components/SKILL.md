@@ -1,11 +1,11 @@
 ---
 name: uvalib-web-components
-description: Use when building or editing UVA Library web pages or sites, adding the UVA Library header, footer or page wrapper to a page, using the custom elements <site-page>, <site-header>, <site-footer>, <site-analytics>, <site-style>, <uvalib-filter> or <uvalib-date-range>, working with the @uvalib/web-components npm package, or editing script/link URLs on unpkg.internal.lib.virginia.edu (including migrating old /web-components/latest/ or cdn-v URLs). Covers CDN vs npm, version pinning, shadow vs light DOM, theming with --uva-* tokens, and a verification checklist.
+description: Use when building or editing UVA Library web pages or sites, adding the UVA Library header, footer or page wrapper to a page, using the custom elements <site-page>, <site-header>, <site-footer>, <site-analytics>, <site-style>, <uvalib-filter>, <uvalib-date-range>, <site-hours-section>, <library-weekly-hours> or <library-hours-setup>, working with the @uvalib/web-components npm package, or editing script/link URLs on unpkg.internal.lib.virginia.edu (including migrating old /web-components/latest/ or cdn-v URLs). Covers CDN vs npm, version pinning, shadow vs light DOM, theming with --uva-* tokens, and a verification checklist.
 ---
 
 # UVA Library web components
 
-`@uvalib/web-components` provides the UVA Library page chrome as custom elements: `<site-page>` (skip link, header, one `<main>`, footer), `<site-header>`, `<site-footer>`, `<site-analytics>` (Matomo) and `<site-style>` (legacy compatibility). It also ships two search-page components, `<uvalib-filter>` and `<uvalib-date-range>` (section 6). Tag names are stable.
+`@uvalib/web-components` provides the UVA Library page chrome as custom elements: `<site-page>` (skip link, header, one `<main>`, footer), `<site-header>`, `<site-footer>`, `<site-analytics>` (Matomo) and `<site-style>` (legacy compatibility). It also ships two search-page components, `<uvalib-filter>` and `<uvalib-date-range>` (section 6), and three library-hours elements for library.virginia.edu, `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>` (section 7). Tag names are stable.
 
 Authority rule: https://www.library.virginia.edu and the UVA Library design system are the source of truth for how the chrome looks and what it says. Do not re-create, copy or restyle the header, footer, logo or links by hand. Use the components, and change appearance only through the theming surface below.
 
@@ -28,7 +28,7 @@ CDN URLs (all files at one prefix):
 Loading rules:
 
 - One script is enough for the page chrome: `site-page.js` also loads the header and footer. Add `site-analytics.js` only when the site needs Matomo.
-- npm: the define entries (`@uvalib/web-components/site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`) register the element. Importing the package root (`@uvalib/web-components`) gives the classes only and registers nothing. If you use the `SitePage` class directly, also import the header and footer define entries.
+- npm: the define entries (`@uvalib/web-components/site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`) register the element. Importing the package root (`@uvalib/web-components`) gives the classes only and registers nothing. If you use the `SitePage` class directly, also import the header and footer define entries.
 - Do not load the same component from both the CDN and npm on one page.
 
 ## 2. Required page structure
@@ -201,7 +201,26 @@ For a search results page that needs a checkbox facet or a date-range picker, us
 </html>
 ```
 
-## 7. Verification checklist
+## 7. Library hours
+
+Use these only on library.virginia.edu (or with the data endpoints repointed): the library list is the site's own same-origin Drupal JSON:API, so on any other origin they show "Hours are unavailable right now.".
+
+- Home page: `<site-hours-section limited no-shadow-dom no-style>` from `site-hours-section.js`. `limited` keeps libraries with a priority placement; `place-type` (`Library`, `space`, `other-professional`) keeps one type. It fires `got-library-hours` then `got-libraries` (`detail: { message }`).
+- /hours: keep Drupal's `<div type="library-weekly-hours" library-slug="…" no-shadow-dom no-style>` placeholders and add one `<library-hours-setup>` from `library-hours-setup.js` (it also registers `<library-weekly-hours>`). Do not hand-convert the placeholders.
+- `<library-weekly-hours>` attributes: `library-slug`, `week-count` (0 is this week), `hide-building-hours`, `heading-level` (`headinglevelstart` is an old alias), `refresh-every` (ms). Harrison is a special case: the setup element adds `hide-building-hours` for `library-slug="harrison"` because its building calendar is also one of its spaces.
+- Dates are America/New_York; today's column has `aria-current="date"`. Do not compute dates yourself or restyle `.today` with `!important`.
+- Migrating Drupal: `…/web-components/cdn-vX.Y.Z/@uvalib/site-hours/<file>.js` becomes `https://unpkg.internal.lib.virginia.edu/web-components/v1/<file>.js` for `site-hours-section`, `library-weekly-hours` and `library-hours-setup`; the markup stays. `library-daily-hours` is not migrated.
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/library-hours-setup.js"
+></script>
+<div type="library-weekly-hours" library-slug="clemons" no-shadow-dom no-style></div>
+<library-hours-setup></library-hours-setup>
+```
+
+## 8. Verification checklist
 
 Before finishing, load the page in a browser (or test) and confirm:
 

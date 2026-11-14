@@ -2,6 +2,40 @@
 
 <!-- Generated from dist/custom-elements.json by scripts/gen-reference.mjs. Do not edit by hand. -->
 
+## `<library-hours-setup>`
+
+Upgrades Drupal's hours placeholders. On library.virginia.edu/hours Drupal renders `<div type="library-weekly-hours" library-slug="…" no-shadow-dom no-style>` for each library; this element replaces each one, in its own root node (the document or a shadow root), with a `<library-weekly-hours>` that has the same attributes (except `type`) and children. `library-slug="harrison"` also gets `hide-building-hours`. Placeholders added later are upgraded too, while this element is connected. It renders nothing.
+
+## `<library-weekly-hours>`
+
+One library's opening hours for a week (Sunday to Saturday, in America/New_York): a header with "Previous week" / "Next week" buttons and the date range, then a table with a "Building hours" row and a row per space in the library. Data comes from the library website's JSON:API (same origin) and LibCal, shared between all hours elements on a page. Used on library.virginia.edu/hours through `<library-hours-setup>`.
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `library-slug` | `string \| undefined` |  | The library's `field_slug` in Drupal (for example `clemons`). |
+| `week-count` | `number` | `0` | Which week to show: 0 is this week, 1 next week, -1 last week. Changed by the buttons. |
+| `refresh-every` | `number` | `600000` | How often (ms) the current week's hours are fetched again. 0 turns it off. |
+| `hide-building-hours` | `boolean` | `false` | Hide the "Building hours" row (for a library whose building calendar is one of its spaces). |
+| `heading-level` | `number \| undefined` |  | `aria-level` (1–6) of the week heading, also its `heading-h<n>` class. Default 2. |
+| `headinglevelstart` | `number \| undefined` |  | Old name of `heading-level`, still accepted; `heading-level` wins. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### CSS parts
+
+| Part | Description |
+|---|---|
+| `building-hours` | The "Building hours" table row (shadow mode). |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-brand-orange` | `#e57200` | Border of today's column; focus ring colour. |
+| `--uva-brand-blue` | `#232d4b` | Header and button colour. |
+
 ## `<site-analytics>`
 
 Matomo analytics loader with no visual output. Listens on `document` for the events below.
@@ -94,6 +128,33 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 | `--uva-grey-darkest` | `#2b2b2b` | Menu button colour. |
 | `--uva-brand-orange` | `#e57200` | Focus ring colour (focus-visible outline), and the underline colour of an `aria-current` link (also bold, with a 3px underline). |
 | `--uva-brand-blue` | `#232d4b` | Skip-link background for a skip link slotted into `skip-link` (shadow mode, shared accessibility sheet). |
+
+## `<site-hours-section>`
+
+Today's hours for the UVA libraries, as on the library.virginia.edu home page: the date (in America/New_York), a "Today's hours" heading, a list of library and hours pairs and a link to /hours. Data comes from the library website's JSON:API (same origin) and LibCal, shared between all hours elements on a page. The date and hours update when the date changes in New York.
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `limited` | `boolean` | `false` | Only libraries with a priority placement (the home page's short list). |
+| `place-type` | `string \| null` | `null` | Only libraries of this type (`Library`, `space` or `other-professional`). |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### Events
+
+| Event | Description |
+|---|---|
+| `got-library-hours` | The hours were loaded. `detail` is `{ message }`. Bubbles and is composed. |
+| `got-libraries` | The libraries were loaded (fired after `got-library-hours`). `detail` is `{ message }`. Bubbles and is composed. |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-brand-blue` | `#232d4b` | Heading and link colour. |
+| `--uva-brand-orange` | `#e57200` | Focus ring colour. |
 
 ## `<site-page>`
 

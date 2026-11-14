@@ -33,7 +33,7 @@ npm i @uvalib/web-components
 import '@uvalib/web-components/site-page.js'; // registers site-page, site-header and site-footer
 ```
 
-The define entries are `site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `site-style.js`, `uvalib-filter.js` and `uvalib-date-range.js`. The package root (`import '@uvalib/web-components'`) exports the classes only and registers nothing. To use a class such as `SitePage` directly, also import the define entries. CSS is available as `@uvalib/web-components/tokens.css` and `base.css`. Do not load the same component from both the CDN and npm on one page.
+The define entries are `site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js` and `library-hours-setup.js`. The package root (`import '@uvalib/web-components'`) exports the classes only and registers nothing. To use a class such as `SitePage` directly, also import the define entries. CSS is available as `@uvalib/web-components/tokens.css` and `base.css`. Do not load the same component from both the CDN and npm on one page.
 
 ## Quick start
 
@@ -158,12 +158,71 @@ The mode is read once, at first connect; do not toggle it afterwards.
 
 Both are controlled: set `value` (and `scopeValue`) from your own state after each event. `min` and `max` are required for the date range; without valid ones it renders nothing and warns once in the console. Both support `no-shadow-dom` and `no-style`. See the "Search facets" preset in the playground and the generated reference below.
 
+## Library hours
+
+Three elements show opening hours from the library's own data, for library.virginia.edu. Each has its own entry (`site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js` on the CDN; `@uvalib/web-components/<tag>.js` on npm); `library-hours-setup.js` also registers `<library-weekly-hours>`.
+
+| Element                  | Use                                                                                                                                                                                                                         |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<site-hours-section>`   | Today's hours, as on the home page: the date, a "Today's hours" heading, a list of libraries and their hours, and a link to `/hours`. `limited` keeps the libraries with a priority placement; `place-type` keeps one type. |
+| `<library-weekly-hours>` | One library's week (Sunday to Saturday) as a table, with Previous / Next week buttons: `library-slug`, `week-count`, `hide-building-hours`, `heading-level`, `refresh-every`.                                               |
+| `<library-hours-setup>`  | Upgrades Drupal's placeholders on /hours: each `<div type="library-weekly-hours" …>` in its root node becomes a `<library-weekly-hours>` with the same attributes (except `type`) and children, now and when added later.   |
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-hours-section.js"
+></script>
+<site-hours-section limited no-shadow-dom no-style></site-hours-section>
+```
+
+- **Data and origin.** The library list comes from the library website's Drupal JSON:API (`/jsonapi/index/default_index?filter[type]=library&page[limit]=100`), a relative, same-origin URL with no CORS, so the elements work only on library.virginia.edu unless the endpoints are repointed. Hours come from LibCal (`cal.lib.virginia.edu`, CORS `*`) with LibCal's public widget key. To repoint both (for local development, tests or another origin), change the shared `endpoints` object before the elements connect: `customElements.get('site-hours-section').endpoints` (the same object as `LibraryWeeklyHours.endpoints`) has `libraries` (the JSON:API URL) and `hours` (LibCal, with `{ids}`; `from` and `to` are appended). The list is fetched once per page and LibCal requests are shared between elements; failed fetches are retried twice, a second apart.
+- **Dates** ("today" and the week) are always America/New_York, whatever the visitor's time zone. Today's column is marked with `class="today"` and `aria-current="date"`. The elements update when the date changes in New York; `<library-weekly-hours>` also refetches the current week every `refresh-every` ms (default 600000, 0 turns it off).
+- **States.** While loading, a polite `role="status"` says "Loading hours…"; if the data cannot be loaded it says "Hours are unavailable right now." with a link to `/hours`. Read `state` (`loading`, `ready` or `error`) from script.
+- **Harrison special case.** `<library-hours-setup>` adds `hide-building-hours` to `library-slug="harrison"`: Harrison's building calendar (LibCal 4114) is also the calendar of its own "Harrison/Small Building & Exhibitions" space, so the building row would repeat it.
+- **Light DOM output** keeps the class names Drupal's CSS targets (`home-hours-block`, `hours-locations`, `weekly-hours-header-section`, `weekly-hours-body-section`, `date--mobile`, `lib-space-link`, …). `<library-weekly-hours>` keeps a few layout rules even with `no-style` (the host is `display: block`, the week header is a flex row, `[hidden]` hides), scoped to the tag in `@layer uvalib`. `headinglevelstart` is still read as an alias of `heading-level`.
+- **Drupal switch.** Replace the old `…/web-components/cdn-vX.Y.Z/@uvalib/site-hours/<file>.js` script URLs with `https://unpkg.internal.lib.virginia.edu/web-components/v1/<tag>.js` (`site-hours-section.js` on the home page, `library-hours-setup.js` on /hours). The markup stays the same. `library-daily-hours` is not migrated.
+
 ## Components
 
 Generated from `dist/custom-elements.json` by `scripts/gen-reference.mjs`; do not edit between the markers by hand.
 
 <!-- components:start -->
 <!-- prettier-ignore-start -->
+
+### `<library-hours-setup>`
+
+Upgrades Drupal's hours placeholders. On library.virginia.edu/hours Drupal renders `<div type="library-weekly-hours" library-slug="…" no-shadow-dom no-style>` for each library; this element replaces each one, in its own root node (the document or a shadow root), with a `<library-weekly-hours>` that has the same attributes (except `type`) and children. `library-slug="harrison"` also gets `hide-building-hours`. Placeholders added later are upgraded too, while this element is connected. It renders nothing.
+
+### `<library-weekly-hours>`
+
+One library's opening hours for a week (Sunday to Saturday, in America/New_York): a header with "Previous week" / "Next week" buttons and the date range, then a table with a "Building hours" row and a row per space in the library. Data comes from the library website's JSON:API (same origin) and LibCal, shared between all hours elements on a page. Used on library.virginia.edu/hours through `<library-hours-setup>`.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `library-slug` | `string \| undefined` |  | The library's `field_slug` in Drupal (for example `clemons`). |
+| `week-count` | `number` | `0` | Which week to show: 0 is this week, 1 next week, -1 last week. Changed by the buttons. |
+| `refresh-every` | `number` | `600000` | How often (ms) the current week's hours are fetched again. 0 turns it off. |
+| `hide-building-hours` | `boolean` | `false` | Hide the "Building hours" row (for a library whose building calendar is one of its spaces). |
+| `heading-level` | `number \| undefined` |  | `aria-level` (1–6) of the week heading, also its `heading-h<n>` class. Default 2. |
+| `headinglevelstart` | `number \| undefined` |  | Old name of `heading-level`, still accepted; `heading-level` wins. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### CSS parts
+
+| Part | Description |
+|---|---|
+| `building-hours` | The "Building hours" table row (shadow mode). |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-brand-orange` | `#e57200` | Border of today's column; focus ring colour. |
+| `--uva-brand-blue` | `#232d4b` | Header and button colour. |
 
 ### `<site-analytics>`
 
@@ -257,6 +316,33 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 | `--uva-grey-darkest` | `#2b2b2b` | Menu button colour. |
 | `--uva-brand-orange` | `#e57200` | Focus ring colour (focus-visible outline), and the underline colour of an `aria-current` link (also bold, with a 3px underline). |
 | `--uva-brand-blue` | `#232d4b` | Skip-link background for a skip link slotted into `skip-link` (shadow mode, shared accessibility sheet). |
+
+### `<site-hours-section>`
+
+Today's hours for the UVA libraries, as on the library.virginia.edu home page: the date (in America/New_York), a "Today's hours" heading, a list of library and hours pairs and a link to /hours. Data comes from the library website's JSON:API (same origin) and LibCal, shared between all hours elements on a page. The date and hours update when the date changes in New York.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `limited` | `boolean` | `false` | Only libraries with a priority placement (the home page's short list). |
+| `place-type` | `string \| null` | `null` | Only libraries of this type (`Library`, `space` or `other-professional`). |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `got-library-hours` | The hours were loaded. `detail` is `{ message }`. Bubbles and is composed. |
+| `got-libraries` | The libraries were loaded (fired after `got-library-hours`). `detail` is `{ message }`. Bubbles and is composed. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-brand-blue` | `#232d4b` | Heading and link colour. |
+| `--uva-brand-orange` | `#e57200` | Focus ring colour. |
 
 ### `<site-page>`
 
