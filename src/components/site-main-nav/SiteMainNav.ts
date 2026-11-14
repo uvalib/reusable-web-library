@@ -1,7 +1,8 @@
-import { html, css, type PropertyValues } from 'lit';
+import { html, css, unsafeCSS, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
+import { installLightDomStyles } from '../../base/light-dom-styles.js';
 import { accessible } from '../../styles/accessible.js';
 import { siteLink } from '../link.js';
 import { MAIN_NAV_SNAPSHOT } from './main-nav-data.js';
@@ -23,7 +24,30 @@ const isSourceChild = (n: Node): n is Element =>
   n instanceof Element && n.getAttribute('slot') === MAIN_NAV;
 /** Attributes of the source markup that change what the nav renders. */
 const SOURCE_ATTRS = ['href', 'slot'];
-const ERROR_EVENT = 'site-main-nav-error';
+
+/**
+ * Focus rings: inset (as on the live site) so an open panel or a neighbour never covers
+ * them; orange on white, brand blue where the background is grey (hover, the open group),
+ * so the ring keeps 3:1 contrast.
+ */
+const FOCUS_RULES = `
+  .toggle:focus-visible,
+  .top-link:focus-visible,
+  .panel a:focus-visible {
+    outline: 3px solid var(--uva-brand-orange, #e57200);
+    outline-offset: -4px;
+  }
+  .toggle[aria-expanded='true']:focus-visible,
+  .toggle:hover:focus-visible,
+  .top-link:hover:focus-visible,
+  .panel a:hover:focus-visible {
+    outline-color: var(--uva-brand-blue, #232d4b);
+  }
+`;
+const focusRules = unsafeCSS(FOCUS_RULES);
+/** The focus rules scoped to `tag`, for the unlayered light-mode sheet. */
+const lightFocusRules = (tag: string) =>
+  unsafeCSS(FOCUS_RULES.replace(/(^|,)\s*\./gm, `$1 ${tag} .`));
 
 /** A URL reduced to what "the same page" means here: host (without `www.`) and path. */
 function pageKey(href: string, base: string): string | null {
@@ -59,17 +83,17 @@ const hashOf = (href: string, base: string): string => {
  * Invalid entries are skipped and levels deeper than two are flattened, each with one console
  * warning. Relative hrefs are joined to `root-link-domain`; absolute ones are kept.
  *
- * The link for the current page (`current`, default the page location; host and path,
- * ignoring the query, the hash, a trailing slash and a leading `www.`) gets
- * `aria-current="page"`, and its group button `aria-current="true"`, shown bold with a
- * thick underline.
+ * The link for the current page (`current`, default the page location, followed through
+ * same-document navigations; host and path, ignoring the query, the hash, a trailing slash
+ * and a leading `www.`) gets `aria-current="page"`, and its group button
+ * `aria-current="true"`, shown bold with a thick underline.
  *
  * `<site-header>` renders it: as a row under the logo on wide screens and as an accordion in
  * the Menu popover on narrow ones.
  *
  * @tagname site-main-nav
  * @slot main-nav - Optional `<nav>` (or `<ul>`) whose list replaces the menu: `<li><a href>` for a direct link, `<li><span>Group</span><ul><li><a href>…</a></li></ul></li>` for a group. It is never shown itself; in light mode it is moved into a hidden holder.
- * @fires site-main-nav-error - `items-src` could not be loaded (network error, timeout after 10 s, or no valid entries); the nav shows the bundled snapshot. `detail` is `{ src, message }`. Bubbles and is composed.
+ * @fires site-main-nav-error - `items-src` could not be loaded: both attempts failed (network error, a 10 s timeout per attempt, or no valid entries), after about 21 s at worst; the nav shows the bundled snapshot. `detail` is `{ src, message }`. Bubbles and is composed.
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Top-level button colour.
  * @cssprop [--uva-brand-blue=#232d4b] - Bar bottom border, chevrons, panel links, and the hover and expanded button text.
  * @cssprop [--uva-grey-100=#dadada] - Hover and expanded button background, and panel link hover background.
@@ -129,6 +153,8 @@ export class SiteMainNav extends UvalibElement {
       .toggle[aria-expanded='true']::after {
         transform: translateY(0.15em) rotate(-135deg);
       }
+      /* Grey for hover and the open group only, never for focus: the orange focus ring
+         would fall below 3:1 against it. */
       .toggle:hover,
       .toggle[aria-expanded='true'],
       .top-link:hover {
@@ -141,17 +167,11 @@ export class SiteMainNav extends UvalibElement {
         font-weight: 400;
         text-decoration: underline;
       }
-      .panel a:hover,
-      .panel a:focus-visible {
+      .panel a:hover {
         background-color: var(--uva-grey-100, #dadada);
         text-decoration: none;
       }
-      /* Inset focus rings, as on the live site, so neighbours never cover them. */
-      .toggle:focus-visible,
-      .top-link:focus-visible,
-      .panel a:focus-visible {
-        outline-offset: -4px;
-      }
+      ${focusRules}
       /* Current page, and the group holding it: bold with a thick underline, not colour alone. */
       [aria-current]:not([aria-current='false']),
       .panel a[aria-current]:not([aria-current='false']):hover {
@@ -195,6 +215,8 @@ export class SiteMainNav extends UvalibElement {
         background: #ffffff;
         border-radius: 0 0 4px 4px;
         box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        /* Invisible normally; forced colors paint it, so the panel keeps an edge. */
+        outline: 1px solid transparent;
       }
       .bar .panel a {
         padding: 8.5px 17px;
@@ -217,8 +239,33 @@ export class SiteMainNav extends UvalibElement {
       .accordion .panel a {
         padding: 0.375rem 0.5rem;
       }
+
+      /* Forced colors drop backgrounds and shadows: outline the open group and hovered
+         controls instead. */
+      @media (forced-colors: active) {
+        .toggle[aria-expanded='true']:not(:focus-visible),
+        .toggle:hover:not(:focus-visible),
+        .top-link:hover:not(:focus-visible),
+        .panel a:hover:not(:focus-visible) {
+          outline: 1px solid CanvasText;
+          outline-offset: -1px;
+        }
+      }
     `,
   ];
+
+  /**
+   * Light mode: the focus rules again, unlayered. A page's own accessibility sheet (which
+   * `<site-page>` installs unlayered) would otherwise beat the layered component rules.
+   */
+  protected override installLightStyles(root?: Document | ShadowRoot): void {
+    super.installLightStyles(root);
+    installLightDomStyles(`${this.localName}-focus`, [lightFocusRules(this.localName)], {
+      root,
+      scope: false,
+      layer: false,
+    });
+  }
 
   /** Accessible name of the navigation landmark. */
   @property({ type: String }) label = 'Main';
@@ -228,7 +275,11 @@ export class SiteMainNav extends UvalibElement {
   @property({ type: String, attribute: 'items-src' }) itemsSrc?: string;
   /** `bar` (a row of buttons with floating panels) or `accordion` (stacked, panels in flow). */
   @property({ type: String }) layout: 'bar' | 'accordion' = 'bar';
-  /** The URL whose link is marked current. Default: the page location. */
+  /**
+   * The URL whose link is marked current. Default: the page location, followed through
+   * same-document navigations (`popstate`, `hashchange`, and the Navigation API's
+   * `currententrychange` where supported).
+   */
   @property({ type: String }) current?: string;
   /**
    * The menu, replacing the bundled snapshot (but not `slot="main-nav"` markup):
@@ -246,6 +297,8 @@ export class SiteMainNav extends UvalibElement {
 
   private propItems: MainNavItem[] | null = null;
   private fetchedFor?: string;
+  /** The shown items last rendered, to close the open group when they change. */
+  private shownKey?: string;
   private warned = new Set<string>();
   private observer?: MutationObserver;
   private holder?: HTMLDivElement;
@@ -253,17 +306,45 @@ export class SiteMainNav extends UvalibElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
-    if (this.hasUpdated) this.syncSource();
+    // Read the markup before the first render where it is already there (no second update);
+    // the observer catches markup parsed or added later.
+    this.syncSource();
+    this.listenLocation(true);
+    // Reconnected while a group was open: watch for outside presses again.
+    this.listenOutside(this.open !== null && this.layout === 'bar');
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     this.observer?.disconnect();
     this.listenOutside(false);
+    this.listenLocation(false);
   }
 
-  protected override firstUpdated(): void {
-    this.syncSource();
+  /** Same-document navigation: re-mark the current page when `current` is not set. */
+  private onLocationChange = (): void => {
+    if (!this.current) this.requestUpdate();
+  };
+
+  private locationTargets(): { target: EventTarget; type: string }[] {
+    const win = this.ownerDocument.defaultView;
+    if (!win) return [];
+    const nav = (win as Window & { navigation?: EventTarget }).navigation;
+    return [
+      { target: win, type: 'popstate' },
+      { target: win, type: 'hashchange' },
+      ...(nav ? [{ target: nav, type: 'currententrychange' }] : []),
+    ];
+  }
+
+  private listeningLocation = false;
+  private listenLocation(on: boolean): void {
+    if (on === this.listeningLocation) return;
+    this.listeningLocation = on;
+    for (const { target, type } of this.locationTargets()) {
+      if (on) target.addEventListener(type, this.onLocationChange);
+      else target.removeEventListener(type, this.onLocationChange);
+    }
   }
 
   private warnOnce(kind: 'invalid' | 'flattened', what: string): void {
@@ -300,12 +381,13 @@ export class SiteMainNav extends UvalibElement {
   /** Read the `slot="main-nav"` markup, render it, and watch it for changes. */
   private syncSource(): void {
     const sources = this.lightDom ? this.adoptSource() : [...this.children].filter(isSourceChild);
-    if (!sources.length) {
-      this.slotItems = null;
-    } else {
+    let next: MainNavItem[] | null = null;
+    if (sources.length) {
       const raw = sources.flatMap((s, i) => (i === 0 ? readItemsMarkup(s) : [{}]));
-      this.slotItems = this.use(normalizeItems(raw), 'slot="main-nav"');
+      next = this.use(normalizeItems(raw), 'slot="main-nav"');
     }
+    // Only a real change re-renders.
+    if (JSON.stringify(next) !== JSON.stringify(this.slotItems)) this.slotItems = next;
     this.observer ??= new MutationObserver(() => this.syncSource());
     this.observer.disconnect();
     const content = {
@@ -328,15 +410,12 @@ export class SiteMainNav extends UvalibElement {
     if (changed.has('items')) {
       this.propItems = this.items == null ? null : this.use(normalizeItems(this.items), 'items');
     }
-  }
-
-  protected override updated(changed: PropertyValues): void {
     if (changed.has('itemsSrc') && this.fetchedFor !== this.itemsSrc) {
       this.fetched = null;
       this.fetchedFor = undefined;
     }
     const src = this.itemsSrc;
-    // Fetch only when items-src is what would be shown.
+    // Fetch only when items-src is what would be shown. The result arrives asynchronously.
     if (src && !this.slotItems && !this.propItems && this.fetchedFor !== src) {
       this.fetchedFor = src;
       loadMainNavItems(src).then(
@@ -347,7 +426,7 @@ export class SiteMainNav extends UvalibElement {
         (error: unknown) => {
           if (this.itemsSrc !== src) return;
           this.dispatchEvent(
-            new CustomEvent(ERROR_EVENT, {
+            new CustomEvent('site-main-nav-error', {
               detail: { src, message: error instanceof Error ? error.message : String(error) },
               bubbles: true,
               composed: true,
@@ -356,7 +435,16 @@ export class SiteMainNav extends UvalibElement {
         },
       );
     }
-    if (changed.has('open')) this.listenOutside(this.open !== null && this.layout === 'bar');
+    // A different menu: the open index would point at another group, so close it.
+    const key = JSON.stringify(this.shown);
+    if (this.shownKey !== undefined && key !== this.shownKey) this.open = null;
+    this.shownKey = key;
+  }
+
+  protected override updated(changed: PropertyValues): void {
+    if (changed.has('open') || changed.has('layout')) {
+      this.listenOutside(this.isConnected && this.open !== null && this.layout === 'bar');
+    }
   }
 
   /** The items shown, by precedence. */

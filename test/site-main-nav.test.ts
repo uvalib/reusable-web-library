@@ -572,7 +572,7 @@ for (const mode of ['shadow', 'light'] as const) {
       ]) {
         it(`falls back to the snapshot and fires site-main-nav-error after ${name}`, async () => {
           const saved = { ...mainNavTiming };
-          Object.assign(mainNavTiming, { retries: 1 });
+          Object.assign(mainNavTiming, { attempts: 1 });
           try {
             const el = document.createElement('site-main-nav') as SiteMainNav;
             if (light) el.setAttribute('no-shadow-dom', '');
@@ -594,7 +594,7 @@ for (const mode of ['shadow', 'light'] as const) {
 
       it('times out a hung fetch', async () => {
         const saved = { ...mainNavTiming };
-        Object.assign(mainNavTiming, { retries: 1, timeout: 200 });
+        Object.assign(mainNavTiming, { attempts: 1, timeout: 200 });
         try {
           const el = document.createElement('site-main-nav') as SiteMainNav;
           if (light) el.setAttribute('no-shadow-dom', '');

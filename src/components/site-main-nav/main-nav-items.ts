@@ -104,12 +104,15 @@ export function readItemsMarkup(source: Element): unknown[] {
   return [...list.children].map(readLi);
 }
 
-/** `items-src` fetch: attempts, the delay between them (ms) and each attempt's timeout (ms). */
-export const mainNavTiming = { retries: 2, retryDelay: 1000, timeout: 10_000 };
+/**
+ * `items-src` fetch: how many attempts, the delay between them (ms) and each attempt's
+ * timeout (ms). With the defaults a hung server is given up on after about 21 s.
+ */
+export const mainNavTiming = { attempts: 2, retryDelay: 1000, timeout: 10_000 };
 
 async function fetchJson(url: string): Promise<unknown> {
   let error: unknown;
-  const attempts = Math.max(1, mainNavTiming.retries);
+  const attempts = Math.max(1, mainNavTiming.attempts);
   for (let i = 0; i < attempts; i++) {
     if (i > 0) await new Promise((r) => setTimeout(r, mainNavTiming.retryDelay));
     try {
