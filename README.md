@@ -1,6 +1,30 @@
 # @uvalib/web-components
 
-Reusable web components for UVA Library sites, built with Lit and TypeScript: `<site-page>` (skip link, header, one `<main>`, footer), `<site-header>`, `<site-footer>`, `<site-analytics>` (Matomo) and `<site-style>` (legacy compatibility). [library.virginia.edu](https://www.library.virginia.edu) and the UVA Library design system are the style authority: these components exist so sites use the real chrome instead of copying it. Change appearance only through the theming surface below.
+Reusable web components for UVA Library sites, built with Lit and TypeScript:
+
+- **Page chrome:** `<site-page>` (skip link, header with live library alerts, one `<main>`, footer), `<site-header>`, `<site-footer>`, `<site-analytics>` (Matomo) and `<site-style>` (legacy compatibility).
+- **Search:** `<uvalib-filter>` and `<uvalib-date-range>`.
+- **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
+
+[library.virginia.edu](https://www.library.virginia.edu) and the UVA Library design system are the style authority: these components exist so sites use the real chrome instead of copying it. Change appearance only through the theming surface below.
+
+## Quick start with a coding agent
+
+The fastest route: install the agent skill, then ask your coding agent (Claude Code and others) to do the work. The skill teaches it which entry to load, how to pin versions, shadow vs light DOM, theming, alerts and hours, and how to check the result.
+
+```sh
+npx @uvalib/web-components install-skill   # copies the skill to .claude/skills/uvalib-web-components
+```
+
+Then ask, for example:
+
+> Wrap this site's pages in the UVA Library `<site-page>` from the v1 CDN, with our own nav links in the header.
+
+- `npx` fetches the package on the fly, so this works in any repository, including sites that only use script tags (it needs Node, not an npm dependency).
+- Other agents or folders: `npx @uvalib/web-components install-skill --dir .agents/skills`. Add `--force` to update an existing copy.
+- Or copy `node_modules/@uvalib/web-components/skills/uvalib-web-components` into your skills folder. The skill is also on the CDN at `https://unpkg.internal.lib.virginia.edu/web-components/v1/skills/uvalib-web-components/SKILL.md`. More in [docs/usage.md](docs/usage.md#agent-skill).
+
+To do it by hand, read on.
 
 ## Playground
 
@@ -501,17 +525,6 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 
 <!-- prettier-ignore-end -->
 <!-- components:end -->
-
-## Agent skill
-
-A skill that teaches coding agents (Claude Code and others) to use these components correctly ships with the package.
-
-```sh
-npx @uvalib/web-components install-skill            # copies to .claude/skills/uvalib-web-components
-npx @uvalib/web-components install-skill --dir .agents/skills --force
-```
-
-See [docs/usage.md](docs/usage.md) for details, including sites that only use script tags.
 
 ## Development
 
