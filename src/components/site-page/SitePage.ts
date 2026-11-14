@@ -26,7 +26,10 @@ const slotOf = (n: Node): string | null => (n instanceof Element ? n.getAttribut
 
 /**
  * Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles.
- * Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`.
+ * Side-effect free: `site-page.ts` registers `<site-header>` (and its `<site-main-nav>`) and `<site-footer>`.
+ *
+ * The header shows the UVA Library main navigation by default (`no-main-nav` turns it off;
+ * `header-variant="vendor"` never shows it).
  *
  * Shows live UVA Library alerts by default, placed as Virgo places them: a full-bleed
  * `<uvalib-alerts show="header">` banner at the top of the header landmark (after the skip
@@ -42,6 +45,7 @@ const slotOf = (n: Node): string | null => (n instanceof Element ? n.getAttribut
  * @slot - Main page content, rendered inside the single `<main>`.
  * @slot pre-footer - Optional content shown in a band above the footer.
  * @slot site-links - Optional `<a href>` elements, forwarded to `<site-header>`, that replace the library utility links in the header (inline nav and Menu popover). Ignored with `header-variant="vendor"`.
+ * @slot main-nav - Optional `<nav>` forwarded to `<site-header>`, whose list replaces the UVA Library main navigation's links (see `<site-main-nav>`). Ignored with `no-main-nav` and `header-variant="vendor"`.
  * @csspart main - The `<main>` landmark.
  * @csspart header - The `<header>` element inside `<site-header>` (shadow mode; exported through `exportparts`).
  * @csspart footer - The `<footer>` element inside `<site-footer>` (shadow mode; exported through `exportparts`).
@@ -65,6 +69,12 @@ export class SitePage extends UvalibElement {
   @property({ type: Boolean, attribute: 'no-footer', reflect: true }) noFooter = false;
   /** Accessible name of the header navigation when site links are given (default "Site"). */
   @property({ type: String, attribute: 'site-links-label' }) siteLinksLabel?: string;
+  /** Hide the UVA Library main navigation in the header. */
+  @property({ type: Boolean, attribute: 'no-main-nav' }) noMainNav = false;
+  /** Accessible name of the header's main navigation (default "Main"). */
+  @property({ type: String, attribute: 'main-nav-label' }) mainNavLabel?: string;
+  /** URL of JSON main navigation items, forwarded to `<site-header main-nav-src>`. */
+  @property({ type: String, attribute: 'main-nav-src' }) mainNavSrc?: string;
   /**
    * Alerts environment: `production` (default) or `staging`. Any other value logs one
    * console warning and uses production. Ignored when `alerts-src` is set.
@@ -271,7 +281,7 @@ export class SitePage extends UvalibElement {
 
   /**
    * Light mode has no slots: move content into `<main>`, pre-footer nodes to the footer and
-   * site links to the header.
+   * site links and main-nav markup to the header.
    */
   private route(nodes: Iterable<Node>): void {
     const main = this.querySelector(':scope > main');
@@ -283,7 +293,13 @@ export class SitePage extends UvalibElement {
       if (n.nodeType === Node.TEXT_NODE && !n.textContent?.trim()) continue;
       // The header and footer adopt their own slotted children, even before they upgrade.
       const slot = slotOf(n);
-      (slot === 'pre-footer' ? footer : slot === 'site-links' ? header : main).append(n);
+      const to =
+        slot === 'pre-footer'
+          ? footer
+          : slot === 'site-links' || slot === 'main-nav'
+            ? header
+            : main;
+      to.append(n);
     }
   }
 
@@ -334,13 +350,17 @@ export class SitePage extends UvalibElement {
         variant=${this.headerVariant}
         root-link-domain=${this.rootLinkDomain}
         site-links-label=${ifDefined(this.siteLinksLabel)}
+        ?no-main-nav=${this.noMainNav}
+        main-nav-label=${ifDefined(this.mainNavLabel)}
+        main-nav-src=${ifDefined(this.mainNavSrc)}
         >${
           light
             ? nothing
             : html`${skip}${alerts ? alert('header') : nothing}<slot
                   name="site-links"
                   slot="site-links"
-                ></slot>`
+                ></slot
+                ><slot name="main-nav" slot="main-nav"></slot>`
         }</site-header
       >
       ${alerts ? band : nothing}
