@@ -1,0 +1,363 @@
+{
+  "data": [
+    {
+      "type": "node--library",
+      "id": "e8b7001c-1e57-48aa-bb1d-db46076a8e63",
+      "attributes": {
+        "title": "JAG School Library",
+        "field_short_title": null,
+        "field_slug": "jag",
+        "field_libcal_id": null,
+        "field_type_basic": "other-professional",
+        "field_priority_placement": null,
+        "field_library_site_link": {
+          "uri": "https://guides.lib.virginia.edu/jag-library",
+          "title": "JAG Library",
+          "options": []
+        },
+        "field_hours_information": null
+      },
+      "relationships": {
+        "field_parent": {
+          "data": null
+        }
+      }
+    },
+    {
+      "type": "node--library",
+      "id": "150094ae-bdb3-44e4-9169-7f82347f9dad",
+      "attributes": {
+        "title": "Darden",
+        "field_short_title": null,
+        "field_slug": "darden",
+        "field_libcal_id": null,
+        "field_type_basic": "other-professional",
+        "field_priority_placement": null,
+        "field_library_site_link": null,
+        "field_hours_information": {
+          "value": "<p>See:&nbsp;<a href=\"https://www.darden.virginia.edu/current-students/camp-library\">Darden Library webpage</a></p>\r\n",
+          "format": "basic_html",
+          "processed": "<p>See:&nbsp;<a href=\"https://www.darden.virginia.edu/current-students/camp-library\">Darden Library webpage</a></p>"
+        }
+      },
+      "relationships": {
+        "field_parent": {
+          "data": null
+        }
+      }
+    },
+    {
+      "type": "node--library",
+      "id": "1dc3d8f6-4112-496f-9041-2c6156e80ae1",
+      "attributes": {
+        "title": "Fine Arts Library",
+        "field_short_title": "Fine Arts",
+        "field_slug": "fine-arts",
+        "field_libcal_id": "3805",
+        "field_type_basic": "Library",
+        "field_priority_placement": 5,
+        "field_library_site_link": null,
+        "field_hours_information": null
+      },
+      "relationships": {
+        "field_parent": {
+          "data": null
+        }
+      }
+    },
+    {
+      "type": "node--library",
+      "id": "e198561b-232d-4d53-afe4-729b2aa12c69",
+      "attributes": {
+        "title": "Harrison/Small Building & Exhibitions",
+        "field_short_title": "Harrison/Small Building",
+        "field_slug": "harrison-building-exhibitions",
+        "field_libcal_id": "4114",
+        "field_type_basic": "space",
+        "field_priority_placement": null,
+        "field_library_site_link": null,
+        "field_hours_information": null
+      },
+      "relationships": {
+        "field_parent": {
+          "data": {
+            "type": "node--library",
+            "id": "995da9c4-23e5-45f4-b936-5ff2a4bab1f5",
+            "meta": {
+              "drupal_internal__target_id": 2141
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "node--library",
+      "id": "c88cf412-e9e7-4fa2-9bc9-1a8720718427",
+      "attributes": {
+        "title": "Health Sciences Library",
+        "field_short_title": null,
+        "field_slug": "health-sciences",
+        "field_libcal_id": null,
+        "field_type_basic": "other-professional",
+        "field_priority_placement": null,
+        "field_library_site_link": null,
+        "field_hours_information": {
+          "value": "<p>See:&nbsp;<a href=\"http://www.hsl.virginia.edu/admin/general/hours.cfm\">Health Sciences Library webpage</a></p>\r\n",
+          "format": "basic_html",
+          "processed": "<p>See:&nbsp;<a href=\"http://www.hsl.virginia.edu/admin/general/hours.cfm\">Health Sciences Library webpage</a></p>"
+        }
+      },
+      "relationships": {
+        "field_parent": {
+          "data": null
+        }
+      }
+    },
+    {
+      "type": "node--library",
+      "id": "8f56e983-d496-430d-a847-5ca7416ae4ff",
+      "attributes": {
+        "title": "Small Special Collections Reading Room",
+        "field_short_title": "Special Collections",
+        "field_slug": "special-collections",
+        "field_libcal_id": "3810",
+        "field_type_basic": "space",
+        "field_priority_placement": null,
+        "field_library_site_link": null,
+        "field_hours_information": null
+      },
+      "relationships": {
+        "field_parent": {
+          "data": {
+            "type": "node--library",
+            "id": "995da9c4-23e5-45f4-b936-5ff2a4bab1f5",
+            "meta": {
+              "drupal_internal__target_id": 2141
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "node--library",
+      "id": "bb1ec603-b715-4a91-863f-7299985a5980",
+      "attributes": {
+        "title": "Music Library",
+        "field_short_title": "Music",
+        "field_slug": "music",
+        "field_libcal_id": "3804",
+        "field_type_basic": "Library",
+        "field_priority_placement": 5,
+        "field_library_site_link": null,
+        "field_hours_information": null
+      },
+      "relationships": {
+        "field_parent": {
+          "data": null
+        }
+      }
+    },
+    {
+      "type": "node--library",
+      "id": "d01f9719-618d-44cf-bc6c-0cf159f907f5",
+      "attributes": {
+        "title": "Ivy Library",
+        "field_short_title": "Ivy Library",
+        "field_slug": "ivy",
+        "field_libcal_id": "12219",
+        "field_type_basic": "Library",
+        "field_priority_placement": null,
+        "field_library_site_link": null,
+        "field_hours_information": null
+      },
+      "relationships": {
+        "field_parent": {
+          "data": null
+        }
+      }
+    },
+    {
+      "type": "node--library",
+      "id": "995da9c4-23e5-45f4-b936-5ff2a4bab1f5",
+      "attributes": {
+        "title": "Harrison Institute/Small Special Collections Library",
+        "field_short_title": "Harrison/Small",
+        "field_slug": "harrison",
+        "field_libcal_id": "4114",
+        "field_type_basic": "Library",
+        "field_priority_placement": 5,
+        "field_library_site_link": null,
+        "field_hours_information": null
+      },
+      "relationships": {
+        "field_parent": {
+          "data": null
+        }
+      }
+    },
+    {
+      "type": "node--library",
+      "id": "358f7bb0-f7f6-4355-81c9-4e4d5e99e60e",
+      "attributes": {
+        "title": "Ask a Librarian chat",
+        "field_short_title": "Ask a Librarian chat",
+        "field_slug": "ask-a-librarian-chat",
+        "field_libcal_id": "21305",
+        "field_type_basic": null,
+        "field_priority_placement": 1,
+        "field_library_site_link": {
+          "uri": "entity:node/807",
+          "title": "",
+          "options": []
+        },
+        "field_hours_information": null
+      },
+      "relationships": {
+        "field_parent": {
+          "data": null
+        }
+      }
+    },
+    {
+      "type": "node--library",
+      "id": "54f499a2-cffa-4e3a-8846-5a5955d074ca",
+      "attributes": {
+        "title": "Charles L. Brown Science & Engineering Library",
+        "field_short_title": "Brown",
+        "field_slug": "science",
+        "field_libcal_id": "3727",
+        "field_type_basic": "Library",
+        "field_priority_placement": 5,
+        "field_library_site_link": null,
+        "field_hours_information": null
+      },
+      "relationships": {
+        "field_parent": {
+          "data": null
+        }
+      }
+    },
+    {
+      "type": "node--library",
+      "id": "cde24ebf-f27d-4e70-b693-59923550ac42",
+      "attributes": {
+        "title": "Robertson Media Center",
+        "field_short_title": "Robertson Media Center",
+        "field_slug": "robertson-media-center",
+        "field_libcal_id": "4170",
+        "field_type_basic": "space",
+        "field_priority_placement": null,
+        "field_library_site_link": {
+          "uri": "internal:/rmc/",
+          "title": "",
+          "options": []
+        },
+        "field_hours_information": null
+      },
+      "relationships": {
+        "field_parent": {
+          "data": {
+            "type": "node--library",
+            "id": "945ba039-6cc3-4a02-af26-19bd38eacd9c",
+            "meta": {
+              "drupal_internal__target_id": 9
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "node--library",
+      "id": "4c1e99c4-5268-47c8-8961-3bcff9bdc6b2",
+      "attributes": {
+        "title": "Scholars’ Lab Makerspace",
+        "field_short_title": "Scholars’ Lab Makerspace",
+        "field_slug": "scholars-lab",
+        "field_libcal_id": "2093",
+        "field_type_basic": "space",
+        "field_priority_placement": null,
+        "field_library_site_link": {
+          "uri": "https://scholarslab.lib.virginia.edu/makerspace/",
+          "title": "",
+          "options": []
+        },
+        "field_hours_information": null
+      },
+      "relationships": {
+        "field_parent": {
+          "data": {
+            "type": "node--library",
+            "id": "2fe107c6-ee48-40c5-9c57-c5a0a5939aac",
+            "meta": {
+              "drupal_internal__target_id": 4
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "node--library",
+      "id": "a61385f9-95c0-43d8-8cc8-7d2cf7d03551",
+      "attributes": {
+        "title": "Law Library",
+        "field_short_title": null,
+        "field_slug": "law",
+        "field_libcal_id": null,
+        "field_type_basic": "other-professional",
+        "field_priority_placement": null,
+        "field_library_site_link": null,
+        "field_hours_information": {
+          "value": "<p><a href=\"http://libguides.law.virginia.edu/hours\">Visit the Law Library website to see hours.</a></p>\r\n",
+          "format": "basic_html",
+          "processed": "<p><a href=\"http://libguides.law.virginia.edu/hours\">Visit the Law Library website to see hours.</a></p>"
+        }
+      },
+      "relationships": {
+        "field_parent": {
+          "data": null
+        }
+      }
+    },
+    {
+      "type": "node--library",
+      "id": "2fe107c6-ee48-40c5-9c57-c5a0a5939aac",
+      "attributes": {
+        "title": "The Edgar Shannon Library",
+        "field_short_title": "Shannon",
+        "field_slug": "main",
+        "field_libcal_id": "2090",
+        "field_type_basic": "Library",
+        "field_priority_placement": 5,
+        "field_library_site_link": null,
+        "field_hours_information": null
+      },
+      "relationships": {
+        "field_parent": {
+          "data": null
+        }
+      }
+    },
+    {
+      "type": "node--library",
+      "id": "945ba039-6cc3-4a02-af26-19bd38eacd9c",
+      "attributes": {
+        "title": "Clemons Library",
+        "field_short_title": "Clemons",
+        "field_slug": "clemons",
+        "field_libcal_id": "3638",
+        "field_type_basic": "Library",
+        "field_priority_placement": 5,
+        "field_library_site_link": null,
+        "field_hours_information": null
+      },
+      "relationships": {
+        "field_parent": {
+          "data": null
+        }
+      }
+    }
+  ],
+  "meta": {
+    "count": 16
+  }
+}
