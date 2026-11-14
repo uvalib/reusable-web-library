@@ -8,6 +8,8 @@ export interface Preset {
   title: string;
   description: string;
   files: Record<string, { content: string; hidden?: boolean }>;
+  /** Gallery editor height on wide screens (CSS length), when 28rem is too short for the result. */
+  height?: string;
 }
 
 export const CDN_TOKEN = '{{CDN}}';
@@ -232,15 +234,16 @@ site-page::part(footer) {
     },
   },
   {
-    id: 'library-hours',
-    title: 'Library hours',
+    id: 'todays-hours',
+    title: "Today's hours",
     description:
-      "site-hours-section (today's hours, as on the library home page) and library-weekly-hours (one library's week). Hours come live from LibCal; outside library.virginia.edu the library list must be repointed, so this page sets window.uvalibHoursEndpoints to a snapshot published with this site.",
+      "site-hours-section shows today's hours for each library, as on the library home page (limited keeps the libraries the home page lists). Hours come live from LibCal; outside library.virginia.edu the library list must be repointed, so this page sets window.uvalibHoursEndpoints to a snapshot published with this site.",
+    height: '36rem',
     files: {
       'index.html': {
         content: page({
-          title: 'Library hours',
-          components: ['site-hours-section', 'library-weekly-hours'],
+          title: "Today's hours",
+          components: ['site-hours-section'],
           body: `    <script>
       // On library.virginia.edu nothing is needed. Elsewhere the library list (Drupal's
       // JSON:API, same-origin only) must come from a copy; set this before the components load.
@@ -251,8 +254,6 @@ site-page::part(footer) {
       <div class="todays-hours">
         <site-hours-section limited></site-hours-section>
       </div>
-      <h2>Clemons Library</h2>
-      <library-weekly-hours library-slug="clemons" heading-level="3"></library-weekly-hours>
     </site-page>`,
           styles: true,
         }),
@@ -260,9 +261,32 @@ site-page::part(footer) {
       'styles.css': {
         content: `.todays-hours {
   max-width: 20rem;
-  margin-block-end: 2rem;
 }
 `,
+      },
+    },
+  },
+  {
+    id: 'weekly-hours',
+    title: 'Weekly hours',
+    description:
+      "library-weekly-hours shows one library's week, with Previous and Next week buttons, as on the /hours page. library-slug picks the library. Hours come live from LibCal; the library list comes from the same snapshot as Today's hours.",
+    height: '36rem',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Weekly hours',
+          components: ['library-weekly-hours'],
+          body: `    <script>
+      // On library.virginia.edu nothing is needed. Elsewhere the library list (Drupal's
+      // JSON:API, same-origin only) must come from a copy; set this before the components load.
+      window.uvalibHoursEndpoints = { libraries: '${CDN_TOKEN}../data/hours-libraries.json' };
+    </script>
+    <site-page>
+      <h1>Clemons Library hours</h1>
+      <library-weekly-hours library-slug="clemons"></library-weekly-hours>
+    </site-page>`,
+        }),
       },
     },
   },

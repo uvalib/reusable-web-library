@@ -99,7 +99,8 @@ playground-ide,
   --playground-highlight-color: var(--site-link);
   --playground-border: 1px solid var(--site-border);
   --playground-preview-width: 55%;
-  height: 28rem;
+  /* A preset can ask for a taller editor (Preset.height, set by gallery.ts). */
+  height: var(--ide-height, 28rem);
   border-radius: 4px;
 }
 

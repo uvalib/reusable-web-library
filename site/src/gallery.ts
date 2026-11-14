@@ -11,6 +11,7 @@ function mountIde(slot: Element, example: Preset) {
   const ide = document.createElement('playground-ide') as PlaygroundIde;
   ide.resizable = true;
   ide.config = { files: withCdnBase(example, cdnBase()).files };
+  if (example.height) ide.style.setProperty('--ide-height', example.height);
   slot.replaceWith(ide);
 }
 
@@ -35,6 +36,7 @@ for (const example of [...presets, ...galleryExamples]) {
   description.textContent = example.description;
   const slot = document.createElement('div');
   slot.className = 'ide-slot';
+  if (example.height) (slot as HTMLElement).style.setProperty('--ide-height', example.height);
   section.setAttribute('aria-labelledby', heading.id);
   section.append(heading, description, slot);
   container.append(section);

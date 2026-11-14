@@ -26,7 +26,8 @@ describe('playground presets', function () {
       'site-navigation',
       'alerts',
       'theming',
-      'library-hours',
+      'todays-hours',
+      'weekly-hours',
       'search-facets',
     ]);
   });
@@ -94,27 +95,28 @@ describe('playground presets', function () {
     });
   }
 
-  it('library-hours loads the published library-list snapshot and shows hours', async () => {
-    const p = presets.find((x) => x.id === 'library-hours')!;
-    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
-    try {
-      const win = iframe.contentWindow!;
-      const doc = iframe.contentDocument!;
-      await whenAllDefined(win, ['site-hours-section', 'library-weekly-hours']);
-      type Hours = HTMLElement & { state: string };
-      const section = doc.querySelector('site-hours-section') as Hours;
-      const weekly = doc.querySelector('library-weekly-hours') as Hours;
-      const deadline = Date.now() + 4000;
-      while ((section.state !== 'ready' || weekly.state !== 'ready') && Date.now() < deadline) {
-        await new Promise((r) => setTimeout(r, 50));
+  for (const [id, tag, rows] of [
+    ['todays-hours', 'site-hours-section', 'dt.location'],
+    ['weekly-hours', 'library-weekly-hours', 'tbody tr'],
+  ] as const) {
+    it(`${id} loads the published library-list snapshot and shows hours`, async () => {
+      const p = presets.find((x) => x.id === id)!;
+      const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+      try {
+        const win = iframe.contentWindow!;
+        const doc = iframe.contentDocument!;
+        await whenAllDefined(win, [tag]);
+        const el = doc.querySelector(tag) as HTMLElement & { state: string };
+        const deadline = Date.now() + 4000;
+        while (el.state !== 'ready' && Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 50));
+        }
+        expect(el.state).to.equal('ready');
+        expect((el.shadowRoot ?? el).querySelectorAll(rows).length).to.be.greaterThan(0);
+        expect(errors).to.deep.equal([]);
+      } finally {
+        iframe.remove();
       }
-      expect([section.state, weekly.state]).to.deep.equal(['ready', 'ready']);
-      const root = (el: HTMLElement) => el.shadowRoot ?? el;
-      expect(root(section).querySelectorAll('dt.location').length).to.be.greaterThan(0);
-      expect(root(weekly).querySelectorAll('tbody tr').length).to.be.greaterThan(0);
-      expect(errors).to.deep.equal([]);
-    } finally {
-      iframe.remove();
-    }
-  });
+    });
+  }
 });
