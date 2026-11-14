@@ -9,6 +9,7 @@ import {
   fullDate,
   hoursEndpoints,
   hoursTiming,
+  setHoursEndpoints,
   loadHours,
   loadLibraries,
   longDate,
@@ -18,8 +19,20 @@ import {
   weekHeadingDate,
   weekStart,
   type HoursByCalendar,
+  type HoursEndpoints,
   type LibraryInfo,
 } from '../library-hours/hours-data.js';
+
+/** Element ids share the document id space in light DOM, so each instance gets its own prefix. */
+let instanceCounter = 0;
+
+/** What the table shows: one week's data, kept on screen while the next week loads. */
+interface WeekView {
+  days: string[];
+  library: LibraryInfo;
+  spaces: LibraryInfo[];
+  hours: HoursByCalendar;
+}
 
 /** `loading` until the first data arrives, then `ready`, or `error` when it cannot be loaded. */
 export type HoursState = 'loading' | 'ready' | 'error';
@@ -122,11 +135,17 @@ export class LibraryWeeklyHours extends UvalibElement {
 
   /**
    * The data endpoints shared by all hours elements: `libraries` (the Drupal JSON:API URL,
-   * relative by default) and `hours` (LibCal, with `{ids}`). Change them before the elements
-   * connect to use another origin, for example
-   * `customElements.get('site-hours-section').endpoints.libraries = 'https://…'`.
+   * relative by default) and `hours` (LibCal, with `{ids}`). Assigning an object (or setting
+   * a key) changes them for every hours element from the next load on. To repoint before
+   * elements already in the HTML start fetching, set `window.uvalibHoursEndpoints` before
+   * the define script runs.
    */
-  static endpoints = hoursEndpoints;
+  static get endpoints(): HoursEndpoints {
+    return hoursEndpoints;
+  }
+  static set endpoints(value: Partial<HoursEndpoints>) {
+    setHoursEndpoints(value);
+  }
 
   /** The library's `field_slug` in Drupal (for example `clemons`). */
   @property({ type: String, attribute: 'library-slug' })
@@ -152,17 +171,20 @@ export class LibraryWeeklyHours extends UvalibElement {
   @property({ type: Number, attribute: 'headinglevelstart' })
   headingLevelStart?: number;
 
-  /** Read-only: `loading`, `ready` or `error`. */
-  @state()
-  state: HoursState = 'ready';
+  /** `loading` (the default, until data arrives), `ready` or `error`. Read-only. */
+  get state(): HoursState {
+    return this._state;
+  }
 
+  @state() private _state: HoursState = 'loading';
   @state() private today = '';
-  @state() private library?: LibraryInfo;
-  @state() private spaces: LibraryInfo[] = [];
-  @state() private hours?: HoursByCalendar;
+  @state() private view?: WeekView;
   @state() private announcement = '';
 
+  private readonly uid = `library-weekly-hours-${++instanceCounter}`;
   private loadId = 0;
+  /** Set by the week buttons and Retry: announce the result of the next load. */
+  private userInitiated = false;
   private tickTimer?: ReturnType<typeof setInterval>;
   private refreshTimer?: ReturnType<typeof setInterval>;
 
@@ -193,6 +215,7 @@ export class LibraryWeeklyHours extends UvalibElement {
     this.tickTimer = setInterval(() => {
       const today = todayInNewYork();
       if (today !== this.today) this.today = today;
+      else if (this._state === 'error') void this.load({ background: true });
     }, hoursTiming.tick);
     this.restartRefresh();
   }
@@ -210,8 +233,8 @@ export class LibraryWeeklyHours extends UvalibElement {
     const every = this.refreshEvery;
     if (!this.isConnected || !(every > 0)) return;
     this.refreshTimer = setInterval(() => {
-      if (this.weekCount === 0 && this.state === 'ready')
-        void this.load({ quiet: true, maxAge: every / 2 });
+      if (this.weekCount === 0 && this._state !== 'loading')
+        void this.load({ background: true, maxAge: every / 2 });
     }, every);
   }
 
@@ -229,8 +252,11 @@ export class LibraryWeeklyHours extends UvalibElement {
   // A plain map: `today` is private, which PropertyValues<this> does not cover.
   protected override willUpdate(changed: Map<PropertyKey, unknown>) {
     if (!this.isConnected || !this.today) return;
-    if (changed.has('librarySlug') || changed.has('weekCount') || changed.has('today')) {
-      void this.load({ announce: this.hasUpdated && changed.has('weekCount') });
+    if (!this.hasUpdated || changed.has('librarySlug') || changed.has('weekCount')) {
+      void this.load();
+    } else if (changed.has('today')) {
+      // The date rolled over: reload quietly. The same week keeps its rows on a failure.
+      void this.load({ background: this.view?.days[0] === this.days[0] });
     }
   }
 
@@ -240,22 +266,28 @@ export class LibraryWeeklyHours extends UvalibElement {
       this.restartRefresh();
   }
 
+  /**
+   * Load the week shown. The previous rows stay on screen (the table is `aria-busy`) until
+   * the new data lands. A `background` load (refresh, retry from the interval or a rollover
+   * within the week) does not change the state to loading and, if it fails while rows for
+   * the same week are shown, keeps them. Only user-initiated loads announce their result.
+   */
   private async load({
-    quiet = false,
-    announce = false,
+    background = false,
     maxAge = Infinity,
-  }: { quiet?: boolean; announce?: boolean; maxAge?: number } = {}) {
+  }: { background?: boolean; maxAge?: number } = {}) {
     const id = ++this.loadId;
+    const announce = this.userInitiated;
+    this.userInitiated = false;
     const slug = this.librarySlug;
     if (!slug) {
-      this.state = 'ready';
-      this.library = undefined;
+      this._state = 'ready';
+      this.view = undefined;
       return;
     }
     const days = this.days;
-    if (!quiet) {
-      this.state = 'loading';
-      this.hours = undefined;
+    if (!background) {
+      this._state = 'loading';
       this.announcement = '';
     }
     try {
@@ -267,24 +299,47 @@ export class LibraryWeeklyHours extends UvalibElement {
         .map((l) => l.calId)
         .filter((n): n is number => n !== undefined);
       const hours = await loadHours(ids, days[0]!, days[6]!, maxAge);
-      if (id !== this.loadId) return;
-      this.library = library;
-      this.spaces = spaces;
-      this.hours = hours;
-      this.state = 'ready';
+      if (id !== this.loadId) return; // a newer load owns the element
+      this.view = { days, library, spaces, hours };
+      this._state = 'ready';
       if (announce)
         this.announcement = `Showing hours for ${fullDate(days[0]!)} to ${fullDate(days[6]!)}`;
     } catch {
-      if (id !== this.loadId || quiet) return;
-      this.state = 'error';
+      if (id !== this.loadId) return;
+      const sameWeek = this.view?.days[0] === days[0];
+      if (background && sameWeek && this._state !== 'error') return;
+      if (!sameWeek) this.view = undefined;
+      this._state = 'error';
     }
   }
 
+  private retry() {
+    this.userInitiated = true;
+    const hadFocus = this.focusedInside();
+    void this.load().then(() => {
+      // The Retry button is gone once the hours load; keep keyboard focus in the element.
+      if (hadFocus && this._state === 'ready' && !this.focusedInside())
+        this.renderRoot
+          .querySelector<HTMLButtonElement>('.weekly-hours-header-section button')
+          ?.focus();
+    });
+  }
+
+  private focusedInside(): boolean {
+    const active =
+      this.renderRoot instanceof ShadowRoot
+        ? this.renderRoot.activeElement
+        : document.activeElement;
+    return !!active && (this.renderRoot as Node).contains(active) && active !== this;
+  }
+
   private previousWeek() {
+    this.userInitiated = true;
     this.weekCount = (Math.trunc(this.weekCount) || 0) - 1;
   }
 
   private nextWeek() {
+    this.userInitiated = true;
     this.weekCount = (Math.trunc(this.weekCount) || 0) + 1;
   }
 
@@ -295,8 +350,8 @@ export class LibraryWeeklyHours extends UvalibElement {
     </div>`;
   }
 
-  private renderCells(days: string[], calId: number | undefined) {
-    const dates = calId === undefined ? undefined : this.hours?.get(calId);
+  private renderCells(days: string[], hours: HoursByCalendar, calId: number | undefined) {
+    const dates = calId === undefined ? undefined : hours.get(calId);
     return days.map((day) => {
       const text = formatDay(dates?.[day]);
       return html`<td
@@ -308,17 +363,17 @@ export class LibraryWeeklyHours extends UvalibElement {
     });
   }
 
-  private renderRows(days: string[]) {
-    const lib = this.library;
-    if (this.state !== 'ready' || !lib || !this.hours) return nothing;
+  private renderRows(view: WeekView | undefined) {
+    if (!view) return nothing;
+    const { days, library: lib, spaces, hours } = view;
     const building =
-      !this.hideBuildingHours && lib.calId !== undefined && this.hours.has(lib.calId)
+      !this.hideBuildingHours && lib.calId !== undefined && hours.has(lib.calId)
         ? html`<tr part="building-hours">
             <th scope="row" colspan="2" aria-label="Building hours">Building hours</th>
-            ${this.renderCells(days, lib.calId)}
+            ${this.renderCells(days, hours, lib.calId)}
           </tr>`
         : nothing;
-    return html`${building}${this.spaces.map(
+    return html`${building}${spaces.map(
       (space) =>
         html`<tr>
           <th scope="row" colspan="2" aria-label=${space.title}>
@@ -328,16 +383,19 @@ export class LibraryWeeklyHours extends UvalibElement {
                 : html`<span class="lib-space">${space.title}</span>`
             }
           </th>
-          ${this.renderCells(days, space.calId)}
+          ${this.renderCells(days, hours, space.calId)}
         </tr>`,
     )}`;
   }
 
   private renderStatus() {
-    if (this.state === 'loading') return 'Loading hours…';
-    if (this.state === 'error')
+    // Only the first load says so; later loads keep the previous rows (aria-busy) quietly.
+    if (this._state === 'loading') return this.view ? nothing : 'Loading hours…';
+    if (this._state === 'error')
       return html`Hours are unavailable right now.
-        <a href="/hours">See all hours and locations</a>`;
+        <button type="button" class="uvalib-button uvalib-button--basic" @click=${this.retry}>
+          Retry
+        </button>`;
     return this.announcement
       ? html`<span class="visually-hidden">${this.announcement}</span>`
       : nothing;
@@ -347,55 +405,59 @@ export class LibraryWeeklyHours extends UvalibElement {
     if (!this.librarySlug || !this.today) return nothing;
     const days = this.days;
     const level = this.level;
-    const table =
-      this.state === 'error'
-        ? nothing
-        : html`<div class="weekly-hours-header-section">
-              <button
-                type="button"
-                class="uvalib-button uvalib-button--basic"
-                @click=${this.previousWeek}
-              >
-                Previous week
-              </button>
-              <div class="heading-h${level}" role="heading" aria-level=${level}>
-                ${weekHeadingDate(days[0]!)} - ${weekHeadingDate(days[6]!)}
-              </div>
-              <button
-                type="button"
-                class="uvalib-button uvalib-button--basic"
-                @click=${this.nextWeek}
-              >
-                Next week
-              </button>
-            </div>
-            <table class="weekly-hours-body-section">
-              <colgroup>
-                <col class="location-column" />
-                ${days.map(() => html`<col />`)}
-                <col />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th colspan="2" scope="col"><span class="visually-hidden">Day</span></th>
-                  ${days.map(
-                    (day) =>
-                      html`<th
-                        scope="col"
-                        aria-label=${longDate(day)}
-                        aria-current=${day === this.today ? 'date' : nothing}
-                        class=${day === this.today ? 'today' : nothing}
-                      >
-                        <div class="date-header">${this.renderMobileDate(day)}</div>
-                      </th>`,
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                ${this.renderRows(days)}
-              </tbody>
-            </table>`;
-    return html`${table}
+    const headingId = `${this.uid}-heading`;
+    // The table shows the data it has (the previous week while the next one loads).
+    const tableDays = this.view?.days ?? days;
+    return html`<div class="weekly-hours-header-section">
+        <button
+          type="button"
+          class="uvalib-button uvalib-button--basic"
+          aria-describedby=${headingId}
+          @click=${this.previousWeek}
+        >
+          Previous week
+        </button>
+        <div class="heading-h${level}" role="heading" aria-level=${level} id=${headingId}>
+          ${weekHeadingDate(days[0]!)} - ${weekHeadingDate(days[6]!)}
+        </div>
+        <button
+          type="button"
+          class="uvalib-button uvalib-button--basic"
+          aria-describedby=${headingId}
+          @click=${this.nextWeek}
+        >
+          Next week
+        </button>
+      </div>
+      <table
+        class="weekly-hours-body-section"
+        aria-busy=${this._state === 'loading' ? 'true' : nothing}
+      >
+        <colgroup>
+          <col class="location-column" />
+          ${tableDays.map(() => html`<col />`)}
+          <col />
+        </colgroup>
+        <thead>
+          <tr>
+            <th colspan="2" scope="col"><span class="visually-hidden">Day</span></th>
+            ${tableDays.map(
+              (day) =>
+                html`<th
+                  scope="col"
+                  aria-label=${longDate(day)}
+                  aria-current=${day === this.today ? 'date' : nothing}
+                  class=${day === this.today ? 'today' : nothing}
+                >
+                  <div class="date-header">${this.renderMobileDate(day)}</div>
+                </th>`,
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          ${this.renderRows(this.view)}
+        </tbody>
+      </table>
       <div class="weekly-hours-status" role="status">${this.renderStatus()}</div>`;
   }
 }

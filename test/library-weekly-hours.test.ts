@@ -3,7 +3,14 @@ import '../src/components/library-weekly-hours/library-weekly-hours.js';
 import type { LibraryWeeklyHours } from '../src/components/library-weekly-hours/LibraryWeeklyHours.js';
 import { hoursEndpoints, hoursTiming } from '../src/components/library-hours/hours-data.js';
 import { expectNoAxeViolations } from './helpers/axe.js';
-import { recordFetches, resetHours, setClock, settled, useHoursHost } from './helpers/hours.js';
+import {
+  holdFetches,
+  recordFetches,
+  resetHours,
+  setClock,
+  settled,
+  useHoursHost,
+} from './helpers/hours.js';
 
 // Saturday 14 November 2026, noon in Charlottesville.
 const NOW = '2026-11-14T17:00:00Z';
@@ -237,29 +244,165 @@ describe('library-weekly-hours', () => {
       const status = root(el).querySelector('[role=status]')!;
       expect(text(status)).to.equal('Loading hours…');
       expect(root(el).querySelectorAll('thead th')).to.have.length(8);
+      expect(root(el).querySelector('table')!.getAttribute('aria-busy')).to.equal('true');
+      await expectNoAxeViolations(el);
     } finally {
       window.fetch = original;
     }
   });
 
+  const retryButton = (el: LibraryWeeklyHours) =>
+    root(el).querySelector<HTMLButtonElement>('[role=status] button')!;
+
   for (const host of ['hours-fail.test', 'hours-empty.test']) {
-    it(`shows a calm message with a link to /hours when data is unavailable (${host})`, async () => {
+    it(`keeps the week header and offers Retry when data is unavailable (${host})`, async () => {
       useHoursHost(host);
       const el = await make('library-slug="clemons"');
       expect(el.state).to.equal('error');
       const status = root(el).querySelector('[role=status]')!;
-      expect(text(status)).to.match(/^Hours are unavailable right now\./);
-      expect(status.querySelector('a[href="/hours"]')).to.not.equal(null);
-      expect(root(el).querySelector('table')).to.equal(null);
+      expect(text(status)).to.equal('Hours are unavailable right now. Retry');
+      expect(retryButton(el).matches('button.uvalib-button[type=button]')).to.equal(true);
+      expect(root(el).querySelectorAll('.weekly-hours-header-section button')).to.have.length(2);
+      expect(root(el).querySelectorAll('thead th')).to.have.length(8);
+      expect(root(el).querySelectorAll('tbody tr')).to.have.length(0);
       await expectNoAxeViolations(el);
     });
   }
 
-  it('shows the error state when LibCal fails', async () => {
+  it('recovers from an error with Retry and announces the result', async () => {
     hoursEndpoints.hours = 'https://hours-fail.test/api/1.0/hours/{ids}?key=x';
-    const el = await make('library-slug="clemons"');
+    const el = await make('library-slug="clemons" refresh-every="0"');
     expect(el.state).to.equal('error');
-    expect(root(el).querySelector('[role=status] a[href="/hours"]')).to.not.equal(null);
+    resetHours();
+    retryButton(el).focus();
+    retryButton(el).click();
+    await settled(el);
+    expect(el.state).to.equal('ready');
+    expect(root(el).querySelectorAll('tbody tr')).to.have.length(2);
+    expect(text(root(el).querySelector('[role=status]'))).to.equal(
+      'Showing hours for Sunday, November 8, 2026 to Saturday, November 14, 2026',
+    );
+    // Focus stays in the element (the Retry button is gone).
+    const active = el.shadowRoot ? el.shadowRoot.activeElement : document.activeElement;
+    expect(text(active)).to.equal('Previous week');
+  });
+
+  it('recovers from an error on the refresh interval, without announcing', async () => {
+    hoursEndpoints.hours = 'https://hours-fail.test/api/1.0/hours/{ids}?key=x';
+    const el = await make('library-slug="clemons" refresh-every="40"');
+    expect(el.state).to.equal('error');
+    resetHours();
+    await waitUntil(() => el.state === 'ready', 'did not recover', { timeout: 2000 });
+    await el.updateComplete;
+    expect(root(el).querySelectorAll('tbody tr')).to.have.length(2);
+    expect(text(root(el).querySelector('[role=status]'))).to.equal('');
+  });
+
+  it('recovers from an error on the date check for other weeks too', async () => {
+    hoursTiming.tick = 20;
+    hoursEndpoints.hours = 'https://hours-fail.test/api/1.0/hours/{ids}?key=x';
+    const el = await make('library-slug="clemons" week-count="1" refresh-every="0"');
+    expect(el.state).to.equal('error');
+    resetHours();
+    hoursTiming.tick = 20;
+    await waitUntil(() => el.state === 'ready', 'did not recover', { timeout: 2000 });
+  });
+
+  it('keeps the previous rows (aria-busy) while the next week loads, and announces only the result', async () => {
+    const el = await make('library-slug="clemons"');
+    const hold = holdFetches((u) => u.includes('cal.lib.virginia.edu'));
+    try {
+      const next = root(el).querySelectorAll<HTMLButtonElement>(
+        '.weekly-hours-header-section button',
+      )[1]!;
+      next.click();
+      await el.updateComplete;
+      await waitUntil(() => hold.count === 1, 'LibCal not requested');
+      expect(el.state).to.equal('loading');
+      expect(root(el).querySelector('table')!.getAttribute('aria-busy')).to.equal('true');
+      expect(root(el).querySelectorAll('tbody tr')).to.have.length(2);
+      expect(text(root(el).querySelector('[role=status]'))).to.equal('');
+      hold.release();
+      await settled(el);
+      expect(root(el).querySelector('table')!.hasAttribute('aria-busy')).to.equal(false);
+      expect(root(el).querySelectorAll('thead th')[1]!.getAttribute('aria-label')).to.equal(
+        'Sunday, November 15',
+      );
+      expect(text(root(el).querySelector('[role=status]'))).to.match(
+        /^Showing hours for Sunday, November 15/,
+      );
+    } finally {
+      hold.release();
+      hold.restore();
+    }
+  });
+
+  it('does not announce a week-count set from script', async () => {
+    const el = await make('library-slug="clemons"');
+    el.weekCount = 2;
+    await settled(el);
+    expect(text(root(el).querySelector('[role=status]'))).to.equal('');
+    expect(text(root(el).querySelector('[role=heading]'))).to.equal('Nov 22. 2026 - Nov 28. 2026');
+  });
+
+  it('ignores a stale response that arrives after a newer request', async () => {
+    const el = await make('library-slug="clemons"');
+    const [, next] = root(el).querySelectorAll<HTMLButtonElement>(
+      '.weekly-hours-header-section button',
+    );
+    const hold = holdFetches((u) => u.includes('from=2026-11-15'));
+    try {
+      next!.click(); // week +1: held
+      await el.updateComplete;
+      await waitUntil(() => hold.count === 1, 'week +1 not requested');
+      next!.click(); // week +2: answered
+      await settled(el);
+      hold.release(); // the stale week +1 answer lands last
+      await new Promise((r) => setTimeout(r, 50));
+      await el.updateComplete;
+      expect(el.weekCount).to.equal(2);
+      expect(root(el).querySelectorAll('thead th')[1]!.getAttribute('aria-label')).to.equal(
+        'Sunday, November 22',
+      );
+      expect(text(root(el).querySelector('[role=heading]'))).to.equal(
+        'Nov 22. 2026 - Nov 28. 2026',
+      );
+    } finally {
+      hold.release();
+      hold.restore();
+    }
+  });
+
+  it('shows the error when a fetch times out', async () => {
+    hoursTiming.timeout = 50;
+    useHoursHost('hours-hang.test');
+    const el = await make('library-slug="clemons" refresh-every="0"');
+    expect(el.state).to.equal('error');
+  });
+
+  it('describes each week button by its own week heading', async () => {
+    const a = await make('library-slug="clemons"');
+    const b = await make('library-slug="main"');
+    for (const el of [a, b]) {
+      const heading = root(el).querySelector('[role=heading]')!;
+      for (const button of root(el).querySelectorAll('.weekly-hours-header-section button'))
+        expect(button.getAttribute('aria-describedby')).to.equal(heading.id);
+    }
+    expect(root(a).querySelector('[role=heading]')!.id).to.not.equal(
+      root(b).querySelector('[role=heading]')!.id,
+    );
+  });
+
+  it('exposes the shared endpoints as a static accessor that writes through', () => {
+    const ctor = customElements.get('library-weekly-hours') as unknown as {
+      endpoints: Partial<typeof hoursEndpoints>;
+    };
+    expect(ctor.endpoints).to.equal(hoursEndpoints);
+    ctor.endpoints = { libraries: 'https://hours-empty.test/jsonapi/index/default_index' };
+    expect(hoursEndpoints.libraries).to.equal(
+      'https://hours-empty.test/jsonapi/index/default_index',
+    );
+    expect(hoursEndpoints.hours).to.include('cal.lib.virginia.edu');
   });
 
   it('refreshes the current week every refresh-every ms, and stops when disconnected', async () => {
@@ -308,6 +451,7 @@ describe('library-weekly-hours', () => {
       expect(root(el).querySelector('th[aria-current=date]')!.getAttribute('aria-label')).to.equal(
         'Sunday, November 15',
       );
+      expect(text(root(el).querySelector('[role=status]'))).to.equal(''); // rollovers are silent
     } finally {
       await setClock(NOW);
     }
@@ -317,5 +461,11 @@ describe('library-weekly-hours', () => {
     const el = await fixture<LibraryWeeklyHours>('<library-weekly-hours></library-weekly-hours>');
     expect(root(el).querySelector('table')).to.equal(null);
     expect(el.state).to.equal('ready');
+  });
+
+  it('starts in the loading state', () => {
+    const el = document.createElement('library-weekly-hours') as LibraryWeeklyHours;
+    expect(el.state).to.equal('loading');
+    expect(() => ((el as unknown as { state: string }).state = 'ready')).to.throw();
   });
 });
