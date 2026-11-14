@@ -58,10 +58,36 @@ resized.observe(document.querySelector('.example-head')!);
 /** The example the menu last pointed at: what Reset returns to. */
 let current: Preset = examples[0]!;
 
+/**
+ * Scroll the menu (only the menu, never the page) so the current link is visible, for
+ * example when a deep link opens an example near the end of the list.
+ */
+function revealInMenu(a: HTMLElement) {
+  requestAnimationFrame(() => reveal(a));
+}
+// The menu only gets its final size once site-page, the fonts and the editor have laid
+// out, so reveal the current link again whenever the menu box resizes.
+new ResizeObserver(() => {
+  const a = nav.querySelector<HTMLElement>('a[aria-current="page"]');
+  if (a) reveal(a);
+}).observe(nav);
+
+function reveal(a: HTMLElement) {
+  if (a.getAttribute('aria-current') !== 'page') return;
+  const box = nav.getBoundingClientRect();
+  const item = a.getBoundingClientRect();
+  // Before the page scrolls, the sticky menu can extend past the viewport.
+  const bottom = Math.min(box.bottom, innerHeight);
+  if (item.top < box.top) nav.scrollTop -= box.top - item.top + 8;
+  else if (item.bottom > bottom) nav.scrollTop += item.bottom - bottom + 8;
+}
+
 function markCurrent(id: string | undefined) {
   for (const [key, a] of links) {
-    if (key === id) a.setAttribute('aria-current', 'page');
-    else a.removeAttribute('aria-current');
+    if (key === id) {
+      a.setAttribute('aria-current', 'page');
+      revealInMenu(a);
+    } else a.removeAttribute('aria-current');
   }
   if (id) select.value = id;
   else select.selectedIndex = -1;
