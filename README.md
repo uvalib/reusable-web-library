@@ -176,9 +176,24 @@ Three elements show opening hours from the library's own data, for library.virgi
 <site-hours-section limited no-shadow-dom no-style></site-hours-section>
 ```
 
-- **Data and origin.** The library list comes from the library website's Drupal JSON:API (`/jsonapi/index/default_index?filter[type]=library&page[limit]=100`), a relative, same-origin URL with no CORS, so the elements work only on library.virginia.edu unless the endpoints are repointed. Hours come from LibCal (`cal.lib.virginia.edu`, CORS `*`) with LibCal's public widget key. To repoint both (for local development, tests or another origin), change the shared `endpoints` object before the elements connect: `customElements.get('site-hours-section').endpoints` (the same object as `LibraryWeeklyHours.endpoints`) has `libraries` (the JSON:API URL) and `hours` (LibCal, with `{ids}`; `from` and `to` are appended). The list is fetched once per page and LibCal requests are shared between elements; failed fetches are retried twice, a second apart.
+- **Data and origin.** The library list comes from the library website's Drupal JSON:API (`/jsonapi/index/default_index?filter[type]=library&page[limit]=100`), a relative, same-origin URL with no CORS, so the elements work only on library.virginia.edu unless the endpoints are repointed. Hours come from LibCal (`cal.lib.virginia.edu`, CORS `*`) with LibCal's public widget key. The list is fetched once per page and LibCal requests are shared between elements. Each attempt times out after 10 seconds; failed or timed-out fetches are retried twice, a second apart.
+- **Repointing the endpoints** (local development, tests, another origin). Both URLs are shared by every hours element: `libraries` (the JSON:API URL) and `hours` (LibCal, with `{ids}` for the calendar ids; `from` and `to` are appended). Elements already in the HTML start fetching as soon as their script defines them, so set the override **before** the define script runs:
+
+  ```html
+  <script>
+    // For example a saved copy of the JSON:API response, served by your dev server.
+    window.uvalibHoursEndpoints = { libraries: '/dev-data/libraries.json' };
+  </script>
+  <script
+    type="module"
+    src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-hours-section.js"
+  ></script>
+  ```
+
+  It is read once, at the first fetch. Afterwards, assign the static `endpoints` of either class: `customElements.get('site-hours-section').endpoints = { libraries: '…' }` (or `LibraryWeeklyHours.endpoints` from npm) writes through to the shared URLs, and requests are cached by URL, so the change applies from each element's next load (a week change, a refresh or the next day). A JSON:API on another origin must allow CORS (library.virginia.edu's does not).
+
 - **Dates** ("today" and the week) are always America/New_York, whatever the visitor's time zone. Today's column is marked with `class="today"` and `aria-current="date"`. The elements update when the date changes in New York; `<library-weekly-hours>` also refetches the current week every `refresh-every` ms (default 600000, 0 turns it off).
-- **States.** While loading, a polite `role="status"` says "Loading hours…"; if the data cannot be loaded it says "Hours are unavailable right now." with a link to `/hours`. Read `state` (`loading`, `ready` or `error`) from script.
+- **States.** On the first load a polite `role="status"` says "Loading hours…". Later loads keep the current rows on screen (the weekly table gets `aria-busy="true"`) until the new data lands. If the data cannot be loaded the status says "Hours are unavailable right now."; `<library-weekly-hours>` keeps its week header and adds a Retry button, and both elements retry quietly on their timers. Only user actions (the week buttons, Retry) are announced; midnight rollovers and background refreshes are silent. Read the read-only `state` (`loading`, `ready` or `error`) from script.
 - **Harrison special case.** `<library-hours-setup>` adds `hide-building-hours` to `library-slug="harrison"`: Harrison's building calendar (LibCal 4114) is also the calendar of its own "Harrison/Small Building & Exhibitions" space, so the building row would repeat it.
 - **Light DOM output** keeps the class names Drupal's CSS targets (`home-hours-block`, `hours-locations`, `weekly-hours-header-section`, `weekly-hours-body-section`, `date--mobile`, `lib-space-link`, …). `<library-weekly-hours>` keeps a few layout rules even with `no-style` (the host is `display: block`, the week header is a flex row, `[hidden]` hides), scoped to the tag in `@layer uvalib`. `headinglevelstart` is still read as an alias of `heading-level`.
 - **Drupal switch.** Replace the old `…/web-components/cdn-vX.Y.Z/@uvalib/site-hours/<file>.js` script URLs with `https://unpkg.internal.lib.virginia.edu/web-components/v1/<tag>.js` (`site-hours-section.js` on the home page, `library-hours-setup.js` on /hours). The markup stays the same. `library-daily-hours` is not migrated.

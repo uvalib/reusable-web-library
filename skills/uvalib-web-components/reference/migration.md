@@ -1,6 +1,6 @@
 # Migrating to @uvalib/web-components
 
-The five elements (`site-page`, `site-header`, `site-footer`, `site-analytics`, `site-style`) keep their tag names and the attributes `root-link-domain`, `no-shadow-dom` and `no-style`. Only the URLs and package names change.
+The five page-chrome elements (`site-page`, `site-header`, `site-footer`, `site-analytics`, `site-style`) keep their tag names and the attributes `root-link-domain`, `no-shadow-dom` and `no-style`, and the three library-hours elements (`site-hours-section`, `library-weekly-hours`, `library-hours-setup`) keep their tag names, attributes and markup. Only the URLs and package names change.
 
 ## CDN URLs
 
@@ -17,7 +17,7 @@ Base: `https://unpkg.internal.lib.virginia.edu/web-components/`. Pick the major 
 | `/web-components/<latest or cdn-vX.Y.Z>/@uvalib/site-hours/<file>.js` | `/web-components/v1/<file>.js` for `site-hours-section`, `library-weekly-hours` and `library-hours-setup` (same markup); `library-daily-hours` is not migrated                  |
 | any other `/web-components/latest/@uvalib/<pkg>/<file>.js`            | `/web-components/v1/<pkg>.js` when `<pkg>` is one of the five page-chrome tags; other packages (`bento-box`, `site-menu-bar`, ...) are not migrated yet, leave their URLs alone |
 
-Pattern: `/web-components/latest/@uvalib/<pkg>/<file>.js` becomes `/web-components/v1/<pkg>.js`, and `/web-components/cdn-vX.Y.Z/@uvalib/<pkg>/<file>.js` becomes `/web-components/v1/<pkg>.js` (or an exact `vA.B.C`).
+Pattern: the new file is named after the element, `/web-components/v1/<tag>.js` (or an exact `vA.B.C`). For the page-chrome packages the tag is the package name (`@uvalib/site-page/site-page.js` becomes `v1/site-page.js`); for `@uvalib/site-hours` it is the file name (`@uvalib/site-hours/library-hours-setup.js` becomes `v1/library-hours-setup.js`; there is no `v1/site-hours.js`).
 
 Notes:
 

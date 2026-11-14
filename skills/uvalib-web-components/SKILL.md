@@ -208,7 +208,8 @@ Use these only on library.virginia.edu (or with the data endpoints repointed): t
 - Home page: `<site-hours-section limited no-shadow-dom no-style>` from `site-hours-section.js`. `limited` keeps libraries with a priority placement; `place-type` (`Library`, `space`, `other-professional`) keeps one type. It fires `got-library-hours` then `got-libraries` (`detail: { message }`).
 - /hours: keep Drupal's `<div type="library-weekly-hours" library-slug="…" no-shadow-dom no-style>` placeholders and add one `<library-hours-setup>` from `library-hours-setup.js` (it also registers `<library-weekly-hours>`). Do not hand-convert the placeholders.
 - `<library-weekly-hours>` attributes: `library-slug`, `week-count` (0 is this week), `hide-building-hours`, `heading-level` (`headinglevelstart` is an old alias), `refresh-every` (ms). Harrison is a special case: the setup element adds `hide-building-hours` for `library-slug="harrison"` because its building calendar is also one of its spaces.
-- Dates are America/New_York; today's column has `aria-current="date"`. Do not compute dates yourself or restyle `.today` with `!important`.
+- Dates are America/New_York; today's column has `aria-current="date"`. Do not compute dates yourself.
+- Off library.virginia.edu (local development, another origin), repoint the data before the define script runs with `window.uvalibHoursEndpoints = { libraries: '…', hours: '…' }`, or afterwards by assigning the class's static `endpoints`. Do not copy the hours data into the page.
 - Migrating Drupal: `…/web-components/cdn-vX.Y.Z/@uvalib/site-hours/<file>.js` becomes `https://unpkg.internal.lib.virginia.edu/web-components/v1/<file>.js` for `site-hours-section`, `library-weekly-hours` and `library-hours-setup`; the markup stays. `library-daily-hours` is not migrated.
 
 ```html
