@@ -89,7 +89,7 @@ reusable-web-library/
                             # (2026-11-13: buildspec-ci.yml and codebuild.yml removed; see §7 note)
   skills/
     uvalib-web-components/  # agent skill: SKILL.md + reference/ (see §9)
-  site/                     # GitHub Pages playground + gallery (see §9a)
+  site/                     # GitHub Pages examples page (see §9a)
   .github/workflows/pages.yml
   docs/
     usage.md, migration.md, superpowers/specs/…
@@ -295,12 +295,13 @@ The project includes an agent skill that teaches coding agents (Claude Code and 
   - `--check` mode runs in the test suite, so a stale README fails the build.
 
 **Playground** (`site/`, published to `https://uvalib.github.io/reusable-web-library/`)
-- A Vite multi-page site built into `dist-site/`.
+- A one-page Vite site built into `dist-site/`. `playground.html` remains only as a redirect to `./` that keeps the query and hash, so old links and share links still open.
 - Built on Lit's **`playground-elements`** (`<playground-ide>`, the editor/preview components that power lit.dev/playground), so every example is editable and encourages play.
-- **Gallery page:** one compact `<playground-ide>` per component and variant, with the HTML file open and a live preview beside it. Each variant is shown in both shadow and `no-shadow-dom` modes.
-- **Playground page:** a full-size, resizable `<playground-ide>` with line numbers.
-  - **Presets:** full page; vendor header; light DOM styled by host CSS; pre-footer slot; theming with `--uva-*` tokens.
-  - **Sharing:** "Copy link" serializes the project's files into the URL hash, compressed with `CompressionStream` and base64url-encoded. Opening the link restores them.
+- **Examples page:** a menu of every example beside one full-height, resizable `<playground-ide>` with line numbers. There is only ever one IDE: selecting an example sets its config.
+  - **Menu:** a `<nav aria-label="Examples">` of links grouped by component (Page, Header, Alerts, Search, Hours; each example's `group` in `presets.ts`), with `aria-current="page"` on the shown example. Below 48rem a `<select>` with one `<optgroup>` per group replaces it, above the editor.
+  - **Examples:** full page; pre-footer slot; theming with `--uva-*` tokens; light DOM styled by host CSS; vendor header; site navigation; each header variant in shadow and `no-shadow-dom` modes; alerts; search facets and each search component in both modes; today's and weekly hours.
+  - **URLs:** each example is `#<id>`. Selecting one pushes a history entry, so back and forward work; an unknown id shows the first example.
+  - **Sharing:** "Copy link" serializes the project's files into the URL hash (`#files=…`), compressed with `CompressionStream` and base64url-encoded. Opening the link restores them; it takes precedence over example ids, which cannot contain `=`.
 - **Component source in previews:** preset files load the components from the site's own copy of the CDN build (`dist-site/cdn/`, built from the same commit) via absolute URLs computed at runtime (`new URL('cdn/', location.href)`). GitHub Pages serves them with `Access-Control-Allow-Origin: *`, so the cross-origin sandbox can import them. The internal CDN isn't used.
 - **Sandbox security:**
   - Keep playground-elements' default `sandbox-base-url` (unpkg.com). Its docs require the sandbox to be a different origin from the host page, and self-hosting it on `uvalib.github.io` would let a malicious share link run with the site's privileges.
@@ -310,9 +311,9 @@ The project includes an agent skill that teaches coding agents (Claude Code and 
 - **Deploy:** `.github/workflows/pages.yml` (GitHub Actions) runs on pushes to `main` and on manual dispatch: install, test, `pnpm build && pnpm build:site`, `actions/upload-pages-artifact`, `actions/deploy-pages`. Releases stay on CodeBuild (§7).
   - **One-time repo setting:** set the Pages source to "GitHub Actions". This is a step for the repo owner.
 - **Testing:**
-  - A wtr test loads the built playground, applies each preset, and checks that the preview reports a load with no errors. The preview runs on the unpkg sandbox origin, so the DOM inside it can't be inspected. Separately, each preset's HTML is mounted directly against `dist-cdn` to check that its components are defined and there's exactly one `main`.
+  - A wtr test loads the built examples page, selects each example from the menu and the narrow-width select, and checks the IDE's files, the URL hash, `aria-current`, history, share links, the `playground.html` redirect and that there is one IDE. The preview runs on the unpkg sandbox origin, so the DOM inside it can't be inspected. Separately, each preset's HTML is mounted directly against `dist-cdn` to check that its components are defined and there's exactly one `main`.
   - A round-trip test decodes the URL hash back to the original code.
-  - axe runs on the gallery and playground pages.
+  - axe runs on the examples page at wide and narrow widths.
 
 ## 10. Testing
 

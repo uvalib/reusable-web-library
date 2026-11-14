@@ -6,6 +6,8 @@ Reusable web components for UVA Library sites, built with Lit and TypeScript: `<
 
 Try every component and mode, edit the code, and share a link: <https://uvalib.github.io/reusable-web-library/>
 
+The page lists the examples by component (Page, Header, Alerts, Search, Hours) beside one editor with a live preview. Each example has its own link, such as [`#weekly-hours`](https://uvalib.github.io/reusable-web-library/#weekly-hours). Copy link puts your edited files in the URL (`#files=…`), so the link opens with your changes; Reset goes back to the example. Old `playground.html` links, share links included, redirect to the page.
+
 ## Install
 
 ### CDN script tag (plain HTML, 11ty, Drupal templates)
@@ -58,7 +60,7 @@ The define entries are `site-page.js`, `site-header.js`, `site-footer.js`, `site
 </html>
 ```
 
-Use one `<site-page>` per page. It renders the skip link, the header, a single `<main id="main-content">` and the footer around your content, so do not add your own `<main>`, skip link, header or footer. Put content for a band above the footer in an element with `slot="pre-footer"`. Tool and app-like pages where the site footer does not belong (such as this repo's playground) add `no-footer`, which hides the footer and any pre-footer band. Live library alerts are shown by default (see [Alerts](#alerts)). Third-party sites use `<site-page header-variant="vendor">`. Links default to `root-link-domain="https://www.library.virginia.edu"`.
+Use one `<site-page>` per page. It renders the skip link, the header, a single `<main id="main-content">` and the footer around your content, so do not add your own `<main>`, skip link, header or footer. Put content for a band above the footer in an element with `slot="pre-footer"`. Tool and app-like pages where the site footer does not belong (such as this repo's examples page) add `no-footer`, which hides the footer and any pre-footer band. Live library alerts are shown by default (see [Alerts](#alerts)). Third-party sites use `<site-page header-variant="vendor">`. Links default to `root-link-domain="https://www.library.virginia.edu"`.
 
 Caveat: replacing a light-mode `<site-page>`'s children wholesale (`innerHTML` or `textContent`) destroys the chrome. Append content, or update a container inside it.
 
@@ -67,9 +69,8 @@ Caveat: replacing a light-mode `<site-page>`'s children wholesale (`innerHTML` o
 A site with its own navigation puts it in the header instead of the library utility links (My account, Ask a Librarian, Hours, Give, Alerts, Search). Give `<site-page>` (or a standalone `<site-header>`) `<a slot="site-links">` children:
 
 ```html
-<site-page site-links-label="Playground">
-  <a slot="site-links" href="./">Gallery</a>
-  <a slot="site-links" href="./playground.html" aria-current="page">Playground</a>
+<site-page site-links-label="Web components">
+  <a slot="site-links" href="./" aria-current="page">Examples</a>
   <a slot="site-links" href="https://github.com/uvalib/reusable-web-library#readme">README</a>
   …page content…
 </site-page>
@@ -156,7 +157,7 @@ The mode is read once, at first connect; do not toggle it afterwards.
 </script>
 ```
 
-Both are controlled: set `value` (and `scopeValue`) from your own state after each event. `min` and `max` are required for the date range; without valid ones it renders nothing and warns once in the console. Both support `no-shadow-dom` and `no-style`. See the "Search facets" preset in the playground and the generated reference below.
+Both are controlled: set `value` (and `scopeValue`) from your own state after each event. `min` and `max` are required for the date range; without valid ones it renders nothing and warns once in the console. Both support `no-shadow-dom` and `no-style`. See the [Search facets](https://uvalib.github.io/reusable-web-library/#search-facets) example in the playground and the generated reference below.
 
 ## Library hours
 
@@ -520,7 +521,7 @@ See [docs/usage.md](docs/usage.md) for details, including sites that only use sc
 - `pnpm test:browser` runs the browser tests alone; it needs a prior `pnpm build` and `pnpm build:site --base /dist-site/`.
 - `pnpm build` builds the npm output (`dist/`, which also regenerates this README's component section and the skill's `reference/components.md`) and the CDN output (`dist-cdn/`).
 - `pnpm lint` runs ESLint and Prettier.
-- `pnpm start` runs the Vite dev server for the playground site (`site/`) and the demos (`demo/`), rooted at the repo: open `/site/` for the gallery and playground, or `/demo/` for the demo pages. In dev, `cdn/<tag>.js` is served straight from `src/components/`, so edits show up on reload.
+- `pnpm start` runs the Vite dev server for the playground site (`site/`) and the demos (`demo/`), rooted at the repo: open `/site/` for the examples page, or `/demo/` for the demo pages. In dev, `cdn/<tag>.js` is served straight from `src/components/`, so edits show up on reload.
 - Previews run on the playground-elements sandbox at unpkg.com (never self-hosted: share links run untrusted code), which needs internet access. Locally, that public origin has to load the components from `http://localhost`; Vite's localhost-only CORS policy and Chrome's local network protections block this, so the components may not render in previews under `pnpm start` or `vite preview`. The editors, plain HTML previews and share links still work. Components render in previews on GitHub Pages, which serves `cdn/` with `Access-Control-Allow-Origin: *`.
 - `pnpm build:site` builds the playground site into `dist-site/` for GitHub Pages (base `/reusable-web-library/`). It needs a prior `pnpm build`, and copies `dist-cdn/` to `dist-site/cdn/`. Serve it locally with `npx vite preview -c vite.site.config.ts`.
 - The playground deploys from `.github/workflows/pages.yml` on every push to `main` (and on manual dispatch): install, test, `pnpm build && pnpm build:site`, then upload and deploy to GitHub Pages.
