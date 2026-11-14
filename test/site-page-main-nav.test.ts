@@ -64,15 +64,19 @@ for (const mode of ['shadow', 'light'] as const) {
 
     it('forwards main-nav-label and main-nav-src', async () => {
       const el = await make(
-        'main-nav-label="Library" main-nav-src="https://main-nav.test/items.json"',
+        'main-nav-label="Library" main-nav-src="https://main-nav.test/items.json" main-nav-current="https://www.library.virginia.edu/spaces"',
       );
       const h = header(el);
       expect(h.getAttribute('main-nav-label')).to.equal('Library');
       expect(h.getAttribute('main-nav-src')).to.equal('https://main-nav.test/items.json');
+      expect(h.getAttribute('main-nav-current')).to.equal(
+        'https://www.library.virginia.edu/spaces',
+      );
       for (const n of navs(el)) {
         expect(root(n).querySelector('nav.main-nav')!.getAttribute('aria-label')).to.equal(
           'Library',
         );
+        expect(n.getAttribute('current')).to.equal('https://www.library.virginia.edu/spaces');
       }
     });
 

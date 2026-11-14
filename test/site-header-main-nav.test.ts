@@ -70,12 +70,13 @@ for (const mode of ['shadow', 'light'] as const) {
 
     it('forwards root-link-domain, main-nav-label and main-nav-src', async () => {
       const el = await make(
-        'root-link-domain="https://x.example.edu" main-nav-label="Library" main-nav-src="https://main-nav.test/items.json"',
+        'root-link-domain="https://x.example.edu" main-nav-label="Library" main-nav-src="https://main-nav.test/items.json" main-nav-current="https://x.example.edu/fetched-one"',
       );
       for (const n of [bar(el)!, accordion(el)!]) {
         expect(n.getAttribute('root-link-domain')).to.equal('https://x.example.edu');
         expect(n.getAttribute('label')).to.equal('Library');
         expect(n.getAttribute('items-src')).to.equal('https://main-nav.test/items.json');
+        expect(n.getAttribute('current')).to.equal('https://x.example.edu/fetched-one');
       }
       const until = performance.now() + 3000;
       while (labels(bar(el)!)[0] !== 'Fetched group' && performance.now() < until) {
@@ -84,11 +85,18 @@ for (const mode of ['shadow', 'light'] as const) {
       await settle(el);
       expect(labels(bar(el)!)).to.deep.equal(['Fetched group', 'Fetched link']);
       expect(labels(accordion(el)!)).to.deep.equal(['Fetched group', 'Fetched link']);
+      // main-nav-current marks the fetched link's group in both instances.
+      for (const n of [bar(el)!, accordion(el)!]) {
+        expect(navOf(n).querySelector('button')!.getAttribute('aria-current')).to.equal('true');
+      }
+      el.removeAttribute('main-nav-current');
+      await settle(el);
+      expect(bar(el)!.hasAttribute('current')).to.equal(false);
     });
 
     it('fires one site-main-nav-error from the header when main-nav-src fails', async () => {
       const saved = { ...mainNavTiming };
-      Object.assign(mainNavTiming, { retries: 1 });
+      Object.assign(mainNavTiming, { attempts: 1 });
       try {
         const events: Event[] = [];
         const listener = (e: Event) => events.push(e);
@@ -339,3 +347,49 @@ for (const mode of ['shadow', 'light'] as const) {
     }
   });
 }
+
+describe('site-header no-main-nav: raw markup identical to main', () => {
+  before(async () => {
+    const { SiteHeaderMain } = await import('./fixtures/main-header/SiteHeaderMain.js');
+    if (!customElements.get('site-header-main'))
+      customElements.define('site-header-main', SiteHeaderMain);
+  });
+
+  /** Raw markup, whitespace and Lit markers kept; only the per-instance popover ids numbered. */
+  const raw = (el: Element) => {
+    const r = el.shadowRoot ?? el;
+    const body = [...r.childNodes]
+      .map((n) =>
+        n instanceof Element
+          ? n.outerHTML
+          : n.nodeType === 3
+            ? n.textContent
+            : `<!--${(n as Comment).data}-->`,
+      )
+      .join('');
+    return body.replace(/utility-menu-\d+/g, 'utility-menu-N');
+  };
+
+  for (const mode of ['shadow', 'light'] as const) {
+    for (const [name, attrs, kids] of [
+      ['default links', '', ''],
+      [
+        'site links',
+        'site-links-label="Docs"',
+        '<a slot="site-links" href="/a" aria-current="page">A</a><a slot="site-links" href="/b">B</a>',
+      ],
+      ['vendor', 'variant="vendor"', ''],
+    ] as const) {
+      it(`${mode}, ${name}`, async () => {
+        const light = mode === 'light' ? 'no-shadow-dom' : '';
+        const wrap = await fixture(
+          `<div><site-header ${light} no-main-nav ${attrs}>${kids}</site-header><site-header-main ${light} ${attrs}>${kids}</site-header-main></div>`,
+        );
+        const [now, then] = [...wrap.children] as SiteHeader[];
+        await settle(now, then);
+        // Light mode: the host holds the header and any site-links holder.
+        expect(raw(now)).to.equal(raw(then));
+      });
+    }
+  }
+});

@@ -76,6 +76,12 @@ export class SitePage extends UvalibElement {
   /** URL of JSON main navigation items, forwarded to `<site-header main-nav-src>`. */
   @property({ type: String, attribute: 'main-nav-src' }) mainNavSrc?: string;
   /**
+   * The URL whose main-navigation link is marked current, forwarded to `<site-header
+   * main-nav-current>`. Default: the page location, followed through same-document
+   * navigations; set it when a single-page app's route is not its URL.
+   */
+  @property({ type: String, attribute: 'main-nav-current' }) mainNavCurrent?: string;
+  /**
    * Alerts environment: `production` (default) or `staging`. Any other value logs one
    * console warning and uses production. Ignored when `alerts-src` is set.
    */
@@ -353,6 +359,7 @@ export class SitePage extends UvalibElement {
         ?no-main-nav=${this.noMainNav}
         main-nav-label=${ifDefined(this.mainNavLabel)}
         main-nav-src=${ifDefined(this.mainNavSrc)}
+        main-nav-current=${ifDefined(this.mainNavCurrent)}
         >${
           light
             ? nothing

@@ -67,7 +67,7 @@ const stopEvent = (e: Event) => e.stopPropagation();
  * narrow ones (992px and below), above the utility or site links. `no-main-nav` turns it
  * off, leaving the header exactly as it was without it; the `vendor` variant never shows it.
  * A `<nav slot="main-nav">` child replaces its links (see `<site-main-nav>`), and
- * `main-nav-src` loads them from JSON.
+ * `main-nav-src` loads them from JSON; `main-nav-current` sets the URL marked current.
  *
  * @tagname site-header
  * @slot skip-link - Shadow mode only: optional skip link, rendered first inside `<header>` (`<site-page>` uses it).
@@ -236,6 +236,11 @@ export class SiteHeader extends UvalibElement {
   @property({ type: String, attribute: 'main-nav-label' }) mainNavLabel?: string;
   /** URL of JSON main navigation items (`MainNavItem[]`, needs CORS), passed to `<site-main-nav items-src>`. */
   @property({ type: String, attribute: 'main-nav-src' }) mainNavSrc?: string;
+  /**
+   * The URL whose main-navigation link is marked current, passed to `<site-main-nav current>`.
+   * Default: the page location, followed through same-document navigations.
+   */
+  @property({ type: String, attribute: 'main-nav-current' }) mainNavCurrent?: string;
 
   /** Main navigation items from `slot="main-nav"` markup, or null for the default. */
   @state() private mainNavItems: MainNavItem[] | null = null;
@@ -254,6 +259,8 @@ export class SiteHeader extends UvalibElement {
     super.connectedCallback();
     // Reconnect after a disconnect; the first connect reads the links in firstUpdated().
     if (this.hasUpdated) this.syncChildren();
+    // The main-nav markup is read before the first render too, so it costs no second update.
+    else this.syncMainNav();
   }
 
   override disconnectedCallback(): void {
@@ -277,10 +284,14 @@ export class SiteHeader extends UvalibElement {
     this.watch(sources);
   }
 
-  /** Shadow mode: the elements assigned to the main-nav slot, through forwarded slots. */
+  /**
+   * Shadow mode: the `slot="main-nav"` children, with a forwarded `<slot>` (from
+   * `<site-page>`) replaced by what is assigned to it. Needs no rendered slot.
+   */
   private get slottedMainNav(): Element[] {
-    const slot = this.renderRoot.querySelector<HTMLSlotElement>(`slot[name="${MAIN_NAV}"]`);
-    return slot?.assignedElements({ flatten: true }) ?? [];
+    return [...this.children]
+      .filter(isMainNavChild)
+      .flatMap((k) => (k instanceof HTMLSlotElement ? k.assignedElements({ flatten: true }) : [k]));
   }
 
   /** Light mode: move `slot="main-nav"` children into their own hidden holder. */
@@ -302,7 +313,7 @@ export class SiteHeader extends UvalibElement {
   private syncMainNav(): Element[] {
     const sources = this.lightDom ? this.adoptMainNav() : this.slottedMainNav;
     if (!sources.length) {
-      this.mainNavItems = null;
+      if (this.mainNavItems) this.mainNavItems = null;
       return sources;
     }
     const raw = sources.flatMap((s, i) => (i === 0 ? readItemsMarkup(s) : [{}]));
@@ -313,7 +324,9 @@ export class SiteHeader extends UvalibElement {
         `${this.localName}: ignoring invalid slot="${MAIN_NAV}" entries (each needs a label, and an href or links; deeper levels are shown in their group).`,
       );
     }
-    this.mainNavItems = result.items.length ? result.items : null;
+    const next = result.items.length ? result.items : null;
+    // Only a real change re-renders the header and both navs.
+    if (JSON.stringify(next) !== JSON.stringify(this.mainNavItems)) this.mainNavItems = next;
     return sources;
   }
 
@@ -445,49 +458,10 @@ export class SiteHeader extends UvalibElement {
     const id = this.menuId;
     const anchor = `--${id}`;
     const mainNav = !vendor && !this.noMainNav;
-    const mainNavEl = (accordion: boolean) =>
-      html`<site-main-nav
-        class=${accordion ? 'accordion' : 'bar'}
-        layout=${ifDefined(accordion ? 'accordion' : undefined)}
-        ?no-shadow-dom=${this.lightDom}
-        ?no-style=${this.noStyle}
-        label=${this.mainNavLabel || 'Main'}
-        root-link-domain=${root}
-        items-src=${ifDefined(this.mainNavSrc || undefined)}
-        .items=${this.mainNavItems ?? undefined}
-        @site-main-nav-error=${accordion ? stopEvent : nothing}
-      ></site-main-nav>`;
-    const utilityMenu = (popover: boolean) =>
-      popover
-        ? html`<nav class="menu" aria-label=${`${label} menu`}>
-            <ul id=${id} popover style="--menu-anchor: ${anchor}">
-              ${items}
-            </ul>
-          </nav>`
-        : html`<nav class="menu" aria-label=${`${label} menu`}>
-            <ul>
-              ${items}
-            </ul>
-          </nav>`;
-    return html`
-      <header part="header" class=${vendor ? 'vendor' : ''}>
-        ${this.lightDom ? nothing : html`<slot name="skip-link"></slot><slot name="alerts"></slot>`}
-        <a class="logo" href=${siteLink(root, '/')}
-          ><img
-            src=${siteLink(root, '/sites/default/files/2022-09/library_rgb.png')}
-            alt="UVA Library home"
-            width="304"
-            height="69"
-        /></a>
-        <nav class="inline" aria-label=${label}>
-          <ul>
-            ${items}
-          </ul>
-        </nav>
-        ${
-          vendor
-            ? nothing
-            : html`<button
+    // Without the main navigation the header renders exactly what it did before it existed,
+    // whitespace included: these two templates are kept verbatim (prettier-ignore).
+    // prettier-ignore
+    const classic = html`<button
                   popovertarget=${id}
                   aria-controls=${id}
                   class="menu-toggle"
@@ -511,35 +485,87 @@ export class SiteHeader extends UvalibElement {
                   </svg>
                   Menu
                 </button>
-                ${
-                  mainNav
-                    ? html`<div
-                        id=${id}
-                        popover
-                        class="menu-popover"
-                        style="--menu-anchor: ${anchor}"
-                      >
-                        ${mainNavEl(true)}${utilityMenu(false)}
-                      </div>`
-                    : utilityMenu(true)
-                }`
-        }
-        ${mainNav ? mainNavEl(false) : nothing}
+                <nav class="menu" aria-label=${`${label} menu`}>
+                  <ul id=${id} popover style="--menu-anchor: ${anchor}">
+                    ${items}
+                  </ul>
+                </nav>`;
+    // prettier-ignore
+    const classicHidden = html`<div hidden>
+              <slot name="site-links" @slotchange=${this.onSourcesChange}></slot>
+            </div>`;
+    const mainNavEl = (accordion: boolean) =>
+      html`<site-main-nav
+        class=${accordion ? 'accordion' : 'bar'}
+        layout=${ifDefined(accordion ? 'accordion' : undefined)}
+        ?no-shadow-dom=${this.lightDom}
+        ?no-style=${this.noStyle}
+        label=${this.mainNavLabel || 'Main'}
+        root-link-domain=${root}
+        items-src=${ifDefined(this.mainNavSrc || undefined)}
+        current=${ifDefined(this.mainNavCurrent || undefined)}
+        .items=${this.mainNavItems ?? undefined}
+        @site-main-nav-error=${accordion ? stopEvent : nothing}
+      ></site-main-nav>`;
+    // With it: the Menu popover holds the accordion and then the utility links, and the bar
+    // is the header's last child, a row of its own.
+    const withMainNav = html`<button
+        popovertarget=${id}
+        aria-controls=${id}
+        class="menu-toggle"
+        style="anchor-name: ${anchor}"
+      >
+        <svg
+          aria-hidden="true"
+          xmlns="http://www.w3.org/2000/svg"
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="butt"
+          stroke-linejoin="bevel"
+        >
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+        Menu
+      </button>
+      <div id=${id} popover class="menu-popover" style="--menu-anchor: ${anchor}">
+        ${mainNavEl(true)}
+        <nav class="menu" aria-label=${`${label} menu`}>
+          <ul>
+            ${items}
+          </ul>
+        </nav>
+      </div>
+      ${mainNavEl(false)}`;
+    const withMainNavHidden = html`<div hidden>
+        <slot name="site-links" @slotchange=${this.onSourcesChange}></slot>
+      </div>
+      <div hidden>
+        <slot name="main-nav" @slotchange=${this.onSourcesChange}></slot>
+      </div>`;
+    return html`
+      <header part="header" class=${vendor ? 'vendor' : ''}>
+        ${this.lightDom ? nothing : html`<slot name="skip-link"></slot><slot name="alerts"></slot>`}
+        <a class="logo" href=${siteLink(root, '/')}
+          ><img
+            src=${siteLink(root, '/sites/default/files/2022-09/library_rgb.png')}
+            alt="UVA Library home"
+            width="304"
+            height="69"
+        /></a>
+        <nav class="inline" aria-label=${label}>
+          <ul>
+            ${items}
+          </ul>
+        </nav>
+        ${vendor ? nothing : mainNav ? withMainNav : classic}
       </header>
-      ${
-        this.lightDom
-          ? nothing
-          : html`<div hidden>
-                <slot name="site-links" @slotchange=${this.onSourcesChange}></slot>
-              </div>
-              ${
-                mainNav
-                  ? html`<div hidden>
-                      <slot name="main-nav" @slotchange=${this.onSourcesChange}></slot>
-                    </div>`
-                  : nothing
-              }`
-      }
+      ${this.lightDom ? nothing : mainNav ? withMainNavHidden : classicHidden}
     `;
   }
 }
