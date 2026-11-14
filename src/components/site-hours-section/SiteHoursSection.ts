@@ -8,12 +8,14 @@ import {
   fullDate,
   hoursEndpoints,
   hoursTiming,
+  setHoursEndpoints,
   loadHours,
   loadLibraries,
   sanitizeHoursHtml,
   sortLibraries,
   todayInNewYork,
   type HoursByCalendar,
+  type HoursEndpoints,
   type LibraryInfo,
 } from '../library-hours/hours-data.js';
 import type { HoursState } from '../library-weekly-hours/LibraryWeeklyHours.js';
@@ -69,11 +71,17 @@ export class SiteHoursSection extends UvalibElement {
 
   /**
    * The data endpoints shared by all hours elements: `libraries` (the Drupal JSON:API URL,
-   * relative by default) and `hours` (LibCal, with `{ids}`). Change them before the elements
-   * connect to use another origin, for example
-   * `customElements.get('site-hours-section').endpoints.libraries = 'https://…'`.
+   * relative by default) and `hours` (LibCal, with `{ids}`). Assigning an object (or setting
+   * a key) changes them for every hours element from the next load on. To repoint before
+   * elements already in the HTML start fetching, set `window.uvalibHoursEndpoints` before
+   * the define script runs.
    */
-  static endpoints = hoursEndpoints;
+  static get endpoints(): HoursEndpoints {
+    return hoursEndpoints;
+  }
+  static set endpoints(value: Partial<HoursEndpoints>) {
+    setHoursEndpoints(value);
+  }
 
   /** Only libraries with a priority placement (the home page's short list). */
   @property({ type: Boolean })
@@ -83,18 +91,22 @@ export class SiteHoursSection extends UvalibElement {
   @property({ type: String, attribute: 'place-type' })
   placeType: string | null = null;
 
-  /** Read-only: `loading`, `ready` or `error`. */
-  @state()
-  state: HoursState = 'loading';
+  /** `loading` (the default, until data arrives), `ready` or `error`. Read-only. */
+  get state(): HoursState {
+    return this._state;
+  }
 
+  @state() private _state: HoursState = 'loading';
   @state() private today = '';
   @state() private libraries: LibraryInfo[] = [];
   @state() private hours?: HoursByCalendar;
+  /** The date `hours` belong to: shown (with the hours) until the next day's hours arrive. */
+  @state() private hoursDate = '';
 
   private loadId = 0;
   private tickTimer?: ReturnType<typeof setInterval>;
-  /** Sanitised hours information, per source HTML, so re-renders keep the same nodes. */
-  private infoNodes = new Map<string, Node[]>();
+  /** Sanitised hours information per library, so re-renders keep the same nodes. */
+  private infoNodes = new Map<string, { source: string; nodes: Node[] }>();
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -103,6 +115,9 @@ export class SiteHoursSection extends UvalibElement {
     this.tickTimer = setInterval(() => {
       const today = todayInNewYork();
       if (today !== this.today) this.today = today;
+      // Retry quietly while the list or the hours could not be loaded.
+      else if (this._state === 'error' || (this._state === 'ready' && !this.hours))
+        void this.load();
     }, hoursTiming.tick);
   }
 
@@ -120,12 +135,13 @@ export class SiteHoursSection extends UvalibElement {
   private async load() {
     const id = ++this.loadId;
     const today = this.today;
-    if (!this.libraries.length) this.state = 'loading';
+    // Only the first load shows "Loading hours…"; later ones keep the list until data lands.
+    if (!this.libraries.length && this._state !== 'error') this._state = 'loading';
     let libraries: LibraryInfo[];
     try {
       libraries = sortLibraries(await loadLibraries());
     } catch {
-      if (id === this.loadId) this.state = 'error';
+      if (id === this.loadId) this._state = 'error';
       return;
     }
     let hours: HoursByCalendar | undefined;
@@ -138,7 +154,8 @@ export class SiteHoursSection extends UvalibElement {
     if (id !== this.loadId) return;
     this.libraries = libraries;
     this.hours = hours;
-    this.state = 'ready';
+    this.hoursDate = today;
+    this._state = 'ready';
     const init = { bubbles: true, composed: true };
     this.dispatchEvent(
       new CustomEvent('got-library-hours', {
@@ -157,31 +174,32 @@ export class SiteHoursSection extends UvalibElement {
       .filter((l) => !this.limited || (l.priorityPlacement ?? 0) > 0);
   }
 
-  private info(source: string): Node[] {
-    let nodes = this.infoNodes.get(source);
-    if (!nodes) {
-      nodes = [...sanitizeHoursHtml(source, this.ownerDocument).childNodes];
-      this.infoNodes.set(source, nodes);
+  /** A library's sanitised hours information: its own nodes (a node can be in one place only). */
+  private info(lib: LibraryInfo, source: string): Node[] {
+    let entry = this.infoNodes.get(lib.id);
+    if (entry?.source !== source) {
+      entry = { source, nodes: [...sanitizeHoursHtml(source, this.ownerDocument).childNodes] };
+      this.infoNodes.set(lib.id, entry);
     }
-    return nodes;
+    return entry.nodes;
   }
 
   private renderHours(lib: LibraryInfo) {
     const unavailable = html`Hours unavailable. <a href="/hours">See all hours</a>`;
     if (lib.calId !== undefined) {
-      const text = formatDay(this.hours?.get(lib.calId)?.[this.today]);
+      const text = formatDay(this.hours?.get(lib.calId)?.[this.hoursDate]);
       return text || unavailable;
     }
     if (lib.siteLink) return html`<a href=${lib.siteLink}>See site</a>`;
-    if (lib.hoursInformation) return this.info(lib.hoursInformation);
+    if (lib.hoursInformation) return this.info(lib, lib.hoursInformation);
     return unavailable;
   }
 
   private renderStatus() {
-    if (this.state === 'loading') return 'Loading hours…';
-    if (this.state === 'error' || !this.libraries.length)
-      return html`Hours are unavailable right now.
-        <a href="/hours">See all hours and locations</a>`;
+    if (this._state === 'loading') return 'Loading hours…';
+    // The "See all hours and locations" link is right above.
+    if (this._state === 'error' || !this.libraries.length)
+      return 'Hours are unavailable right now.';
     return nothing;
   }
 
@@ -189,11 +207,13 @@ export class SiteHoursSection extends UvalibElement {
     if (!this.today) return nothing;
     return html`
       <div class="home-hours-block">
-        <div id="homehoursdate" class="home-hour-date">${fullDate(this.today)}</div>
+        <div id="homehoursdate" class="home-hour-date">
+          ${fullDate(this.hoursDate || this.today)}
+        </div>
         <h3 class="hour-head">Today's hours</h3>
         <dl class="dl--inline hours-locations">
           ${repeat(
-            this.state === 'ready' ? this.shown : [],
+            this._state === 'ready' ? this.shown : [],
             (lib) => lib.id,
             (lib) =>
               html`<dt class="location">${lib.shortTitle || lib.title}</dt>

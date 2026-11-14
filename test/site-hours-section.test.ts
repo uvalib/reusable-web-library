@@ -4,7 +4,14 @@ import { LibraryWeeklyHours } from '../src/components/library-weekly-hours/Libra
 import type { SiteHoursSection } from '../src/components/site-hours-section/SiteHoursSection.js';
 import { hoursEndpoints, hoursTiming } from '../src/components/library-hours/hours-data.js';
 import { expectNoAxeViolations } from './helpers/axe.js';
-import { recordFetches, resetHours, setClock, settled, useHoursHost } from './helpers/hours.js';
+import {
+  holdFetches,
+  recordFetches,
+  resetHours,
+  setClock,
+  settled,
+  useHoursHost,
+} from './helpers/hours.js';
 
 // Saturday 14 November 2026, noon in Charlottesville.
 const NOW = '2026-11-14T17:00:00Z';
@@ -171,6 +178,7 @@ describe('site-hours-section', () => {
       expect(el.state).to.equal('loading');
       expect(text(root(el).querySelector('[role=status]'))).to.equal('Loading hours…');
       expect(root(el).querySelector('.hours-see-all a[href="/hours"]')).to.not.equal(null);
+      await expectNoAxeViolations(el);
     } finally {
       window.fetch = original;
     }
@@ -182,8 +190,10 @@ describe('site-hours-section', () => {
       const el = await make('limited');
       expect(el.state).to.equal(host === 'hours-fail.test' ? 'error' : 'ready');
       const status = root(el).querySelector('[role=status]')!;
-      expect(text(status)).to.match(/^Hours are unavailable right now\./);
-      expect(status.querySelector('a[href="/hours"]')).to.not.equal(null);
+      expect(text(status)).to.equal('Hours are unavailable right now.');
+      // The see-all link right above is the way on; no duplicate in the status.
+      expect(status.querySelector('a')).to.equal(null);
+      expect(root(el).querySelectorAll('a[href="/hours"]')).to.have.length(1);
       expect(text(root(el).querySelector('h3'))).to.equal("Today's hours");
       await expectNoAxeViolations(el);
     });
@@ -191,11 +201,14 @@ describe('site-hours-section', () => {
 
   it('exposes the shared endpoints on the element class for repointing', async () => {
     const ctor = customElements.get('site-hours-section') as unknown as {
-      endpoints: typeof hoursEndpoints;
+      endpoints: Partial<typeof hoursEndpoints>;
     };
     expect(ctor.endpoints).to.equal(hoursEndpoints);
     expect(LibraryWeeklyHours.endpoints).to.equal(hoursEndpoints);
-    ctor.endpoints.libraries = 'https://hours-empty.test/jsonapi/index/default_index?x';
+    ctor.endpoints = { libraries: 'https://hours-empty.test/jsonapi/index/default_index?x' };
+    expect(hoursEndpoints.libraries).to.equal(
+      'https://hours-empty.test/jsonapi/index/default_index?x',
+    );
     const el = await make('');
     expect(pairs(el)).to.deep.equal([]);
     expect(text(root(el).querySelector('[role=status]'))).to.match(/^Hours are unavailable/);
@@ -225,8 +238,125 @@ describe('site-hours-section', () => {
       );
       await settled(el);
       expect(pairs(el)[0]).to.deep.equal(['Ask a Librarian chat', '10am - 9pm']);
+      expect(text(root(el).querySelector('[role=status]'))).to.equal(''); // silent
     } finally {
       await setClock(NOW);
     }
+  });
+
+  it('keeps showing the old date and hours until the new day’s hours arrive', async () => {
+    hoursTiming.tick = 20;
+    await setClock('2026-11-15T04:30:00Z'); // 23:30 Saturday in New York
+    const el = await make('limited');
+    const hold = holdFetches((u) => u.includes('from=2026-11-15'));
+    try {
+      await setClock('2026-11-15T05:00:30Z'); // 00:00:30 Sunday
+      await waitUntil(() => hold.count === 1, 'new day not requested', { timeout: 2000 });
+      await el.updateComplete;
+      expect(text(root(el).querySelector('#homehoursdate'))).to.equal(
+        'Saturday, November 14, 2026',
+      );
+      expect(pairs(el)).to.deep.equal(LIMITED);
+      hold.release();
+      await waitUntil(
+        () => text(root(el).querySelector('#homehoursdate')) === 'Sunday, November 15, 2026',
+        'date did not roll over',
+      );
+      expect(pairs(el)[0]).to.deep.equal(['Ask a Librarian chat', '10am - 9pm']);
+    } finally {
+      hold.release();
+      hold.restore();
+      await setClock(NOW);
+    }
+  });
+
+  it('recovers from an error on the date check, without announcing', async () => {
+    hoursTiming.tick = 20;
+    useHoursHost('hours-fail.test');
+    const el = await make('limited');
+    expect(el.state).to.equal('error');
+    resetHours();
+    hoursTiming.tick = 20;
+    await waitUntil(() => el.state === 'ready', 'did not recover', { timeout: 2000 });
+    await el.updateComplete;
+    expect(pairs(el)).to.deep.equal(LIMITED);
+    expect(text(root(el).querySelector('[role=status]'))).to.equal('');
+  });
+
+  it('shows the error when a fetch times out', async () => {
+    hoursTiming.timeout = 50;
+    useHoursHost('hours-hang.test');
+    const el = await make('limited');
+    expect(el.state).to.equal('error');
+  });
+
+  it('gives each library its own copy of identical hours information', async () => {
+    const original = window.fetch;
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const response = await original.call(window, input, init);
+      if (!String(input).includes('/jsonapi/')) return response;
+      const json = await response.json();
+      const darden = json.data.find(
+        (n: { attributes: { field_slug: string } }) => n.attributes.field_slug === 'darden',
+      );
+      json.data.push({
+        ...darden,
+        id: 'darden-copy',
+        attributes: { ...darden.attributes, title: 'Darden Copy', field_slug: 'darden-copy' },
+      });
+      return new Response(JSON.stringify(json), {
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+    try {
+      const el = await make('place-type="other-professional"');
+      const dds = [...root(el).querySelectorAll('dt')]
+        .filter((dt) => text(dt).startsWith('Darden'))
+        .map((dt) => dt.nextElementSibling!);
+      expect(dds).to.have.length(2);
+      for (const dd of dds) expect(text(dd)).to.equal('See: Darden Library webpage');
+      // Still there after a re-render.
+      el.placeType = 'other-professional ';
+      await el.updateComplete;
+      el.placeType = 'other-professional';
+      await el.updateComplete;
+      for (const dd of [...root(el).querySelectorAll('dt')]
+        .filter((dt) => text(dt).startsWith('Darden'))
+        .map((dt) => dt.nextElementSibling!))
+        expect(text(dd)).to.equal('See: Darden Library webpage');
+    } finally {
+      window.fetch = original;
+    }
+  });
+
+  it('links Drupal entity:node site links as /node/N', async () => {
+    const original = window.fetch;
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const response = await original.call(window, input, init);
+      if (!String(input).includes('/jsonapi/')) return response;
+      const json = await response.json();
+      const jag = json.data.find(
+        (n: { attributes: { field_slug: string } }) => n.attributes.field_slug === 'jag',
+      );
+      jag.attributes.field_library_site_link.uri = 'entity:node/807';
+      return new Response(JSON.stringify(json), {
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+    try {
+      const el = await make('');
+      const dt = [...root(el).querySelectorAll('dt')].find(
+        (d) => text(d) === 'JAG School Library',
+      )!;
+      expect(dt.nextElementSibling!.querySelector('a')!.getAttribute('href')).to.equal('/node/807');
+    } finally {
+      window.fetch = original;
+    }
+  });
+
+  it('starts in the loading state, read-only', () => {
+    const el = document.createElement('site-hours-section') as SiteHoursSection;
+    expect(el.state).to.equal('loading');
+    expect(() => ((el as unknown as { state: string }).state = 'ready')).to.throw();
   });
 });
