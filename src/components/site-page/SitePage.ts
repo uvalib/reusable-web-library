@@ -17,8 +17,8 @@ import {
 export { ALERTS_PRODUCTION_SRC, ALERTS_STAGING_SRC } from './alerts.js';
 export type { AlertsEnv } from './alerts.js';
 
-/** The alert elements, in document order: header banner, alert list, regional alerts. */
-const ALERT_SHOWS = ['header', 'list', 'regional'] as const;
+/** The alert elements' `show` values: header banner, alert list, regional alerts. */
+type AlertShow = 'header' | 'list' | 'regional';
 /** Accessible name of the list band region. */
 const ALERTS_LIST_LABEL = 'Library alerts';
 
@@ -222,7 +222,7 @@ export class SitePage extends UvalibElement {
     }
     if (!this.lightAlerts) {
       const doc = this.ownerDocument;
-      const make = (show: (typeof ALERT_SHOWS)[number]) => {
+      const make = (show: AlertShow) => {
         const a = doc.createElement(ALERTS_TAG);
         a.setAttribute('show', show);
         this.chrome.add(a);
@@ -307,7 +307,7 @@ export class SitePage extends UvalibElement {
     // so it would flag a skip link that sits outside every landmark ("region").
     // Light mode: the link stays the first child, where the target resolves.
     const alerts = !this.noAlerts && !light;
-    const alert = (show: (typeof ALERT_SHOWS)[number]) =>
+    const alert = (show: AlertShow) =>
       html`<uvalib-alerts
         slot=${ifDefined(show === 'header' ? 'alerts' : undefined)}
         show=${show}
