@@ -29,3 +29,22 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm lint
       - run: pnpm test
+
+  # Lighthouse CI over one standalone page per playground example (scripts/lhci.mjs):
+  # accessibility 1.0, best practices >= 0.95, performance >= 0.9, CLS <= 0.05 and
+  # TBT <= 200 ms, as medians of three runs (lighthouserc.json; about 10 minutes). Third
+  # parties are blocked or stubbed locally.
+  lighthouse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm lhci

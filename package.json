@@ -109,13 +109,15 @@
     "build:cdn": "vite build && node scripts/emit-css.mjs dist-cdn && node -e \"require('fs').copyFileSync('dist/custom-elements.json','dist-cdn/custom-elements.json')\" && node scripts/build-manifest.mjs && node scripts/copy-skills.mjs",
     "build:site": "vite build -c vite.site.config.ts",
     "start": "vite -c vite.site.config.ts --open /site/",
-    "sync:main-nav": "node scripts/sync-main-nav.mjs"
+    "sync:main-nav": "node scripts/sync-main-nav.mjs",
+    "lhci": "pnpm build && pnpm build:site && node --disable-warning=ExperimentalWarning scripts/lhci.mjs"
   },
   "dependencies": {
     "lit": "^3.2.0"
   },
   "devDependencies": {
     "@custom-elements-manifest/analyzer": "^0.11.0",
+    "@lhci/cli": "0.15.1",
     "@open-wc/testing": "^5.0.0",
     "@types/mocha": "^10.0.10",
     "@web/dev-server-esbuild": "^2.0.1",
