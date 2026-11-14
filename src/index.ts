@@ -6,6 +6,8 @@ export {
 } from './components/site-page/SitePage.js';
 export type { AlertsEnv } from './components/site-page/SitePage.js';
 export { SiteHeader } from './components/site-header/SiteHeader.js';
+export { SiteMainNav } from './components/site-main-nav/SiteMainNav.js';
+export type { MainNavItem, MainNavLink } from './components/site-main-nav/SiteMainNav.js';
 export { SiteFooter } from './components/site-footer/SiteFooter.js';
 export { SiteAnalytics } from './components/site-analytics/SiteAnalytics.js';
 export { SiteAnalyticsMixin } from './components/site-analytics/SiteAnalyticsMixin.js';

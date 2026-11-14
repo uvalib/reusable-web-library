@@ -39,6 +39,10 @@
       "types": "./dist/components/site-header/site-header.d.ts",
       "default": "./dist/components/site-header/site-header.js"
     },
+    "./site-main-nav.js": {
+      "types": "./dist/components/site-main-nav/site-main-nav.d.ts",
+      "default": "./dist/components/site-main-nav/site-main-nav.js"
+    },
     "./site-footer.js": {
       "types": "./dist/components/site-footer/site-footer.d.ts",
       "default": "./dist/components/site-footer/site-footer.js"

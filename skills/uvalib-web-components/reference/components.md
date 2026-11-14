@@ -94,7 +94,7 @@ UVA Library site footer: link columns, contact details and copyright.
 
 ## `<site-header>`
 
-UVA Library site header: logo, utility navigation, and a popover menu on narrow screens. A site can replace the library utility links (My account, Ask a Librarian, Hours, Give, Alerts, Search) with its own: give the header `<a slot="site-links" href="…">` children. They are shown, in order, in the inline nav and the Menu popover, with `href` as written (not joined to `root-link-domain`) and their `aria-current`, `target`, `rel` and `hreflang`. The source anchors themselves stay hidden. Children that are not `<a href>` with text (empty or whitespace-only text counts as none) are ignored with one console warning. The `vendor` variant ignores site links and keeps its own reduced link set.
+UVA Library site header: logo, utility navigation, and a popover menu on narrow screens. A site can replace the library utility links (My account, Ask a Librarian, Hours, Give, Alerts, Search) with its own: give the header `<a slot="site-links" href="…">` children. They are shown, in order, in the inline nav and the Menu popover, with `href` as written (not joined to `root-link-domain`) and their `aria-current`, `target`, `rel` and `hreflang`. The source anchors themselves stay hidden. Children that are not `<a href>` with text (empty or whitespace-only text counts as none) are ignored with one console warning. The `vendor` variant ignores site links and keeps its own reduced link set. The full header also shows the UVA Library main navigation (`<site-main-nav>`): a row under the logo row on wide screens, and an accordion at the top of the Menu popover on narrow ones (992px and below), above the utility or site links. `no-main-nav` turns it off, leaving the header exactly as it was without it; the `vendor` variant never shows it. A `<nav slot="main-nav">` child replaces its links (see `<site-main-nav>`), and `main-nav-src` loads them from JSON.
 
 ### Attributes
 
@@ -103,6 +103,9 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 | `root-link-domain` | `string` | `'https://www.library.virginia.edu'` |  |
 | `variant` | `'full' \| 'vendor'` | `'full'` |  |
 | `site-links-label` | `string \| undefined` |  | Accessible name of the nav when site links replace the utility links (default "Site"; the popover nav's name adds " menu"). |
+| `no-main-nav` | `boolean` | `false` | Hide the UVA Library main navigation (the row under the logo and the popover accordion). |
+| `main-nav-label` | `string \| undefined` |  | Accessible name of the main navigation (default "Main"). |
+| `main-nav-src` | `string \| undefined` |  | URL of JSON main navigation items (`MainNavItem[]`, needs CORS), passed to `<site-main-nav items-src>`. |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -112,6 +115,7 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 |---|---|
 | `skip-link` | Shadow mode only: optional skip link, rendered first inside `<header>` (`<site-page>` uses it). |
 | `alerts` | Optional alert banner (`<site-page>` passes its `<uvalib-alerts show="header">`), shown as a full-bleed row at the very top of `<header>` (flush with its top and both edges, outside its padding), after the skip link and before the logo row. In light mode the children are moved to the start of `<header>`. The header never loads alerts itself. |
+| `main-nav` | Optional `<nav>` whose `<ul>` replaces the main navigation's links in both layouts: `<li><a href>` for a direct link, `<li><span>Group</span><ul><li><a href>…</a></li></ul></li>` for a group. Invalid entries are skipped with one console warning. Never shown itself; in light mode it is moved into a hidden holder. Ignored with `no-main-nav` and by the `vendor` variant. |
 | `site-links` | Optional `<a href>` elements with text that replace the library utility links in the inline nav and the Menu popover (ignored by the `vendor` variant). In light mode they are moved into a hidden holder. |
 
 ### CSS parts
@@ -119,6 +123,12 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 | Part | Description |
 |---|---|
 | `header` | The `<header>` element. |
+
+### Events
+
+| Event | Description |
+|---|---|
+| `site-main-nav-error` | `main-nav-src` could not be loaded; the bundled main navigation is shown. `detail` is `{ src, message }`. Fired once, from the bar's `<site-main-nav>`; bubbles and is composed. |
 
 ### CSS custom properties
 
@@ -156,9 +166,48 @@ Today's hours for the UVA libraries, as on the library.virginia.edu home page: t
 | `--uva-brand-blue` | `#232d4b` | Heading and link colour. |
 | `--uva-brand-orange` | `#e57200` | Focus ring colour. |
 
+## `<site-main-nav>`
+
+The UVA Library main navigation (About, Using the Library, Research & teaching support, Get help), as on library.virginia.edu, following the WAI-ARIA disclosure navigation pattern: one `<nav>` landmark; each group is a `<button aria-expanded aria-controls>` followed by its list of links, and an entry with no group is a plain link. Click, Enter or Space toggles a group and only one is open at a time; Escape closes it and returns focus to its button; arrow keys, Home and End move between the buttons and between a panel's links, and ArrowDown on an open button moves into its panel. In the `bar` layout a panel also closes when focus leaves the nav or on a pointer press outside it. There is no hover-to-open. The items come from, in order of precedence: a `<nav slot="main-nav">` child holding `<ul><li><a href>…</a></li></ul>` (a direct link) or `<li><span>Group</span><ul><li><a href>…` (a group), kept hidden and watched for changes; the `items` property; JSON at `items-src`; and the snapshot of the live menu bundled with the component (see `pnpm sync:main-nav`). Invalid entries are skipped and levels deeper than two are flattened, each with one console warning. Relative hrefs are joined to `root-link-domain`; absolute ones are kept. The link for the current page (`current`, default the page location; host and path, ignoring the query, the hash, a trailing slash and a leading `www.`) gets `aria-current="page"`, and its group button `aria-current="true"`, shown bold with a thick underline. `<site-header>` renders it: as a row under the logo on wide screens and as an accordion in the Menu popover on narrow ones.
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `label` | `string` | `'Main'` | Accessible name of the navigation landmark. |
+| `root-link-domain` | `string` | `'https://www.library.virginia.edu'` |  |
+| `items-src` | `string \| undefined` |  | URL of JSON in the `MainNavItem[]` shape (needs CORS); the snapshot is shown until it loads, and if it fails. |
+| `layout` | `'bar' \| 'accordion'` | `'bar'` | `bar` (a row of buttons with floating panels) or `accordion` (stacked, panels in flow). |
+| `current` | `string \| undefined` |  | The URL whose link is marked current. Default: the page location. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### Slots
+
+| Slot | Description |
+|---|---|
+| `main-nav` | Optional `<nav>` (or `<ul>`) whose list replaces the menu: `<li><a href>` for a direct link, `<li><span>Group</span><ul><li><a href>…</a></li></ul></li>` for a group. It is never shown itself; in light mode it is moved into a hidden holder. |
+
+### Events
+
+| Event | Description |
+|---|---|
+| `ERROR_EVENT` |  |
+| `site-main-nav-error` | `items-src` could not be loaded (network error, timeout after 10 s, or no valid entries); the nav shows the bundled snapshot. `detail` is `{ src, message }`. Bubbles and is composed. |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-grey-darkest` | `#2b2b2b` | Top-level button colour. |
+| `--uva-brand-blue` | `#232d4b` | Bar bottom border, chevrons, panel links, and the hover and expanded button text. |
+| `--uva-grey-100` | `#dadada` | Hover and expanded button background, and panel link hover background. |
+| `--uva-brand-orange` | `#e57200` | Focus ring colour, and the underline of the current page's link and group (also bold, with a 3px underline). |
+| `--uva-font-family` | `franklin-gothic-urw, Arial, Helvetica, sans-serif` | Font family. |
+
 ## `<site-page>`
 
-Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`. Shows live UVA Library alerts by default, placed as Virgo places them: a full-bleed `<uvalib-alerts show="header">` banner at the top of the header landmark (after the skip link), a full-bleed band between the header and `<main>` holding `<uvalib-alerts show="list">` (a `<section aria-label="Library alerts">` region, hidden while the list has nothing to show), and `<uvalib-alerts show="regional">` as the first child of `<main>`, inside its padding. The alerts component is loaded once per document, with a module script, from the alerts CDN (`alerts-env`, or `alerts-src`); if it fails to load, one console warning is logged and the page works as before. `no-alerts` renders no alert elements and loads nothing.
+Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` (and its `<site-main-nav>`) and `<site-footer>`. The header shows the UVA Library main navigation by default (`no-main-nav` turns it off; `header-variant="vendor"` never shows it). Shows live UVA Library alerts by default, placed as Virgo places them: a full-bleed `<uvalib-alerts show="header">` banner at the top of the header landmark (after the skip link), a full-bleed band between the header and `<main>` holding `<uvalib-alerts show="list">` (a `<section aria-label="Library alerts">` region, hidden while the list has nothing to show), and `<uvalib-alerts show="regional">` as the first child of `<main>`, inside its padding. The alerts component is loaded once per document, with a module script, from the alerts CDN (`alerts-env`, or `alerts-src`); if it fails to load, one console warning is logged and the page works as before. `no-alerts` renders no alert elements and loads nothing.
 
 ### Attributes
 
@@ -169,6 +218,9 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 | `no-global-styles` | `boolean` | `false` |  |
 | `no-footer` | `boolean` | `false` | Hide the footer (and any pre-footer band), for tools and app-like pages where the site footer does not belong. The footer is kept hidden rather than removed, so toggling the attribute keeps pre-footer content. |
 | `site-links-label` | `string \| undefined` |  | Accessible name of the header navigation when site links are given (default "Site"). |
+| `no-main-nav` | `boolean` | `false` | Hide the UVA Library main navigation in the header. |
+| `main-nav-label` | `string \| undefined` |  | Accessible name of the header's main navigation (default "Main"). |
+| `main-nav-src` | `string \| undefined` |  | URL of JSON main navigation items, forwarded to `<site-header main-nav-src>`. |
 | `alerts-env` | `string` | `'production'` | Alerts environment: `production` (default) or `staging`. Any other value logs one console warning and uses production. Ignored when `alerts-src` is set. |
 | `alerts-src` | `string \| undefined` |  | Alerts base URL (holding `config.json`, `alerts.json` and `v1/uvalib-alerts.js`); overrides `alerts-env`. For a custom domain, local development and tests. |
 | `no-alerts` | `boolean` | `false` | Render no alert elements and load no alerts script. |
@@ -182,6 +234,7 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 | (default) | Main page content, rendered inside the single `<main>`. |
 | `pre-footer` | Optional content shown in a band above the footer. |
 | `site-links` | Optional `<a href>` elements, forwarded to `<site-header>`, that replace the library utility links in the header (inline nav and Menu popover). Ignored with `header-variant="vendor"`. |
+| `main-nav` | Optional `<nav>` forwarded to `<site-header>`, whose list replaces the UVA Library main navigation's links (see `<site-main-nav>`). Ignored with `no-main-nav` and `header-variant="vendor"`. |
 
 ### CSS parts
 

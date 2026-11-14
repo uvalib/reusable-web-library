@@ -10,6 +10,7 @@ const cdn = join(root, 'dist-cdn');
 const TAGS = [
   'site-page',
   'site-header',
+  'site-main-nav',
   'site-footer',
   'site-analytics',
   'site-style',
@@ -60,6 +61,24 @@ test('site-page entry statically imports the header define (not tree-shaken away
     /import\s*["'][^"']*(chunks\/site-header-|\.\/site-header\.js)/.test(text) ||
       /from\s*["'][^"']*(chunks\/site-header-|\.\/site-header\.js)/.test(text),
     'site-page.js does not import the site-header module',
+  );
+});
+
+test('site-header entry statically imports the site-main-nav define', () => {
+  // The entry may reach it through its own chunk: follow static imports from the entry.
+  const seen = new Set();
+  const visit = (file) => {
+    if (seen.has(file)) return;
+    seen.add(file);
+    const text = readFileSync(join(cdn, file), 'utf8');
+    for (const m of text.matchAll(/(?:^|[;\s])(?:import|from)\s*["']\.\/([^"']+)["']/g)) {
+      visit(join(dirname(file), m[1]));
+    }
+  };
+  visit('site-header.js');
+  assert.ok(
+    [...seen].some((f) => /(^|\/)(chunks\/site-main-nav-[^/]+|site-main-nav)\.js$/.test(f)),
+    `site-header.js does not import the site-main-nav module (reached ${[...seen].join(', ')})`,
   );
 });
 

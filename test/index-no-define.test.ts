@@ -6,6 +6,7 @@ describe('index', () => {
   it('exports the component classes without defining any element', async () => {
     expect(lib.SitePage).to.be.a('function');
     expect(lib.SiteStyle).to.be.a('function');
+    expect(lib.SiteMainNav).to.be.a('function');
     await new Promise((r) => setTimeout(r, 50)); // let any dynamic import settle
     expect(lib.UvalibFilter).to.be.a('function');
     expect(lib.UvalibDateRange).to.be.a('function');
@@ -15,6 +16,7 @@ describe('index', () => {
     for (const tag of [
       'site-page',
       'site-header',
+      'site-main-nav',
       'site-footer',
       'site-analytics',
       'site-style',

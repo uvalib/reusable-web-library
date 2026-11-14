@@ -3,6 +3,7 @@ import { defineConfig } from 'vite';
 const tags = [
   'site-page',
   'site-header',
+  'site-main-nav',
   'site-footer',
   'site-analytics',
   'site-style',

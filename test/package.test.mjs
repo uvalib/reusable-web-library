@@ -10,6 +10,7 @@ const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const TAGS = [
   'site-page',
   'site-header',
+  'site-main-nav',
   'site-footer',
   'site-analytics',
   'site-style',
