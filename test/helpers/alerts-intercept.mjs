@@ -17,24 +17,65 @@ export const ALERTS_TEST_HOST = 'alerts.test';
 export const ALERTS_FAIL_HOST = 'alerts-fail.test';
 
 // The stub does not reproduce the real component's markup or behaviour: it only proves
-// loading and placement. Counts its own evaluations in `__uvalibAlertsStub`. Renders nothing unless a test sets
-// `__uvalibAlertsStubText`, in which case each element shows a short status marker.
+// loading, placement and the update event. Counts its own evaluations in `__uvalibAlertsStub`.
+// Tests drive it with `__uvalibAlertsStubSet({ headerAlerts, menuAlerts, regionalAlerts })`
+// (each a list of `{ uuid, title, body }`): every connected element re-renders its part, as
+// the real one does, and dispatches a realistic `uvalib-alerts-update` (bubbling, composed).
+// With no state set, each element dispatches one update with empty lists on connect and
+// renders nothing, like the real component with an empty alerts.json.
 const STUB = `
 const w = globalThis;
 w.__uvalibAlertsStub = (w.__uvalibAlertsStub ?? 0) + 1;
 if (!customElements.get('uvalib-alerts')) {
+  const live = new Set();
+  const state = () => {
+    const s = w.__uvalibAlertsStubState ?? {};
+    const headerAlerts = s.headerAlerts ?? [];
+    const menuAlerts = s.menuAlerts ?? [];
+    return {
+      alerts: [...headerAlerts, ...menuAlerts],
+      headerAlerts,
+      menuAlerts,
+      menuCount: menuAlerts.length,
+      seenAlerts: [],
+      seenCount: 0,
+      regionalAlerts: s.regionalAlerts ?? [],
+      updated: '2026-01-01T00:00:00Z',
+    };
+  };
+  w.__uvalibAlertsStubSet = (s) => {
+    w.__uvalibAlertsStubState = s;
+    for (const el of live) el.refresh();
+  };
   customElements.define('uvalib-alerts', class extends HTMLElement {
     static observedAttributes = ['show', 'src'];
-    connectedCallback() { this.render(); }
-    attributeChangedCallback() { this.render(); }
-    render() {
-      const text = w.__uvalibAlertsStubText;
-      if (!text) { this.shadowRoot?.replaceChildren(); return; }
+    connectedCallback() { live.add(this); this.refresh(); }
+    disconnectedCallback() { live.delete(this); }
+    attributeChangedCallback() { if (this.isConnected) this.refresh(); }
+    get menuAlerts() { return state().menuAlerts; }
+    refresh() {
+      const st = state();
+      const show = this.getAttribute('show') || 'all';
+      const items =
+        show === 'header' ? st.headerAlerts : show === 'list' ? st.menuAlerts :
+        show === 'regional' ? st.regionalAlerts : [];
       const root = this.shadowRoot ?? this.attachShadow({ mode: 'open' });
-      const div = document.createElement('div');
-      div.setAttribute('role', 'status');
-      div.textContent = text + ' (' + this.getAttribute('show') + ')';
-      root.replaceChildren(div);
+      root.replaceChildren();
+      if (items.length) {
+        const style = document.createElement('style');
+        style.textContent = ':host{display:block} .a{padding:0.5em;min-height:24px;background:#bfe7f7}';
+        const wrap = document.createElement('div');
+        wrap.setAttribute('part', show);
+        if (show === 'header') wrap.setAttribute('role', 'status');
+        for (const a of items) {
+          const d = document.createElement('div');
+          d.className = 'a';
+          d.textContent = (a.title ? a.title + ': ' : '') + (a.body ?? '');
+          wrap.append(d);
+        }
+        root.append(style, wrap);
+      }
+      this.dispatchEvent(new CustomEvent('uvalib-alerts-update', { detail: st, bubbles: true, composed: true }));
     }
   });
 }
