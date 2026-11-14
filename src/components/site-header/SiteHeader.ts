@@ -70,19 +70,26 @@ export class SiteHeader extends UvalibElement {
         display: block;
         width: 100%;
       }
+      /* Logo on the start, everything else on the end, as one row. A grid (not a wrapping
+         flex row) so an alerts row can span the top without changing where the logo row
+         breaks: flex wrapping decides lines on max-content sizes before anything shrinks. */
       header {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: start;
         position: relative;
         background-color: #ffffff;
         padding: 0.5rem 16px; /* old: .w3-container 16px side padding */
-        /* An alerts row (slot="alerts") takes the full width above the logo row. */
-        flex-wrap: wrap;
       }
+      header > :not(.logo) {
+        grid-column: 2;
+        justify-self: end;
+      }
+      /* The alerts (slot="alerts") take the full width above the logo row. */
       ::slotted([slot='alerts']),
       header > [slot='alerts'] {
-        flex: 0 0 100%;
+        grid-column: 1 / -1;
+        justify-self: stretch;
         min-inline-size: 0;
       }
       .logo {
