@@ -1,6 +1,6 @@
 import { expect } from '@open-wc/testing';
 import { expectNoAxeViolations } from './helpers/axe.js';
-import { galleryExamples, presets, withCdnBase, type Preset } from '../site/src/presets.js';
+import { examples, presets, withCdnBase, type Preset } from '../site/src/presets.js';
 import { decode, encode } from '../site/src/share.js';
 import { bombHash, deflateToBase64Url, toBase64Url } from './helpers/share-payloads.js';
 
@@ -248,7 +248,6 @@ describe('gallery page', function () {
   it('has one section per preset and header variant, each with an IDE', async () => {
     await chromeReady(doc);
     expectChrome(doc, 'Gallery');
-    const examples = [...presets, ...galleryExamples];
     const sections = [...doc.querySelectorAll('#examples > section')];
     expect(sections.length).to.equal(examples.length);
     examples.forEach((p, i) => {

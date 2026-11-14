@@ -1,6 +1,6 @@
 import { expect } from '@open-wc/testing';
 import { countMain, mount, whenAllDefined } from './helpers/page-probe.js';
-import { galleryExamples, presets, withCdnBase, type Preset } from '../site/src/presets.js';
+import { examples, GROUPS, presets, withCdnBase, type Preset } from '../site/src/presets.js';
 
 const STYLES_LINK = /<link rel="stylesheet" href="\.\/styles\.css"\s*\/?>/;
 
@@ -20,20 +20,62 @@ describe('playground presets', function () {
   it('has the presets from the spec, in order', () => {
     expect(presets.map((p) => p.id)).to.deep.equal([
       'full-page',
-      'vendor-header',
-      'light-dom-host-css',
       'pre-footer',
+      'theming',
+      'light-dom-host-css',
+      'vendor-header',
       'site-navigation',
       'alerts',
-      'theming',
+      'search-facets',
       'todays-hours',
       'weekly-hours',
-      'search-facets',
     ]);
   });
 
-  it('gallery examples cover each header variant in shadow and no-shadow-dom modes', () => {
-    const pages = galleryExamples.map((p) => p.files['index.html']!.content);
+  it('lists every example once, grouped by component in menu order', () => {
+    expect(GROUPS).to.deep.equal(['Page', 'Header', 'Alerts', 'Search', 'Hours']);
+    expect(
+      Object.fromEntries(
+        GROUPS.map((g) => [g, examples.filter((p) => p.group === g).map((p) => p.id)]),
+      ),
+    ).to.deep.equal({
+      Page: ['full-page', 'pre-footer', 'theming', 'light-dom-host-css'],
+      Header: [
+        'vendor-header',
+        'site-navigation',
+        'header-full-shadow',
+        'header-full-light',
+        'header-vendor-shadow',
+        'header-vendor-light',
+      ],
+      Alerts: ['alerts'],
+      Search: [
+        'search-facets',
+        'uvalib-filter-shadow',
+        'uvalib-filter-light',
+        'uvalib-date-range-shadow',
+        'uvalib-date-range-light',
+      ],
+      Hours: ['todays-hours', 'weekly-hours'],
+    });
+    // The menu order: each group's examples together, groups in GROUPS order.
+    expect(examples.map((p) => GROUPS.indexOf(p.group))).to.deep.equal(
+      examples.map((p) => GROUPS.indexOf(p.group)).sort((a, b) => a - b),
+    );
+    for (const p of presets) expect(examples, p.id).to.include(p);
+  });
+
+  it('example ids are URL fragments that cannot be read as a #files= share link', () => {
+    const ids = examples.map((p) => p.id);
+    expect(new Set(ids).size).to.equal(ids.length);
+    for (const id of ids) {
+      expect(id).to.match(/^[a-z][a-z0-9-]*$/);
+      expect(`#${id}`.startsWith('#files=')).to.equal(false);
+    }
+  });
+
+  it('examples cover each header variant in shadow and no-shadow-dom modes', () => {
+    const pages = examples.map((p) => p.files['index.html']!.content);
     for (const variant of ['full', 'vendor']) {
       for (const light of [false, true]) {
         expect(
@@ -58,7 +100,7 @@ describe('playground presets', function () {
     expect(presets[0]!.files['index.html']!.content).to.include('{{CDN}}site-page.js');
   });
 
-  for (const p of [...presets, ...galleryExamples]) {
+  for (const p of examples) {
     describe(p.id, () => {
       it('loads components through {{CDN}} and never from the internal CDN', () => {
         const all = Object.values(p.files)

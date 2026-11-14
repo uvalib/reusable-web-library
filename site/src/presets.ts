@@ -1,15 +1,20 @@
-// Playground presets and gallery examples. Pages follow the snippets in
+// The site's examples, grouped by component for its menu. Pages follow the snippets in
 // skills/uvalib-web-components (SKILL.md and reference/snippets.md), so the playground
 // teaches the same patterns as the agent skill. `{{CDN}}` is replaced at runtime with the
 // absolute URL of the site's own copy of the CDN build (see withCdnBase).
 
+/** The menu's groups, in order: one per component. */
+export const GROUPS = ['Page', 'Header', 'Alerts', 'Search', 'Hours'] as const;
+export type Group = (typeof GROUPS)[number];
+
 export interface Preset {
+  /** The example's URL fragment (`#<id>`): lowercase letters, digits and hyphens only. */
   id: string;
   title: string;
   description: string;
+  /** The menu group the example is listed under. */
+  group: Group;
   files: Record<string, { content: string; hidden?: boolean }>;
-  /** Gallery editor height on wide screens (CSS length), when 28rem is too short for the result. */
-  height?: string;
 }
 
 export const CDN_TOKEN = '{{CDN}}';
@@ -47,6 +52,7 @@ ${body}
 export const presets: Preset[] = [
   {
     id: 'full-page',
+    group: 'Page',
     title: 'Full page',
     description:
       'The default for any library page: one site-page wraps the content and renders the skip link, header, single main and footer.',
@@ -84,54 +90,8 @@ export const presets: Preset[] = [
     },
   },
   {
-    id: 'vendor-header',
-    title: 'Vendor header',
-    description:
-      'For third-party or vendor sites that are not library.virginia.edu: the header shows only the logo and Ask a Librarian.',
-    files: {
-      'index.html': {
-        content: page({
-          title: 'Vendor-hosted page',
-          body: `    <site-page header-variant="vendor">
-      <h1>Vendor-hosted page</h1>
-      <p>Logo and Ask a Librarian only in the header.</p>
-    </site-page>`,
-        }),
-      },
-    },
-  },
-  {
-    id: 'light-dom-host-css',
-    title: 'Light DOM styled by host CSS',
-    description:
-      'Use no-shadow-dom only when the host site’s own stylesheet should style the chrome: unlayered host CSS wins over the components’ @layer uvalib styles.',
-    files: {
-      'index.html': {
-        content: page({
-          title: 'Host-styled page',
-          styles: true,
-          body: `    <site-page no-shadow-dom>
-      <h1>Host-styled page</h1>
-      <p>The site stylesheet styles the header, footer and content.</p>
-    </site-page>`,
-        }),
-      },
-      'styles.css': {
-        content: `/* Unlayered host CSS wins over the components' @layer uvalib styles. */
-site-header a {
-  color: #232d4b;
-  text-decoration-thickness: 2px;
-}
-
-site-footer footer {
-  border-block-start: 6px solid #e57200;
-}
-`,
-      },
-    },
-  },
-  {
     id: 'pre-footer',
+    group: 'Page',
     title: 'Pre-footer slot',
     description:
       'Put an element with slot="pre-footer" inside site-page for a band of content above the footer links; it only renders when it has content.',
@@ -152,47 +112,8 @@ site-footer footer {
     },
   },
   {
-    id: 'site-navigation',
-    title: 'Site navigation',
-    description:
-      'A site with its own navigation gives site-page <a slot="site-links"> children: they replace the library utility links in the header and its Menu popover, and site-links-label names the nav. Mark the current page with aria-current="page".',
-    files: {
-      'index.html': {
-        content: page({
-          title: 'Site navigation',
-          body: `    <site-page site-links-label="Exhibits">
-      <a slot="site-links" href="./">Home</a>
-      <a slot="site-links" href="#current" aria-current="page">Current exhibits</a>
-      <a slot="site-links" href="#past">Past exhibits</a>
-      <a slot="site-links" href="#visit">Visit</a>
-      <h1>Current exhibits</h1>
-      <p>The header shows this site's links instead of the library utility links. Narrow the preview to see them in the Menu popover.</p>
-    </site-page>`,
-        }),
-      },
-    },
-  },
-  {
-    id: 'alerts',
-    title: 'Library alerts',
-    description:
-      'site-page shows live UVA Library alerts by default: a banner in the header and the alert list and regional alerts at the top of main. Staging deployments use alerts-env="staging"; an app that renders alerts itself sets no-alerts.',
-    files: {
-      'index.html': {
-        content: page({
-          title: 'Library alerts',
-          body: `    <!-- Production alerts are the default. Staging sites use alerts-env="staging";
-         an app that shows alerts itself uses <site-page no-alerts>. -->
-    <site-page alerts-env="staging">
-      <h1>Library alerts</h1>
-      <p>Current staging alerts appear in the header and above this heading. Without alerts nothing is shown.</p>
-    </site-page>`,
-        }),
-      },
-    },
-  },
-  {
     id: 'theming',
+    group: 'Page',
     title: 'Theming with tokens and parts',
     description:
       'Change appearance only through inherited --uva-* tokens and site-page::part(header|footer|main); never pierce the shadow roots.',
@@ -234,57 +155,91 @@ site-page::part(footer) {
     },
   },
   {
-    id: 'todays-hours',
-    title: "Today's hours",
+    id: 'light-dom-host-css',
+    group: 'Page',
+    title: 'Light DOM styled by host CSS',
     description:
-      "site-hours-section shows today's hours for each library, as on the library home page (limited keeps the libraries the home page lists). Hours come live from LibCal; outside library.virginia.edu the library list must be repointed, so this page sets window.uvalibHoursEndpoints to a snapshot published with this site.",
-    height: '36rem',
+      'Use no-shadow-dom only when the host site’s own stylesheet should style the chrome: unlayered host CSS wins over the components’ @layer uvalib styles.',
     files: {
       'index.html': {
         content: page({
-          title: "Today's hours",
-          components: ['site-hours-section'],
-          body: `    <script>
-      // On library.virginia.edu nothing is needed. Elsewhere the library list (Drupal's
-      // JSON:API, same-origin only) must come from a copy; set this before the components load.
-      window.uvalibHoursEndpoints = { libraries: '${CDN_TOKEN}../data/hours-libraries.json' };
-    </script>
-    <site-page>
-      <h1>Library hours</h1>
-      <div class="todays-hours">
-        <site-hours-section limited></site-hours-section>
-      </div>
-    </site-page>`,
+          title: 'Host-styled page',
           styles: true,
+          body: `    <site-page no-shadow-dom>
+      <h1>Host-styled page</h1>
+      <p>The site stylesheet styles the header, footer and content.</p>
+    </site-page>`,
         }),
       },
       'styles.css': {
-        content: `.todays-hours {
-  max-width: 20rem;
+        content: `/* Unlayered host CSS wins over the components' @layer uvalib styles. */
+site-header a {
+  color: #232d4b;
+  text-decoration-thickness: 2px;
+}
+
+site-footer footer {
+  border-block-start: 6px solid #e57200;
 }
 `,
       },
     },
   },
   {
-    id: 'weekly-hours',
-    title: 'Weekly hours',
+    id: 'vendor-header',
+    group: 'Header',
+    title: 'Vendor header',
     description:
-      "library-weekly-hours shows one library's week, with Previous and Next week buttons, as on the /hours page. library-slug picks the library. Hours come live from LibCal; the library list comes from the same snapshot as Today's hours.",
-    height: '36rem',
+      'For third-party or vendor sites that are not library.virginia.edu: the header shows only the logo and Ask a Librarian.',
     files: {
       'index.html': {
         content: page({
-          title: 'Weekly hours',
-          components: ['library-weekly-hours'],
-          body: `    <script>
-      // On library.virginia.edu nothing is needed. Elsewhere the library list (Drupal's
-      // JSON:API, same-origin only) must come from a copy; set this before the components load.
-      window.uvalibHoursEndpoints = { libraries: '${CDN_TOKEN}../data/hours-libraries.json' };
-    </script>
-    <site-page>
-      <h1>Clemons Library hours</h1>
-      <library-weekly-hours library-slug="clemons"></library-weekly-hours>
+          title: 'Vendor-hosted page',
+          body: `    <site-page header-variant="vendor">
+      <h1>Vendor-hosted page</h1>
+      <p>Logo and Ask a Librarian only in the header.</p>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'site-navigation',
+    group: 'Header',
+    title: 'Site navigation',
+    description:
+      'A site with its own navigation gives site-page <a slot="site-links"> children: they replace the library utility links in the header and its Menu popover, and site-links-label names the nav. Mark the current page with aria-current="page".',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Site navigation',
+          body: `    <site-page site-links-label="Exhibits">
+      <a slot="site-links" href="./">Home</a>
+      <a slot="site-links" href="#current" aria-current="page">Current exhibits</a>
+      <a slot="site-links" href="#past">Past exhibits</a>
+      <a slot="site-links" href="#visit">Visit</a>
+      <h1>Current exhibits</h1>
+      <p>The header shows this site's links instead of the library utility links. Narrow the preview to see them in the Menu popover.</p>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'alerts',
+    group: 'Alerts',
+    title: 'Library alerts',
+    description:
+      'site-page shows live UVA Library alerts by default: a banner in the header and the alert list and regional alerts at the top of main. Staging deployments use alerts-env="staging"; an app that renders alerts itself sets no-alerts.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Library alerts',
+          body: `    <!-- Production alerts are the default. Staging sites use alerts-env="staging";
+         an app that shows alerts itself uses <site-page no-alerts>. -->
+    <site-page alerts-env="staging">
+      <h1>Library alerts</h1>
+      <p>Current staging alerts appear in the header and above this heading. Without alerts nothing is shown.</p>
     </site-page>`,
         }),
       },
@@ -292,6 +247,7 @@ site-page::part(footer) {
   },
   {
     id: 'search-facets',
+    group: 'Search',
     title: 'Search facets',
     description:
       'uvalib-filter (checkbox facet with scope chips and a limit) and uvalib-date-range (year slider plus date inputs). Both are controlled: set their properties from your search state and listen for filter-change, scope-change and date-range-change.',
@@ -363,9 +319,66 @@ pre {
       },
     },
   },
+  {
+    id: 'todays-hours',
+    group: 'Hours',
+    title: "Today's hours",
+    description:
+      "site-hours-section shows today's hours for each library, as on the library home page (limited keeps the libraries the home page lists). Hours come live from LibCal; outside library.virginia.edu the library list must be repointed, so this page sets window.uvalibHoursEndpoints to a snapshot published with this site.",
+    files: {
+      'index.html': {
+        content: page({
+          title: "Today's hours",
+          components: ['site-hours-section'],
+          body: `    <script>
+      // On library.virginia.edu nothing is needed. Elsewhere the library list (Drupal's
+      // JSON:API, same-origin only) must come from a copy; set this before the components load.
+      window.uvalibHoursEndpoints = { libraries: '${CDN_TOKEN}../data/hours-libraries.json' };
+    </script>
+    <site-page>
+      <h1>Library hours</h1>
+      <div class="todays-hours">
+        <site-hours-section limited></site-hours-section>
+      </div>
+    </site-page>`,
+          styles: true,
+        }),
+      },
+      'styles.css': {
+        content: `.todays-hours {
+  max-width: 20rem;
+}
+`,
+      },
+    },
+  },
+  {
+    id: 'weekly-hours',
+    group: 'Hours',
+    title: 'Weekly hours',
+    description:
+      "library-weekly-hours shows one library's week, with Previous and Next week buttons, as on the /hours page. library-slug picks the library. Hours come live from LibCal; the library list comes from the same snapshot as Today's hours.",
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Weekly hours',
+          components: ['library-weekly-hours'],
+          body: `    <script>
+      // On library.virginia.edu nothing is needed. Elsewhere the library list (Drupal's
+      // JSON:API, same-origin only) must come from a copy; set this before the components load.
+      window.uvalibHoursEndpoints = { libraries: '${CDN_TOKEN}../data/hours-libraries.json' };
+    </script>
+    <site-page>
+      <h1>Clemons Library hours</h1>
+      <library-weekly-hours library-slug="clemons"></library-weekly-hours>
+    </site-page>`,
+        }),
+      },
+    },
+  },
 ];
 
-/** One gallery example per header variant and rendering mode. */
+/** One example per header variant and rendering mode. */
 const headerExamples: Preset[] = (['full', 'vendor'] as const).flatMap((variant) =>
   [false, true].map((light) => {
     const mode = light ? 'no-shadow-dom' : 'shadow DOM';
@@ -373,6 +386,7 @@ const headerExamples: Preset[] = (['full', 'vendor'] as const).flatMap((variant)
     const attrs = `header-variant="${variant}"${light ? ' no-shadow-dom' : ''}`;
     return {
       id: `header-${variant}-${light ? 'light' : 'shadow'}`,
+      group: 'Header',
       title: `${name}, ${mode}`,
       description: `${variant === 'full' ? 'Library sites' : 'Third-party and vendor sites'}, ${
         light
@@ -394,7 +408,7 @@ const headerExamples: Preset[] = (['full', 'vendor'] as const).flatMap((variant)
   }),
 );
 
-/** Gallery examples for the search components, in shadow and no-shadow-dom modes. */
+/** Examples for the search components, in shadow and no-shadow-dom modes. */
 const searchExamples: Preset[] = [
   {
     id: 'uvalib-filter',
@@ -428,6 +442,7 @@ const searchExamples: Preset[] = [
 ].flatMap(({ id, title, components, body, description }) =>
   [false, true].map((light) => ({
     id: `${id}-${light ? 'light' : 'shadow'}`,
+    group: 'Search',
     title: `${title}, ${light ? 'no-shadow-dom' : 'shadow DOM'}`,
     description: `${description} ${
       light
@@ -446,7 +461,10 @@ const searchExamples: Preset[] = [
   })),
 );
 
-export const galleryExamples: Preset[] = [...headerExamples, ...searchExamples];
+/** Every example in menu order: grouped by GROUPS, in source order within a group. */
+export const examples: Preset[] = GROUPS.flatMap((group) =>
+  [...presets, ...headerExamples, ...searchExamples].filter((p) => p.group === group),
+);
 
 /** A copy of `preset` with every `{{CDN}}` token replaced by `cdnBase`. */
 export function withCdnBase(preset: Preset, cdnBase: string): Preset {
