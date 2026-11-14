@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -77,6 +78,143 @@ test('install-skill copies the skill, refuses to overwrite, and --force overwrit
     assert.notEqual(second.status, 0);
     const forced = run('bin/install-skill.mjs', 'install-skill', '--dir', tmp, '--force');
     assert.equal(forced.status, 0, forced.stderr);
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('install-skill stamps the copy with the package version', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'uvalib-skill-'));
+  try {
+    const r = run('bin/install-skill.mjs', 'install-skill', '--dir', tmp);
+    assert.equal(r.status, 0, r.stderr);
+    const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+    const stamp = JSON.parse(
+      readFileSync(join(tmp, 'uvalib-web-components/installed.json'), 'utf8'),
+    );
+    assert.equal(stamp.package, '@uvalib/web-components');
+    assert.equal(stamp.version, version);
+    assert.ok(!Number.isNaN(Date.parse(stamp.installedAt)));
+    assert.match(r.stdout, new RegExp(`skill ${version.replace(/\./g, '\\.')} to`));
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+/** Run the installer without blocking, so an in-process registry stub can answer it. */
+function runAsync(env, ...args) {
+  return new Promise((done) => {
+    const child = spawn('node', [join(root, 'bin/install-skill.mjs'), ...args], {
+      env: { ...process.env, ...env },
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (d) => (stdout += d));
+    child.stderr.on('data', (d) => (stderr += d));
+    child.on('close', (status) => done({ status, stdout, stderr }));
+  });
+}
+
+/** A stub npm registry answering `/@uvalib%2fweb-components/latest`. */
+async function registry(handler) {
+  const server = createServer((req, res) => {
+    assert.equal(req.url, '/@uvalib%2fweb-components/latest');
+    handler(res);
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const url = `http://127.0.0.1:${server.address().port}`;
+  return { url, close: () => new Promise((r) => server.close(r)) };
+}
+const latest = (version) => (res) => {
+  res.setHeader('content-type', 'application/json');
+  res.end(JSON.stringify({ name: '@uvalib/web-components', version }));
+};
+
+test('install-skill --check reports missing, unstamped and outdated copies, and is quiet when current', async () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'uvalib-skill-'));
+  const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  const reg = await registry(latest('99.0.0'));
+  const env = { UVALIB_SKILL_REGISTRY: reg.url };
+  try {
+    // Missing: says how to install; exit 0 by default, 1 with --strict.
+    let r = await runAsync(env, 'install-skill', '--check', '--dir', tmp);
+    assert.equal(r.status, 0);
+    assert.match(r.stdout, /not installed/);
+    assert.match(r.stdout, /npx @uvalib\/web-components@latest install-skill --dir \S+ --force/);
+    r = await runAsync(env, 'install-skill', '--check', '--dir', tmp, '--strict');
+    assert.equal(r.status, 1);
+
+    // Outdated against the registry's 99.0.0.
+    assert.equal(run('bin/install-skill.mjs', 'install-skill', '--dir', tmp).status, 0);
+    r = await runAsync(env, 'install-skill', '--check', '--dir', tmp);
+    assert.equal(r.status, 0);
+    assert.match(
+      r.stdout,
+      new RegExp(`is ${version.replace(/\./g, '\\.')}; 99\\.0\\.0 is available`),
+    );
+    r = await runAsync(env, 'install-skill', '--check', '--dir', tmp, '--strict');
+    assert.equal(r.status, 1);
+
+    // Unstamped (installed before stamps existed).
+    unlinkSync(join(tmp, 'uvalib-web-components/installed.json'));
+    r = await runAsync(env, 'install-skill', '--check', '--dir', tmp);
+    assert.match(r.stdout, /no version stamp/);
+  } finally {
+    await reg.close();
+  }
+
+  // Current: silent, exit 0 even with --strict.
+  const same = await registry(latest(version));
+  try {
+    assert.equal(run('bin/install-skill.mjs', 'install-skill', '--dir', tmp, '--force').status, 0);
+    const r = await runAsync(
+      { UVALIB_SKILL_REGISTRY: same.url },
+      'install-skill',
+      '--check',
+      '--dir',
+      tmp,
+      '--strict',
+    );
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(r.stdout, '');
+  } finally {
+    await same.close();
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('install-skill --check only warns when the registry is unreachable or has no release', async () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'uvalib-skill-'));
+  try {
+    assert.equal(run('bin/install-skill.mjs', 'install-skill', '--dir', tmp).status, 0);
+    const missing = await registry((res) => {
+      res.statusCode = 404;
+      res.end('{}');
+    });
+    let r = await runAsync(
+      { UVALIB_SKILL_REGISTRY: missing.url },
+      'install-skill',
+      '--check',
+      '--dir',
+      tmp,
+      '--strict',
+    );
+    await missing.close();
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '');
+    assert.match(r.stderr, /no release on npm yet/);
+    // A closed port: the fetch fails.
+    r = await runAsync(
+      { UVALIB_SKILL_REGISTRY: missing.url },
+      'install-skill',
+      '--check',
+      '--dir',
+      tmp,
+      '--strict',
+    );
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '');
+    assert.match(r.stderr, /could not check for updates/);
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

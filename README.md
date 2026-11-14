@@ -24,6 +24,35 @@ Then ask, for example:
 - Other agents or folders: `npx @uvalib/web-components install-skill --dir .agents/skills`. Add `--force` to update an existing copy.
 - Or copy `node_modules/@uvalib/web-components/skills/uvalib-web-components` into your skills folder. The skill is also on the CDN at `https://unpkg.internal.lib.virginia.edu/web-components/v1/skills/uvalib-web-components/SKILL.md`. More in [docs/usage.md](docs/usage.md#agent-skill).
 
+### Keeping the skill current
+
+Each install is a copy stamped with its package version (`installed.json` next to `SKILL.md`), so it does not change as this library does. Update it after a release:
+
+```sh
+npx @uvalib/web-components@latest install-skill --dir .claude/skills --force
+```
+
+`--check` compares an installed copy with the latest release on npm. It prints one line with that update command only when the copy is missing or out of date, is silent when it is current, and never fails offline (`--strict` exits 1 when it is out of date, for CI). To be told automatically, add it as a Claude Code SessionStart hook, in the project's `.claude/settings.json` (or `~/.claude/settings.json` with `--dir ~/.claude/skills` for a user-level copy):
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx --yes @uvalib/web-components@latest install-skill --check --dir .claude/skills"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Projects that commit `.claude/skills/` get each update as an ordinary reviewed change.
+
 To do it by hand, read on.
 
 ## Playground

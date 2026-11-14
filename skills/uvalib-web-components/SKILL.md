@@ -231,3 +231,7 @@ Before finishing, load the page in a browser (or test) and confirm:
 4. No console errors and no failed network requests for the component files (including `v1/uvalib-alerts.js` from the alerts CDN, unless `no-alerts` is set).
 5. An axe pass (for example `axe-core` or the axe browser extension) reports no new violations.
 6. `no-shadow-dom` appears only where the host CSS is meant to own the styling.
+
+## 9. Keeping this skill current
+
+This skill is a copy. `installed.json` next to this file records the package version it came from. When the user asks about updating it, or the page loads a newer component version than that, check it with `npx @uvalib/web-components@latest install-skill --check --dir <skills-dir>` (`<skills-dir>` is the folder that holds this skill, usually `.claude/skills`); it prints the update command when a newer release exists.

@@ -73,3 +73,5 @@ npx @uvalib/web-components install-skill --dir .agents/skills --force
 ```
 
 Or copy or symlink `node_modules/@uvalib/web-components/skills/uvalib-web-components` into `.claude/skills/`. Sites that only use script tags can fetch it from `https://unpkg.internal.lib.virginia.edu/web-components/v1/skills/uvalib-web-components/SKILL.md`.
+
+Installed copies are stamped with their version (`installed.json`) and do not update themselves. `npx @uvalib/web-components@latest install-skill --check --dir .claude/skills` reports when a newer release exists, and `install-skill --force` updates the copy; see [Keeping the skill current](../README.md#keeping-the-skill-current) for a SessionStart hook that runs the check. A symlink into `node_modules` follows the installed package version instead.
