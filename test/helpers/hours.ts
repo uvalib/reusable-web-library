@@ -47,6 +47,7 @@ export function recordFetches(): { urls: string[]; restore: () => void } {
 export async function settled(
   el: HTMLElement & { state: string; updateComplete: Promise<boolean> },
 ) {
+  await el.updateComplete; // a property set just before (such as week-count) starts a load
   await waitUntil(() => el.state !== 'loading', `still loading`, { timeout: 4000 });
   await el.updateComplete;
 }

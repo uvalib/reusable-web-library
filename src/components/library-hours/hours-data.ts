@@ -145,7 +145,7 @@ export function loadHours(
   if (!sorted.length) return Promise.resolve(new Map());
   const key = `${sorted.join(',')}|${from}|${to}`;
   const hit = hoursCache.get(key);
-  if (hit && Date.now() - hit.at <= maxAge) return hit.promise;
+  if (hit && performance.now() - hit.at <= maxAge) return hit.promise;
   const url =
     hoursEndpoints.hours.replace('{ids}', sorted.join(',')) +
     `&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
@@ -160,7 +160,7 @@ export function loadHours(
     }
     return out;
   });
-  const entry = { at: Date.now(), promise };
+  const entry = { at: performance.now(), promise };
   hoursCache.delete(key);
   hoursCache.set(key, entry);
   if (hoursCache.size > HOURS_CACHE_MAX) hoursCache.delete(hoursCache.keys().next().value!);
