@@ -89,18 +89,18 @@ The links replace the utility links in both the inline nav on wide screens and t
 
 The bases are `https://d2q6t6fdv76k7r.cloudfront.net/` (production) and `https://dzfvxb8mejnv6.cloudfront.net/` (staging), exported as `ALERTS_PRODUCTION_SRC` and `ALERTS_STAGING_SRC`; they move to `alerts.lib.virginia.edu` and `alerts-staging.lib.virginia.edu` once those names exist. The vendor header variant gets the same default.
 
-Alerts render where Virgo shows them, inside the landmarks: the header banner (`show="header"`) in the header after the skip link and before the logo row, then the alert list (`show="list"`) and the page-targeted regional alerts (`show="regional"`) as the first things in `<main>`, before your content. `<site-header>` has an `alerts` slot for the banner, but a standalone header never loads anything. Changing `alerts-env`, `alerts-src` or `no-alerts` later updates the page. If the script fails to load, one console warning is logged and the page is otherwise unchanged.
+Alerts render where Virgo shows them, inside the landmarks: the header banner (`show="header"`) in the header after the skip link and before the logo row, then the alert list (`show="list"`) and the page-targeted regional alerts (`show="regional"`) as the first things in `<main>`, before your content. `<site-header>` has an `alerts` slot for the banner, but a standalone header never loads anything. Changing `no-alerts` later adds or removes the alerts. The component code loads once per document, from the first base URL; changing `alerts-env` or `alerts-src` later re-points the existing elements' data (`config.json`, `alerts.json` and the live connection) at the new base without loading the code again. `alerts-src` is resolved against the document's base URL, with any query or hash dropped. If the script fails to load, one console warning is logged per URL, the page is otherwise unchanged, and a later corrected `alerts-src` or env (or another page) tries again. In light mode (`no-shadow-dom`) the `<uvalib-alerts>` elements are real children: the list and regional ones are the first children of `<main>` and the banner the first child of the header's `<header>`, so host CSS such as `main > :first-child` matches them.
 
 Do not add another `<uvalib-alerts>` inside a `<site-page>`. An app that renders alerts itself (Virgo uses the component headless) sets `no-alerts`.
 
-**Content Security Policy:** a site with a CSP must allow the alerts host in `script-src` and `connect-src`, plus the AppSync hosts the component connects to in `connect-src`:
+**Content Security Policy:** a site with a CSP must allow the alerts host in `script-src` (the component) and `connect-src` (`config.json` and `alerts.json`), plus the AppSync realtime socket in `connect-src`:
 
 ```text
 script-src  https://d2q6t6fdv76k7r.cloudfront.net;
-connect-src https://d2q6t6fdv76k7r.cloudfront.net https://*.appsync-api.us-east-1.amazonaws.com wss://*.appsync-realtime-api.us-east-1.amazonaws.com;
+connect-src https://d2q6t6fdv76k7r.cloudfront.net wss://*.appsync-realtime-api.us-east-1.amazonaws.com;
 ```
 
-(Use the staging host, or your `alerts-src` host, instead where that applies.)
+(Use the staging host, or your `alerts-src` host, instead where that applies.) Alert bodies can include images, so allow their hosts in `img-src` too. Alert bodies are inserted as HTML, so a page that enforces Trusted Types (`require-trusted-types-for 'script'`) is incompatible with the alerts; use `no-alerts` there.
 
 ## Rendering modes
 
