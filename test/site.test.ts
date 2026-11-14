@@ -206,7 +206,15 @@ describe('examples page', function () {
   });
 
   it('clicking an item swaps the IDE files, updates the hash and sets aria-current', async () => {
-    const length = win.history.length;
+    // The page's own session history (the Navigation API): history.length is the joint
+    // history, which also counts entries the cross-origin preview iframe adds. The current
+    // entry's index is used, not the entry count, since a new entry drops forward entries.
+    const nav = (
+      win as Window & {
+        navigation: { currentEntry: { index: number }; entries(): { url: string | null }[] };
+      }
+    ).navigation;
+    const start = nav.currentEntry.index;
     for (const p of [...examples].reverse()) {
       menuLinks(doc)
         .find((a) => a.hash === `#${p.id}`)!
@@ -215,8 +223,15 @@ describe('examples page', function () {
       expect(win.location.hash).to.equal(`#${p.id}`);
       expect(indexHtml(ide)).to.include(new URL('cdn/site-page.js', win.location.href).href);
     }
-    // Each selection is its own history entry, without a reload.
-    expect(win.history.length).to.equal(length + examples.length);
+    // Each selection is its own history entry, without a reload, in order.
+    const end = nav.currentEntry.index;
+    expect(end).to.equal(start + examples.length);
+    expect(
+      nav
+        .entries()
+        .slice(start + 1, end + 1)
+        .map((e) => new URL(e.url!).hash),
+    ).to.deep.equal([...examples].reverse().map((p) => `#${p.id}`));
     expect(doc.querySelector('playground-ide')).to.equal(ide);
   });
 
@@ -290,11 +305,13 @@ describe('examples page', function () {
         const select = picker(doc);
         const before = win.location.hash;
         select.value = 'weekly-hours';
-        const length = win.history.length;
+        const nav = (win as Window & { navigation: { currentEntry: { index: number } } })
+          .navigation;
+        const start = nav.currentEntry.index;
         select.dispatchEvent(new Event('change', { bubbles: true }));
         await until(() => win.location.hash === '#weekly-hours', 'hash');
         await expectShowing(win, doc, byId('weekly-hours'));
-        expect(win.history.length).to.equal(length + 1);
+        expect(nav.currentEntry.index).to.equal(start + 1);
         win.history.back();
         await until(() => win.location.hash === before, 'back');
         expect(select.value).to.equal(before.slice(1));

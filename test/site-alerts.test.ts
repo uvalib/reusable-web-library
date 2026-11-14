@@ -200,6 +200,25 @@ for (const mode of ['shadow', 'light'] as const) {
       expect(calls).to.deep.equal([]);
     });
 
+    it('stacks banner, logo row, main nav row and alerts band at 1280px', async () => {
+      await setViewport({ width: 1280, height: 900 });
+      const el = await make();
+      await stubAlerts({ headerAlerts: [ALERT(1)], menuAlerts: [ALERT(2)] }, el, headerOf(el));
+      const h = root(headerOf(el));
+      const header = h.querySelector('header')!.getBoundingClientRect();
+      const banner = headerAlert(el).getBoundingClientRect();
+      const logo = h.querySelector('.logo')!.getBoundingClientRect();
+      const bar = h.querySelector('header > site-main-nav')!.getBoundingClientRect();
+      const band = bandOf(el)!.getBoundingClientRect();
+      expect(banner.height).to.be.greaterThan(0);
+      expect(banner.top, 'banner at the top of the header').to.be.closeTo(header.top, 0.5);
+      expect(logo.top, 'logo row under the banner').to.be.at.least(banner.bottom);
+      expect(bar.top, 'main nav under the logo row').to.be.at.least(logo.bottom);
+      expect(bar.bottom, 'main nav flush with the header bottom').to.be.closeTo(header.bottom, 0.5);
+      expect(band.height).to.be.greaterThan(0);
+      expect(band.top, 'alerts band right under the header').to.be.closeTo(header.bottom, 0.5);
+    });
+
     it('alerts-src overrides the base URL and wins over alerts-env', async () => {
       const el = await make(`alerts-env="staging" alerts-src="${CUSTOM}"`);
       expect(shown(el).map((s) => s[1])).to.deep.equal(Array(3).fill(CUSTOM));
