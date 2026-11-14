@@ -7,7 +7,7 @@
 //   node scripts/sync-main-nav.mjs                 # fetch the live home page
 //   node scripts/sync-main-nav.mjs saved.html      # read a saved copy instead
 //   ... --out path/to/file.ts                      # write somewhere else (tests)
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -35,21 +35,34 @@ const attr = (attrs, name) => {
 
 /**
  * A tiny tree of the elements that matter (ul, li, a, button), from the block's HTML. Other
- * tags are transparent; their text goes to the nearest kept element.
+ * tags are transparent; their text goes to the nearest kept element. Text inside a
+ * visually hidden span (`visually-hidden`, `sr-only`, `element-invisible`, or `hidden`) is
+ * dropped: it is screen-reader text, not the label.
  */
 function parseTree(html) {
   const KEEP = new Set(['ul', 'li', 'a', 'button']);
   const top = { tag: 'root', attrs: '', children: [], text: '' };
   const stack = [top];
   const re = /<(\/?)([a-z0-9]+)([^>]*)>|([^<]+)/gi;
+  // Open spans, each true when it hides its text; text is dropped while any is open.
+  const spans = [];
   let m;
   while ((m = re.exec(html))) {
     const cur = stack[stack.length - 1];
     if (m[4] !== undefined) {
-      cur.text += m[4];
+      if (!spans.includes(true)) cur.text += m[4];
       continue;
     }
     const tag = m[2].toLowerCase();
+    if (tag === 'span' && !m[3].trimEnd().endsWith('/')) {
+      if (m[1]) spans.pop();
+      else
+        spans.push(
+          /\bclass\s*=\s*["'][^"']*\b(visually-hidden|sr-only|element-invisible)\b/i.test(m[3]) ||
+            /\shidden(\s|=|$)/i.test(m[3]),
+        );
+      continue;
+    }
     if (!KEEP.has(tag)) continue;
     if (m[1]) {
       const i = stack.findLastIndex((n) => n.tag === tag);
@@ -74,31 +87,55 @@ const textOf = (n) => clean(n.text + n.children.map(textOf).join(' '));
 export function extractMainNav(html) {
   const start = html.search(new RegExp(`<nav\\b[^>]*\\bid="${BLOCK_ID}"`));
   if (start < 0) throw new Error(`no <nav id="${BLOCK_ID}"> (the desktop main-menu block) found`);
-  const end = html.indexOf('</nav>', start);
+  // The block's own </nav>, counting any <nav> nested inside it.
+  const navTag = /<(\/?)nav\b[^>]*>/gi;
+  navTag.lastIndex = start;
+  let depth = 0;
+  let end = -1;
+  for (let t; (t = navTag.exec(html));) {
+    depth += t[1] ? -1 : 1;
+    if (depth === 0) {
+      end = t.index;
+      break;
+    }
+  }
   if (end < 0) throw new Error(`the ${BLOCK_ID} main-menu block is not closed`);
   const tree = parseTree(html.slice(start, end));
-  const findUl = (n) =>
-    n.tag === 'ul' ? n : n.children.reduce((f, c) => f ?? findUl(c), /** @type {any} */ (null));
-  const list = findUl(tree);
+  // The menu's own list (class mainlibrary-nav), else the first list in the block.
+  const lists = [];
+  const collect = (n) => {
+    if (n.tag === 'ul') lists.push(n);
+    n.children.forEach(collect);
+  };
+  collect(tree);
+  const list = lists.find((u) => /\bmainlibrary-nav\b/.test(u.attrs)) ?? lists[0];
   if (!list) throw new Error(`the ${BLOCK_ID} main-menu block has no list`);
   const link = (a) => ({ label: textOf(a), href: attr(a.attrs, 'href') ?? '' });
   const items = [];
-  for (const li of list.children.filter((c) => c.tag === 'li')) {
+  for (const [n, li] of list.children.filter((c) => c.tag === 'li').entries()) {
+    const where = `top-level entry ${n + 1}`;
     const button = li.children.find((c) => c.tag === 'button');
     const sub = li.children.find((c) => c.tag === 'ul');
-    if (button && sub) {
-      if (!/\bnav__list\b/.test(sub.attrs)) throw new Error('a submenu lacks class nav__list');
+    const a = li.children.find((c) => c.tag === 'a');
+    if (button) {
+      if (!sub) throw new Error(`${where} ("${textOf(button)}") has a button but no submenu`);
+      if (!/\bnav__list\b/.test(sub.attrs))
+        throw new Error(`${where}: its submenu lacks class nav__list`);
       const links = sub.children
         .filter((c) => c.tag === 'li')
-        .map((c) => c.children.find((x) => x.tag === 'a'))
-        .filter(Boolean);
-      for (const a of links) {
-        if (!/\blink-main\b/.test(a.attrs)) throw new Error('a submenu link lacks class link-main');
-      }
+        .map((c, k) => {
+          const x = c.children.find((y) => y.tag === 'a');
+          if (!x) throw new Error(`${where}: submenu entry ${k + 1} has no link`);
+          if (!/\blink-main\b/.test(x.attrs))
+            throw new Error(`${where}: a submenu link lacks class link-main`);
+          return x;
+        });
       items.push({ label: textOf(button), items: links.map(link) });
+    } else if (a) {
+      if (sub) throw new Error(`${where} ("${textOf(a)}") has a submenu but no button`);
+      items.push(link(a));
     } else {
-      const a = li.children.find((c) => c.tag === 'a');
-      if (a) items.push(link(a));
+      throw new Error(`${where} has neither a button nor a link`);
     }
   }
   const groups = items.filter((i) => i.items).length;
@@ -112,6 +149,17 @@ export function extractMainNav(html) {
     if (!i.label || (!i.items && !i.href)) throw new Error(`an entry is missing its label or href`);
   }
   return items;
+}
+
+/** The items in a generated module's text, or null if it is not one. */
+export function readSnapshot(text) {
+  const m = /MAIN_NAV_SNAPSHOT: readonly MainNavItem\[\] = (\[[\s\S]*\]);\s*$/.exec(text);
+  if (!m) return null;
+  try {
+    return JSON.parse(m[1]);
+  } catch {
+    return null;
+  }
 }
 
 /** The generated module's text. */
@@ -146,9 +194,19 @@ async function main() {
     source = LIVE_URL;
   }
   const items = extractMainNav(html);
+  const links = items.reduce((n, i) => n + (i.items ? i.items.length : 1), 0);
+  // Deterministic: an unchanged menu leaves the file (and its date) alone.
+  if (existsSync(out)) {
+    const previous = readSnapshot(readFileSync(out, 'utf8'));
+    if (previous && JSON.stringify(previous) === JSON.stringify(items)) {
+      console.log(
+        `sync-main-nav: unchanged (${items.length} entries, ${links} links); ${out} not rewritten`,
+      );
+      return;
+    }
+  }
   const date = new Date().toISOString().slice(0, 10);
   writeFileSync(out, snapshotModule(items, date, source));
-  const links = items.reduce((n, i) => n + (i.items ? i.items.length : 1), 0);
   console.log(`sync-main-nav: wrote ${items.length} entries (${links} links) to ${out}`);
 }
 

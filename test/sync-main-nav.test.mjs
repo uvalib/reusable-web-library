@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { extractMainNav } from '../scripts/sync-main-nav.mjs';
+import { extractMainNav, readSnapshot, snapshotModule } from '../scripts/sync-main-nav.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = join(root, 'scripts/sync-main-nav.mjs');
@@ -132,4 +132,64 @@ test('the committed snapshot matches the saved page', () => {
   const text = readFileSync(join(root, 'src/components/site-main-nav/main-nav-data.ts'), 'utf8');
   const json = text.slice(text.indexOf('= [') + 2, text.lastIndexOf(']') + 1);
   assert.deepEqual(JSON.parse(json), EXPECTED);
+});
+
+const fixture = (name) => readFileSync(join(root, 'test/fixtures/main-nav', name), 'utf8');
+const SMALL = [
+  {
+    label: 'About',
+    items: [
+      { label: 'One', href: '/1' },
+      { label: 'Two', href: '/2' },
+      { label: 'Three', href: '/3' },
+    ],
+  },
+  {
+    label: 'Help',
+    items: [
+      { label: 'Four', href: '/4' },
+      { label: 'Five', href: '/5' },
+      { label: 'Six', href: '/6' },
+    ],
+  },
+];
+
+test('extractMainNav throws on structure it cannot read', () => {
+  assert.throws(
+    () => extractMainNav(fixture('button-without-submenu.html')),
+    /button but no submenu/,
+  );
+  assert.throws(
+    () => extractMainNav(fixture('entry-without-button-or-link.html')),
+    /neither a button nor a link/,
+  );
+  assert.throws(
+    () => extractMainNav(fixture('submenu-entry-without-link.html')),
+    /submenu entry 3 has no link/,
+  );
+});
+
+test('extractMainNav reads past a <nav> nested in the block, and uses the menu list', () => {
+  assert.deepEqual(extractMainNav(fixture('nested-nav.html')), SMALL);
+});
+
+test('extractMainNav leaves visually hidden text out of labels', () => {
+  assert.deepEqual(extractMainNav(fixture('hidden-span.html')), SMALL);
+});
+
+test('the script does not rewrite an unchanged snapshot (or its date)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'main-nav-'));
+  const out = join(dir, 'main-nav-data.ts');
+  const old = snapshotModule(EXPECTED, '2000-01-01', 'a saved page');
+  writeFileSync(out, old);
+  const r = spawnSync(process.execPath, [SCRIPT, HOME, '--out', out], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /unchanged/);
+  assert.equal(readFileSync(out, 'utf8'), old);
+  // A changed menu is written, with today's date.
+  writeFileSync(out, snapshotModule(SMALL, '2000-01-01', 'a saved page'));
+  execFileSync(process.execPath, [SCRIPT, HOME, '--out', out], { stdio: 'pipe' });
+  const text = readFileSync(out, 'utf8');
+  assert.deepEqual(readSnapshot(text), EXPECTED);
+  assert.doesNotMatch(text, /2000-01-01/);
 });
