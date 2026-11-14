@@ -3,7 +3,7 @@ import { setViewport } from '@web/test-runner-commands';
 import '../src/components/site-page/site-page.js';
 import type { SiteHeader } from '../src/components/site-header/SiteHeader.js';
 import type { SitePage } from '../src/components/site-page/SitePage.js';
-import { expectNoAxeViolations } from './helpers/axe.js';
+import { expectNoAxeViolations, expectNoPageAxeViolations } from './helpers/axe.js';
 import { HEADER_SNAPSHOT, normalizeMarkup } from './helpers/header-snapshot.js';
 
 type Updatable = HTMLElement & { updateComplete: Promise<unknown> };
@@ -278,7 +278,7 @@ for (const mode of ['shadow', 'light'] as const) {
       });
     });
 
-    it('has no serious axe violations with site links', async () => {
+    it('has no axe violations with site links', async () => {
       const el = await make('site-links-label="Playground"', LINKS);
       await expectNoAxeViolations(el);
     });
@@ -370,10 +370,7 @@ for (const mode of ['shadow', 'light'] as const) {
       );
       await customElements.whenDefined('site-footer');
       await settle(el, header(el), root(el).querySelector('site-footer')!);
-      await expectNoAxeViolations(document.body);
-      await expectNoAxeViolations(document.body, ['minor', 'moderate', 'serious', 'critical'], {
-        rules: ['region', 'landmark-unique'],
-      });
+      await expectNoPageAxeViolations();
     });
   });
 }

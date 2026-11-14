@@ -178,7 +178,7 @@ for (const mode of ['shadow', 'light'] as const) {
       expect(base.length, 'unconditional top: 4.75rem fallback').to.be.greaterThan(0);
     });
 
-    it('has no serious axe violations', async () => {
+    it('has no axe violations', async () => {
       const el = await make();
       await expectNoAxeViolations(el);
     });

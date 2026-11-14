@@ -1,5 +1,5 @@
 import { expect } from '@open-wc/testing';
-import { expectNoAxeViolations } from './helpers/axe.js';
+import { expectNoPageAxeViolations } from './helpers/axe.js';
 import { examples, GROUPS, withCdnBase, type Preset } from '../site/src/presets.js';
 import { decode, encode } from '../site/src/share.js';
 import { bombHash, deflateToBase64Url, toBase64Url } from './helpers/share-payloads.js';
@@ -274,8 +274,8 @@ describe('examples page', function () {
     expect(win.location.hash).to.equal('#theming');
   });
 
-  it('has no serious or critical axe violations in the site chrome', async () => {
-    await expectNoAxeViolations(doc.body, undefined, AXE_SCOPE);
+  it('has no axe violations in the site chrome', async () => {
+    await expectNoPageAxeViolations(doc, AXE_SCOPE);
   });
 
   describe('below 48rem', () => {
@@ -324,9 +324,9 @@ describe('examples page', function () {
       });
     });
 
-    it('has no serious or critical axe violations', async () => {
+    it('has no axe violations', async () => {
       await atWidth(390, async () => {
-        await expectNoAxeViolations(doc.body, undefined, AXE_SCOPE);
+        await expectNoPageAxeViolations(doc, AXE_SCOPE);
       });
     });
   });

@@ -4,7 +4,7 @@ import '../src/components/site-page/site-page.js';
 import type { SitePage } from '../src/components/site-page/SitePage.js';
 import type { SiteFooter } from '../src/components/site-footer/SiteFooter.js';
 import { TYPEKIT_URL } from '../src/styles/base.js';
-import { expectNoAxeViolations } from './helpers/axe.js';
+import { expectNoPageAxeViolations } from './helpers/axe.js';
 
 const root = (el: SitePage): ParentNode => el.shadowRoot ?? el;
 
@@ -186,20 +186,20 @@ for (const mode of ['shadow', 'light'] as const) {
         expect(pf.textContent).to.equal('announcement');
       });
 
-      it('has no serious axe violations without a footer', async () => {
+      it('has no axe violations without a footer', async () => {
         const el = await make('no-footer', '<h1>Page title</h1><p>Body</p>');
         await footerReady(el);
-        await expectNoAxeViolations(document.body);
+        await expectNoPageAxeViolations();
       });
     });
 
-    it('has no serious axe violations on a full page', async () => {
+    it('has no axe violations on a full page', async () => {
       const el = await make(
         '',
         '<h1>Page title</h1><p>Body <a href="/x">link</a></p><p slot="pre-footer">Notice</p>',
       );
       await footerReady(el);
-      await expectNoAxeViolations(document.body);
+      await expectNoPageAxeViolations();
     });
   });
 }
@@ -279,12 +279,10 @@ describe('site-page global styles', () => {
 
 describe('site-page landmarks', () => {
   for (const attrs of ['', 'no-shadow-dom']) {
-    it(`has no axe region violations on a full page (${attrs || 'shadow'})`, async () => {
+    it(`has no axe violations, including page-level rules, on a full page (${attrs || 'shadow'})`, async () => {
       const el = await fixture<SitePage>(`<site-page ${attrs}><h1>Title</h1><p>x</p></site-page>`);
       await footerReady(el);
-      await expectNoAxeViolations(document.body, ['minor', 'moderate', 'serious', 'critical'], {
-        rules: ['region'],
-      });
+      await expectNoPageAxeViolations();
     });
   }
 });

@@ -7,7 +7,6 @@ import { expectNoAxeViolations } from './helpers/axe.js';
 import { MAIN_NAV_TEST_ITEMS } from './helpers/main-nav-intercept.mjs';
 
 const root = (el: Element): ParentNode => el.shadowRoot ?? el;
-const ALL_IMPACTS = ['minor', 'moderate', 'serious', 'critical'];
 
 async function settle(el: SiteMainNav): Promise<void> {
   for (let i = 0; i < 2; i++) {
@@ -672,7 +671,7 @@ for (const mode of ['shadow', 'light'] as const) {
             toggle(el, 'Using the Library').click();
             await settle(el);
           }
-          await expectNoAxeViolations(el, ALL_IMPACTS);
+          await expectNoAxeViolations(el);
         });
       }
     }

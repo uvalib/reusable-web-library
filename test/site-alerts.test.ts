@@ -4,7 +4,7 @@ import '../src/components/site-page/site-page.js';
 import { ALERTS_PRODUCTION_SRC, ALERTS_STAGING_SRC } from '../src/components/site-page/SitePage.js';
 import type { SitePage } from '../src/components/site-page/SitePage.js';
 import type { SiteHeader } from '../src/components/site-header/SiteHeader.js';
-import { expectNoAxeViolations } from './helpers/axe.js';
+import { expectNoPageAxeViolations } from './helpers/axe.js';
 import { ALERTS_HOSTS } from './helpers/alerts-intercept.mjs';
 import { normalizeMarkup } from './helpers/header-snapshot.js';
 
@@ -422,7 +422,7 @@ for (const mode of ['shadow', 'light'] as const) {
       });
     });
 
-    it('has no serious axe violations on a full page with alerts present', async () => {
+    it('has no axe violations on a full page with alerts present', async () => {
       const el = await make(
         '',
         '<h1>Page title</h1><p>Body <a href="/x">link</a></p><p slot="pre-footer">Notice</p>',
@@ -436,10 +436,7 @@ for (const mode of ['shadow', 'light'] as const) {
       // The stub rendered a row in each alert element.
       for (const a of alertsOf(el)) expect(a.shadowRoot?.textContent).to.contain('Alert');
       expect(bandOf(el)!.hidden).to.equal(false);
-      await expectNoAxeViolations(document.body);
-      await expectNoAxeViolations(document.body, ['minor', 'moderate', 'serious', 'critical'], {
-        rules: ['region', 'landmark-unique'],
-      });
+      await expectNoPageAxeViolations();
     });
 
     it('has no axe violations, including landmark rules, with no alerts to show', async () => {
@@ -447,10 +444,7 @@ for (const mode of ['shadow', 'light'] as const) {
       await customElements.whenDefined('site-footer');
       await stubAlerts(undefined, el, headerOf(el));
       expect(bandOf(el)!.hidden).to.equal(true);
-      await expectNoAxeViolations(document.body);
-      await expectNoAxeViolations(document.body, ['minor', 'moderate', 'serious', 'critical'], {
-        rules: ['region', 'landmark-unique'],
-      });
+      await expectNoPageAxeViolations();
     });
   });
 }

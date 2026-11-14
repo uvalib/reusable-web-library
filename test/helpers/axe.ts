@@ -23,14 +23,37 @@ function loadAxe(win: AxeWindow): Promise<typeof AxeCore> {
   return p;
 }
 
+/** Every axe impact level: minor and moderate cover most best-practice rules. */
+export const ALL_IMPACTS = ['minor', 'moderate', 'serious', 'critical'];
+
 /**
- * Run axe on `el` (walking open shadow roots) and throw if violations of the given impacts exist.
+ * Run axe on the whole test document, so page-level rules that match only `<html>`
+ * (landmark-one-main, page-has-heading-one, document-title, html-has-lang) run too.
+ * The test runner's own page has no `<title>` and no `lang`, which a real page using the
+ * components always sets, so for that page only they are filled in first rather than
+ * disabling those rules. Any other document (such as the built site in an iframe) is
+ * audited as it is.
+ */
+export async function expectNoPageAxeViolations(
+  doc: Document = document,
+  options?: Parameters<typeof expectNoAxeViolations>[2],
+): Promise<void> {
+  if (doc === document) {
+    if (!doc.title) doc.title = 'Test page';
+    if (!doc.documentElement.lang) doc.documentElement.lang = 'en';
+  }
+  await expectNoAxeViolations(doc.documentElement, ALL_IMPACTS, options);
+}
+
+/**
+ * Run axe on `el` (walking open shadow roots) and throw if violations of the given impacts exist
+ * (by default, any impact).
  * `exclude` lists selectors of subtrees to leave out, such as third-party widgets.
  * `rules` restricts the run to those axe rule ids (this also enables rules that are off by default).
  */
 export async function expectNoAxeViolations(
   el: Element,
-  impacts: string[] = ['serious', 'critical'],
+  impacts: string[] = ALL_IMPACTS,
   { exclude, rules }: { exclude?: string[][]; rules?: string[] } = {},
 ): Promise<void> {
   const axe = await loadAxe(el.ownerDocument.defaultView as AxeWindow);
