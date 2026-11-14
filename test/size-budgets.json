@@ -1,0 +1,18 @@
+{
+  "$comment": "Gzipped bytes per dist-cdn manifest entry, including every chunk it imports (static and dynamic), each counted once. About 12% over the sizes at 1.0.0; checked by test/size-budget.test.mjs. Print today's sizes with: node scripts/bundle-sizes.mjs",
+  "budgets": {
+    "site-page.js": 33700,
+    "site-header.js": 21800,
+    "site-main-nav.js": 16600,
+    "site-footer.js": 16900,
+    "site-analytics.js": 10900,
+    "site-style.js": 10800,
+    "uvalib-filter.js": 13700,
+    "uvalib-date-range.js": 11900,
+    "site-hours-section.js": 16500,
+    "library-weekly-hours.js": 16300,
+    "library-hours-setup.js": 17000,
+    "tokens.css": 670,
+    "base.css": 260
+  }
+}

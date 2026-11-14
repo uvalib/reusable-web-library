@@ -656,6 +656,29 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 - `pnpm build` builds the npm output (`dist/`, which also regenerates this README's component section and the skill's `reference/components.md`) and the CDN output (`dist-cdn/`).
 - `pnpm lint` runs ESLint and Prettier.
 
+### Quality checks
+
+Two automated checks in `pnpm test` guard accessibility, best practice and bundle size.
+
+- **axe, at every impact level.** `expectNoAxeViolations` (`test/helpers/axe.ts`) fails on minor, moderate, serious and critical violations, so best-practice rules such as `heading-order`, `region` and the landmark rules count. Every visual component is audited in shadow and light DOM, and in the states people use: menus and groups open (the header Menu popover at 390px, `site-main-nav` at 1280px and 390px), `uvalib-filter` expanded with a scope pressed and a box checked, `uvalib-date-range` with the sliders on one year and dates typed, and the hours elements loading, loaded and failing. Full-page tests use `expectNoPageAxeViolations`, which audits the whole document so the rules that only match `<html>` (`landmark-one-main`, `page-has-heading-one`) run too; it gives the test runner's bare page a `<title>` and `lang` first, and disables no rule. Tests never reach the network: `test/helpers/*-intercept.mjs` route the alerts, hours and main-nav hosts to fixtures.
+- **Bundle-size budgets.** `test/size-budget.test.mjs` gzips (level 9) every entry in `dist-cdn/manifest.json` together with every chunk it imports, statically or with `import()` (site-page's lazy site-footer), each counted once, and fails if one exceeds its budget in `test/size-budgets.json` (about 12% over the sizes below). `node scripts/bundle-sizes.mjs` prints today's sizes against the budgets. When a change has to grow a bundle, raise its budget in the same PR and say why.
+
+  | Entry                     | gzip (bytes) | Budget |
+  | ------------------------- | -----------: | -----: |
+  | `site-page.js`            |       30,082 | 33,700 |
+  | `site-header.js`          |       19,463 | 21,800 |
+  | `site-main-nav.js`        |       14,795 | 16,600 |
+  | `site-footer.js`          |       15,017 | 16,900 |
+  | `site-analytics.js`       |        9,676 | 10,900 |
+  | `site-style.js`           |        9,580 | 10,800 |
+  | `uvalib-filter.js`        |       12,150 | 13,700 |
+  | `uvalib-date-range.js`    |       10,623 | 11,900 |
+  | `site-hours-section.js`   |       14,699 | 16,500 |
+  | `library-weekly-hours.js` |       14,524 | 16,300 |
+  | `library-hours-setup.js`  |       15,128 | 17,000 |
+  | `tokens.css`              |          592 |    670 |
+  | `base.css`                |          226 |    260 |
+
 - `pnpm sync:main-nav` regenerates the bundled main navigation (`src/components/site-main-nav/main-nav-data.ts`) from the desktop "Main navigation" menu of the live library.virginia.edu home page. `node scripts/sync-main-nav.mjs saved.html` reads a saved page instead. It exits non-zero, writing nothing, if the menu's structure is not found or has fewer than 2 groups or 6 links. Commit the result.
 - `pnpm start` runs the Vite dev server for the playground site (`site/`) and the demos (`demo/`), rooted at the repo: open `/site/` for the examples page, or `/demo/` for the demo pages. In dev, `cdn/<tag>.js` is served straight from `src/components/`, so edits show up on reload.
 - Previews run on the playground-elements sandbox at unpkg.com (never self-hosted: share links run untrusted code), which needs internet access. Locally, that public origin has to load the components from `http://localhost`; Vite's localhost-only CORS policy and Chrome's local network protections block this, so the components may not render in previews under `pnpm start` or `vite preview`. The editors, plain HTML previews and share links still work. Components render in previews on GitHub Pages, which serves `cdn/` with `Access-Control-Allow-Origin: *`.
