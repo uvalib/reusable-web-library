@@ -3,28 +3,43 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Gallery · UVA Library web components</title>
+    <title>Examples · UVA Library web components</title>
     <meta
       name="description"
-      content="Every UVA Library web component and mode, live and editable."
+      content="Every UVA Library web component and mode, live and editable, with shareable links."
     />
     <link rel="stylesheet" href="./src/site.css" />
     <!-- The site's own copy of the CDN build (dist-site/cdn/; in dev, the component source). -->
     <script type="module" src="./cdn/site-page.js" vite-ignore></script>
-    <script type="module" src="./src/gallery.ts"></script>
+    <script type="module" src="./src/examples.ts"></script>
   </head>
   <body>
-    <site-page site-links-label="Playground">
-      <a slot="site-links" href="./" aria-current="page">Gallery</a>
-      <a slot="site-links" href="playground.html">Playground</a>
+    <site-page site-links-label="Web components" no-footer>
+      <a slot="site-links" href="./" aria-current="page">Examples</a>
       <a slot="site-links" href="https://github.com/uvalib/reusable-web-library#readme">README</a>
-      <h1>Gallery</h1>
-      <p class="lede">
-        Each example is a live, editable page. Change the HTML or CSS and the preview updates. For a
-        bigger editor and shareable links, open the
-        <a href="playground.html">playground</a>.
-      </p>
-      <div id="examples"></div>
+      <div class="examples">
+        <!-- examples.ts fills the menu and the select from presets.ts. The menu shows on
+             wide screens, the select below 48rem. -->
+        <nav class="example-menu" aria-label="Examples"></nav>
+        <div class="example">
+          <div class="example-picker">
+            <label for="example-select">Example</label>
+            <select id="example-select"></select>
+          </div>
+          <div class="example-head">
+            <h1 id="example-title">Examples</h1>
+            <p id="example-description" class="description"></p>
+            <div class="toolbar">
+              <button type="button" id="reset">Reset</button>
+              <span class="copy">
+                <button type="button" id="copy-link">Copy link</button>
+                <span class="status" role="status"></span>
+              </span>
+            </div>
+          </div>
+          <playground-ide resizable line-numbers editable-file-system></playground-ide>
+        </div>
+      </div>
     </site-page>
   </body>
 </html>

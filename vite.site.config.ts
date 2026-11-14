@@ -72,11 +72,12 @@ export default defineConfig(({ command, isPreview }) => ({
     outDir,
     emptyOutDir: true,
     assetsDir: ASSETS,
-    // playground-elements with CodeMirror is one ~900 kB chunk, shared by both pages.
+    // playground-elements with CodeMirror is one ~900 kB chunk.
     chunkSizeWarningLimit: 1200,
     rollupOptions: {
       input: {
         index: join(root, 'site/index.html'),
+        // The old playground URL: it only redirects to index.html, keeping query and hash.
         playground: join(root, 'site/playground.html'),
       },
     },
