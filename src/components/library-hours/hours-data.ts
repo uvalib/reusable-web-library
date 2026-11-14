@@ -32,20 +32,57 @@ export interface LibraryInfo {
 /** Hours per LibCal calendar id, each a map of `YYYY-MM-DD` to that day's hours. */
 export type HoursByCalendar = Map<number, Record<string, DayHours>>;
 
+/** The two data URLs. */
+export interface HoursEndpoints {
+  /** The Drupal JSON:API library list (relative by default: same origin, no CORS). */
+  libraries: string;
+  /** LibCal hours, with `{ids}` for the comma-separated calendar ids; `from` / `to` are appended. */
+  hours: string;
+}
+
 /**
- * Where the data comes from. Change these before the elements connect to use another
- * origin or a test server. `libraries` is relative (same origin, no CORS on Drupal);
- * `hours` holds `{ids}` for the comma-separated LibCal ids, and `from` / `to` are appended.
- * The LibCal key is LibCal's public client widget key (already public in the live bundles).
+ * Where the data comes from, shared by every hours element (and exposed to pages as the
+ * elements' static `endpoints`). The LibCal key is LibCal's public client widget key
+ * (already public in the live bundles). A page can also set `window.uvalibHoursEndpoints`
+ * (`{ libraries?, hours? }`) before the elements' script runs; it is merged in at the
+ * first fetch. Requests are cached by URL, so a change applies to the next load.
  */
-export const hoursEndpoints = {
+export const hoursEndpoints: HoursEndpoints = {
   libraries: '/jsonapi/index/default_index?filter[type]=library&page[limit]=100',
   hours:
     'https://cal.lib.virginia.edu/api/1.0/hours/{ids}?iid=863&key=e4b27d40b7099e8e392113da2f8bf30a',
 };
 
-/** Fetch attempts and the delay between them (ms), and how often elements check the date (ms). */
-export const hoursTiming = { retries: 3, retryDelay: 1000, tick: 60_000 };
+/**
+ * Fetch attempts, the delay between them (ms), each attempt's timeout (ms), and how often
+ * elements check the date (ms).
+ */
+export const hoursTiming = { retries: 3, retryDelay: 1000, timeout: 10_000, tick: 60_000 };
+
+declare global {
+  interface Window {
+    /** Optional endpoint overrides for the library-hours elements, read at their first fetch. */
+    uvalibHoursEndpoints?: Partial<HoursEndpoints>;
+  }
+}
+
+/** Copy the known endpoint keys (strings only) from `from` into the shared endpoints. */
+export function setHoursEndpoints(from: Partial<HoursEndpoints> | null | undefined): void {
+  for (const key of ['libraries', 'hours'] as const) {
+    const value = from?.[key];
+    if (typeof value === 'string' && value) hoursEndpoints[key] = value;
+  }
+}
+
+let globalApplied = false;
+/** The endpoints to use now: the page's `window.uvalibHoursEndpoints` is merged in once. */
+function endpoints(): HoursEndpoints {
+  if (!globalApplied) {
+    globalApplied = true;
+    setHoursEndpoints(globalThis.window?.uvalibHoursEndpoints);
+  }
+  return hoursEndpoints;
+}
 
 export const TIME_ZONE = 'America/New_York';
 
@@ -57,7 +94,8 @@ async function fetchJson(url: string): Promise<unknown> {
   for (let i = 0; i < attempts; i++) {
     if (i > 0) await new Promise((r) => setTimeout(r, hoursTiming.retryDelay));
     try {
-      const response = await fetch(url);
+      // A hung attempt times out and counts as a failed attempt.
+      const response = await fetch(url, { signal: AbortSignal.timeout(hoursTiming.timeout) });
       if (!response.ok) throw new Error(`${response.status} ${response.statusText} for ${url}`);
       return await response.json();
     } catch (e) {
@@ -102,25 +140,40 @@ export function parseLibraries(json: unknown): LibraryInfo[] {
         calId: Number.isNaN(calId) ? undefined : calId,
         placeType: orUndefined(a.field_type_basic),
         priorityPlacement: orUndefined(a.field_priority_placement),
-        siteLink: uri ? uri.replace(/^internal:/, '') : undefined,
+        siteLink: siteLink(uri),
         hoursInformation: orUndefined(a.field_hours_information?.processed),
         parent: orUndefined(n.relationships?.field_parent?.data?.id),
       };
     });
 }
 
-let librariesPromise: Promise<LibraryInfo[]> | undefined;
+/**
+ * A Drupal link field as an href: `internal:/rmc/` becomes `/rmc/` and `entity:node/807`
+ * becomes `/node/807` (Drupal redirects it to the page's alias). Other `entity:` links have
+ * no URL outside Drupal, so they are dropped.
+ */
+function siteLink(uri: string | undefined): string | undefined {
+  if (!uri) return undefined;
+  if (uri.startsWith('internal:')) return uri.slice('internal:'.length) || undefined;
+  const node = /^entity:node\/(\d+)$/.exec(uri);
+  if (node) return `/node/${node[1]}`;
+  return uri.startsWith('entity:') ? undefined : uri;
+}
 
-/** The library list, fetched once per page and shared. A failure is not cached. */
+const librariesCache = new Map<string, Promise<LibraryInfo[]>>();
+
+/** The library list, fetched once per page (per URL) and shared. A failure is not cached. */
 export function loadLibraries(): Promise<LibraryInfo[]> {
-  if (!librariesPromise) {
-    const p = fetchJson(hoursEndpoints.libraries).then(parseLibraries);
-    librariesPromise = p;
-    p.catch(() => {
-      if (librariesPromise === p) librariesPromise = undefined;
+  const url = endpoints().libraries;
+  let p = librariesCache.get(url);
+  if (!p) {
+    const promise = fetchJson(url).then(parseLibraries);
+    librariesCache.set(url, (p = promise));
+    promise.catch(() => {
+      if (librariesCache.get(url) === promise) librariesCache.delete(url);
     });
   }
-  return librariesPromise;
+  return p;
 }
 
 interface CacheEntry {
@@ -143,12 +196,12 @@ export function loadHours(
 ): Promise<HoursByCalendar> {
   const sorted = [...new Set(ids)].sort((a, b) => a - b);
   if (!sorted.length) return Promise.resolve(new Map());
-  const key = `${sorted.join(',')}|${from}|${to}`;
+  const url =
+    endpoints().hours.replace('{ids}', sorted.join(',')) +
+    `&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
+  const key = url;
   const hit = hoursCache.get(key);
   if (hit && performance.now() - hit.at <= maxAge) return hit.promise;
-  const url =
-    hoursEndpoints.hours.replace('{ids}', sorted.join(',')) +
-    `&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
   const promise = fetchJson(url).then((json) => {
     const out: HoursByCalendar = new Map();
     if (Array.isArray(json)) {
@@ -172,8 +225,9 @@ export function loadHours(
 
 /** Forget the cached library list and hours (for tests). */
 export function resetHoursCache(): void {
-  librariesPromise = undefined;
+  librariesCache.clear();
   hoursCache.clear();
+  globalApplied = false;
 }
 
 /** Libraries by priority placement (missing last), then title. Returns a new array. */

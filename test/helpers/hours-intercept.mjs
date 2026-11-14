@@ -21,6 +21,9 @@ export const DRUPAL_PATH = '/jsonapi/index/default_index';
 export const HOURS_FAIL_HOST = 'hours-fail.test';
 /** Serves an empty library list and empty LibCal results. */
 export const HOURS_EMPTY_HOST = 'hours-empty.test';
+/** Answers (with empty results) only after HANG_MS, to exercise fetch timeouts. */
+export const HOURS_HANG_HOST = 'hours-hang.test';
+const HANG_MS = 3000;
 
 const CORS = { 'access-control-allow-origin': '*' };
 const json = (route, body) =>
@@ -76,10 +79,16 @@ export async function interceptHours(contextOrPromise) {
       url.host === LIBCAL_HOST ||
       url.host === HOURS_FAIL_HOST ||
       url.host === HOURS_EMPTY_HOST ||
+      url.host === HOURS_HANG_HOST ||
       url.pathname === DRUPAL_PATH,
     (route) => {
       const url = new URL(route.request().url());
       if (url.host === HOURS_FAIL_HOST) return route.abort('failed');
+      if (url.host === HOURS_HANG_HOST) {
+        // The page has usually aborted by then; fulfilling an aborted route throws.
+        setTimeout(() => json(route, '[]').catch(() => {}), HANG_MS);
+        return undefined;
+      }
       if (url.host === HOURS_EMPTY_HOST)
         return json(route, url.pathname === DRUPAL_PATH ? '{"data":[]}' : '[]');
       if (url.host === LIBCAL_HOST) return libcal(route, url);

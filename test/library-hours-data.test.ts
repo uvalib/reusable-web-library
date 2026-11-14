@@ -19,6 +19,7 @@ import {
   type LibraryInfo,
 } from '../src/components/library-hours/hours-data.js';
 import { recordFetches, resetHours, useHoursHost } from './helpers/hours.js';
+import { hoursTiming, setHoursEndpoints } from '../src/components/library-hours/hours-data.js';
 
 describe('library hours data', () => {
   beforeEach(resetHours);
@@ -137,12 +138,23 @@ describe('library hours data', () => {
       expect(lib!.siteLink).to.equal(undefined);
       expect(lib!.parent).to.equal(undefined);
       expect(child).to.deep.include({ calId: 4170, siteLink: '/rmc/', parent: 'clemons' });
-      // As Library.ts does: only `internal:` is rewritten.
+      // Drupal entity links become Drupal paths (Drupal redirects /node/807 to its alias).
       expect(other).to.deep.include({
-        siteLink: 'entity:node/807',
+        siteLink: '/node/807',
         hoursInformation: '<p>See</p>',
       });
       expect(other!.calId).to.equal(undefined);
+    });
+
+    it('drops entity links that are not nodes, and keeps absolute URLs', () => {
+      const links = parseLibraries({
+        data: [
+          raw({ field_slug: 'a', field_library_site_link: { uri: 'entity:taxonomy_term/3' } }),
+          raw({ field_slug: 'b', field_library_site_link: { uri: 'https://x.test/a' } }),
+          raw({ field_slug: 'c', field_library_site_link: { uri: 'internal:' } }),
+        ],
+      }).map((l) => l.siteLink);
+      expect(links).to.deep.equal([undefined, 'https://x.test/a', undefined]);
     });
 
     it('sorts by priority placement (missing last), then title', () => {
@@ -183,6 +195,73 @@ describe('library hours data', () => {
           (e: Error) => expect(e).to.be.an('error'),
         );
         expect(rec.urls).to.have.length(3);
+        hoursEndpoints.libraries =
+          '/jsonapi/index/default_index?filter[type]=library&page[limit]=100';
+        expect((await loadLibraries()).length).to.equal(16);
+      } finally {
+        rec.restore();
+      }
+    });
+  });
+
+  describe('endpoints', () => {
+    it('reads window.uvalibHoursEndpoints at the first fetch', async () => {
+      window.uvalibHoursEndpoints = {
+        libraries: 'https://hours-empty.test/jsonapi/index/default_index?pre-define',
+      };
+      const rec = recordFetches();
+      try {
+        expect(await loadLibraries()).to.deep.equal([]);
+        expect(rec.urls).to.deep.equal([
+          'https://hours-empty.test/jsonapi/index/default_index?pre-define',
+        ]);
+        expect(hoursEndpoints.libraries).to.equal(
+          'https://hours-empty.test/jsonapi/index/default_index?pre-define',
+        );
+      } finally {
+        rec.restore();
+      }
+    });
+
+    it('caches by URL, so a later change applies to the next load', async () => {
+      const rec = recordFetches();
+      try {
+        expect((await loadLibraries()).length).to.equal(16);
+        setHoursEndpoints({ libraries: 'https://hours-empty.test/jsonapi/index/default_index' });
+        expect(await loadLibraries()).to.deep.equal([]);
+        await loadHours([3638], '2026-11-14', '2026-11-14');
+        useHoursHost('hours-empty.test');
+        expect((await loadHours([3638], '2026-11-14', '2026-11-14')).size).to.equal(0);
+        expect(rec.urls).to.have.length(4);
+      } finally {
+        rec.restore();
+      }
+    });
+
+    it('ignores unknown keys and non-string values', () => {
+      const before = { ...hoursEndpoints };
+      setHoursEndpoints({ hours: 42 as unknown as string, nope: 'x' } as never);
+      expect({ ...hoursEndpoints }).to.deep.equal(before);
+    });
+  });
+
+  describe('timeouts', () => {
+    it('times out each hung attempt, counts it as a retry, and does not cache the failure', async () => {
+      hoursTiming.timeout = 50;
+      useHoursHost('hours-hang.test');
+      const rec = recordFetches();
+      try {
+        const started = performance.now();
+        await loadLibraries().then(
+          () => expect.fail('resolved'),
+          (e: Error) => expect(e.name).to.equal('TimeoutError'),
+        );
+        expect(rec.urls).to.have.length(3);
+        expect(performance.now() - started).to.be.below(2000);
+        await loadHours([3638], '2026-11-14', '2026-11-14').then(
+          () => expect.fail('resolved'),
+          (e: Error) => expect(e.name).to.equal('TimeoutError'),
+        );
         hoursEndpoints.libraries =
           '/jsonapi/index/default_index?filter[type]=library&page[limit]=100';
         expect((await loadLibraries()).length).to.equal(16);
