@@ -1,5 +1,5 @@
 {
-  "_note": "LibCal hours captured in 2026, trimmed to the weeks the tests use. The 2027-03-14 week is synthetic: a copy of 2026-03-15..21 (same weekdays).",
+  "_note": "LibCal hours captured in 2026, trimmed to the weeks the tests use. The weeks of 2027-03-07 and 2027-03-14 are synthetic: copies of 2026-03-08..14 and 2026-03-15..21 (same weekdays), since no 2027 capture exists.",
   "calendars": [
     {
       "lid": 3805,
@@ -393,6 +393,63 @@
           "status": "closed"
         },
         "2027-01-02": {
+          "status": "closed"
+        },
+        "2027-03-07": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "1:00pm",
+              "to": "11:00pm"
+            }
+          ]
+        },
+        "2027-03-08": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "11:00pm"
+            }
+          ]
+        },
+        "2027-03-09": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "11:00pm"
+            }
+          ]
+        },
+        "2027-03-10": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "11:00pm"
+            }
+          ]
+        },
+        "2027-03-11": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "11:00pm"
+            }
+          ]
+        },
+        "2027-03-12": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "6:00pm"
+            }
+          ]
+        },
+        "2027-03-13": {
           "status": "closed"
         },
         "2027-03-14": {
@@ -836,6 +893,63 @@
         "2027-01-02": {
           "status": "closed"
         },
+        "2027-03-07": {
+          "status": "closed"
+        },
+        "2027-03-08": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "5:00pm"
+            }
+          ]
+        },
+        "2027-03-09": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "5:00pm"
+            }
+          ]
+        },
+        "2027-03-10": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "7:00pm"
+            }
+          ]
+        },
+        "2027-03-11": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "7:00pm"
+            }
+          ]
+        },
+        "2027-03-12": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "5:00pm"
+            }
+          ]
+        },
+        "2027-03-13": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "12:00pm",
+              "to": "4:00pm"
+            }
+          ]
+        },
         "2027-03-14": {
           "status": "closed"
         },
@@ -1276,6 +1390,63 @@
         },
         "2027-01-02": {
           "status": "closed"
+        },
+        "2027-03-07": {
+          "status": "closed"
+        },
+        "2027-03-08": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "1:00pm",
+              "to": "5:00pm"
+            }
+          ]
+        },
+        "2027-03-09": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "10:00am",
+              "to": "5:00pm"
+            }
+          ]
+        },
+        "2027-03-10": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "11:00am",
+              "to": "7:00pm"
+            }
+          ]
+        },
+        "2027-03-11": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "11:00am",
+              "to": "7:00pm"
+            }
+          ]
+        },
+        "2027-03-12": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "10:00am",
+              "to": "5:00pm"
+            }
+          ]
+        },
+        "2027-03-13": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "12:00pm",
+              "to": "4:00pm"
+            }
+          ]
         },
         "2027-03-14": {
           "status": "closed"
@@ -1728,6 +1899,63 @@
           "status": "closed"
         },
         "2027-01-02": {
+          "status": "closed"
+        },
+        "2027-03-07": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "1:00pm",
+              "to": "11:00pm"
+            }
+          ]
+        },
+        "2027-03-08": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "11:00pm"
+            }
+          ]
+        },
+        "2027-03-09": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "11:00pm"
+            }
+          ]
+        },
+        "2027-03-10": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "11:00pm"
+            }
+          ]
+        },
+        "2027-03-11": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "11:00pm"
+            }
+          ]
+        },
+        "2027-03-12": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "6:00pm"
+            }
+          ]
+        },
+        "2027-03-13": {
           "status": "closed"
         },
         "2027-03-14": {
@@ -2234,6 +2462,69 @@
             {
               "from": "1:00pm",
               "to": "5:00pm"
+            }
+          ]
+        },
+        "2027-03-07": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "10:00am",
+              "to": "9:00pm"
+            }
+          ]
+        },
+        "2027-03-08": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "9:00pm"
+            }
+          ]
+        },
+        "2027-03-09": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "9:00pm"
+            }
+          ]
+        },
+        "2027-03-10": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "9:00pm"
+            }
+          ]
+        },
+        "2027-03-11": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "9:00pm"
+            }
+          ]
+        },
+        "2027-03-12": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "6:00pm"
+            }
+          ]
+        },
+        "2027-03-13": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "10:00am",
+              "to": "6:00pm"
             }
           ]
         },
@@ -2750,6 +3041,69 @@
             }
           ]
         },
+        "2027-03-07": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "10:00am",
+              "to": "2:00am"
+            }
+          ]
+        },
+        "2027-03-08": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "8:00am",
+              "to": "2:00am"
+            }
+          ]
+        },
+        "2027-03-09": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "8:00am",
+              "to": "2:00am"
+            }
+          ]
+        },
+        "2027-03-10": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "8:00am",
+              "to": "2:00am"
+            }
+          ]
+        },
+        "2027-03-11": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "8:00am",
+              "to": "2:00am"
+            }
+          ]
+        },
+        "2027-03-12": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "8:00am",
+              "to": "9:00pm"
+            }
+          ]
+        },
+        "2027-03-13": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "6:00pm"
+            }
+          ]
+        },
         "2027-03-14": {
           "status": "open",
           "hours": [
@@ -3257,6 +3611,69 @@
             }
           ]
         },
+        "2027-03-07": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "10:00am",
+              "to": "10:00pm"
+            }
+          ]
+        },
+        "2027-03-08": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "10:00am",
+              "to": "10:00pm"
+            }
+          ]
+        },
+        "2027-03-09": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "10:00am",
+              "to": "10:00pm"
+            }
+          ]
+        },
+        "2027-03-10": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "10:00am",
+              "to": "10:00pm"
+            }
+          ]
+        },
+        "2027-03-11": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "10:00am",
+              "to": "10:00pm"
+            }
+          ]
+        },
+        "2027-03-12": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "10:00am",
+              "to": "10:00pm"
+            }
+          ]
+        },
+        "2027-03-13": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "10:00am",
+              "to": "10:00pm"
+            }
+          ]
+        },
         "2027-03-14": {
           "status": "open",
           "hours": [
@@ -3713,6 +4130,63 @@
         },
         "2027-01-02": {
           "status": "closed"
+        },
+        "2027-03-07": {
+          "status": "closed"
+        },
+        "2027-03-08": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "10:00am",
+              "to": "10:00pm"
+            }
+          ]
+        },
+        "2027-03-09": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "10:00am",
+              "to": "10:00pm"
+            }
+          ]
+        },
+        "2027-03-10": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "10:00am",
+              "to": "10:00pm"
+            }
+          ]
+        },
+        "2027-03-11": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "10:00pm"
+            }
+          ]
+        },
+        "2027-03-12": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "6:00pm"
+            }
+          ]
+        },
+        "2027-03-13": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "10:00am",
+              "to": "6:00pm"
+            }
+          ]
         },
         "2027-03-14": {
           "status": "closed"
@@ -4221,6 +4695,69 @@
             }
           ]
         },
+        "2027-03-07": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "10:00am",
+              "to": "2:00am"
+            }
+          ]
+        },
+        "2027-03-08": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "8:00am",
+              "to": "2:00am"
+            }
+          ]
+        },
+        "2027-03-09": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "8:00am",
+              "to": "2:00am"
+            }
+          ]
+        },
+        "2027-03-10": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "8:00am",
+              "to": "2:00am"
+            }
+          ]
+        },
+        "2027-03-11": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "8:00am",
+              "to": "2:00am"
+            }
+          ]
+        },
+        "2027-03-12": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "8:00am",
+              "to": "9:00pm"
+            }
+          ]
+        },
+        "2027-03-13": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "6:00pm"
+            }
+          ]
+        },
         "2027-03-14": {
           "status": "open",
           "hours": [
@@ -4689,6 +5226,69 @@
             {
               "from": "1:00pm",
               "to": "5:00pm"
+            }
+          ]
+        },
+        "2027-03-07": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "10:00am",
+              "to": "2:00am"
+            }
+          ]
+        },
+        "2027-03-08": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "8:00am",
+              "to": "2:00am"
+            }
+          ]
+        },
+        "2027-03-09": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "8:00am",
+              "to": "2:00am"
+            }
+          ]
+        },
+        "2027-03-10": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "8:00am",
+              "to": "2:00am"
+            }
+          ]
+        },
+        "2027-03-11": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "8:00am",
+              "to": "2:00am"
+            }
+          ]
+        },
+        "2027-03-12": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "8:00am",
+              "to": "12:00am"
+            }
+          ]
+        },
+        "2027-03-13": {
+          "status": "open",
+          "hours": [
+            {
+              "from": "9:00am",
+              "to": "12:00am"
             }
           ]
         },

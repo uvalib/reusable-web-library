@@ -86,7 +86,7 @@ const CASES: Case[] = [
     date: 'Saturday, March 13, 2027',
     todayLabel: 'Saturday, March 13',
     heading: 'Mar 07. 2027 - Mar 13. 2027',
-    clemons: '',
+    clemons: '9am - 12am',
   },
 ];
 
@@ -116,11 +116,13 @@ describe(`library hours in ${Intl.DateTimeFormat().resolvedOptions().timeZone}`,
           expect(today).to.have.length(1);
           expect(today[0]!.getAttribute('aria-label')).to.equal(c.todayLabel);
           const cell = el.querySelector('[part=building-hours] td.today')!;
-          expect(cell.getAttribute('aria-label')).to.equal(
-            c.clemons ? `${c.todayLabel}: ${c.clemons}` : c.todayLabel,
-          );
+          expect(cell.getAttribute('aria-label')).to.equal(`${c.todayLabel}: ${c.clemons}`);
           const libcal = new URL(rec.urls.find((u) => u.includes('cal.lib.virginia.edu'))!);
           expect(libcal.searchParams.get('from')).to.equal(c.sunday);
+          // Every day of the week has real (fixture) hours.
+          const cells = [...el.querySelectorAll('[part=building-hours] td')];
+          expect(cells).to.have.length(7);
+          for (const td of cells) expect(td.getAttribute('aria-label')).to.match(/: \S/);
         } finally {
           rec.restore();
         }
@@ -138,9 +140,7 @@ describe(`library hours in ${Intl.DateTimeFormat().resolvedOptions().timeZone}`,
           expect(libcal.searchParams.get('from')).to.equal(c.today);
           expect(libcal.searchParams.get('to')).to.equal(c.today);
           const clemons = [...el.querySelectorAll('dt')].find((dt) => text(dt) === 'Clemons')!;
-          expect(text(clemons.nextElementSibling)).to.equal(
-            c.clemons || 'Hours unavailable. See all hours',
-          );
+          expect(text(clemons.nextElementSibling)).to.equal(c.clemons);
         } finally {
           rec.restore();
         }
