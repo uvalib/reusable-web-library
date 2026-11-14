@@ -111,7 +111,7 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 | Slot | Description |
 |---|---|
 | `skip-link` | Shadow mode only: optional skip link, rendered first inside `<header>` (`<site-page>` uses it). |
-| `alerts` | Optional alert banner (`<site-page>` passes its `<uvalib-alerts show="header">`), shown as a full-width row inside `<header>`, after the skip link and before the logo row. In light mode the children are moved to the start of `<header>`. The header never loads alerts itself. |
+| `alerts` | Optional alert banner (`<site-page>` passes its `<uvalib-alerts show="header">`), shown as a full-bleed row at the very top of `<header>` (flush with its top and both edges, outside its padding), after the skip link and before the logo row. In light mode the children are moved to the start of `<header>`. The header never loads alerts itself. |
 | `site-links` | Optional `<a href>` elements with text that replace the library utility links in the inline nav and the Menu popover (ignored by the `vendor` variant). In light mode they are moved into a hidden holder. |
 
 ### CSS parts
@@ -158,7 +158,7 @@ Today's hours for the UVA libraries, as on the library.virginia.edu home page: t
 
 ## `<site-page>`
 
-Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`. Shows live UVA Library alerts by default: a `<uvalib-alerts show="header">` banner inside the header landmark, after the skip link, and `<uvalib-alerts show="list">` then `show="regional"` as the first children of `<main>`. The alerts component is loaded once per document, with a module script, from the alerts CDN (`alerts-env`, or `alerts-src`); if it fails to load, one console warning is logged and the page works as before. `no-alerts` renders no alert elements and loads nothing.
+Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`. Shows live UVA Library alerts by default, placed as Virgo places them: a full-bleed `<uvalib-alerts show="header">` banner at the top of the header landmark (after the skip link), a full-bleed band between the header and `<main>` holding `<uvalib-alerts show="list">` (a `<section aria-label="Library alerts">` region, hidden while the list has nothing to show), and `<uvalib-alerts show="regional">` as the first child of `<main>`, inside its padding. The alerts component is loaded once per document, with a module script, from the alerts CDN (`alerts-env`, or `alerts-src`); if it fails to load, one console warning is logged and the page works as before. `no-alerts` renders no alert elements and loads nothing.
 
 ### Attributes
 
