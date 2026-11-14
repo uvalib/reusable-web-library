@@ -232,6 +232,41 @@ site-page::part(footer) {
     },
   },
   {
+    id: 'library-hours',
+    title: 'Library hours',
+    description:
+      "site-hours-section (today's hours, as on the library home page) and library-weekly-hours (one library's week). Hours come live from LibCal; outside library.virginia.edu the library list must be repointed, so this page sets window.uvalibHoursEndpoints to a snapshot published with this site.",
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Library hours',
+          components: ['site-hours-section', 'library-weekly-hours'],
+          body: `    <script>
+      // On library.virginia.edu nothing is needed. Elsewhere the library list (Drupal's
+      // JSON:API, same-origin only) must come from a copy; set this before the components load.
+      window.uvalibHoursEndpoints = { libraries: '${CDN_TOKEN}../data/hours-libraries.json' };
+    </script>
+    <site-page>
+      <h1>Library hours</h1>
+      <div class="todays-hours">
+        <site-hours-section limited></site-hours-section>
+      </div>
+      <h2>Clemons Library</h2>
+      <library-weekly-hours library-slug="clemons" heading-level="3"></library-weekly-hours>
+    </site-page>`,
+          styles: true,
+        }),
+      },
+      'styles.css': {
+        content: `.todays-hours {
+  max-width: 20rem;
+  margin-block-end: 2rem;
+}
+`,
+      },
+    },
+  },
+  {
     id: 'search-facets',
     title: 'Search facets',
     description:

@@ -26,6 +26,7 @@ describe('playground presets', function () {
       'site-navigation',
       'alerts',
       'theming',
+      'library-hours',
       'search-facets',
     ]);
   });
@@ -69,7 +70,7 @@ describe('playground presets', function () {
       });
 
       it('renders against dist-cdn with defined components, one main and no errors', async () => {
-        const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-cdn/')));
+        const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
         try {
           const win = iframe.contentWindow!;
           const doc = iframe.contentDocument!;
@@ -92,4 +93,28 @@ describe('playground presets', function () {
       });
     });
   }
+
+  it('library-hours loads the published library-list snapshot and shows hours', async () => {
+    const p = presets.find((x) => x.id === 'library-hours')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-hours-section', 'library-weekly-hours']);
+      type Hours = HTMLElement & { state: string };
+      const section = doc.querySelector('site-hours-section') as Hours;
+      const weekly = doc.querySelector('library-weekly-hours') as Hours;
+      const deadline = Date.now() + 4000;
+      while ((section.state !== 'ready' || weekly.state !== 'ready') && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      expect([section.state, weekly.state]).to.deep.equal(['ready', 'ready']);
+      const root = (el: HTMLElement) => el.shadowRoot ?? el;
+      expect(root(section).querySelectorAll('dt.location').length).to.be.greaterThan(0);
+      expect(root(weekly).querySelectorAll('tbody tr').length).to.be.greaterThan(0);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  });
 });

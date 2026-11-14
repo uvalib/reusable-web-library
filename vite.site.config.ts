@@ -39,6 +39,14 @@ function siteFiles(): Plugin {
     },
     closeBundle() {
       cpSync(join(root, 'dist-cdn'), join(outDir, 'cdn'), { recursive: true });
+      // The library-hours preset runs outside library.virginia.edu, whose JSON:API has no
+      // CORS, so it reads this snapshot of the library list (the trimmed test fixture).
+      // Hours still come live from LibCal.
+      mkdirSync(join(outDir, 'data'), { recursive: true });
+      copyFileSync(
+        join(root, 'test/fixtures/hours/drupal-libraries.json'),
+        join(outDir, 'data/hours-libraries.json'),
+      );
       // The worker imports ./internal/typescript.js, so that file goes with it. Vite also
       // emits a hashed copy of the worker, which is the one the bundle references; that
       // copy needs the same sibling. The unhashed copy is kept because the
