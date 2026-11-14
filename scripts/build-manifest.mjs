@@ -14,6 +14,9 @@ const TAGS = [
   'site-style',
   'uvalib-filter',
   'uvalib-date-range',
+  'site-hours-section',
+  'library-weekly-hours',
+  'library-hours-setup',
 ];
 
 const manifest = {

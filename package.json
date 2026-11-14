@@ -15,8 +15,10 @@
   "sideEffects": [
     "./dist/components/*/site-*.js",
     "./dist/components/*/uvalib-*.js",
+    "./dist/components/*/library-*.js",
     "./src/components/*/site-*.ts",
     "./src/components/*/uvalib-*.ts",
+    "./src/components/*/library-*.ts",
     "*.css"
   ],
   "customElements": "dist/custom-elements.json",
@@ -56,6 +58,18 @@
     "./uvalib-date-range.js": {
       "types": "./dist/components/uvalib-date-range/uvalib-date-range.d.ts",
       "default": "./dist/components/uvalib-date-range/uvalib-date-range.js"
+    },
+    "./site-hours-section.js": {
+      "types": "./dist/components/site-hours-section/site-hours-section.d.ts",
+      "default": "./dist/components/site-hours-section/site-hours-section.js"
+    },
+    "./library-weekly-hours.js": {
+      "types": "./dist/components/library-weekly-hours/library-weekly-hours.d.ts",
+      "default": "./dist/components/library-weekly-hours/library-weekly-hours.js"
+    },
+    "./library-hours-setup.js": {
+      "types": "./dist/components/library-hours-setup/library-hours-setup.d.ts",
+      "default": "./dist/components/library-hours-setup/library-hours-setup.js"
     },
     "./tokens.css": "./dist/tokens.css",
     "./base.css": "./dist/base.css",

@@ -8,6 +8,9 @@ const tags = [
   'site-style',
   'uvalib-filter',
   'uvalib-date-range',
+  'site-hours-section',
+  'library-weekly-hours',
+  'library-hours-setup',
 ];
 
 // Library mode, ES output: one self-contained entry per component, with Lit and shared

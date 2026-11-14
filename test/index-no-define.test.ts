@@ -9,6 +9,9 @@ describe('index', () => {
     await new Promise((r) => setTimeout(r, 50)); // let any dynamic import settle
     expect(lib.UvalibFilter).to.be.a('function');
     expect(lib.UvalibDateRange).to.be.a('function');
+    expect(lib.SiteHoursSection).to.be.a('function');
+    expect(lib.LibraryWeeklyHours).to.be.a('function');
+    expect(lib.LibraryHoursSetup).to.be.a('function');
     for (const tag of [
       'site-page',
       'site-header',
@@ -17,6 +20,9 @@ describe('index', () => {
       'site-style',
       'uvalib-filter',
       'uvalib-date-range',
+      'site-hours-section',
+      'library-weekly-hours',
+      'library-hours-setup',
     ]) {
       expect(customElements.get(tag) === undefined, `${tag} is defined`).to.equal(true);
     }

@@ -1,5 +1,6 @@
 import { expect, fixture, waitUntil } from '@open-wc/testing';
 import '../src/components/site-hours-section/site-hours-section.js';
+import { LibraryWeeklyHours } from '../src/components/library-weekly-hours/LibraryWeeklyHours.js';
 import type { SiteHoursSection } from '../src/components/site-hours-section/SiteHoursSection.js';
 import { hoursEndpoints, hoursTiming } from '../src/components/library-hours/hours-data.js';
 import { expectNoAxeViolations } from './helpers/axe.js';
@@ -187,6 +188,18 @@ describe('site-hours-section', () => {
       await expectNoAxeViolations(el);
     });
   }
+
+  it('exposes the shared endpoints on the element class for repointing', async () => {
+    const ctor = customElements.get('site-hours-section') as unknown as {
+      endpoints: typeof hoursEndpoints;
+    };
+    expect(ctor.endpoints).to.equal(hoursEndpoints);
+    expect(LibraryWeeklyHours.endpoints).to.equal(hoursEndpoints);
+    ctor.endpoints.libraries = 'https://hours-empty.test/jsonapi/index/default_index?x';
+    const el = await make('');
+    expect(pairs(el)).to.deep.equal([]);
+    expect(text(root(el).querySelector('[role=status]'))).to.match(/^Hours are unavailable/);
+  });
 
   it('marks libraries with a calendar unavailable when LibCal fails', async () => {
     hoursEndpoints.hours = 'https://hours-fail.test/api/1.0/hours/{ids}?key=x';

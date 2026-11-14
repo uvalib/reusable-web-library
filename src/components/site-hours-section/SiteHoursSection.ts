@@ -6,6 +6,7 @@ import { accessible } from '../../styles/accessible.js';
 import {
   formatDay,
   fullDate,
+  hoursEndpoints,
   hoursTiming,
   loadHours,
   loadLibraries,
@@ -65,6 +66,14 @@ export class SiteHoursSection extends UvalibElement {
       }
     `,
   ];
+
+  /**
+   * The data endpoints shared by all hours elements: `libraries` (the Drupal JSON:API URL,
+   * relative by default) and `hours` (LibCal, with `{ids}`). Change them before the elements
+   * connect to use another origin, for example
+   * `customElements.get('site-hours-section').endpoints.libraries = 'https://…'`.
+   */
+  static endpoints = hoursEndpoints;
 
   /** Only libraries with a priority placement (the home page's short list). */
   @property({ type: Boolean })
@@ -130,14 +139,16 @@ export class SiteHoursSection extends UvalibElement {
     this.libraries = libraries;
     this.hours = hours;
     this.state = 'ready';
-    for (const [type, message] of [
-      ['got-library-hours', 'fetched hours for libraries'],
-      ['got-libraries', 'fetched libraries'],
-    ] as const) {
-      this.dispatchEvent(
-        new CustomEvent(type, { detail: { message }, bubbles: true, composed: true }),
-      );
-    }
+    const init = { bubbles: true, composed: true };
+    this.dispatchEvent(
+      new CustomEvent('got-library-hours', {
+        ...init,
+        detail: { message: 'fetched hours for libraries' },
+      }),
+    );
+    this.dispatchEvent(
+      new CustomEvent('got-libraries', { ...init, detail: { message: 'fetched libraries' } }),
+    );
   }
 
   private get shown(): LibraryInfo[] {

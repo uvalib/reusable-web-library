@@ -7,6 +7,7 @@ import {
   addDays,
   formatDay,
   fullDate,
+  hoursEndpoints,
   hoursTiming,
   loadHours,
   loadLibraries,
@@ -119,6 +120,14 @@ export class LibraryWeeklyHours extends UvalibElement {
     `,
   ];
 
+  /**
+   * The data endpoints shared by all hours elements: `libraries` (the Drupal JSON:API URL,
+   * relative by default) and `hours` (LibCal, with `{ids}`). Change them before the elements
+   * connect to use another origin, for example
+   * `customElements.get('site-hours-section').endpoints.libraries = 'https://…'`.
+   */
+  static endpoints = hoursEndpoints;
+
   /** The library's `field_slug` in Drupal (for example `clemons`). */
   @property({ type: String, attribute: 'library-slug' })
   librarySlug?: string;
@@ -129,7 +138,7 @@ export class LibraryWeeklyHours extends UvalibElement {
 
   /** How often (ms) the current week's hours are fetched again. 0 turns it off. */
   @property({ type: Number, attribute: 'refresh-every' })
-  refreshEvery = 600_000;
+  refreshEvery = 600000;
 
   /** Hide the "Building hours" row (for a library whose building calendar is one of its spaces). */
   @property({ type: Boolean, attribute: 'hide-building-hours', reflect: true })

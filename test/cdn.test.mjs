@@ -15,6 +15,9 @@ const TAGS = [
   'site-style',
   'uvalib-filter',
   'uvalib-date-range',
+  'site-hours-section',
+  'library-weekly-hours',
+  'library-hours-setup',
 ];
 
 const manifest = () => JSON.parse(readFileSync(join(cdn, 'manifest.json'), 'utf8'));
@@ -57,6 +60,16 @@ test('site-page entry statically imports the header define (not tree-shaken away
     /import\s*["'][^"']*(chunks\/site-header-|\.\/site-header\.js)/.test(text) ||
       /from\s*["'][^"']*(chunks\/site-header-|\.\/site-header\.js)/.test(text),
     'site-page.js does not import the site-header module',
+  );
+});
+
+test('library-hours-setup entry statically imports the library-weekly-hours define', () => {
+  const text = readFileSync(join(cdn, 'library-hours-setup.js'), 'utf8');
+  assert.ok(
+    /(import|from)\s*["'][^"']*(chunks\/library-weekly-hours-|\.\/library-weekly-hours\.js)/.test(
+      text,
+    ),
+    'library-hours-setup.js does not import the library-weekly-hours module',
   );
 });
 
