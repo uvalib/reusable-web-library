@@ -442,6 +442,7 @@ Today's hours for the UVA libraries, as on the library.virginia.edu home page: t
 | Attribute | Type | Default | Description |
 |---|---|---|---|
 | `limited` | `boolean` | `false` | Only libraries with a priority placement (the home page's short list). |
+| `heading-level` | `number` | `3` | The level of the "Today's hours" heading, 2 to 6. The default, 3, fits the home page, where the section sits under an h2; use 2 when it sits directly under the page's h1. |
 | `place-type` | `string \| null` | `null` | Only libraries of this type (`Library`, `space` or `other-professional`). |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |

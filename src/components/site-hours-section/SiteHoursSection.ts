@@ -1,4 +1,5 @@
-import { html, css, nothing } from 'lit';
+import { css, nothing } from 'lit';
+import { html, unsafeStatic } from 'lit/static-html.js';
 import { property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
@@ -86,6 +87,13 @@ export class SiteHoursSection extends UvalibElement {
   /** Only libraries with a priority placement (the home page's short list). */
   @property({ type: Boolean })
   limited = false;
+
+  /**
+   * The level of the "Today's hours" heading, 2 to 6. The default, 3, fits the home page,
+   * where the section sits under an h2; use 2 when it sits directly under the page's h1.
+   */
+  @property({ type: Number, attribute: 'heading-level' })
+  headingLevel = 3;
 
   /** Only libraries of this type (`Library`, `space` or `other-professional`). */
   @property({ type: String, attribute: 'place-type' })
@@ -205,12 +213,14 @@ export class SiteHoursSection extends UvalibElement {
 
   render() {
     if (!this.today) return nothing;
+    const level = Math.min(6, Math.max(2, Math.trunc(this.headingLevel) || 3));
+    const h = unsafeStatic(`h${level}`);
     return html`
       <div class="home-hours-block">
         <div id="homehoursdate" class="home-hour-date">
           ${fullDate(this.hoursDate || this.today)}
         </div>
-        <h3 class="hour-head">Today's hours</h3>
+        <${h} class="hour-head">Today's hours</${h}>
         <dl class="dl--inline hours-locations">
           ${repeat(
             this._state === 'ready' ? this.shown : [],

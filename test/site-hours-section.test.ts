@@ -3,7 +3,7 @@ import '../src/components/site-hours-section/site-hours-section.js';
 import { LibraryWeeklyHours } from '../src/components/library-weekly-hours/LibraryWeeklyHours.js';
 import type { SiteHoursSection } from '../src/components/site-hours-section/SiteHoursSection.js';
 import { hoursEndpoints, hoursTiming } from '../src/components/library-hours/hours-data.js';
-import { expectNoAxeViolations } from './helpers/axe.js';
+import { expectNoAxeViolations, expectNoPageAxeViolations } from './helpers/axe.js';
 import {
   holdFetches,
   recordFetches,
@@ -167,6 +167,34 @@ describe('site-hours-section', () => {
     } finally {
       document.removeEventListener('got-library-hours', listen);
       document.removeEventListener('got-libraries', listen);
+    }
+  });
+
+  describe('heading-level', () => {
+    for (const [attr, tag] of [
+      ['heading-level="2"', 'h2'],
+      ['heading-level="6"', 'h6'],
+      ['heading-level="1"', 'h2'],
+      ['heading-level="9"', 'h6'],
+      ['heading-level="x"', 'h3'],
+    ]) {
+      it(`${attr} renders the heading as ${tag}`, async () => {
+        const el = await make(`limited ${attr}`);
+        const head = root(el).querySelector('.hour-head')!;
+        expect(head.localName).to.equal(tag);
+        expect(text(head)).to.equal("Today's hours");
+      });
+    }
+
+    for (const attrs of ['', 'no-shadow-dom']) {
+      it(`fits under the page h1 with heading-level="2" (${attrs || 'shadow'})`, async () => {
+        const wrap = await fixture<HTMLElement>(
+          `<main><h1>Library hours</h1><site-hours-section limited heading-level="2" ${attrs}></site-hours-section></main>`,
+        );
+        await settled(wrap.querySelector<SiteHoursSection>('site-hours-section')!);
+        // A whole-page run: heading-order compares the section's heading with the page's h1.
+        await expectNoPageAxeViolations();
+      });
     }
   });
 
