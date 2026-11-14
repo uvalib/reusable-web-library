@@ -34,6 +34,9 @@ interface SiteLinkItem {
 const SITE_LINKS = 'site-links';
 const isSiteLinksChild = (n: Node): n is Element =>
   n instanceof Element && n.getAttribute('slot') === SITE_LINKS;
+const ALERTS = 'alerts';
+const isAlertsChild = (n: Node | null): n is Element =>
+  n instanceof Element && n.getAttribute('slot') === ALERTS;
 /** Attributes of a source anchor that change what the header renders. */
 const LINK_ATTRS = ['href', 'aria-current', 'target', 'rel', 'hreflang'];
 
@@ -51,6 +54,7 @@ const LINK_ATTRS = ['href', 'aria-current', 'target', 'rel', 'hreflang'];
  *
  * @tagname site-header
  * @slot skip-link - Shadow mode only: optional skip link, rendered first inside `<header>` (`<site-page>` uses it).
+ * @slot alerts - Optional alert banner (`<site-page>` passes its `<uvalib-alerts show="header">`), shown as a full-width row inside `<header>`, after the skip link and before the logo row. In light mode the children are moved to the start of `<header>`. The header never loads alerts itself.
  * @slot site-links - Optional `<a href>` elements with text that replace the library utility links in the inline nav and the Menu popover (ignored by the `vendor` variant). In light mode they are moved into a hidden holder.
  * @csspart header - The `<header>` element.
  * @cssprop [--uva-blue-alt-dark=#005679] - Utility link colour.
@@ -73,6 +77,13 @@ export class SiteHeader extends UvalibElement {
         position: relative;
         background-color: #ffffff;
         padding: 0.5rem 16px; /* old: .w3-container 16px side padding */
+        /* An alerts row (slot="alerts") takes the full width above the logo row. */
+        flex-wrap: wrap;
+      }
+      ::slotted([slot='alerts']),
+      header > [slot='alerts'] {
+        flex: 0 0 100%;
+        min-inline-size: 0;
       }
       .logo {
         display: block;
@@ -181,7 +192,7 @@ export class SiteHeader extends UvalibElement {
   override connectedCallback(): void {
     super.connectedCallback();
     // Reconnect after a disconnect; the first connect reads the links in firstUpdated().
-    if (this.hasUpdated) this.syncSiteLinks();
+    if (this.hasUpdated) this.syncChildren();
   }
 
   override disconnectedCallback(): void {
@@ -190,7 +201,28 @@ export class SiteHeader extends UvalibElement {
   }
 
   protected override firstUpdated(): void {
+    this.syncChildren();
+  }
+
+  /** Light mode: place slotted alerts in `<header>`, then read the site links. */
+  private syncChildren(): void {
+    this.adoptAlerts();
     this.syncSiteLinks();
+  }
+
+  /**
+   * Light mode has no slots: move `slot="alerts"` children to the start of `<header>`, after
+   * any alerts already there. That is before every Lit part in the header, so re-renders
+   * never touch them.
+   */
+  private adoptAlerts(): void {
+    if (!this.lightDom) return;
+    const header = this.querySelector(':scope > header');
+    const incoming = [...this.children].filter(isAlertsChild);
+    if (!header || !incoming.length) return;
+    let ref = header.firstChild;
+    while (isAlertsChild(ref)) ref = ref.nextSibling;
+    for (const n of incoming) header.insertBefore(n, ref);
   }
 
   /** Shadow mode: the elements assigned to the site-links slot, through forwarded slots. */
@@ -252,7 +284,7 @@ export class SiteHeader extends UvalibElement {
    * for new children and the holder for removals.
    */
   private watch(sources: Element[]): void {
-    this.observer ??= new MutationObserver(() => this.syncSiteLinks());
+    this.observer ??= new MutationObserver(() => this.syncChildren());
     this.observer.disconnect();
     const content = {
       attributes: true,
@@ -305,7 +337,7 @@ export class SiteHeader extends UvalibElement {
     const anchor = `--${id}`;
     return html`
       <header part="header" class=${vendor ? 'vendor' : ''}>
-        ${this.lightDom ? nothing : html`<slot name="skip-link"></slot>`}
+        ${this.lightDom ? nothing : html`<slot name="skip-link"></slot><slot name="alerts"></slot>`}
         <a class="logo" href=${siteLink(root, '/')}
           ><img
             src=${siteLink(root, '/sites/default/files/2022-09/library_rgb.png')}
