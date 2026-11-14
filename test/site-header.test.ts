@@ -125,6 +125,15 @@ for (const mode of ['shadow', 'light'] as const) {
         expect(r.bottom).to.be.at.most(window.innerHeight);
         expect(r.top).to.be.at.least(toggle.getBoundingClientRect().bottom);
       });
+
+      it('has no axe violations with the Menu popover open', async () => {
+        const el = await make();
+        const toggle = root(el).querySelector('.menu-toggle') as HTMLButtonElement;
+        toggle.click();
+        await el.updateComplete;
+        expect(root(el).querySelector('[popover]')!.matches(':popover-open')).to.equal(true);
+        await expectNoAxeViolations(el);
+      });
     });
 
     describe('layout', () => {

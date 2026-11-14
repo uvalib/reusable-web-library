@@ -255,6 +255,21 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       await expectNoAxeViolations(el);
     });
 
+    it('has no axe violations after the sliders meet and dates are typed', async () => {
+      const el = await make();
+      const [a, b] = sliders(el);
+      type(a!, '1980', 'input');
+      type(b!, '1980', 'input');
+      await el.updateComplete;
+      expect(a!.classList.contains('on-top')).to.equal(true);
+      const [from, to] = dates(el);
+      type(from!, '1950-03-04', 'change');
+      type(to!, '1990-05-06', 'change');
+      await el.updateComplete;
+      to!.focus();
+      await expectNoAxeViolations(el);
+    });
+
     it('works as BOV search-main.js drives it', async () => {
       const host = await fixture<HTMLElement>('<div></div>');
       const dr = document.createElement('uvalib-date-range') as UvalibDateRange;

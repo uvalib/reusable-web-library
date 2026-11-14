@@ -276,6 +276,21 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       await expectNoAxeViolations(el);
     });
 
+    it('has no axe violations expanded and interacted with', async () => {
+      const el = await make({ filter: filter(8), scopes }, 'limit="5"');
+      button(el, 'see-more')!.click();
+      await el.updateComplete;
+      expect(boxes(el).length).to.equal(8);
+      const scope = root(el).querySelector<HTMLButtonElement>('button.scope')!;
+      scope.click();
+      await el.updateComplete;
+      expect(scope.getAttribute('aria-pressed')).to.equal('true');
+      boxes(el)[6]!.click();
+      boxes(el)[6]!.focus();
+      await el.updateComplete;
+      await expectNoAxeViolations(el);
+    });
+
     it('works as BOV search-main.js drives it', async () => {
       const host = await fixture<HTMLElement>('<div></div>');
       const el = document.createElement('uvalib-filter') as UvalibFilter;
