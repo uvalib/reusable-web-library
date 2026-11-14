@@ -6,6 +6,7 @@ import { readFile, mkdir, writeFile, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { chromium } from 'playwright';
+import { interceptAlerts } from '../test/helpers/alerts-intercept.mjs';
 
 const require = createRequire(import.meta.url);
 const args = process.argv.slice(2);
@@ -90,6 +91,9 @@ try {
           ),
       );
     }
+    // Live alerts change from day to day: serve the alerts CDN from the inert test stub so
+    // baselines stay comparable (registered last, so it wins over the --node-fetch route).
+    await interceptAlerts(context);
     for (const p of pages) {
       const page = await context.newPage();
       const scripts = new Set();

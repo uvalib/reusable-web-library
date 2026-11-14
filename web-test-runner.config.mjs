@@ -15,7 +15,10 @@ export default {
   browsers: [
     playwrightLauncher({
       product: 'chromium',
-      createBrowserContext: ({ browser }) => interceptAlerts(browser.newContext()),
+      // Service workers are blocked so every request, including from the playground's
+      // preview frames, goes through the route (a worker's own fetches would not).
+      createBrowserContext: ({ browser }) =>
+        interceptAlerts(browser.newContext({ serviceWorkers: 'block' })),
     }),
   ],
   groups: [
@@ -27,7 +30,9 @@ export default {
         playwrightLauncher({
           product: 'chromium',
           createBrowserContext: ({ browser }) =>
-            interceptAlerts(browser.newContext({ timezoneId: 'America/New_York' })),
+            interceptAlerts(
+              browser.newContext({ timezoneId: 'America/New_York', serviceWorkers: 'block' }),
+            ),
         }),
       ],
     },
