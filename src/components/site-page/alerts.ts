@@ -20,42 +20,75 @@ const BASES: Record<AlertsEnv, string> = {
 export const isAlertsEnv = (v: unknown): v is AlertsEnv =>
   typeof v === 'string' && Object.hasOwn(BASES, v);
 
-/** The alerts base URL: `src` when given (with a trailing slash), else the env's CDN. */
-export function alertsBase(env: string | undefined, src?: string | null): string {
+/**
+ * The alerts base URL, absolute: `src` when given, resolved against `baseURI` with a trailing
+ * slash on the path and no query or hash; else the env's CDN. Throws for an unparseable `src`.
+ */
+export function alertsBase(
+  env: string | undefined,
+  src: string | null | undefined,
+  baseURI: string,
+): string {
   const custom = src?.trim();
-  if (custom) return custom.endsWith('/') ? custom : `${custom}/`;
-  return BASES[isAlertsEnv(env) ? env : 'production'];
+  if (!custom) return BASES[isAlertsEnv(env) ? env : 'production'];
+  const url = new URL(custom, baseURI);
+  url.search = '';
+  url.hash = '';
+  if (!url.pathname.endsWith('/')) url.pathname += '/';
+  return url.href;
 }
 
-/** The latest-1.x ES module build under a base URL. */
-export const alertsScriptUrl = (base: string): string => `${base}v1/uvalib-alerts.js`;
+/** The latest-1.x ES module build under an (absolute) base URL. */
+export const alertsScriptUrl = (base: string): string => new URL('v1/uvalib-alerts.js', base).href;
 
-/** Documents that already have (or had) an alerts script from this library. */
+/** Any build of the component: ES module or classic IIFE, latest or pinned. */
+const ALERTS_BUILD = /uvalib-alerts(\.iife)?\.js$/;
+
+/** Documents with an alerts script from this library still loading or loaded. */
 const loading = new WeakSet<Document>();
+/** Script URLs that already failed to load in a document (each warns once). */
+const failed = new WeakMap<Document, Set<string>>();
+
+const hasAlertsScript = (doc: Document): boolean =>
+  [...doc.querySelectorAll<HTMLScriptElement>('script[src]')].some((s) => {
+    try {
+      return ALERTS_BUILD.test(new URL(s.src).pathname);
+    } catch {
+      return false;
+    }
+  });
 
 /**
- * Load `<uvalib-alerts>` into `doc` from `base`, at most once per document: nothing happens
- * when the element is already defined, when a script with that src is already present, or
- * after an earlier call. A failed load warns once; the undefined elements render nothing.
+ * Load `<uvalib-alerts>` into `doc` from `base`, at most one script at a time per document.
+ * Nothing happens when the element is already defined or a script for any build of it is
+ * already in the page (the page's own pinned or classic copy, or ours). A failed load warns
+ * once per URL and removes its script, so a later call (a corrected `alerts-src` or env,
+ * another page) can try again; until then the undefined elements render nothing.
  * Script injection (not `import()`) keeps the URL out of every bundler's module graph.
  */
 export function loadAlerts(doc: Document, base: string): void {
   const win = doc.defaultView;
-  if (!win || loading.has(doc) || win.customElements.get(ALERTS_TAG)) return;
-  loading.add(doc);
-  const src = new URL(alertsScriptUrl(base), doc.baseURI).href;
-  if ([...doc.querySelectorAll<HTMLScriptElement>('script[src]')].some((s) => s.src === src)) {
+  if (!win || loading.has(doc) || win.customElements.get(ALERTS_TAG) || hasAlertsScript(doc)) {
     return;
   }
+  loading.add(doc);
+  const src = alertsScriptUrl(base);
   const script = doc.createElement('script');
   script.type = 'module';
   script.src = src;
   script.addEventListener(
     'error',
-    () =>
+    () => {
+      script.remove();
+      loading.delete(doc);
+      let urls = failed.get(doc);
+      if (!urls) failed.set(doc, (urls = new Set()));
+      if (urls.has(src)) return;
+      urls.add(src);
       console.warn(
         `site-page: could not load the alerts component from ${src}; no alerts are shown.`,
-      ),
+      );
+    },
     { once: true },
   );
   doc.head.append(script);

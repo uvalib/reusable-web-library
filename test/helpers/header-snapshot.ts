@@ -16,16 +16,14 @@ export const HEADER_SNAPSHOT = {
 
 // <site-page>'s header alert is page content handed to the header's `alerts` slot: in shadow
 // mode it is slotted and so absent from the header's own markup; in light mode it is moved
-// into <header>. It is dropped here so both modes compare the header's own markup.
+// into <header>. Exactly one empty one, directly after the opening <header> tag, is dropped so
+// both modes compare the header's own markup; a duplicated or misplaced one still fails.
 export function normalizeMarkup(html: string): string {
   return html
-    .replace(
-      /<uvalib-alerts\b[^>]*\bslot="alerts"[^>]*>(?:(?!<\/uvalib-alerts>)[\s\S])*<\/uvalib-alerts>/g,
-      '',
-    )
     .replace(/<!--[^>]*-->/g, '')
     .replace(/utility-menu-\d+/g, 'utility-menu-N')
     .replace(/\s+/g, ' ')
     .replace(/>\s+/g, '>')
-    .replace(/\s+</g, '<');
+    .replace(/\s+</g, '<')
+    .replace(/^(<header\b[^>]*>)<uvalib-alerts\b[^>]*\bslot="alerts"[^>]*><\/uvalib-alerts>/, '$1');
 }

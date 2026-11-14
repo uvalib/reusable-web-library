@@ -4,9 +4,12 @@ import { ALERTS_PRODUCTION_SRC, ALERTS_STAGING_SRC } from '../src/components/sit
 import type { SitePage } from '../src/components/site-page/SitePage.js';
 import type { SiteHeader } from '../src/components/site-header/SiteHeader.js';
 import { expectNoAxeViolations } from './helpers/axe.js';
+import { ALERTS_HOSTS } from './helpers/alerts-intercept.mjs';
+import { normalizeMarkup } from './helpers/header-snapshot.js';
 
 // The alerts hosts are routed to a stub by the test runner (test/helpers/alerts-intercept.mjs):
 // https://alerts.test/ serves the same stub, https://alerts-fail.test/ fails every request.
+// The stub renders nothing (or a test marker): it does not reproduce the real component's markup.
 const CUSTOM = 'https://alerts.test/custom/';
 const FAIL = 'https://alerts-fail.test/';
 const SCRIPT = (base: string) => `${base}v1/uvalib-alerts.js`;
@@ -274,6 +277,29 @@ for (const mode of ['shadow', 'light'] as const) {
 
 // Script loading runs in fresh documents (same-origin iframes), one per test, so each test
 // starts with <uvalib-alerts> undefined and no alerts script in the page.
+describe('header snapshot normalizer', () => {
+  const A = '<uvalib-alerts slot="alerts" show="header" src="x"></uvalib-alerts>';
+  it('drops only one empty header alert right after <header>', () => {
+    expect(normalizeMarkup(`<header class="">${A}<a class="logo"></a></header>`)).to.equal(
+      '<header class=""><a class="logo"></a></header>',
+    );
+    expect(normalizeMarkup(`<header>${A}${A}<a></a></header>`)).to.equal(
+      `<header>${A}<a></a></header>`,
+    );
+    expect(normalizeMarkup(`<header><a></a>${A}</header>`)).to.equal(
+      `<header><a></a>${A}</header>`,
+    );
+  });
+});
+
+describe('alerts test interception', () => {
+  it('routes the hosts of both alerts CDNs', () => {
+    for (const base of [ALERTS_PRODUCTION_SRC, ALERTS_STAGING_SRC]) {
+      expect(ALERTS_HOSTS).to.include(new URL(base).host);
+    }
+  });
+});
+
 describe('site-page alerts script loading', function () {
   this.timeout(8000);
   let iframe: HTMLIFrameElement | undefined;
@@ -296,6 +322,7 @@ describe('site-page alerts script loading', function () {
     head = '',
     module = '/src/components/site-page/site-page.ts',
   ): Promise<{ win: StubWindow; doc: Document }> {
+    const moduleUrl = new URL(module, location.href).href; // absolute, so <base href> is safe
     iframe = document.createElement('iframe');
     document.body.append(iframe);
     iframe.srcdoc = `<!doctype html><html><head>
@@ -307,7 +334,7 @@ describe('site-page alerts script loading', function () {
           if (!text.includes('Lit is in dev mode')) window.__warnings.push(text);
           warn(...a);
         };
-      </script>${head}<script type="module" src="${module}"></script></head><body>${body}</body></html>`;
+      </script>${head}<script type="module" src="${moduleUrl}"></script></head><body>${body}</body></html>`;
     await until(
       () =>
         (iframe!.contentWindow as Window & typeof globalThis)?.customElements?.get(
@@ -421,11 +448,12 @@ describe('site-page alerts script loading', function () {
       `<site-page alerts-src="${FAIL}"><p id="c">content</p></site-page>
        <site-page no-shadow-dom alerts-src="${FAIL}"><p id="d">more</p></site-page>`,
     );
-    expect(alertScripts(doc).map((s) => s.src)).to.deep.equal([SCRIPT(FAIL)]);
     await until(() => win.__warnings.length > 0, 'load-failure warning');
     await new Promise((r) => setTimeout(r, 100));
     expect(win.__warnings.length).to.equal(1);
     expect(win.__warnings[0]).to.contain(SCRIPT(FAIL));
+    // The failed script is removed, so a later load can try again.
+    expect(alertScripts(doc)).to.deep.equal([]);
     expect(defined(win)).to.equal(false);
     // Undefined alert elements render nothing; header, main and content are intact.
     const alerts = deepAll(doc, 'uvalib-alerts');
@@ -438,6 +466,70 @@ describe('site-page alerts script loading', function () {
     expect(deepAll(doc, 'site-header').length).to.equal(2);
     expect(doc.getElementById('c')!.checkVisibility()).to.equal(true);
     expect(doc.getElementById('d')!.closest('main')).to.not.equal(null);
+  });
+
+  it('retries after a failed load, warning once per URL', async () => {
+    const { win, doc } = await page(`<site-page alerts-src="${FAIL}"></site-page>`);
+    await until(() => win.__warnings.length > 0, 'load-failure warning');
+    const el = doc.querySelector('site-page') as unknown as SitePage;
+    // An unrelated re-render retries the same URL quietly.
+    el.rootLinkDomain = 'https://x.edu';
+    await el.updateComplete;
+    await new Promise((r) => setTimeout(r, 150));
+    expect(win.__warnings.length).to.equal(1);
+    expect(defined(win)).to.equal(false);
+    // A corrected alerts-src loads the component.
+    el.setAttribute('alerts-src', CUSTOM);
+    await el.updateComplete;
+    await until(() => defined(win), 'uvalib-alerts defined after the retry');
+    expect(alertScripts(doc).map((s) => s.src)).to.deep.equal([SCRIPT(CUSTOM)]);
+    expect(win.__warnings.length).to.equal(1);
+    for (const a of deepAll(doc, 'uvalib-alerts')) expect(a.getAttribute('src')).to.equal(CUSTOM);
+  });
+
+  it('a page added after a failed load can load the component', async () => {
+    const { win, doc } = await page(`<site-page alerts-src="${FAIL}"></site-page>`);
+    await until(() => win.__warnings.length > 0, 'load-failure warning');
+    const next = doc.createElement('site-page');
+    next.setAttribute('alerts-src', CUSTOM);
+    doc.body.append(next);
+    await until(() => defined(win), 'uvalib-alerts defined');
+    expect(win.__uvalibAlertsStub).to.equal(1);
+  });
+
+  it('normalises alerts-src: absolute, trailing slash, no query or hash', async () => {
+    const { win, doc } = await page(
+      '<site-page alerts-src="https://alerts.test/custom?v=1#top"></site-page>',
+    );
+    expect(alertScripts(doc).map((s) => s.src)).to.deep.equal([SCRIPT(CUSTOM)]);
+    for (const a of deepAll(doc, 'uvalib-alerts')) expect(a.getAttribute('src')).to.equal(CUSTOM);
+    await until(() => defined(win), 'uvalib-alerts defined');
+  });
+
+  it('resolves a relative alerts-src against the document base URL', async () => {
+    const { doc } = await page(
+      '<site-page alerts-src="rel"></site-page><site-page no-shadow-dom alerts-src="./rel/"></site-page>',
+      '<base href="https://alerts.test/base/">',
+    );
+    const expected = 'https://alerts.test/base/rel/';
+    expect(alertScripts(doc).map((s) => s.src)).to.deep.equal([SCRIPT(expected)]);
+    const alerts = deepAll(doc, 'uvalib-alerts');
+    expect(alerts.length).to.equal(6);
+    for (const a of alerts) expect(a.getAttribute('src')).to.equal(expected);
+  });
+
+  it("skips injection when the page has its own build of the component that hasn't run yet", async () => {
+    const pinned = 'https://alerts.test/v1.0.0/uvalib-alerts.iife.js';
+    const { win, doc } = await page(
+      '<site-page></site-page><site-page no-shadow-dom></site-page>',
+      `<script src="${pinned}" defer></script>`,
+    );
+    expect(alertScripts(doc)).to.deep.equal([]);
+    expect(
+      [...doc.scripts].filter((s) => s.src.includes('uvalib-alerts')).map((s) => s.src),
+    ).to.deep.equal([pinned]);
+    await until(() => defined(win), "the page's own build defined the element");
+    expect(win.__uvalibAlertsStub).to.equal(1);
   });
 
   it('warns once for an invalid alerts-env, then loads production', async () => {

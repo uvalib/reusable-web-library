@@ -6,7 +6,13 @@ import { installLightDomStyles } from '../../base/light-dom-styles.js';
 import { tokens } from '../../styles/tokens.js';
 import { base, TYPEKIT_URL } from '../../styles/base.js';
 import { accessible } from '../../styles/accessible.js';
-import { ALERTS_TAG, alertsBase, isAlertsEnv, loadAlerts } from './alerts.js';
+import {
+  ALERTS_PRODUCTION_SRC,
+  ALERTS_TAG,
+  alertsBase,
+  isAlertsEnv,
+  loadAlerts,
+} from './alerts.js';
 
 export { ALERTS_PRODUCTION_SRC, ALERTS_STAGING_SRC } from './alerts.js';
 export type { AlertsEnv } from './alerts.js';
@@ -103,7 +109,7 @@ export class SitePage extends UvalibElement {
   private observer?: MutationObserver;
   private globalsInstalled = false;
   /** The alerts base URL in use, from `alerts-src` or `alerts-env`. */
-  private alertsUrl = alertsBase('production');
+  private alertsUrl = ALERTS_PRODUCTION_SRC;
   /** Light mode: the alert elements this element created (header, list, regional). */
   private lightAlerts?: HTMLElement[];
 
@@ -148,7 +154,16 @@ export class SitePage extends UvalibElement {
         `${this.localName}: unknown alerts-env "${this.alertsEnv}"; using production. Valid values: production, staging.`,
       );
     }
-    this.alertsUrl = alertsBase(this.alertsEnv, this.alertsSrc);
+    try {
+      this.alertsUrl = alertsBase(this.alertsEnv, this.alertsSrc, this.ownerDocument.baseURI);
+    } catch {
+      if (changed.has('alertsSrc')) {
+        console.warn(
+          `${this.localName}: alerts-src "${this.alertsSrc}" is not a URL; ignoring it.`,
+        );
+      }
+      this.alertsUrl = alertsBase(this.alertsEnv, null, this.ownerDocument.baseURI);
+    }
   }
 
   protected override updated(): void {

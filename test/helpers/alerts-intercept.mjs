@@ -1,8 +1,8 @@
 // Keeps browser tests off the alerts CDN. Every browser context the test runner opens
 // routes the alerts hosts to a local stub: `v1/uvalib-alerts.js` is a tiny module that
 // defines an inert <uvalib-alerts>, and config.json / alerts.json are empty documents.
-// Any other request to those hosts fails the request and is reported loudly, so a new,
-// unexpected network dependency shows up in the test output instead of hitting the CDN.
+// Any other request to those hosts is aborted, logged and fails the test file, so a new,
+// unexpected network dependency shows up as a failure instead of hitting the CDN.
 
 /** The real alerts hosts: production and staging CloudFront, and their planned names. */
 export const ALERTS_HOSTS = [
@@ -16,7 +16,8 @@ export const ALERTS_TEST_HOST = 'alerts.test';
 /** Test-only host whose every request fails, to exercise the load-failure path. */
 export const ALERTS_FAIL_HOST = 'alerts-fail.test';
 
-// Counts its own evaluations in `__uvalibAlertsStub`. Renders nothing unless a test sets
+// The stub does not reproduce the real component's markup or behaviour: it only proves
+// loading and placement. Counts its own evaluations in `__uvalibAlertsStub`. Renders nothing unless a test sets
 // `__uvalibAlertsStubText`, in which case each element shows a short status marker.
 const STUB = `
 const w = globalThis;
@@ -42,7 +43,7 @@ if (!customElements.get('uvalib-alerts')) {
 const CORS = { 'access-control-allow-origin': '*' };
 
 function fulfil(route, url) {
-  if (url.pathname.endsWith('/v1/uvalib-alerts.js')) {
+  if (/\/uvalib-alerts(\.iife)?\.js$/.test(url.pathname)) {
     return route.fulfill({
       status: 200,
       contentType: 'text/javascript',
@@ -66,8 +67,29 @@ function fulfil(route, url) {
       body: '{}',
     });
   }
-  console.error(`\n[alerts-intercept] BLOCKED unexpected request to an alerts host: ${url.href}\n`);
-  return route.abort('blockedbyclient');
+  return block(route, url);
+}
+
+/**
+ * Abort an unexpected request and fail the test file: the error is thrown, uncaught, in the
+ * test runner's own page (the top frame), which the runner reports as a failed session.
+ */
+async function block(route, url) {
+  const message = `[alerts-intercept] BLOCKED unexpected request to an alerts host: ${url.href}`;
+  console.error(`\n${message}\n`);
+  await route.abort('blockedbyclient');
+  try {
+    const page = route.request().frame().page();
+    await page.evaluate(
+      (m) =>
+        setTimeout(() => {
+          throw new Error(m);
+        }),
+      message,
+    );
+  } catch {
+    // The request came from a worker or a closed page; the log line above still reports it.
+  }
 }
 
 /** Route the alerts hosts in `context` (a Playwright BrowserContext, or a promise of one). */
