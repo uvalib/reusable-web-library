@@ -4,6 +4,11 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { siteLink } from '../link.js';
 import { accessible } from '../../styles/accessible.js';
+import {
+  normalizeItems,
+  readItemsMarkup,
+  type MainNavItem,
+} from '../site-main-nav/main-nav-items.js';
 
 const ACCOUNT_URL = 'https://search.lib.virginia.edu/account';
 
@@ -34,11 +39,16 @@ interface SiteLinkItem {
 const SITE_LINKS = 'site-links';
 const isSiteLinksChild = (n: Node): n is Element =>
   n instanceof Element && n.getAttribute('slot') === SITE_LINKS;
+const MAIN_NAV = 'main-nav';
+const isMainNavChild = (n: Node): n is Element =>
+  n instanceof Element && n.getAttribute('slot') === MAIN_NAV;
 const ALERTS = 'alerts';
 const isAlertsChild = (n: Node | null): n is Element =>
   n instanceof Element && n.getAttribute('slot') === ALERTS;
 /** Attributes of a source anchor that change what the header renders. */
 const LINK_ATTRS = ['href', 'aria-current', 'target', 'rel', 'hreflang'];
+/** Swallows the popover accordion's copy of an `items-src` error the bar also reports. */
+const stopEvent = (e: Event) => e.stopPropagation();
 
 /**
  * UVA Library site header: logo, utility navigation, and a popover menu on narrow screens.
@@ -52,11 +62,20 @@ const LINK_ATTRS = ['href', 'aria-current', 'target', 'rel', 'hreflang'];
  * warning. The `vendor` variant ignores site links and keeps
  * its own reduced link set.
  *
+ * The full header also shows the UVA Library main navigation (`<site-main-nav>`): a row
+ * under the logo row on wide screens, and an accordion at the top of the Menu popover on
+ * narrow ones (992px and below), above the utility or site links. `no-main-nav` turns it
+ * off, leaving the header exactly as it was without it; the `vendor` variant never shows it.
+ * A `<nav slot="main-nav">` child replaces its links (see `<site-main-nav>`), and
+ * `main-nav-src` loads them from JSON.
+ *
  * @tagname site-header
  * @slot skip-link - Shadow mode only: optional skip link, rendered first inside `<header>` (`<site-page>` uses it).
  * @slot alerts - Optional alert banner (`<site-page>` passes its `<uvalib-alerts show="header">`), shown as a full-bleed row at the very top of `<header>` (flush with its top and both edges, outside its padding), after the skip link and before the logo row. In light mode the children are moved to the start of `<header>`. The header never loads alerts itself.
+ * @slot main-nav - Optional `<nav>` whose `<ul>` replaces the main navigation's links in both layouts: `<li><a href>` for a direct link, `<li><span>Group</span><ul><li><a href>…</a></li></ul></li>` for a group. Invalid entries are skipped with one console warning. Never shown itself; in light mode it is moved into a hidden holder. Ignored with `no-main-nav` and by the `vendor` variant.
  * @slot site-links - Optional `<a href>` elements with text that replace the library utility links in the inline nav and the Menu popover (ignored by the `vendor` variant). In light mode they are moved into a hidden holder.
  * @csspart header - The `<header>` element.
+ * @fires site-main-nav-error - `main-nav-src` could not be loaded; the bundled main navigation is shown. `detail` is `{ src, message }`. Fired once, from the bar's `<site-main-nav>`; bubbles and is composed.
  * @cssprop [--uva-blue-alt-dark=#005679] - Utility link colour.
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Menu button colour.
  * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour (focus-visible outline), and the underline colour of an `aria-current` link (also bold, with a 3px underline).
@@ -161,8 +180,23 @@ export class SiteHeader extends UvalibElement {
         border: 1px solid #ccc;
         background: #ffffff;
       }
-      [popover] li {
+      nav.menu li {
         padding: 0.375rem 0;
+      }
+      /* The main navigation: a full-bleed row under the logo row, flush with the header's
+         bottom (its 5px rule is the header's bottom edge), 0.5rem below the logo row. */
+      header > site-main-nav.bar {
+        grid-column: 1 / -1;
+        justify-self: stretch;
+        min-inline-size: 0;
+        margin: var(--_pad-block) calc(-1 * var(--_pad-inline)) calc(-1 * var(--_pad-block));
+      }
+      /* Narrow screens: the main navigation leads the Menu popover, then a rule, then the
+         utility or site links. */
+      .menu-popover > nav.menu > ul {
+        margin-block-start: 0.5rem;
+        padding-block-start: 0.5rem;
+        border-block-start: 1px solid #ccc;
       }
       nav.menu {
         display: contents;
@@ -173,7 +207,8 @@ export class SiteHeader extends UvalibElement {
         }
       }
       @media screen and (max-width: 992px) {
-        header:not(.vendor) nav.inline {
+        header:not(.vendor) nav.inline,
+        header > site-main-nav.bar {
           display: none;
         }
         .menu-toggle {
@@ -194,6 +229,19 @@ export class SiteHeader extends UvalibElement {
   @property({ type: String, reflect: true }) variant: 'full' | 'vendor' = 'full';
   /** Accessible name of the nav when site links replace the utility links (default "Site"; the popover nav's name adds " menu"). */
   @property({ type: String, attribute: 'site-links-label' }) siteLinksLabel?: string;
+
+  /** Hide the UVA Library main navigation (the row under the logo and the popover accordion). */
+  @property({ type: Boolean, attribute: 'no-main-nav' }) noMainNav = false;
+  /** Accessible name of the main navigation (default "Main"). */
+  @property({ type: String, attribute: 'main-nav-label' }) mainNavLabel?: string;
+  /** URL of JSON main navigation items (`MainNavItem[]`, needs CORS), passed to `<site-main-nav items-src>`. */
+  @property({ type: String, attribute: 'main-nav-src' }) mainNavSrc?: string;
+
+  /** Main navigation items from `slot="main-nav"` markup, or null for the default. */
+  @state() private mainNavItems: MainNavItem[] | null = null;
+  private warnedMainNav = false;
+  /** Light mode: hidden container this element owns for the `slot="main-nav"` children. */
+  private mainNavHolder?: HTMLDivElement;
 
   /** The site's own links, or null to show the library utility links. */
   @state() private siteLinks: SiteLinkItem[] | null = null;
@@ -217,10 +265,56 @@ export class SiteHeader extends UvalibElement {
     this.syncChildren();
   }
 
-  /** Light mode: place slotted alerts in `<header>`, then read the site links. */
+  /** Light mode: place slotted alerts in `<header>`, then read the site links and main nav. */
   private syncChildren(): void {
     this.adoptAlerts();
-    this.syncSiteLinks();
+    this.syncSources();
+  }
+
+  /** Read the site links and the main-nav markup, and watch both. */
+  private syncSources(): void {
+    const sources = [...this.syncSiteLinks(), ...this.syncMainNav()];
+    this.watch(sources);
+  }
+
+  /** Shadow mode: the elements assigned to the main-nav slot, through forwarded slots. */
+  private get slottedMainNav(): Element[] {
+    const slot = this.renderRoot.querySelector<HTMLSlotElement>(`slot[name="${MAIN_NAV}"]`);
+    return slot?.assignedElements({ flatten: true }) ?? [];
+  }
+
+  /** Light mode: move `slot="main-nav"` children into their own hidden holder. */
+  private adoptMainNav(): Element[] {
+    const moved = [...this.children].filter(isMainNavChild);
+    if (moved.length && !this.mainNavHolder) {
+      this.mainNavHolder = document.createElement('div');
+      this.mainNavHolder.hidden = true;
+      this.mainNavHolder.className = 'main-nav-source';
+    }
+    if (this.mainNavHolder) {
+      this.mainNavHolder.append(...moved);
+      if (this.mainNavHolder.parentNode !== this) this.append(this.mainNavHolder);
+    }
+    return this.mainNavHolder ? [...this.mainNavHolder.children] : [];
+  }
+
+  /** Read the `slot="main-nav"` markup once, for both main-nav instances. */
+  private syncMainNav(): Element[] {
+    const sources = this.lightDom ? this.adoptMainNav() : this.slottedMainNav;
+    if (!sources.length) {
+      this.mainNavItems = null;
+      return sources;
+    }
+    const raw = sources.flatMap((s, i) => (i === 0 ? readItemsMarkup(s) : [{}]));
+    const result = normalizeItems(raw);
+    if ((result.invalid || result.flattened) && !this.warnedMainNav) {
+      this.warnedMainNav = true;
+      console.warn(
+        `${this.localName}: ignoring invalid slot="${MAIN_NAV}" entries (each needs a label, and an href or links; deeper levels are shown in their group).`,
+      );
+    }
+    this.mainNavItems = result.items.length ? result.items : null;
+    return sources;
   }
 
   /**
@@ -259,8 +353,8 @@ export class SiteHeader extends UvalibElement {
     return this.holder ? [...this.holder.children] : [];
   }
 
-  /** Read the source links, render them, and watch them for changes. */
-  private syncSiteLinks(): void {
+  /** Read the source links and render them; returns the sources to watch. */
+  private syncSiteLinks(): Element[] {
     const sources = this.lightDom ? this.adoptSiteLinks() : this.slotted;
     const items: SiteLinkItem[] = [];
     let invalid = false;
@@ -288,7 +382,7 @@ export class SiteHeader extends UvalibElement {
       );
     }
     this.siteLinks = items.length ? items : null;
-    this.watch(sources);
+    return sources;
   }
 
   /**
@@ -309,13 +403,15 @@ export class SiteHeader extends UvalibElement {
     if (this.lightDom) {
       this.observer.observe(this, { childList: true });
       if (this.holder) this.observer.observe(this.holder, content);
+      if (this.mainNavHolder)
+        this.observer.observe(this.mainNavHolder, { ...content, attributeFilter: ['href'] });
     } else {
       for (const el of sources) this.observer.observe(el, content);
     }
   }
 
-  private onSiteLinksChange(): void {
-    this.syncSiteLinks();
+  private onSourcesChange(): void {
+    this.syncSources();
   }
 
   private _menuId?: string;
@@ -348,6 +444,31 @@ export class SiteHeader extends UvalibElement {
     const label = own ? this.siteLinksLabel || 'Site' : 'Utility';
     const id = this.menuId;
     const anchor = `--${id}`;
+    const mainNav = !vendor && !this.noMainNav;
+    const mainNavEl = (accordion: boolean) =>
+      html`<site-main-nav
+        class=${accordion ? 'accordion' : 'bar'}
+        layout=${ifDefined(accordion ? 'accordion' : undefined)}
+        ?no-shadow-dom=${this.lightDom}
+        ?no-style=${this.noStyle}
+        label=${this.mainNavLabel || 'Main'}
+        root-link-domain=${root}
+        items-src=${ifDefined(this.mainNavSrc || undefined)}
+        .items=${this.mainNavItems ?? undefined}
+        @site-main-nav-error=${accordion ? stopEvent : nothing}
+      ></site-main-nav>`;
+    const utilityMenu = (popover: boolean) =>
+      popover
+        ? html`<nav class="menu" aria-label=${`${label} menu`}>
+            <ul id=${id} popover style="--menu-anchor: ${anchor}">
+              ${items}
+            </ul>
+          </nav>`
+        : html`<nav class="menu" aria-label=${`${label} menu`}>
+            <ul>
+              ${items}
+            </ul>
+          </nav>`;
     return html`
       <header part="header" class=${vendor ? 'vendor' : ''}>
         ${this.lightDom ? nothing : html`<slot name="skip-link"></slot><slot name="alerts"></slot>`}
@@ -390,19 +511,34 @@ export class SiteHeader extends UvalibElement {
                   </svg>
                   Menu
                 </button>
-                <nav class="menu" aria-label=${`${label} menu`}>
-                  <ul id=${id} popover style="--menu-anchor: ${anchor}">
-                    ${items}
-                  </ul>
-                </nav>`
+                ${
+                  mainNav
+                    ? html`<div
+                        id=${id}
+                        popover
+                        class="menu-popover"
+                        style="--menu-anchor: ${anchor}"
+                      >
+                        ${mainNavEl(true)}${utilityMenu(false)}
+                      </div>`
+                    : utilityMenu(true)
+                }`
         }
+        ${mainNav ? mainNavEl(false) : nothing}
       </header>
       ${
         this.lightDom
           ? nothing
           : html`<div hidden>
-              <slot name="site-links" @slotchange=${this.onSiteLinksChange}></slot>
-            </div>`
+                <slot name="site-links" @slotchange=${this.onSourcesChange}></slot>
+              </div>
+              ${
+                mainNav
+                  ? html`<div hidden>
+                      <slot name="main-nav" @slotchange=${this.onSourcesChange}></slot>
+                    </div>`
+                  : nothing
+              }`
       }
     `;
   }

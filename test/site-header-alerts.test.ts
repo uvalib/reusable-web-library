@@ -29,12 +29,14 @@ const SIX_LINKS = [1, 2, 3, 4, 5, 6]
 
 // Header heights main (7d9cfa9) renders with no alert content, measured in a worktree of main
 // with this exact markup. The alerts row must not change them: a wrapping flex row did, by
-// breaking the logo row on max-content sizes before anything could shrink.
+// breaking the logo row on max-content sizes before anything could shrink. They are pinned
+// with no-main-nav, which renders main's header exactly; the main navigation row (on by
+// default above 992px) has its own geometry tests in site-header-main-nav.test.ts.
 const MAIN_GEOMETRY = [
   {
     name: 'full header at 320px',
     width: 320,
-    attrs: '',
+    attrs: 'no-main-nav',
     kids: '',
     other: '.menu-toggle',
     height: 67.0625,
@@ -42,7 +44,7 @@ const MAIN_GEOMETRY = [
   {
     name: 'vendor header at 360px',
     width: 360,
-    attrs: 'variant="vendor"',
+    attrs: 'no-main-nav variant="vendor"',
     kids: '',
     other: 'nav.inline',
     height: 84,
@@ -50,7 +52,7 @@ const MAIN_GEOMETRY = [
   {
     name: 'six site links at 1000px',
     width: 1000,
-    attrs: '',
+    attrs: 'no-main-nav',
     kids: SIX_LINKS,
     other: 'nav.inline',
     height: 84,
@@ -154,6 +156,7 @@ for (const mode of ['shadow', 'light'] as const) {
       const el = await fixture<SiteHeader>(`<site-header ${light}></site-header>`);
       await settle(el);
       const header = root(el).querySelector('header')!;
+      // The main nav row is hidden at this width, so the height is main's.
       (header.querySelector('.menu-toggle') as HTMLButtonElement).click();
       await nextFrame();
       expect(header.querySelector('[popover]')!.matches(':popover-open')).to.equal(true);

@@ -22,7 +22,8 @@ type Row = [text: string, href: string | null, current: string | null];
 const rows = (links: Element[]): Row[] =>
   links.map((a) => [a.textContent!.trim(), a.getAttribute('href'), a.getAttribute('aria-current')]);
 const inline = (h: Element) => [...root(h).querySelectorAll('header nav.inline a')];
-const popover = (h: Element) => [...root(h).querySelectorAll('header [popover] a')];
+// The utility (or site) links in the Menu popover; the main nav accordion leads the popover.
+const popover = (h: Element) => [...root(h).querySelectorAll('header nav.menu a')];
 const inlineLabel = (h: Element) =>
   root(h).querySelector('header nav.inline')!.getAttribute('aria-label');
 const menuLabel = (h: Element) =>
