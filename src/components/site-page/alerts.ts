@@ -46,7 +46,7 @@ const ALERTS_BUILD = /uvalib-alerts(\.iife)?\.js$/;
 
 /** Documents with an alerts script from this library still loading or loaded. */
 const loading = new WeakSet<Document>();
-/** Script URLs that already failed to load in a document (each warns once). */
+/** Script URLs that already failed to load in a document: warned once, never retried there. */
 const failed = new WeakMap<Document, Set<string>>();
 
 const hasAlertsScript = (doc: Document): boolean =>
@@ -62,8 +62,9 @@ const hasAlertsScript = (doc: Document): boolean =>
  * Load `<uvalib-alerts>` into `doc` from `base`, at most one script at a time per document.
  * Nothing happens when the element is already defined or a script for any build of it is
  * already in the page (the page's own pinned or classic copy, or ours). A failed load warns
- * once per URL and removes its script, so a later call (a corrected `alerts-src` or env,
- * another page) can try again; until then the undefined elements render nothing.
+ * once and removes its script. That URL is not requested again in the document (re-renders
+ * never retry it), but a different URL (a corrected `alerts-src` or env, or another page
+ * with one) can still load; until then the undefined elements render nothing.
  * Script injection (not `import()`) keeps the URL out of every bundler's module graph.
  */
 export function loadAlerts(doc: Document, base: string): void {
@@ -71,8 +72,9 @@ export function loadAlerts(doc: Document, base: string): void {
   if (!win || loading.has(doc) || win.customElements.get(ALERTS_TAG) || hasAlertsScript(doc)) {
     return;
   }
-  loading.add(doc);
   const src = alertsScriptUrl(base);
+  if (failed.get(doc)?.has(src)) return;
+  loading.add(doc);
   const script = doc.createElement('script');
   script.type = 'module';
   script.src = src;
@@ -83,7 +85,6 @@ export function loadAlerts(doc: Document, base: string): void {
       loading.delete(doc);
       let urls = failed.get(doc);
       if (!urls) failed.set(doc, (urls = new Set()));
-      if (urls.has(src)) return;
       urls.add(src);
       console.warn(
         `site-page: could not load the alerts component from ${src}; no alerts are shown.`,

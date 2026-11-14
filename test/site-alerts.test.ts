@@ -468,13 +468,14 @@ describe('site-page alerts script loading', function () {
     expect(doc.getElementById('d')!.closest('main')).to.not.equal(null);
   });
 
-  it('retries after a failed load, warning once per URL', async () => {
+  it('does not re-request a failed URL, but loads a corrected one', async () => {
     const { win, doc } = await page(`<site-page alerts-src="${FAIL}"></site-page>`);
     await until(() => win.__warnings.length > 0, 'load-failure warning');
     const el = doc.querySelector('site-page') as unknown as SitePage;
-    // An unrelated re-render retries the same URL quietly.
+    // An unrelated re-render does not request the failed URL again.
     el.rootLinkDomain = 'https://x.edu';
     await el.updateComplete;
+    expect(alertScripts(doc)).to.deep.equal([]);
     await new Promise((r) => setTimeout(r, 150));
     expect(win.__warnings.length).to.equal(1);
     expect(defined(win)).to.equal(false);
