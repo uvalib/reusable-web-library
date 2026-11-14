@@ -358,7 +358,7 @@ pre {
     group: 'Hours',
     title: "Today's hours",
     description:
-      "site-hours-section shows today's hours for each library, as on the library home page (limited keeps the libraries the home page lists; heading-level=2 because it sits right under the page's h1, and the wrapper reserves the list's height so the footer does not jump when the hours arrive). Hours come live from LibCal; outside library.virginia.edu the library list must be repointed, so this page sets window.uvalibHoursEndpoints to a snapshot published with this site.",
+      "site-hours-section shows today's hours for each library, as on the library home page (limited keeps the libraries the home page lists; heading-level=2 because it sits right under the page's h1, and --site-hours-list-min-height keeps the list's height while the hours load so nothing below jumps). Hours come live from LibCal; outside library.virginia.edu the library list must be repointed, so this page sets window.uvalibHoursEndpoints to a snapshot published with this site.",
     files: {
       'index.html': {
         content: page({
@@ -381,9 +381,9 @@ pre {
       'styles.css': {
         content: `.todays-hours {
   max-width: 20rem;
-  /* The hours arrive after the page renders: reserve the loaded list's height (seven
-     libraries) so the content below does not shift when they do. */
-  min-height: 19rem;
+  /* The hours arrive after the page renders: keep the loaded list's height (seven
+     libraries) while they load, so the link and footer below do not jump. */
+  --site-hours-list-min-height: 12.75rem;
 }
 `,
       },

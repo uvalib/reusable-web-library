@@ -167,6 +167,7 @@ Today's hours for the UVA libraries, as on the library.virginia.edu home page: t
 |---|---|---|
 | `--uva-brand-blue` | `#232d4b` | Heading and link colour. |
 | `--uva-brand-orange` | `#e57200` | Focus ring colour. |
+| `--site-hours-list-min-height` | `0` | Height the list keeps while the hours load, so the link and content below do not jump when they arrive (seven `limited` libraries take about 12.75rem). |
 
 ## `<site-main-nav>`
 

@@ -33,6 +33,7 @@ import type { HoursState } from '../library-weekly-hours/LibraryWeeklyHours.js';
  * @fires got-libraries - The libraries were loaded (fired after `got-library-hours`). `detail` is `{ message }`. Bubbles and is composed.
  * @cssprop [--uva-brand-blue=#232d4b] - Heading and link colour.
  * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour.
+ * @cssprop [--site-hours-list-min-height=0] - Height the list keeps while the hours load, so the link and content below do not jump when they arrive (seven `limited` libraries take about 12.75rem).
  */
 export class SiteHoursSection extends UvalibElement {
   static styles = [
@@ -53,6 +54,9 @@ export class SiteHoursSection extends UvalibElement {
         grid-template-columns: auto auto;
         gap: 0.25rem 1rem;
         margin: 0;
+      }
+      .is-loading .hours-locations {
+        min-height: var(--site-hours-list-min-height, 0);
       }
       .hours-locations dt {
         font-weight: bold;
@@ -216,7 +220,7 @@ export class SiteHoursSection extends UvalibElement {
     const level = Math.min(6, Math.max(2, Math.trunc(this.headingLevel) || 3));
     const h = unsafeStatic(`h${level}`);
     return html`
-      <div class="home-hours-block">
+      <div class="home-hours-block${this._state === 'loading' ? ' is-loading' : ''}">
         <div id="homehoursdate" class="home-hour-date">
           ${fullDate(this.hoursDate || this.today)}
         </div>

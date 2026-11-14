@@ -198,6 +198,28 @@ describe('site-hours-section', () => {
     }
   });
 
+  it('keeps --site-hours-list-min-height for the list only while loading', async () => {
+    const hold = holdFetches(() => true);
+    const el = await fixture<SiteHoursSection>(
+      '<site-hours-section limited style="--site-hours-list-min-height: 10rem"></site-hours-section>',
+    );
+    const dl = () => root(el).querySelector('dl')!;
+    expect(el.state).to.equal('loading');
+    expect(getComputedStyle(dl()).minHeight).to.equal('160px');
+    try {
+      // Release the library list, then the hours, as each request is held.
+      await waitUntil(() => {
+        hold.release();
+        return el.state === 'ready';
+      });
+    } finally {
+      hold.restore();
+    }
+    await settled(el);
+    expect(el.state).to.equal('ready');
+    expect(getComputedStyle(dl()).minHeight).to.equal('0px');
+  });
+
   it('shows a polite loading status', async () => {
     const original = window.fetch;
     window.fetch = () => new Promise<Response>(() => {});
