@@ -58,7 +58,7 @@ The define entries are `site-page.js`, `site-header.js`, `site-footer.js`, `site
 </html>
 ```
 
-Use one `<site-page>` per page. It renders the skip link, the header, a single `<main id="main-content">` and the footer around your content, so do not add your own `<main>`, skip link, header or footer. Put content for a band above the footer in an element with `slot="pre-footer"`. Tool and app-like pages where the site footer does not belong (such as this repo's playground) add `no-footer`, which hides the footer and any pre-footer band. Third-party sites use `<site-page header-variant="vendor">`. Links default to `root-link-domain="https://www.library.virginia.edu"`.
+Use one `<site-page>` per page. It renders the skip link, the header, a single `<main id="main-content">` and the footer around your content, so do not add your own `<main>`, skip link, header or footer. Put content for a band above the footer in an element with `slot="pre-footer"`. Tool and app-like pages where the site footer does not belong (such as this repo's playground) add `no-footer`, which hides the footer and any pre-footer band. Live library alerts are shown by default (see [Alerts](#alerts)). Third-party sites use `<site-page header-variant="vendor">`. Links default to `root-link-domain="https://www.library.virginia.edu"`.
 
 Caveat: replacing a light-mode `<site-page>`'s children wholesale (`innerHTML` or `textContent`) destroys the chrome. Append content, or update a container inside it.
 
@@ -76,6 +76,31 @@ A site with its own navigation puts it in the header instead of the library util
 ```
 
 The links replace the utility links in both the inline nav on wide screens and the Menu popover on narrow ones, in order. Their `href` is used as written (not joined to `root-link-domain`), and `aria-current`, `target`, `rel` and `hreflang` are kept; mark the current page with `aria-current="page"`, which is shown bold with a thick underline. `site-links-label` names the nav (default `Site`; the popover's nav is "… menu"). Adding, removing or editing the links later updates the header. Children that are not `<a href>` with text (a link with empty or whitespace-only text has no accessible name) are ignored with a console warning. Without site links the header is unchanged. The `vendor` header variant ignores site links and keeps its reduced link set.
+
+### Alerts
+
+`<site-page>` shows live UVA Library alerts by default. It renders the [`<uvalib-alerts>`](https://github.com/uvalib/uvalib-alerts) component, which is released separately and loaded at runtime from the alerts CDN: one `<script type="module" src="{base}v1/uvalib-alerts.js">` is added to `<head>`, once per document however many pages there are, and not at all if `<uvalib-alerts>` is already defined or a script with that `src` is already present.
+
+| Attribute    | Default      |                                                                                                                                                    |
+| ------------ | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `alerts-env` | `production` | `production` or `staging`. Any other value logs one console warning and uses production.                                                           |
+| `alerts-src` |              | Base URL holding `config.json`, `alerts.json` and `v1/uvalib-alerts.js`. Overrides `alerts-env`; for a custom domain, local development and tests. |
+| `no-alerts`  | off          | Render no alert elements and load no script.                                                                                                       |
+
+The bases are `https://d2q6t6fdv76k7r.cloudfront.net/` (production) and `https://dzfvxb8mejnv6.cloudfront.net/` (staging), exported as `ALERTS_PRODUCTION_SRC` and `ALERTS_STAGING_SRC`; they move to `alerts.lib.virginia.edu` and `alerts-staging.lib.virginia.edu` once those names exist. The vendor header variant gets the same default.
+
+Alerts render where Virgo shows them, inside the landmarks: the header banner (`show="header"`) in the header after the skip link and before the logo row, then the alert list (`show="list"`) and the page-targeted regional alerts (`show="regional"`) as the first things in `<main>`, before your content. `<site-header>` has an `alerts` slot for the banner, but a standalone header never loads anything. Changing `alerts-env`, `alerts-src` or `no-alerts` later updates the page. If the script fails to load, one console warning is logged and the page is otherwise unchanged.
+
+Do not add another `<uvalib-alerts>` inside a `<site-page>`. An app that renders alerts itself (Virgo uses the component headless) sets `no-alerts`.
+
+**Content Security Policy:** a site with a CSP must allow the alerts host in `script-src` and `connect-src`, plus the AppSync hosts the component connects to in `connect-src`:
+
+```text
+script-src  https://d2q6t6fdv76k7r.cloudfront.net;
+connect-src https://d2q6t6fdv76k7r.cloudfront.net https://*.appsync-api.us-east-1.amazonaws.com wss://*.appsync-realtime-api.us-east-1.amazonaws.com;
+```
+
+(Use the staging host, or your `alerts-src` host, instead where that applies.)
 
 ## Rendering modes
 
@@ -215,6 +240,7 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 | Slot | Description |
 |---|---|
 | `skip-link` | Shadow mode only: optional skip link, rendered first inside `<header>` (`<site-page>` uses it). |
+| `alerts` | Optional alert banner (`<site-page>` passes its `<uvalib-alerts show="header">`), shown as a full-width row inside `<header>`, after the skip link and before the logo row. In light mode the children are moved to the start of `<header>`. The header never loads alerts itself. |
 | `site-links` | Optional `<a href>` elements with text that replace the library utility links in the inline nav and the Menu popover (ignored by the `vendor` variant). In light mode they are moved into a hidden holder. |
 
 #### CSS parts
@@ -234,7 +260,7 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 
 ### `<site-page>`
 
-Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`.
+Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` and `<site-footer>`. Shows live UVA Library alerts by default: a `<uvalib-alerts show="header">` banner inside the header landmark, after the skip link, and `<uvalib-alerts show="list">` then `show="regional"` as the first children of `<main>`. The alerts component is loaded once per document, with a module script, from the alerts CDN (`alerts-env`, or `alerts-src`); if it fails to load, one console warning is logged and the page works as before. `no-alerts` renders no alert elements and loads nothing.
 
 #### Attributes
 
@@ -245,6 +271,9 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 | `no-global-styles` | `boolean` | `false` |  |
 | `no-footer` | `boolean` | `false` | Hide the footer (and any pre-footer band), for tools and app-like pages where the site footer does not belong. The footer is kept hidden rather than removed, so toggling the attribute keeps pre-footer content. |
 | `site-links-label` | `string \| undefined` |  | Accessible name of the header navigation when site links are given (default "Site"). |
+| `alerts-env` | `string` | `'production'` | Alerts environment: `production` (default) or `staging`. Any other value logs one console warning and uses production. Ignored when `alerts-src` is set. |
+| `alerts-src` | `string \| undefined` |  | Alerts base URL (holding `config.json`, `alerts.json` and `v1/uvalib-alerts.js`); overrides `alerts-env`. For a custom domain, local development and tests. |
+| `no-alerts` | `boolean` | `false` | Render no alert elements and load no alerts script. |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 

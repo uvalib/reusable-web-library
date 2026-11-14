@@ -39,6 +39,8 @@ Loading rules:
 - Content for a band above the footer: put an element with `slot="pre-footer"` inside `<site-page>`.
 - `no-footer` on `<site-page>` hides the footer (and any pre-footer band). Use it only for tool or app-like pages, such as a full-screen editor, where the site footer does not belong; normal content pages keep the footer.
 - A site's own navigation (its home, sections, docs) goes in the header: give `<site-page>` `<a slot="site-links" href="…">` children and a `site-links-label` (see section 5). They replace the library utility links in the header and its Menu popover. Do not add a separate nav row or bar at the top of the content for it. Each must be an `<a href>` with visible text; other children and empty links are ignored with a console warning. Mark the current page with `aria-current="page"`. The `vendor` variant ignores site links: it is for third-party sites that only need the library logo and Ask a Librarian.
+- Alerts: `<site-page>` shows live UVA Library alerts by default (header banner inside the header, alert list and regional alerts first in `<main>`), loading `<uvalib-alerts>` from the alerts CDN itself. Keep the default (production) on real sites. Use `alerts-env="staging"` only on staging or test deployments, and `alerts-src="https://…/"` only for a custom alerts domain or local development; it wins over `alerts-env`. Never add your own `<uvalib-alerts>` or its `<script>` inside or alongside a `<site-page>`. An app that renders alerts itself (Virgo, headless) sets `no-alerts`; nothing else should. A standalone `<site-header>` loads no alerts.
+- If the site sends a Content Security Policy, it must allow the alerts host (production `https://d2q6t6fdv76k7r.cloudfront.net`) in `script-src` and `connect-src`, and `https://*.appsync-api.us-east-1.amazonaws.com` and `wss://*.appsync-realtime-api.us-east-1.amazonaws.com` in `connect-src`.
 - Third-party or vendor sites that are not library.virginia.edu: `<site-page header-variant="vendor">` (logo plus Ask a Librarian only). Links default to `root-link-domain="https://www.library.virginia.edu"`; set it only for a non-production domain.
 - Do not replace a light-mode page's children wholesale (`innerHTML` or `textContent` on `<site-page>`): that destroys the chrome. Append, or update a child container inside it.
 
@@ -205,6 +207,6 @@ Before finishing, load the page in a browser (or test) and confirm:
 1. Every used tag is defined: `customElements.get('site-page')` (and header/footer) is not undefined.
 2. Exactly one `<main>` in the page, including inside open shadow roots (shadow mode puts it in `site-page`'s shadow root), and exactly one skip link.
 3. No `<script>`/`<link>` URL contains `/web-components/latest/` or `/cdn-v`; the URL pins `v1` or `vX.Y.Z`.
-4. No console errors and no failed network requests for the component files.
+4. No console errors and no failed network requests for the component files (including `v1/uvalib-alerts.js` from the alerts CDN, unless `no-alerts` is set).
 5. An axe pass (for example `axe-core` or the axe browser extension) reports no new violations.
 6. `no-shadow-dom` appears only where the host CSS is meant to own the styling.
