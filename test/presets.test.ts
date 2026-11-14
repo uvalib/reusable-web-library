@@ -25,6 +25,7 @@ describe('playground presets', function () {
       'light-dom-host-css',
       'vendor-header',
       'site-navigation',
+      'main-navigation',
       'alerts',
       'search-facets',
       'todays-hours',
@@ -43,6 +44,7 @@ describe('playground presets', function () {
       Header: [
         'vendor-header',
         'site-navigation',
+        'main-navigation',
         'header-full-shadow',
         'header-full-light',
         'header-vendor-shadow',
@@ -87,6 +89,38 @@ describe('playground presets', function () {
           `${variant} ${light ? 'no-shadow-dom' : 'shadow'}`,
         ).to.equal(true);
       }
+    }
+  });
+
+  it('main-navigation shows the default main nav and a slot="main-nav" override', async () => {
+    const p = presets.find((x) => x.id === 'main-navigation')!;
+    const html = p.files['index.html']!.content;
+    expect(html).to.include('slot="main-nav"');
+    expect(html).to.not.include('no-main-nav=');
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-page', 'site-header', 'site-main-nav']);
+      await new Promise((r) => setTimeout(r, 300));
+      const header = doc.querySelector('site-page')!.shadowRoot!.querySelector('site-header')!;
+      const bar = header.shadowRoot!.querySelector('header > site-main-nav')!;
+      const labels = (n: Element) =>
+        [...n.shadowRoot!.querySelectorAll('nav.main-nav > ul > li > :is(button, a)')].map((b) =>
+          b.textContent!.trim(),
+        );
+      expect(labels(bar)).to.deep.equal([
+        'About',
+        'Using the Library',
+        'Research & teaching support',
+        'Get help',
+      ]);
+      const custom = doc.querySelector('main site-main-nav, site-page > site-main-nav')!;
+      expect(labels(custom).length).to.be.greaterThan(0);
+      expect(labels(custom)).to.not.include('About');
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
     }
   });
 

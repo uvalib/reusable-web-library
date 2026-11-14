@@ -226,6 +226,40 @@ site-footer footer {
     },
   },
   {
+    id: 'main-navigation',
+    group: 'Header',
+    title: 'Main navigation',
+    description:
+      'Every full header shows the library main navigation (About, Using the Library, Research & teaching support, Get help): a row under the logo, and accordions at the top of the Menu popover on narrow screens. Add no-main-nav to turn it off. A <nav slot="main-nav"> child replaces its links, shown here on a standalone site-main-nav.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Main navigation',
+          body: `    <site-page>
+      <h1>Main navigation</h1>
+      <p>The header above shows the library main navigation by default. Open a group with a click, Enter or Space; Escape closes it. Narrow the preview to see it as accordions at the top of the Menu popover. Add <code>no-main-nav</code> to site-page to turn it off.</p>
+      <h2>A custom menu</h2>
+      <p>To replace the links, give site-page (or site-header) a <code>&lt;nav slot="main-nav"&gt;</code> child. Here the same markup fills a standalone site-main-nav:</p>
+      <site-main-nav label="Example menu">
+        <nav slot="main-nav">
+          <ul>
+            <li><a href="/exhibits">Exhibits</a></li>
+            <li>
+              <span>Collections</span>
+              <ul>
+                <li><a href="/collections/maps">Maps</a></li>
+                <li><a href="/collections/manuscripts">Manuscripts</a></li>
+              </ul>
+            </li>
+          </ul>
+        </nav>
+      </site-main-nav>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'alerts',
     group: 'Alerts',
     title: 'Library alerts',
