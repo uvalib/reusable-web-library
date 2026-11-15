@@ -1,8 +1,8 @@
 {
-  "$comment": "Gzipped bytes per dist-cdn manifest entry, including every chunk it imports (static and dynamic), each counted once. About 12% over the sizes at 1.0.0; checked by test/size-budget.test.mjs. Print today's sizes with: node scripts/bundle-sizes.mjs",
+  "$comment": "Gzipped bytes per dist-cdn manifest entry, including every chunk it imports (static and dynamic), each counted once. About 12% over the sizes at 1.0.0; checked by test/size-budget.test.mjs. Print today's sizes with: node scripts/bundle-sizes.mjs. Dark mode (color-scheme-switch) raised site-page.js, site-header.js and tokens.css to about 12% over their sizes with it.",
   "budgets": {
-    "site-page.js": 33700,
-    "site-header.js": 21800,
+    "site-page.js": 36900,
+    "site-header.js": 24700,
     "site-main-nav.js": 16600,
     "site-footer.js": 16900,
     "site-analytics.js": 10900,
@@ -12,7 +12,7 @@
     "site-hours-section.js": 16500,
     "library-weekly-hours.js": 16300,
     "library-hours-setup.js": 17000,
-    "tokens.css": 670,
+    "tokens.css": 1280,
     "base.css": 260
   }
 }

@@ -328,6 +328,11 @@ One library's opening hours for a week (Sunday to Saturday, in America/New_York)
 |---|---|---|
 | `--uva-brand-orange` | `#e57200` | Border of today's column; focus ring colour. |
 | `--uva-brand-blue` | `#232d4b` | Header and button colour. |
+| `--uva-color-border` |  | Dark-mode role token: table cell borders (else #dadada). |
+| `--uva-color-current` |  | Dark-mode role token: today's column border (else `--uva-brand-orange`). |
+| `--uva-color-link` |  | Dark-mode role token: heading, button text and border (else `--uva-brand-blue`). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: button background (else #fff). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ### `<site-analytics>`
 
@@ -384,10 +389,12 @@ UVA Library site footer: link columns, contact details and copyright.
 | `--uva-blue-alt-300` | `#bfe7f7` | Pre-footer band background. |
 | `--uva-blue-alt-darkest` | `#141e3c` | Copyright bar background. |
 | `--uva-brand-orange` | `#e57200` | Social icon hover colour and focus-visible outline. Footer link and text colours are fixed white. |
+| `--uva-color-pre-footer-bg` |  | Dark-mode role token: pre-footer band background (else `--uva-blue-alt-300`). |
+| `--uva-color-pre-footer-text` |  | Dark-mode role token: pre-footer band text (else inherited). The footer itself is the same in both schemes. |
 
 ### `<site-header>`
 
-UVA Library site header: logo, utility navigation, and a popover menu on narrow screens. A site can replace the library utility links (My account, Ask a Librarian, Hours, Give, Alerts, Search) with its own: give the header `<a slot="site-links" href="…">` children. They are shown, in order, in the inline nav and the Menu popover, with `href` as written (not joined to `root-link-domain`) and their `aria-current`, `target`, `rel` and `hreflang`. The source anchors themselves stay hidden. Children that are not `<a href>` with text (empty or whitespace-only text counts as none) are ignored with one console warning. The `vendor` variant ignores site links and keeps its own reduced link set. The full header also shows the UVA Library main navigation (`<site-main-nav>`): a row under the logo row on wide screens, and an accordion at the top of the Menu popover on narrow ones (992px and below), above the utility or site links. `no-main-nav` turns it off, leaving the header exactly as it was without it; the `vendor` variant never shows it. A `<nav slot="main-nav">` child replaces its links (see `<site-main-nav>`), and `main-nav-src` loads them from JSON; `main-nav-current` sets the URL marked current.
+UVA Library site header: logo, utility navigation, and a popover menu on narrow screens. A site can replace the library utility links (My account, Ask a Librarian, Hours, Give, Alerts, Search) with its own: give the header `<a slot="site-links" href="…">` children. They are shown, in order, in the inline nav and the Menu popover, with `href` as written (not joined to `root-link-domain`) and their `aria-current`, `target`, `rel` and `hreflang`. The source anchors themselves stay hidden. Children that are not `<a href>` with text (empty or whitespace-only text counts as none) are ignored with one console warning. The `vendor` variant ignores site links and keeps its own reduced link set. The full header also shows the UVA Library main navigation (`<site-main-nav>`): a row under the logo row on wide screens, and an accordion at the top of the Menu popover on narrow ones (992px and below), above the utility or site links. `no-main-nav` turns it off, leaving the header exactly as it was without it; the `vendor` variant never shows it. A `<nav slot="main-nav">` child replaces its links (see `<site-main-nav>`), and `main-nav-src` loads them from JSON; `main-nav-current` sets the URL marked current. `color-scheme-switch` opts in to dark mode (off by default; see the README's "Dark mode"): a Light / Dark / System radio group ("Theme") at the end of the utility-links row on wide screens and at the bottom of the Menu popover on narrow ones. The `vendor` variant, which has no Menu, shows it after its inline link, on a row of its own under the logo row on narrow screens. In dark mode the logo is the reversed (white) one.
 
 #### Attributes
 
@@ -400,6 +407,7 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 | `main-nav-label` | `string \| undefined` |  | Accessible name of the main navigation (default "Main"). |
 | `main-nav-src` | `string \| undefined` |  | URL of JSON main navigation items (`MainNavItem[]`, needs CORS), passed to `<site-main-nav items-src>`. |
 | `main-nav-current` | `string \| undefined` |  | The URL whose main-navigation link is marked current, passed to `<site-main-nav current>`. Default: the page location, followed through same-document navigations. |
+| `color-scheme-switch` | `boolean` | `false` | Opt in to dark mode: the page follows the OS light or dark preference ("System"), and a Light / Dark / System control (at the end of the utility-links row on wide screens, at the bottom of the Menu popover on narrow ones) lets the visitor override it, remembered per site in localStorage (`uvalib-color-scheme`). Sets `data-uva-color-scheme` on the root element, and swaps in the reversed logo while dark. Ignored (the page stays light and no control is shown) in browsers without CSS `light-dark()`. |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -432,6 +440,15 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 | `--uva-grey-darkest` | `#2b2b2b` | Menu button colour. |
 | `--uva-brand-orange` | `#e57200` | Focus ring colour (focus-visible outline), and the underline colour of an `aria-current` link (also bold, with a 3px underline). |
 | `--uva-brand-blue` | `#232d4b` | Skip-link background for a skip link slotted into `skip-link` (shadow mode, shared accessibility sheet). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: header, Menu popover and theme control background (else #ffffff). |
+| `--uva-color-utility-link` |  | Dark-mode role token: utility and site link colour (else `--uva-blue-alt-dark`). |
+| `--uva-color-text` |  | Dark-mode role token: Menu button and theme control text (else `--uva-grey-darkest`). |
+| `--uva-color-border` |  | Dark-mode role token: popover border and rules (else #ccc). |
+| `--uva-color-control-border` |  | Dark-mode role token: theme control border (else #808080). |
+| `--uva-color-accent-bg` |  | Dark-mode role token: selected theme option and skip-link background (else `--uva-brand-blue`). |
+| `--uva-color-on-accent` |  | Dark-mode role token: selected theme option and skip-link text (else #fff). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+| `--uva-color-current` |  | Dark-mode role token: current-page underline (else `--uva-brand-orange`). |
 
 ### `<site-hours-section>`
 
@@ -461,6 +478,8 @@ Today's hours for the UVA libraries, as on the library.virginia.edu home page: t
 | `--uva-brand-blue` | `#232d4b` | Heading and link colour. |
 | `--uva-brand-orange` | `#e57200` | Focus ring colour. |
 | `--site-hours-list-min-height` | `0` | Height the list keeps while the hours load, so the link and content below do not jump when they arrive (seven `limited` libraries take about 12.75rem). |
+| `--uva-color-link` |  | Dark-mode role token: heading and link colour (else `--uva-brand-blue`). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ### `<site-main-nav>`
 
@@ -499,6 +518,14 @@ The UVA Library main navigation (About, Using the Library, Research & teaching s
 | `--uva-grey-100` | `#dadada` | Hover and expanded button background, and panel link hover background. |
 | `--uva-brand-orange` | `#e57200` | Focus ring colour, and the underline of the current page's link and group (also bold, with a 3px underline). |
 | `--uva-font-family` | `franklin-gothic-urw, Arial, Helvetica, sans-serif` | Font family. |
+| `--uva-color-text` |  | Dark-mode role token: top-level button text (else `--uva-grey-darkest`). |
+| `--uva-color-link` |  | Dark-mode role token: chevrons, panel links, hover text and the focus ring over hover (else `--uva-brand-blue`). |
+| `--uva-color-surface-hover` |  | Dark-mode role token: hover and open-group background (else `--uva-grey-100`). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: bar and panel background (else #ffffff). |
+| `--uva-color-accent-bg` |  | Dark-mode role token: bar bottom rule (else `--uva-brand-blue`). |
+| `--uva-color-shadow` |  | Dark-mode role token: panel shadow colour (else rgba(0, 0, 0, 0.2)). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+| `--uva-color-current` |  | Dark-mode role token: current-page underline (else `--uva-brand-orange`). |
 
 ### `<site-page>`
 
@@ -520,6 +547,7 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 | `alerts-env` | `string` | `'production'` | Alerts environment: `production` (default) or `staging`. Any other value logs one console warning and uses production. Ignored when `alerts-src` is set. |
 | `alerts-src` | `string \| undefined` |  | Alerts base URL (holding `config.json`, `alerts.json` and `v1/uvalib-alerts.js`); overrides `alerts-env`. For a custom domain, local development and tests. |
 | `no-alerts` | `boolean` | `false` | Render no alert elements and load no alerts script. |
+| `color-scheme-switch` | `boolean` | `false` | Opt in to dark mode, forwarded to `<site-header color-scheme-switch>`: the page follows the OS preference, and a Light / Dark / System control in the header lets the visitor override it (remembered per site). Off by default: the page is always light. The page's own content must support it (see the README's "Dark mode"). |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -549,6 +577,11 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 | `--uva-font-family` | `franklin-gothic-urw, Arial, Helvetica, sans-serif` | Page font family (global styles). |
 | `--uva-font-size-base` | `17px` | Page base font size (global styles). |
 | `--uva-grey-darkest` | `#2b2b2b` | Page text colour (global styles). |
+| `--uva-color-surface` |  | Dark-mode role token: page background (global styles; else none). |
+| `--uva-color-text` |  | Dark-mode role token: page text (global styles; else `--uva-grey-darkest`). |
+| `--uva-color-accent-bg` |  | Dark-mode role token: skip-link background (else `--uva-brand-blue`). |
+| `--uva-color-on-accent` |  | Dark-mode role token: skip-link text (else #fff). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ### `<site-style>`
 
@@ -576,6 +609,8 @@ Compatibility element. Light mode (`no-shadow-dom`) installs the tokens and base
 | `--uva-font-family` | `franklin-gothic-urw, Arial, Helvetica, sans-serif` | Font family. |
 | `--uva-font-size-base` | `17px` | Base font size. |
 | `--uva-grey-darkest` | `#2b2b2b` | Text colour. |
+| `--uva-color-text` |  | Dark-mode role token: text colour (else `--uva-grey-darkest`). |
+| `--uva-color-surface` |  | Dark-mode role token: page background (else none). |
 
 ### `<uvalib-date-range>`
 
@@ -605,6 +640,14 @@ A date-range picker: a two-thumb year slider plus "From" and "To" date inputs. `
 | `--uva-brand-blue` | `#232d4b` | Selected slider range, thumbs, legend and focused date input border. |
 | `--uva-brand-orange` | `#e57200` | Focus ring colour (focus-visible outline). |
 | `--uva-font-family` | `inherit` | Font family. |
+| `--uva-color-link` |  | Dark-mode role token: legend and focused date input border (else `--uva-brand-blue`). |
+| `--uva-color-track` |  | Dark-mode role token: slider track (else #e5e7eb). |
+| `--uva-color-accent-bg` |  | Dark-mode role token: selected range and thumbs (else `--uva-brand-blue`). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: date input background and thumb ring (else #ffffff). |
+| `--uva-color-text` |  | Dark-mode role token: date input text (else #1f2937). |
+| `--uva-color-text-muted` |  | Dark-mode role token: From / To labels (else #4b5563). |
+| `--uva-color-control-border` |  | Dark-mode role token: date input border (else #808080). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ### `<uvalib-filter>`
 
@@ -643,6 +686,13 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 |---|---|---|
 | `--uva-brand-blue` | `#232d4b` | Scope chip text, hover border and pressed background. |
 | `--uva-brand-orange` | `#e57200` | Focus ring colour (focus-visible outline). |
+| `--uva-color-border` |  | Dark-mode role token: divider under the scope chips (else #e5e7eb). |
+| `--uva-color-control-border` |  | Dark-mode role token: scope chip border (else #808080). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: scope chip background (else #fff). |
+| `--uva-color-link` |  | Dark-mode role token: scope chip text and hover border (else `--uva-brand-blue`). |
+| `--uva-color-accent-bg` |  | Dark-mode role token: pressed chip background and border (else `--uva-brand-blue`). |
+| `--uva-color-on-accent` |  | Dark-mode role token: pressed chip text (else #fff). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 <!-- prettier-ignore-end -->
 <!-- components:end -->

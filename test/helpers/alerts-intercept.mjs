@@ -63,7 +63,13 @@ if (!customElements.get('uvalib-alerts')) {
       root.replaceChildren();
       if (items.length) {
         const style = document.createElement('style');
-        style.textContent = ':host{display:block} .a{padding:0.5em;min-height:24px;background:#bfe7f7}';
+        // The real component's colour properties, with its light defaults, so the alerts
+        // follow dark mode's --uvalib-alerts-* overrides as the real one does.
+        const bg = { header: 'header-bg', list: 'alert1-bg', regional: 'regional-bg' }[show];
+        style.textContent =
+          ':host{display:block} .a{padding:0.5em;min-height:24px;' +
+          'color:var(--uvalib-alerts-text,#2B2B2B);' +
+          'background:var(--uvalib-alerts-' + bg + ',#BFE7F7)}';
         const wrap = document.createElement('div');
         wrap.setAttribute('part', show);
         if (show === 'header') wrap.setAttribute('role', 'status');

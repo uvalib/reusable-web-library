@@ -3,13 +3,15 @@ import { playwrightLauncher } from '@web/test-runner-playwright';
 import { interceptAlerts } from './test/helpers/alerts-intercept.mjs';
 import { hoursClockPlugin, interceptHours } from './test/helpers/hours-intercept.mjs';
 import { interceptMainNav } from './test/helpers/main-nav-intercept.mjs';
+import { interceptStatic } from './test/helpers/static-intercept.mjs';
 
 const TZ_FILES = 'test/**/*-tz.test.ts';
 const HOURS_TZ_FILES = 'test/library-hours-tz.test.ts';
 
 /**
  * A Chromium launcher whose every context routes the alerts CDN, the library-hours
- * endpoints and the main-nav test hosts to local fixtures, so no test reaches the network for either. Service workers
+ * endpoints, the main-nav test hosts and static.lib.virginia.edu (dark mode's logo) to local
+ * fixtures, so no test reaches the network for any of them. Service workers
  * are blocked so every request, including from the playground's preview frames, goes
  * through the routes (a worker's own fetches would not).
  */
@@ -17,9 +19,11 @@ const chromium = (options = {}) =>
   playwrightLauncher({
     product: 'chromium',
     createBrowserContext: ({ browser }) =>
-      interceptAlerts(
-        interceptHours(
-          interceptMainNav(browser.newContext({ serviceWorkers: 'block', ...options })),
+      interceptStatic(
+        interceptAlerts(
+          interceptHours(
+            interceptMainNav(browser.newContext({ serviceWorkers: 'block', ...options })),
+          ),
         ),
       ),
   });

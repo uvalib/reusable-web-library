@@ -1,9 +1,10 @@
-import { html, css, nothing } from 'lit';
+import { html, css, nothing, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { siteLink } from '../link.js';
 import { accessible } from '../../styles/accessible.js';
+import { ColorSchemeController, type ColorSchemePreference } from '../../base/color-scheme.js';
 import {
   normalizeItems,
   readItemsMarkup,
@@ -25,6 +26,17 @@ const VENDOR_LINKS = FULL_LINKS.filter((l) => l.label === 'Ask a Librarian');
 
 /** Light-DOM instances share the document id space, so each gets its own popover id. */
 let menuCounter = 0;
+/** Radio group names are per instance and per control (two controls per header). */
+let schemeCounter = 0;
+
+/** The reversed (white) library logo, for dark mode. Same aspect ratio as the navy one. */
+export const DARK_LOGO_URL =
+  'https://static.lib.virginia.edu/files/downloads/LibraryLogos/UVALIB_primary_color_white_web.png';
+const SCHEME_OPTIONS: ReadonlyArray<{ value: ColorSchemePreference; label: string }> = [
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'system', label: 'System' },
+];
 
 /** A site's own link, read from an `<a slot="site-links">` child. */
 interface SiteLinkItem {
@@ -69,6 +81,12 @@ const stopEvent = (e: Event) => e.stopPropagation();
  * A `<nav slot="main-nav">` child replaces its links (see `<site-main-nav>`), and
  * `main-nav-src` loads them from JSON; `main-nav-current` sets the URL marked current.
  *
+ * `color-scheme-switch` opts in to dark mode (off by default; see the README's "Dark mode"):
+ * a Light / Dark / System radio group ("Theme") at the end of the utility-links row on wide
+ * screens and at the bottom of the Menu popover on narrow ones. The `vendor` variant, which
+ * has no Menu, shows it after its inline link, on a row of its own under the logo row on
+ * narrow screens. In dark mode the logo is the reversed (white) one.
+ *
  * @tagname site-header
  * @slot skip-link - Shadow mode only: optional skip link, rendered first inside `<header>` (`<site-page>` uses it).
  * @slot alerts - Optional alert banner (`<site-page>` passes its `<uvalib-alerts show="header">`), shown as a full-bleed row at the very top of `<header>` (flush with its top and both edges, outside its padding), after the skip link and before the logo row. In light mode the children are moved to the start of `<header>`. The header never loads alerts itself.
@@ -80,6 +98,15 @@ const stopEvent = (e: Event) => e.stopPropagation();
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Menu button colour.
  * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour (focus-visible outline), and the underline colour of an `aria-current` link (also bold, with a 3px underline).
  * @cssprop [--uva-brand-blue=#232d4b] - Skip-link background for a skip link slotted into `skip-link` (shadow mode, shared accessibility sheet).
+ * @cssprop --uva-color-surface-raised - Dark-mode role token: header, Menu popover and theme control background (else #ffffff).
+ * @cssprop --uva-color-utility-link - Dark-mode role token: utility and site link colour (else `--uva-blue-alt-dark`).
+ * @cssprop --uva-color-text - Dark-mode role token: Menu button and theme control text (else `--uva-grey-darkest`).
+ * @cssprop --uva-color-border - Dark-mode role token: popover border and rules (else #ccc).
+ * @cssprop --uva-color-control-border - Dark-mode role token: theme control border (else #808080).
+ * @cssprop --uva-color-accent-bg - Dark-mode role token: selected theme option and skip-link background (else `--uva-brand-blue`).
+ * @cssprop --uva-color-on-accent - Dark-mode role token: selected theme option and skip-link text (else #fff).
+ * @cssprop --uva-color-focus - Dark-mode role token: focus ring (else `--uva-brand-orange`).
+ * @cssprop --uva-color-current - Dark-mode role token: current-page underline (else `--uva-brand-orange`).
  */
 export class SiteHeader extends UvalibElement {
   static styles = [
@@ -97,7 +124,7 @@ export class SiteHeader extends UvalibElement {
         grid-template-columns: auto minmax(0, 1fr);
         align-items: start;
         position: relative;
-        background-color: #ffffff;
+        background-color: var(--uva-color-surface-raised, #ffffff);
         --_pad-block: 0.5rem;
         --_pad-inline: 16px; /* old: .w3-container 16px side padding */
         padding: var(--_pad-block) var(--_pad-inline);
@@ -138,14 +165,14 @@ export class SiteHeader extends UvalibElement {
         gap: 1.5rem;
       }
       a {
-        color: var(--uva-blue-alt-dark, #005679);
+        color: var(--uva-color-utility-link, var(--uva-blue-alt-dark, #005679));
       }
       /* Current page: bold with a thick underline, so it does not rely on colour alone. */
       nav a[aria-current]:not([aria-current='false']) {
         font-weight: 700;
         text-decoration-line: underline;
         text-decoration-thickness: 3px;
-        text-decoration-color: var(--uva-brand-orange, #e57200);
+        text-decoration-color: var(--uva-color-current, var(--uva-brand-orange, #e57200));
         text-underline-offset: 0.3em;
       }
       .menu-toggle {
@@ -154,7 +181,7 @@ export class SiteHeader extends UvalibElement {
         gap: 0.25rem;
         background: none;
         border: none;
-        color: var(--uva-grey-darkest, #2b2b2b);
+        color: var(--uva-color-text, var(--uva-grey-darkest, #2b2b2b));
         font: inherit;
         cursor: pointer;
       }
@@ -177,8 +204,8 @@ export class SiteHeader extends UvalibElement {
         box-sizing: border-box;
         margin: 0.5rem 0 0;
         padding: 0.5rem 1rem;
-        border: 1px solid #ccc;
-        background: #ffffff;
+        border: 1px solid var(--uva-color-border, #ccc);
+        background: var(--uva-color-surface-raised, #ffffff);
       }
       nav.menu li {
         padding: 0.375rem 0;
@@ -193,10 +220,11 @@ export class SiteHeader extends UvalibElement {
       }
       /* Narrow screens: the main navigation leads the Menu popover, then a rule, then the
          utility or site links. */
-      .menu-popover > nav.menu > ul {
+      .menu-popover > site-main-nav + nav.menu > ul,
+      .menu-popover > .color-scheme {
         margin-block-start: 0.5rem;
         padding-block-start: 0.5rem;
-        border-block-start: 1px solid #ccc;
+        border-block-start: 1px solid var(--uva-color-border, #ccc);
       }
       nav.menu {
         display: contents;
@@ -206,10 +234,91 @@ export class SiteHeader extends UvalibElement {
           top: anchor(var(--menu-anchor) bottom);
         }
       }
+      .utility-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-end;
+        column-gap: 1.5rem;
+      }
+      .color-scheme {
+        min-inline-size: 0;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        color: var(--uva-color-text, var(--uva-grey-darkest, #2b2b2b));
+      }
+      .color-scheme legend {
+        padding: 0;
+        font-weight: 700;
+      }
+      .segments {
+        display: flex;
+        border: 1px solid var(--uva-color-control-border, #808080);
+        border-radius: 0.3rem;
+        background: var(--uva-color-surface-raised, #ffffff);
+      }
+      .segments label {
+        position: relative;
+        display: flex;
+        flex: 1;
+        align-items: center;
+        justify-content: center;
+        min-block-size: 28px;
+        min-inline-size: 28px;
+        padding: 0.125rem 0.625rem;
+        font-size: 0.875rem;
+        cursor: pointer;
+      }
+      .segments label + label {
+        border-inline-start: 1px solid var(--uva-color-control-border, #808080);
+      }
+      .segments input {
+        position: absolute;
+        inset: 0;
+        inline-size: 100%;
+        block-size: 100%;
+        margin: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+      .segments label:has(:checked) {
+        background: var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
+        color: var(--uva-color-on-accent, #ffffff);
+        font-weight: 700;
+      }
+      .segments label:has(:focus-visible) {
+        z-index: 1;
+        outline: 3px solid var(--uva-color-focus, var(--uva-brand-orange, #e57200));
+        outline-offset: 2px;
+      }
+      .menu-popover > .color-scheme legend {
+        margin-block-end: 0.375rem;
+      }
+      @media (forced-colors: active) {
+        .segments label:has(:checked) {
+          forced-color-adjust: none;
+          background: Highlight;
+          color: HighlightText;
+        }
+      }
       @media screen and (max-width: 992px) {
         header:not(.vendor) nav.inline,
+        header:not(.vendor) .utility-row,
         header > site-main-nav.bar {
           display: none;
+        }
+        header.vendor .utility-row {
+          display: contents;
+        }
+        header.vendor .utility-row > nav.inline {
+          grid-column: 2;
+          justify-self: end;
+        }
+        header.vendor .utility-row > .color-scheme {
+          grid-column: 1 / -1;
+          justify-self: end;
+          margin-block-end: 0.5rem;
         }
         .menu-toggle {
           display: inline-flex;
@@ -242,6 +351,23 @@ export class SiteHeader extends UvalibElement {
    */
   @property({ type: String, attribute: 'main-nav-current' }) mainNavCurrent?: string;
 
+  /**
+   * Opt in to dark mode: the page follows the OS light or dark preference ("System"), and a
+   * Light / Dark / System control (at the end of the utility-links row on wide screens, at
+   * the bottom of the Menu popover on narrow ones) lets the visitor override it, remembered
+   * per site in localStorage (`uvalib-color-scheme`). Sets `data-uva-color-scheme` on the root
+   * element, and swaps in the reversed logo while dark. Ignored (the page stays light and no
+   * control is shown) in browsers without CSS `light-dark()`.
+   */
+  @property({ type: Boolean, attribute: 'color-scheme-switch' }) colorSchemeSwitch = false;
+
+  private readonly scheme = new ColorSchemeController(
+    this,
+    () => this.colorSchemeSwitch,
+    () => this.noStyle,
+  );
+  private readonly schemeName = `uva-color-scheme-${++schemeCounter}`;
+
   /** Main navigation items from `slot="main-nav"` markup, or null for the default. */
   @state() private mainNavItems: MainNavItem[] | null = null;
   private warnedMainNav = false;
@@ -268,8 +394,63 @@ export class SiteHeader extends UvalibElement {
     this.observer?.disconnect();
   }
 
+  protected override willUpdate(changed: PropertyValues): void {
+    if (!changed.has('colorSchemeSwitch')) return;
+    const was = this.scheme.active;
+    this.scheme.sync();
+    // Light mode: turning dark mode on or off swaps the header template, and Lit clears
+    // everything after its start marker: the alerts moved into the old <header> and the
+    // hidden source holders. Move them before the marker; updated() re-adopts the alerts.
+    if (this.lightDom && this.hasUpdated && was !== this.scheme.active) {
+      const header = this.querySelector(':scope > header');
+      const keep = [...(header?.children ?? [])].filter(isAlertsChild);
+      for (const holder of [this.holder, this.mainNavHolder]) if (holder) keep.push(holder);
+      this.prepend(...keep);
+    }
+  }
+
+  protected override updated(changed: PropertyValues): void {
+    if (changed.has('colorSchemeSwitch') && this.hasUpdated) this.adoptAlerts();
+  }
+
   protected override firstUpdated(): void {
     this.syncChildren();
+  }
+
+  private onSchemeChange(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    if (input.checked) this.scheme.choose(input.value as ColorSchemePreference);
+  }
+
+  /**
+   * The Light / Dark / System radio group. `inline` sits in the utility-links row, with its
+   * legend visually hidden; `menu` closes the Menu popover, legend shown. "System" names the
+   * scheme it currently resolves to, for screen readers.
+   */
+  private schemeControl(where: 'inline' | 'menu') {
+    const { preference, resolved } = this.scheme;
+    const name = `${this.schemeName}-${where}`;
+    return html`<fieldset class="color-scheme ${where}">
+      <legend class=${where === 'inline' ? 'visually-hidden' : ''}>Theme</legend>
+      <div class="segments">
+        ${SCHEME_OPTIONS.map(
+          (o) =>
+            html`<label
+              ><input
+                type="radio"
+                name=${name}
+                value=${o.value}
+                .checked=${preference === o.value}
+                @change=${this.onSchemeChange}
+              />${o.label}${
+                o.value === 'system'
+                  ? html`<span class="visually-hidden"> (currently ${resolved})</span>`
+                  : nothing
+              }</label
+            >`,
+        )}
+      </div>
+    </fieldset>`;
   }
 
   /** Light mode: place slotted alerts in `<header>`, then read the site links and main nav. */
@@ -509,30 +690,31 @@ export class SiteHeader extends UvalibElement {
       ></site-main-nav>`;
     // With it: the Menu popover holds the accordion and then the utility links, and the bar
     // is the header's last child, a row of its own.
-    const withMainNav = html`<button
-        popovertarget=${id}
-        aria-controls=${id}
-        class="menu-toggle"
-        style="anchor-name: ${anchor}"
+    const menuButton = html`<button
+      popovertarget=${id}
+      aria-controls=${id}
+      class="menu-toggle"
+      style="anchor-name: ${anchor}"
+    >
+      <svg
+        aria-hidden="true"
+        xmlns="http://www.w3.org/2000/svg"
+        width="28"
+        height="28"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="butt"
+        stroke-linejoin="bevel"
       >
-        <svg
-          aria-hidden="true"
-          xmlns="http://www.w3.org/2000/svg"
-          width="28"
-          height="28"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="butt"
-          stroke-linejoin="bevel"
-        >
-          <line x1="3" y1="12" x2="21" y2="12"></line>
-          <line x1="3" y1="6" x2="21" y2="6"></line>
-          <line x1="3" y1="18" x2="21" y2="18"></line>
-        </svg>
-        Menu
-      </button>
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="6" x2="21" y2="6"></line>
+        <line x1="3" y1="18" x2="21" y2="18"></line>
+      </svg>
+      Menu
+    </button>`;
+    const withMainNav = html`${menuButton}
       <div id=${id} popover class="menu-popover" style="--menu-anchor: ${anchor}">
         ${mainNavEl(true)}
         <nav class="menu" aria-label=${`${label} menu`}>
@@ -540,14 +722,57 @@ export class SiteHeader extends UvalibElement {
             ${items}
           </ul>
         </nav>
+        ${this.scheme.active ? this.schemeControl('menu') : nothing}
       </div>
       ${mainNavEl(false)}`;
+    // Without the main navigation but with the color-scheme control, the popover is a
+    // container like the main-nav one: the utility list, then the control.
+    const classicScheme = html`${menuButton}
+      <div id=${id} popover class="menu-popover" style="--menu-anchor: ${anchor}">
+        <nav class="menu" aria-label=${`${label} menu`}>
+          <ul>
+            ${items}
+          </ul>
+        </nav>
+        ${this.schemeControl('menu')}
+      </div>`;
     const withMainNavHidden = html`<div hidden>
         <slot name="site-links" @slotchange=${this.onSourcesChange}></slot>
       </div>
       <div hidden>
         <slot name="main-nav" @slotchange=${this.onSourcesChange}></slot>
       </div>`;
+    const hidden = this.lightDom ? nothing : mainNav ? withMainNavHidden : classicHidden;
+    if (this.scheme.active) {
+      // Dark mode: the inline nav and the control share the utility row, and the logo
+      // follows the scheme. A separate template, so the header without it stays unchanged.
+      return html`
+        <header part="header" class=${vendor ? 'vendor' : ''}>
+          ${this.lightDom ? nothing : html`<slot name="skip-link"></slot><slot name="alerts"></slot>`}
+          <a class="logo" href=${siteLink(root, '/')}
+            ><img
+              src=${
+                this.scheme.resolved === 'dark'
+                  ? DARK_LOGO_URL
+                  : siteLink(root, '/sites/default/files/2022-09/library_rgb.png')
+              }
+              alt="UVA Library home"
+              width="304"
+              height="69"
+          /></a>
+          <div class="utility-row">
+            <nav class="inline" aria-label=${label}>
+              <ul>
+                ${items}
+              </ul>
+            </nav>
+            ${this.schemeControl('inline')}
+          </div>
+          ${vendor ? nothing : mainNav ? withMainNav : classicScheme}
+        </header>
+        ${hidden}
+      `;
+    }
     return html`
       <header part="header" class=${vendor ? 'vendor' : ''}>
         ${this.lightDom ? nothing : html`<slot name="skip-link"></slot><slot name="alerts"></slot>`}
@@ -565,7 +790,7 @@ export class SiteHeader extends UvalibElement {
         </nav>
         ${vendor ? nothing : mainNav ? withMainNav : classic}
       </header>
-      ${this.lightDom ? nothing : mainNav ? withMainNavHidden : classicHidden}
+      ${hidden}
     `;
   }
 }

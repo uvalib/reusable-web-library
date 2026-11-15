@@ -7,6 +7,12 @@ import { tokens } from '../../styles/tokens.js';
 import { base, TYPEKIT_URL } from '../../styles/base.js';
 import { accessible } from '../../styles/accessible.js';
 import {
+  applyPreference,
+  colorSchemeSupported,
+  installColorSchemeStyles,
+  readPreference,
+} from '../../base/color-scheme.js';
+import {
   ALERTS_PRODUCTION_SRC,
   ALERTS_TAG,
   alertsBase,
@@ -54,6 +60,11 @@ const slotOf = (n: Node): string | null => (n instanceof Element ? n.getAttribut
  * @cssprop [--uva-font-family=franklin-gothic-urw, Arial, Helvetica, sans-serif] - Page font family (global styles).
  * @cssprop [--uva-font-size-base=17px] - Page base font size (global styles).
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Page text colour (global styles).
+ * @cssprop --uva-color-surface - Dark-mode role token: page background (global styles; else none).
+ * @cssprop --uva-color-text - Dark-mode role token: page text (global styles; else `--uva-grey-darkest`).
+ * @cssprop --uva-color-accent-bg - Dark-mode role token: skip-link background (else `--uva-brand-blue`).
+ * @cssprop --uva-color-on-accent - Dark-mode role token: skip-link text (else #fff).
+ * @cssprop --uva-color-focus - Dark-mode role token: focus ring (else `--uva-brand-orange`).
  */
 export class SitePage extends UvalibElement {
   @property({ type: String, attribute: 'root-link-domain' }) rootLinkDomain =
@@ -93,6 +104,13 @@ export class SitePage extends UvalibElement {
   @property({ type: String, attribute: 'alerts-src' }) alertsSrc?: string;
   /** Render no alert elements and load no alerts script. */
   @property({ type: Boolean, attribute: 'no-alerts' }) noAlerts = false;
+  /**
+   * Opt in to dark mode, forwarded to `<site-header color-scheme-switch>`: the page follows
+   * the OS preference, and a Light / Dark / System control in the header lets the visitor
+   * override it (remembered per site). Off by default: the page is always light. The page's
+   * own content must support it (see the README's "Dark mode").
+   */
+  @property({ type: Boolean, attribute: 'color-scheme-switch' }) colorSchemeSwitch = false;
 
   static styles = [
     accessible,
@@ -159,6 +177,13 @@ export class SitePage extends UvalibElement {
     if (!this.noGlobalStyles && !this.globalsInstalled) {
       this.globalsInstalled = true;
       this.installGlobalStyles(this.ownerDocument);
+    }
+    // As early as possible, before the header renders: the stored choice, so pages without
+    // the inline snippet flash as little as possible. The header keeps it current after.
+    const doc = this.ownerDocument;
+    if (this.colorSchemeSwitch && colorSchemeSupported(doc)) {
+      if (!this.noStyle) installColorSchemeStyles(doc);
+      applyPreference(doc, readPreference(doc), this.noStyle);
     }
     // Reconnect after a disconnect; the first connect starts routing in update().
     if (this.lightDom && this.hasUpdated) {
@@ -360,6 +385,7 @@ export class SitePage extends UvalibElement {
         main-nav-label=${ifDefined(this.mainNavLabel)}
         main-nav-src=${ifDefined(this.mainNavSrc)}
         main-nav-current=${ifDefined(this.mainNavCurrent)}
+        ?color-scheme-switch=${this.colorSchemeSwitch}
         >${
           light
             ? nothing
