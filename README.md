@@ -215,6 +215,60 @@ The mode is read once, at first connect; do not toggle it afterwards.
 - **Parts (shadow mode):** on a page, `site-page::part(header)`, `site-page::part(footer)` and `site-page::part(main)`. For a standalone element, `site-header::part(header)` or `site-footer::part(footer)`.
 - **Light mode** has no shadow parts; use ordinary selectors, which win over the layered component styles.
 
+## Dark mode
+
+Dark mode is **off by default**. Without it nothing changes: no control, no dark styles, always light, even when the visitor's OS is dark and even when the host page sets its own `color-scheme`.
+
+**Opt in** only when the site's own content supports it (see the caveat below), with the boolean `color-scheme-switch` on `<site-page>`, or on a standalone `<site-header>`:
+
+```html
+<site-page color-scheme-switch> … </site-page>
+```
+
+- **System by default:** the page follows the visitor's `prefers-color-scheme`, live.
+- **The control:** a native radio group, "Theme": Light, Dark, System ("System" also tells screen readers what it currently resolves to). On wide screens it sits at the end of the utility-links row; on narrow screens (992px and below) it is the last item of the Menu popover, with its legend shown. The `vendor` header, which has no Menu, shows it after its link, on a row of its own on narrow screens.
+- **Storage:** the choice is remembered per site (origin) in `localStorage` under `uvalib-color-scheme`, as `light` or `dark`; System removes the key. Other tabs follow through the `storage` event. If storage is unavailable the choice still applies to the page. A stored choice is never cleared because the OS preference happens to match it.
+- **Mechanism:** the component sets `data-uva-color-scheme` (`system`, `light` or `dark`) on `<html>`. The rules under that attribute set `color-scheme` on the root and the `--uva-color-*` role tokens below as `light-dark()` pairs, and every component sets its own `color-scheme` from `--uva-color-scheme` (default `light`). The header swaps in the reversed (white) logo while dark. With `no-style` the attribute and an inline `color-scheme` are still set on `<html>`; style off them yourself.
+- **Footer:** already dark, it is the same in both schemes; the pre-footer band gets a dark band.
+- **Alerts:** dark versions of the alert colours are set through the alerts component's own `--uvalib-alerts-*` properties.
+
+**Avoid a flash of light on load.** Module scripts run after the first paint, so put this classic inline script in `<head>`, together with linked `tokens.css` and `base.css` (`<site-page>` also sets the attribute when it connects, so pages without it only flash briefly):
+
+<!-- prettier-ignore -->
+```html
+<link rel="stylesheet" href="https://unpkg.internal.lib.virginia.edu/web-components/v1/tokens.css" />
+<link rel="stylesheet" href="https://unpkg.internal.lib.virginia.edu/web-components/v1/base.css" />
+<script>try{var s=localStorage.getItem('uvalib-color-scheme')}catch(e){}if(window.CSS&&CSS.supports('color','light-dark(#000,#fff)'))document.documentElement.dataset.uvaColorScheme=s==='light'||s==='dark'?s:'system'</script>
+```
+
+**Browser support:** dark mode needs CSS `light-dark()` (Chrome and Edge 123, Firefox 120, Safari 17.5). Elsewhere no control is shown, no attribute is set, and the page stays light.
+
+**Host content (caveat):** the components only theme themselves and the page background and text. The site's own CSS must follow too: read the role tokens, with their light values as fallbacks (`color: var(--uva-color-link, #232d4b)`), or style off `:root[data-uva-color-scheme]`. Hard-coded colours in the site's CSS stay as they are. Iframes and third-party widgets will not follow. With `no-global-styles` or standalone components, link `tokens.css`, which holds the role tokens and the opt-in rules (the npm package exports it as `@uvalib/web-components/tokens.css`).
+
+**Role tokens.** Defined only while dark mode is on; components fall back to the palette token or value they always used, so light mode is unchanged. Do not flip the palette tokens instead: `--uva-brand-blue` is both text on white and a background under white text.
+
+| Token                         | Used for                                                    | Light                             | Dark                 |
+| ----------------------------- | ----------------------------------------------------------- | --------------------------------- | -------------------- |
+| `--uva-color-surface`         | page background                                             | `#ffffff`                         | `#10172b`            |
+| `--uva-color-surface-raised`  | header, nav bar, panels, popover, inputs, buttons, chips    | `#ffffff`                         | `#232d4b`            |
+| `--uva-color-surface-hover`   | hover and open-group background                             | `--uva-grey-100` (`#dadada`)      | `#2c3858`            |
+| `--uva-color-text`            | text                                                        | `--uva-grey-darkest` (`#2b2b2b`)  | `#e8e8e8`            |
+| `--uva-color-text-muted`      | secondary labels                                            | `#4b5563`                         | `#adadad`            |
+| `--uva-color-link`            | links, headings, accent text                                | `--uva-brand-blue` (`#232d4b`)    | `#87b9d9`            |
+| `--uva-color-utility-link`    | header utility and site links                               | `--uva-blue-alt-dark` (`#005679`) | `#91d8f2`            |
+| `--uva-color-focus`           | focus rings                                                 | `--uva-brand-orange` (`#e57200`)  | `#ffb370`            |
+| `--uva-color-current`         | current-page underline                                      | `--uva-brand-orange` (`#e57200`)  | `#e57200`            |
+| `--uva-color-accent-bg`       | pressed chip, slider range and thumbs, skip link, selection | `--uva-brand-blue` (`#232d4b`)    | `#87b9d9`            |
+| `--uva-color-on-accent`       | text on `--uva-color-accent-bg`                             | `#ffffff`                         | `#10172b`            |
+| `--uva-color-control-border`  | borders of controls (chips, inputs, the theme control)      | `#808080`                         | `#7a84a0`            |
+| `--uva-color-border`          | decorative borders and rules (dark only)                    | each component's own (`#ccc`, …)  | `#7a84a0`            |
+| `--uva-color-track`           | slider track                                                | `#e5e7eb`                         | `#2c3858`            |
+| `--uva-color-shadow`          | panel shadow                                                | `rgba(0, 0, 0, 0.2)`              | `rgba(0, 0, 0, 0.6)` |
+| `--uva-color-pre-footer-bg`   | pre-footer band background                                  | `--uva-blue-alt-300` (`#bfe7f7`)  | `#005679`            |
+| `--uva-color-pre-footer-text` | pre-footer band text                                        | `--uva-grey-darkest` (`#2b2b2b`)  | `#ffffff`            |
+
+`--uva-color-scheme` is the scheme the components follow (`light dark`, `light` or `dark`). See the [Dark mode](https://uvalib.github.io/reusable-web-library/#dark-mode) example in the playground.
+
 ## Search and filter components
 
 `<uvalib-filter>` (a checkbox facet with optional scope chips and See more / See less) and `<uvalib-date-range>` (a year slider plus date inputs) are for search results pages. They are not page chrome, so use them inside `<site-page>`. Each has its own entry: `uvalib-filter.js` and `uvalib-date-range.js` on the CDN, `@uvalib/web-components/uvalib-filter.js` and `.../uvalib-date-range.js` on npm.

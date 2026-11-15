@@ -63,6 +63,15 @@ Theme only through the documented surface, never by reaching into internals:
 - `::part()` in shadow mode. On a page, use `site-page::part(header)`, `site-page::part(footer)` and `site-page::part(main)` (`<site-page>` re-exports the header and footer parts; `site-header::part(header)` cannot reach through its shadow root). For a standalone `<site-header>` or `<site-footer>` use `site-header::part(header)` / `site-footer::part(footer)`. In light mode there are no shadow parts; style the elements with ordinary selectors.
 - Never pierce shadow roots with JS, depend on internal class names, or use `!important` to fight the chrome.
 
+### Dark mode (opt-in)
+
+- Off by default: pages are always light, whatever the OS or the host's own `color-scheme`. Do not enable it unless the user asks AND the site's own content supports it: the host CSS must read the `--uva-color-*` role tokens (with their light values as fallbacks) or style off `:root[data-uva-color-scheme]`. Iframes and third-party widgets will not follow.
+- Turn it on with the boolean `color-scheme-switch` on `<site-page>` (or a standalone `<site-header>`). Nothing else: the header renders the Light / Dark / System control and the reversed logo, and stores the choice per site in `localStorage` (`uvalib-color-scheme`). Do not build a second toggle, a `role=switch`, or set `data-uva-color-scheme` yourself.
+- Add the README's anti-flash snippet as a classic inline `<script>` in `<head>` (not `type=module`), with `tokens.css` and `base.css` linked there too. Copy it exactly; it checks `light-dark()` support.
+- Theme with role tokens, never by flipping palette tokens: `--uva-brand-blue` stays navy because it is also a background under white text.
+- With `no-global-styles`, `no-style` or standalone components, link `tokens.css` (it holds the role tokens and the opt-in rules); with `no-style` the host styles everything off `data-uva-color-scheme`.
+- Check both schemes: choose Dark in the control (or emulate `prefers-color-scheme: dark` with System) and run axe again.
+
 ## 5. Snippets
 
 Plain HTML (CDN, version `v1`):
@@ -233,6 +242,7 @@ Before finishing, load the page in a browser (or test) and confirm:
 5. An axe pass (for example `axe-core` or the axe browser extension) reports no new violations.
 6. `no-shadow-dom` appears only where the host CSS is meant to own the styling.
 7. A full header shows the library main navigation (unless the site deliberately set `no-main-nav`), and the page has no second hand-built copy of it.
+8. `color-scheme-switch` appears only where the user asked for dark mode and the site's own content supports it; if it is set, the page passes axe in both Light and Dark.
 
 ## 9. Keeping this skill current
 

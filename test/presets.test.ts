@@ -148,6 +148,11 @@ describe('playground presets', function () {
       expect(COLOR_SCHEME_SNIPPET.length).to.be.below(220);
     });
 
+    it('the README documents the same snippet', async () => {
+      const readme = await (await fetch('/README.md')).text();
+      expect(readme).to.include(`<script>${COLOR_SCHEME_SNIPPET}</script>`);
+    });
+
     for (const [stored, expected] of [
       [null, 'system'],
       ['dark', 'dark'],
