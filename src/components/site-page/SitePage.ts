@@ -6,12 +6,7 @@ import { installLightDomStyles } from '../../base/light-dom-styles.js';
 import { tokens } from '../../styles/tokens.js';
 import { base, TYPEKIT_URL } from '../../styles/base.js';
 import { accessible } from '../../styles/accessible.js';
-import {
-  applyPreference,
-  colorSchemeSupported,
-  installColorSchemeStyles,
-  readPreference,
-} from '../../base/color-scheme.js';
+import { ColorSchemeController } from '../../base/color-scheme.js';
 import {
   ALERTS_PRODUCTION_SRC,
   ALERTS_TAG,
@@ -114,6 +109,18 @@ export class SitePage extends UvalibElement {
    */
   @property({ type: Boolean, attribute: 'color-scheme-switch' }) colorSchemeSwitch = false;
 
+  /**
+   * Sets the stored scheme on <html> as soon as the page connects, before the header renders,
+   * so pages without the inline snippet flash as little as possible; without the switch it
+   * removes a stray attribute. It renders nothing itself.
+   */
+  private readonly scheme = new ColorSchemeController(
+    this,
+    () => this.colorSchemeSwitch,
+    () => this.noStyle,
+    false,
+  );
+
   static styles = [
     accessible,
     css`
@@ -180,13 +187,6 @@ export class SitePage extends UvalibElement {
       this.globalsInstalled = true;
       this.installGlobalStyles(this.ownerDocument);
     }
-    // As early as possible, before the header renders: the stored choice, so pages without
-    // the inline snippet flash as little as possible. The header keeps it current after.
-    const doc = this.ownerDocument;
-    if (this.colorSchemeSwitch && colorSchemeSupported(doc)) {
-      if (!this.noStyle) installColorSchemeStyles(doc);
-      applyPreference(doc, readPreference(doc), this.noStyle);
-    }
     // Reconnect after a disconnect; the first connect starts routing in update().
     if (this.lightDom && this.hasUpdated) {
       this.route(this.childNodes);
@@ -224,6 +224,7 @@ export class SitePage extends UvalibElement {
   }
 
   protected override willUpdate(changed: PropertyValues): void {
+    if (changed.has('colorSchemeSwitch')) this.scheme.sync();
     if (changed.has('noAlerts') && this.noAlerts) this.listShown = false;
     if (changed.has('alertsEnv') && this.alertsEnv && !isAlertsEnv(this.alertsEnv)) {
       console.warn(

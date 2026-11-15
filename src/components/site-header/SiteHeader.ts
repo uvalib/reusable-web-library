@@ -254,7 +254,7 @@ export class SiteHeader extends UvalibElement {
       }
       .segments {
         display: flex;
-        border: 1px solid var(--uva-color-control-border, #808080);
+        border: 1px solid var(--uva-color-control-border, var(--uva-grey, #808080));
         border-radius: 0.3rem;
         background: var(--uva-color-surface-raised, #ffffff);
       }
@@ -262,16 +262,20 @@ export class SiteHeader extends UvalibElement {
         position: relative;
         display: flex;
         flex: 1;
-        align-items: center;
-        justify-content: center;
-        min-block-size: 28px;
         min-inline-size: 28px;
-        padding: 0.125rem 0.625rem;
         font-size: 0.875rem;
         cursor: pointer;
       }
       .segments label + label {
-        border-inline-start: 1px solid var(--uva-color-control-border, #808080);
+        border-inline-start: 1px solid var(--uva-color-control-border, var(--uva-grey, #808080));
+      }
+      .segment {
+        display: flex;
+        flex: 1;
+        align-items: center;
+        justify-content: center;
+        min-block-size: 28px;
+        padding: 0.125rem 0.625rem;
       }
       .segments input {
         position: absolute;
@@ -282,12 +286,13 @@ export class SiteHeader extends UvalibElement {
         opacity: 0;
         cursor: pointer;
       }
-      .segments label:has(:checked) {
+      .segments input:checked + .segment {
         background: var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
         color: var(--uva-color-on-accent, #ffffff);
         font-weight: 700;
       }
-      .segments label:has(:focus-visible) {
+      .segments input:focus-visible + .segment {
+        position: relative;
         z-index: 1;
         outline: 3px solid var(--uva-color-focus, var(--uva-brand-orange, #e57200));
         outline-offset: 2px;
@@ -302,7 +307,7 @@ export class SiteHeader extends UvalibElement {
         clear: both;
       }
       @media (forced-colors: active) {
-        .segments label:has(:checked) {
+        .segments input:checked + .segment {
           forced-color-adjust: none;
           background: Highlight;
           color: HighlightText;
@@ -423,6 +428,13 @@ export class SiteHeader extends UvalibElement {
     this.syncChildren();
   }
 
+  /** The navy logo, or the reversed (white) one while the page shows dark mode. */
+  private logoSrc(): string {
+    return this.scheme.logoDark
+      ? DARK_LOGO_URL
+      : siteLink(this.rootLinkDomain, '/sites/default/files/2022-09/library_rgb.png');
+  }
+
   private onSchemeChange(e: Event): void {
     const input = e.target as HTMLInputElement;
     if (input.checked) this.scheme.choose(input.value as ColorSchemePreference);
@@ -430,11 +442,13 @@ export class SiteHeader extends UvalibElement {
 
   /**
    * The Light / Dark / System radio group. `inline` sits in the utility-links row, with its
-   * legend visually hidden; `menu` closes the Menu popover, legend shown. "System" names the
-   * scheme it currently resolves to, for screen readers.
+   * legend visually hidden; `menu` closes the Menu popover, legend shown. "System" names
+   * what it resolves to (the OS preference, whichever option is chosen), for screen readers.
+   * Each option's look is on the span after its radio (no `:has()`, which Firefox 120 lacks).
    */
   private schemeControl(where: 'inline' | 'menu') {
-    const { preference, resolved } = this.scheme;
+    const { preference, systemDark } = this.scheme;
+    const hint = ` (currently ${systemDark ? 'dark' : 'light'})`;
     const name = `${this.schemeName}-${where}`;
     return html`<fieldset class="color-scheme ${where}">
       <legend class=${where === 'inline' ? 'visually-hidden' : ''}>Theme</legend>
@@ -448,11 +462,13 @@ export class SiteHeader extends UvalibElement {
                 value=${o.value}
                 .checked=${preference === o.value}
                 @change=${this.onSchemeChange}
-              />${o.label}${
-                o.value === 'system'
-                  ? html`<span class="visually-hidden"> (currently ${resolved})</span>`
-                  : nothing
-              }</label
+              /><span class="segment"
+                >${o.label}${
+                  o.value === 'system'
+                    ? html`<span class="visually-hidden">${hint}</span>`
+                    : nothing
+                }</span
+              ></label
             >`,
         )}
       </div>
@@ -620,6 +636,84 @@ export class SiteHeader extends UvalibElement {
     return this._menuId;
   }
 
+  /**
+   * The header with dark mode on: the inline nav and the control share the utility row, the
+   * Menu popover ends with the control, and the logo follows the scheme. A template of its
+   * own, so the header without the switch renders exactly what it did before dark mode.
+   */
+  private renderWithScheme(
+    items: unknown,
+    label: string,
+    mainNav: boolean,
+    mainNavEl: (accordion: boolean) => unknown,
+  ) {
+    const root = this.rootLinkDomain;
+    const vendor = this.variant === 'vendor';
+    const id = this.menuId;
+    const anchor = `--${id}`;
+    const menu = html`<button
+        popovertarget=${id}
+        aria-controls=${id}
+        class="menu-toggle"
+        style="anchor-name: ${anchor}"
+      >
+        <svg
+          aria-hidden="true"
+          xmlns="http://www.w3.org/2000/svg"
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="butt"
+          stroke-linejoin="bevel"
+        >
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+        Menu
+      </button>
+      <div id=${id} popover class="menu-popover" style="--menu-anchor: ${anchor}">
+        ${mainNav ? mainNavEl(true) : nothing}
+        <nav class="menu" aria-label=${`${label} menu`}>
+          <ul>
+            ${items}
+          </ul>
+        </nav>
+        ${this.schemeControl('menu')}
+      </div>
+      ${mainNav ? mainNavEl(false) : nothing}`;
+    return html`
+      <header part="header" class=${vendor ? 'vendor' : ''}>
+        ${this.lightDom ? nothing : html`<slot name="skip-link"></slot><slot name="alerts"></slot>`}
+        <a class="logo" href=${siteLink(root, '/')}
+          ><img src=${this.logoSrc()} alt="UVA Library home" width="304" height="69"
+        /></a>
+        <div class="utility-row">
+          <nav class="inline" aria-label=${label}>
+            <ul>
+              ${items}
+            </ul>
+          </nav>
+          ${this.schemeControl('inline')}
+        </div>
+        ${vendor ? nothing : menu}
+      </header>
+      ${
+        this.lightDom
+          ? nothing
+          : html`<div hidden>
+                <slot name="site-links" @slotchange=${this.onSourcesChange}></slot>
+              </div>
+              <div hidden>
+                <slot name="main-nav" @slotchange=${this.onSourcesChange}></slot>
+              </div>`
+      }
+    `;
+  }
+
   render() {
     const root = this.rootLinkDomain;
     const vendor = this.variant === 'vendor';
@@ -696,31 +790,30 @@ export class SiteHeader extends UvalibElement {
       ></site-main-nav>`;
     // With it: the Menu popover holds the accordion and then the utility links, and the bar
     // is the header's last child, a row of its own.
-    const menuButton = html`<button
-      popovertarget=${id}
-      aria-controls=${id}
-      class="menu-toggle"
-      style="anchor-name: ${anchor}"
-    >
-      <svg
-        aria-hidden="true"
-        xmlns="http://www.w3.org/2000/svg"
-        width="28"
-        height="28"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="butt"
-        stroke-linejoin="bevel"
+    const withMainNav = html`<button
+        popovertarget=${id}
+        aria-controls=${id}
+        class="menu-toggle"
+        style="anchor-name: ${anchor}"
       >
-        <line x1="3" y1="12" x2="21" y2="12"></line>
-        <line x1="3" y1="6" x2="21" y2="6"></line>
-        <line x1="3" y1="18" x2="21" y2="18"></line>
-      </svg>
-      Menu
-    </button>`;
-    const withMainNav = html`${menuButton}
+        <svg
+          aria-hidden="true"
+          xmlns="http://www.w3.org/2000/svg"
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="butt"
+          stroke-linejoin="bevel"
+        >
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+        Menu
+      </button>
       <div id=${id} popover class="menu-popover" style="--menu-anchor: ${anchor}">
         ${mainNavEl(true)}
         <nav class="menu" aria-label=${`${label} menu`}>
@@ -728,66 +821,20 @@ export class SiteHeader extends UvalibElement {
             ${items}
           </ul>
         </nav>
-        ${this.scheme.active ? this.schemeControl('menu') : nothing}
       </div>
       ${mainNavEl(false)}`;
-    // Without the main navigation but with the color-scheme control, the popover is a
-    // container like the main-nav one: the utility list, then the control.
-    const classicScheme = html`${menuButton}
-      <div id=${id} popover class="menu-popover" style="--menu-anchor: ${anchor}">
-        <nav class="menu" aria-label=${`${label} menu`}>
-          <ul>
-            ${items}
-          </ul>
-        </nav>
-        ${this.schemeControl('menu')}
-      </div>`;
     const withMainNavHidden = html`<div hidden>
         <slot name="site-links" @slotchange=${this.onSourcesChange}></slot>
       </div>
       <div hidden>
         <slot name="main-nav" @slotchange=${this.onSourcesChange}></slot>
       </div>`;
-    const hidden = this.lightDom ? nothing : mainNav ? withMainNavHidden : classicHidden;
-    if (this.scheme.active) {
-      // Dark mode: the inline nav and the control share the utility row, and the logo
-      // follows the scheme. A separate template, so the header without it stays unchanged.
-      return html`
-        <header part="header" class=${vendor ? 'vendor' : ''}>
-          ${this.lightDom ? nothing : html`<slot name="skip-link"></slot><slot name="alerts"></slot>`}
-          <a class="logo" href=${siteLink(root, '/')}
-            ><img
-              src=${
-                this.scheme.resolved === 'dark'
-                  ? DARK_LOGO_URL
-                  : siteLink(root, '/sites/default/files/2022-09/library_rgb.png')
-              }
-              alt="UVA Library home"
-              width="304"
-              height="69"
-          /></a>
-          <div class="utility-row">
-            <nav class="inline" aria-label=${label}>
-              <ul>
-                ${items}
-              </ul>
-            </nav>
-            ${this.schemeControl('inline')}
-          </div>
-          ${vendor ? nothing : mainNav ? withMainNav : classicScheme}
-        </header>
-        ${hidden}
-      `;
-    }
+    if (this.scheme.active) return this.renderWithScheme(items, label, mainNav, mainNavEl);
     return html`
       <header part="header" class=${vendor ? 'vendor' : ''}>
         ${this.lightDom ? nothing : html`<slot name="skip-link"></slot><slot name="alerts"></slot>`}
         <a class="logo" href=${siteLink(root, '/')}
-          ><img
-            src=${siteLink(root, '/sites/default/files/2022-09/library_rgb.png')}
-            alt="UVA Library home"
-            width="304"
-            height="69"
+          ><img src=${this.logoSrc()} alt="UVA Library home" width="304" height="69"
         /></a>
         <nav class="inline" aria-label=${label}>
           <ul>
@@ -796,7 +843,7 @@ export class SiteHeader extends UvalibElement {
         </nav>
         ${vendor ? nothing : mainNav ? withMainNav : classic}
       </header>
-      ${hidden}
+      ${this.lightDom ? nothing : mainNav ? withMainNavHidden : classicHidden}
     `;
   }
 }

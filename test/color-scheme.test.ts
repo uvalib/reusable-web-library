@@ -71,7 +71,56 @@ describe('dark mode (color-scheme-switch)', function () {
       });
     }
 
-    it('the header markup with the switch off is byte-identical to main', async () => {
+    describe('the header markup with the switch off is byte-identical to main (raw)', () => {
+      before(async () => {
+        const { SiteHeaderBeforeDarkMode } =
+          await import('./fixtures/main-header/SiteHeaderBeforeDarkMode.js');
+        if (!customElements.get('site-header-before-dark'))
+          customElements.define('site-header-before-dark', SiteHeaderBeforeDarkMode);
+      });
+
+      /** Raw markup, whitespace and Lit markers kept; only per-instance ids numbered. */
+      const raw = (el: Element) =>
+        [...rootOf(el).childNodes]
+          .map((n) =>
+            n instanceof Element
+              ? n.outerHTML
+              : n.nodeType === 3
+                ? n.textContent
+                : `<!--${(n as Comment).data}-->`,
+          )
+          .join('')
+          .replace(/utility-menu-\d+/g, 'utility-menu-N')
+          .replace(/main-nav-\d+-/g, 'main-nav-N-');
+
+      for (const mode of ['shadow', 'light'] as const) {
+        for (const [name, attrs, kids] of [
+          ['default', '', ''],
+          ['no-main-nav', 'no-main-nav', ''],
+          [
+            'site links',
+            'site-links-label="Docs"',
+            '<a slot="site-links" href="/a" aria-current="page">A</a><a slot="site-links" href="/b">B</a>',
+          ],
+          ['vendor', 'variant="vendor"', ''],
+        ] as const) {
+          it(`${mode}, ${name}`, async () => {
+            await emulateMedia({ colorScheme: 'dark' });
+            const light = modeAttr(mode);
+            const wrap = await fixture(
+              `<div><site-header ${light} ${attrs}>${kids}</site-header><site-header-before-dark ${light} ${attrs}>${kids}</site-header-before-dark></div>`,
+            );
+            const [now, then] = [...wrap.children] as SiteHeader[];
+            await now!.updateComplete;
+            await then!.updateComplete;
+            await nextFrame();
+            expect(raw(now!)).to.equal(raw(then!));
+          });
+        }
+      }
+    });
+
+    it('the header markup with the switch off matches the normalised snapshot', async () => {
       for (const [mode, key] of [
         ['shadow', 'shadow'],
         ['light', 'light'],
@@ -404,6 +453,101 @@ describe('dark mode (color-scheme-switch)', function () {
       }
     });
   }
+
+  describe('the "System" hint always names the OS preference', () => {
+    for (const mode of ['shadow', 'light']) {
+      it(`${mode}: with Light chosen and the OS dark it reads "(currently dark)", live`, async () => {
+        await emulateMedia({ colorScheme: 'dark' });
+        const header = await headerOf(await page(mode));
+        await pick(header, inlineControl(header), 'light');
+        expect(currentlyText(inlineControl(header))).to.equal(' (currently dark)');
+        expect(currentlyText(menuControl(header))).to.equal(' (currently dark)');
+        await emulateMedia({ colorScheme: 'light' });
+        await waitUntil(() => currentlyText(inlineControl(header)) === ' (currently light)');
+        await pick(header, inlineControl(header), 'dark');
+        expect(currentlyText(inlineControl(header))).to.equal(' (currently light)');
+      });
+    }
+  });
+
+  describe('a stray data-uva-color-scheme (the snippet on a page without the switch)', () => {
+    for (const mode of ['shadow', 'light']) {
+      it(`${mode}: <site-page> without the switch removes it; the page stays light`, async () => {
+        await emulateMedia({ colorScheme: 'dark' });
+        localStorage.setItem(COLOR_SCHEME_STORAGE_KEY, 'dark');
+        html.setAttribute(COLOR_SCHEME_ATTR, 'dark');
+        const header = await headerOf(await page(mode, ''));
+        expect(html.hasAttribute(COLOR_SCHEME_ATTR)).to.equal(false);
+        expect(logoSrc(header)).to.not.equal(DARK_LOGO_URL);
+        expect(controls(header)).to.have.length(0);
+        // The stored choice is the visitor's: it is left alone.
+        expect(stored()).to.equal('dark');
+      });
+
+      it(`${mode}: a standalone <site-header> without the switch removes it too`, async () => {
+        html.setAttribute(COLOR_SCHEME_ATTR, 'system');
+        await fixture(`<site-header ${modeAttr(mode)}></site-header>`);
+        expect(html.hasAttribute(COLOR_SCHEME_ATTR)).to.equal(false);
+      });
+    }
+  });
+
+  describe('several components on one page', () => {
+    it('a header without the switch follows a dark root: never the navy logo', async () => {
+      localStorage.setItem(COLOR_SCHEME_STORAGE_KEY, 'dark');
+      const wrap = await fixture(
+        `<div><site-header color-scheme-switch></site-header><site-header no-shadow-dom></site-header></div>`,
+      );
+      const [on, off] = [...wrap.children] as SiteHeader[];
+      await on!.updateComplete;
+      await off!.updateComplete;
+      // The passive header neither removed the owner's attribute nor kept the navy logo.
+      expect(attr()).to.equal('dark');
+      expect(logoSrc(off!)).to.equal(DARK_LOGO_URL);
+      expect(controls(off!)).to.have.length(0);
+      await pick(on!, inlineControl(on!), 'light');
+      await off!.updateComplete;
+      expect(logoSrc(off!)).to.not.equal(DARK_LOGO_URL);
+    });
+
+    it('turning one owner off keeps the attribute; the last one off removes it', async () => {
+      const wrap = await fixture(
+        `<div><site-header color-scheme-switch></site-header><site-header color-scheme-switch no-shadow-dom></site-header></div>`,
+      );
+      const [a, b] = [...wrap.children] as SiteHeader[];
+      await a!.updateComplete;
+      expect(attr()).to.equal('system');
+      a!.removeAttribute('color-scheme-switch');
+      await a!.updateComplete;
+      expect(attr()).to.equal('system');
+      b!.remove();
+      expect(html.hasAttribute(COLOR_SCHEME_ATTR)).to.equal(false);
+    });
+
+    it('disconnecting the last owning <site-page> releases and removes the attribute', async () => {
+      const el = await page('shadow');
+      expect(attr()).to.equal('system');
+      const other = await fixture<SiteHeader>(`<site-header color-scheme-switch></site-header>`);
+      el.remove();
+      expect(attr()).to.equal('system'); // the standalone header still owns it
+      other.remove();
+      expect(html.hasAttribute(COLOR_SCHEME_ATTR)).to.equal(false);
+    });
+  });
+
+  describe('forced colors (a contrast theme repaints the header)', () => {
+    afterEach(() => emulateMedia({ forcedColors: 'none' }));
+
+    it('picks the logo from the OS theme, not the stored choice', async () => {
+      localStorage.setItem(COLOR_SCHEME_STORAGE_KEY, 'dark');
+      const header = await headerOf(await page('shadow'));
+      expect(logoSrc(header)).to.equal(DARK_LOGO_URL);
+      await emulateMedia({ forcedColors: 'active', colorScheme: 'light' });
+      await waitUntil(() => logoSrc(header) !== DARK_LOGO_URL, 'navy logo on a light theme');
+      await emulateMedia({ forcedColors: 'active', colorScheme: 'dark' });
+      await waitUntil(() => logoSrc(header) === DARK_LOGO_URL, 'white logo on a dark theme');
+    });
+  });
 
   describe('standalone <site-header color-scheme-switch>', () => {
     for (const mode of ['shadow', 'light']) {

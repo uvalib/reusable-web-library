@@ -94,24 +94,58 @@ export function installColorSchemeStyles(doc: Document): void {
   installLightDomStyles('uvalib-color-scheme', [colorScheme], { root: doc, scope: false });
 }
 
+/** Per document, the controllers that currently own `data-uva-color-scheme`. */
+const owners = new WeakMap<Document, Set<ColorSchemeController>>();
+const ownersOf = (doc: Document): Set<ColorSchemeController> => {
+  let set = owners.get(doc);
+  if (!set) owners.set(doc, (set = new Set()));
+  return set;
+};
+
+const FORCED_QUERY = '(forced-colors: active)';
+
+/** The scheme the root element shows: from `data-uva-color-scheme`, or null when dark mode is off. */
+export function rootColorScheme(doc: Document = document): ResolvedColorScheme | null {
+  const attr = doc.documentElement.getAttribute(COLOR_SCHEME_ATTR);
+  if (attr === null || !colorSchemeSupported(doc)) return null;
+  return resolvePreference(asPreference(attr), doc);
+}
+
 /**
- * Keeps a component's view of the color scheme current while it is `enabled()` and the
- * browser supports dark mode: the preference (from any control on the page, another tab
- * through the `storage` event, or storage) and the OS preference. While active it keeps
- * `data-uva-color-scheme` on the root element; when it stops being enabled it removes it.
+ * A component's view of dark mode. While `enabled()` and supported (`active`), it owns
+ * `data-uva-color-scheme` on the root element: it sets it, keeps it current with the
+ * stored preference (any control on the page, another tab through the `storage` event) and
+ * removes it when the last owner in the document is turned off or disconnected. A connected
+ * controller that is not enabled removes a stray attribute (for example from the inline
+ * snippet on a page without the switch) unless another one owns it.
+ *
+ * Every connected controller also follows the root's scheme (`rootDark`) and the OS
+ * preference (`systemDark`), so a header without the switch never shows the navy logo on a
+ * dark page.
  */
 export class ColorSchemeController implements ReactiveController {
   preference: ColorSchemePreference = 'system';
-  resolved: ResolvedColorScheme = 'light';
-  /** Enabled and supported: the control is shown and the attribute set. */
+  /** What "System" resolves to: the OS preference. */
+  systemDark = false;
+  /** Whether the root element currently shows the dark scheme. */
+  rootDark = false;
+  /** Whether forced colors (a contrast theme) are on. */
+  forcedColors = false;
+  /** Whether the root element has `data-uva-color-scheme` (dark mode is on for the page). */
+  rootOn = false;
+  /** Enabled and supported: this controller owns the root attribute. */
   active = false;
+  /** Set while sync() runs, so its own change events do not request a second update. */
+  private syncing = false;
 
-  private listening?: { doc: Document; mql?: MediaQueryList };
+  private listening?: { doc: Document; dark?: MediaQueryList; forced?: MediaQueryList };
 
   constructor(
     private readonly host: ReactiveControllerHost & HTMLElement,
     private readonly enabled: () => boolean,
     private readonly inline: () => boolean,
+    /** Whether the host renders anything from this state (and so needs updates). */
+    private readonly renders = true,
   ) {
     host.addController(this);
   }
@@ -122,22 +156,41 @@ export class ColorSchemeController implements ReactiveController {
 
   hostDisconnected(): void {
     this.listen(false);
+    this.release(this.host.ownerDocument);
   }
 
   /** Call when `enabled()` may have changed (from the host's `willUpdate`). */
   sync(): void {
     const doc = this.host.ownerDocument;
-    const was = this.active;
-    this.active = this.enabled() && colorSchemeSupported(doc);
+    if (!this.host.isConnected) return;
+    this.syncing = true;
+    const supported = colorSchemeSupported(doc);
+    this.active = this.enabled() && supported;
     if (this.active) {
+      ownersOf(doc).add(this);
       if (!this.inline()) installColorSchemeStyles(doc);
-      this.listen(true);
-      this.refresh(false);
+      this.preference = readPreference(doc);
       applyPreference(doc, this.preference, this.inline());
+      doc.dispatchEvent(new CustomEvent(CHANGE));
     } else {
-      this.listen(false);
-      if (was) clearPreference(doc);
+      this.release(doc);
+      // Not ours, and nobody owns it: a stray attribute (the snippet without the switch).
+      if (!ownersOf(doc).size && doc.documentElement.hasAttribute(COLOR_SCHEME_ATTR)) {
+        clearPreference(doc);
+        doc.dispatchEvent(new CustomEvent(CHANGE));
+      }
     }
+    this.listen(supported);
+    this.syncing = false;
+    this.refresh(false);
+  }
+
+  /**
+   * Whether to show the reversed (white) logo: only while the page shows dark mode, and under
+   * forced colors (a contrast theme repaints the header) only when the OS theme is dark.
+   */
+  get logoDark(): boolean {
+    return this.rootOn && (this.forcedColors ? this.systemDark : this.rootDark);
   }
 
   /** The visitor picked `pref` in a control. */
@@ -145,38 +198,61 @@ export class ColorSchemeController implements ReactiveController {
     setPreference(this.host.ownerDocument, pref, this.inline());
   }
 
-  private readonly onChange = (): void => this.refresh(true);
+  /** Stop owning the attribute; the last owner to go removes it. */
+  private release(doc: Document): void {
+    const set = ownersOf(doc);
+    if (!set.delete(this)) return;
+    this.active = false;
+    if (!set.size) {
+      clearPreference(doc);
+      doc.dispatchEvent(new CustomEvent(CHANGE));
+    }
+  }
+
+  private readonly onChange = (): void => this.refresh(!this.syncing);
 
   private readonly onStorage = (e: StorageEvent): void => {
     if (e.key !== null && e.key !== COLOR_SCHEME_STORAGE_KEY) return;
+    if (this.active)
+      applyPreference(
+        this.host.ownerDocument,
+        readPreference(this.host.ownerDocument),
+        this.inline(),
+      );
     this.refresh(true);
-    applyPreference(this.host.ownerDocument, this.preference, this.inline());
   };
 
   private refresh(update: boolean): void {
     const doc = this.host.ownerDocument;
-    const preference = readPreference(doc);
-    const resolved = resolvePreference(preference, doc);
-    if (preference === this.preference && resolved === this.resolved) return;
-    this.preference = preference;
-    this.resolved = resolved;
-    if (update) this.host.requestUpdate();
+    const next = {
+      preference: readPreference(doc),
+      systemDark: systemIsDark(doc),
+      rootDark: rootColorScheme(doc) === 'dark',
+      rootOn: rootColorScheme(doc) !== null,
+      forcedColors: !!doc.defaultView?.matchMedia?.(FORCED_QUERY).matches,
+    };
+    const changed = (Object.keys(next) as (keyof typeof next)[]).some((k) => next[k] !== this[k]);
+    Object.assign(this, next);
+    if (changed && update && this.renders) this.host.requestUpdate();
   }
 
   private listen(on: boolean): void {
     if (on === !!this.listening) return;
     if (on) {
       const doc = this.host.ownerDocument;
-      const mql = doc.defaultView?.matchMedia?.(DARK_QUERY);
+      const dark = doc.defaultView?.matchMedia?.(DARK_QUERY);
+      const forced = doc.defaultView?.matchMedia?.(FORCED_QUERY);
       doc.addEventListener(CHANGE, this.onChange);
       doc.defaultView?.addEventListener('storage', this.onStorage);
-      mql?.addEventListener('change', this.onChange);
-      this.listening = { doc, mql };
+      dark?.addEventListener('change', this.onChange);
+      forced?.addEventListener('change', this.onChange);
+      this.listening = { doc, dark, forced };
     } else {
-      const { doc, mql } = this.listening!;
+      const { doc, dark, forced } = this.listening!;
       doc.removeEventListener(CHANGE, this.onChange);
       doc.defaultView?.removeEventListener('storage', this.onStorage);
-      mql?.removeEventListener('change', this.onChange);
+      dark?.removeEventListener('change', this.onChange);
+      forced?.removeEventListener('change', this.onChange);
       this.listening = undefined;
     }
   }
