@@ -53,4 +53,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium
+      # Ubuntu 24.04 runners restrict unprivileged user namespaces through AppArmor, so a
+      # Chrome started by Lighthouse (not Playwright) aborts with "No usable sandbox".
+      # Re-allow them on this throwaway runner rather than run Chrome with --no-sandbox.
+      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: pnpm lhci
