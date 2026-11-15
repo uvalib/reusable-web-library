@@ -697,7 +697,7 @@ pnpm release <patch|minor|major>             # lint, test, build, bump, tag vX.Y
 
 The first release must be `pnpm release major` (0.0.0 → 1.0.0).
 
-Pull requests to `main` run `.github/workflows/ci.yml` in GitHub Actions (install, lint, test) with a read-only token and no secrets; pushes to `main` are tested by `.github/workflows/pages.yml`.
+Pull requests to `main` run `.github/workflows/ci.yml` in GitHub Actions (install, lint, test, Lighthouse) with a read-only token and no secrets. Pushes to `main` are linted and tested by `.github/workflows/pages.yml` and run the same workflow's Lighthouse job, which can also be started by hand (Actions → CI → Run workflow).
 
 One `v*` tag starts two independent releases. Each can be re-run on its own, and no npm token is stored anywhere:
 

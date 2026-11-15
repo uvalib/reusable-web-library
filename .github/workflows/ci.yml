@@ -1,20 +1,26 @@
-# Lint and test pull requests to main. Unprivileged: read-only token, no secrets, publishes
-# nothing. Pushes to main are tested by pages.yml; releases run in AWS CodePipeline.
+# Lint and test pull requests to main, and run Lighthouse CI on pull requests, pushes to main
+# and on demand. Unprivileged: read-only token, no secrets, publishes nothing. Pushes to main
+# are linted and tested by pages.yml; releases run in AWS CodePipeline.
 name: CI
 
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   test:
+    # Pushes to main already run lint and the tests in pages.yml.
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
