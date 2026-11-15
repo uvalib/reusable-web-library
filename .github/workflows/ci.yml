@@ -65,4 +65,6 @@ jobs:
         with:
           name: lighthouse-reports
           path: .lighthouseci/
+          # .lighthouseci is a hidden folder, which upload-artifact skips by default.
+          include-hidden-files: true
           retention-days: 14
