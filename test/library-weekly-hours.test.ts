@@ -380,6 +380,97 @@ describe('library-weekly-hours', () => {
     expect(el.state).to.equal('error');
   });
 
+  it('shows a Building hours placeholder row before the library list arrives', async () => {
+    resetHours();
+    const hold = holdFetches((u) => u.includes('/jsonapi/'));
+    try {
+      const el = await fixture<LibraryWeeklyHours>(
+        `<library-weekly-hours library-slug="clemons" refresh-every="0"></library-weekly-hours>`,
+      );
+      await waitUntil(() => hold.count === 1, 'library list not requested');
+      await el.updateComplete;
+      const rows = root(el).querySelectorAll('tbody tr');
+      expect(rows).to.have.length(1);
+      expect(text(rows[0]!.querySelector('th'))).to.equal('Building hours');
+      expect(rows[0]!.querySelectorAll('.hours-placeholder')).to.have.length(7);
+      hold.release();
+      await settled(el);
+      expect(root(el).querySelectorAll('tbody tr')).to.have.length(2);
+      expect(root(el).querySelectorAll('tbody .hours-placeholder')).to.have.length(0);
+    } finally {
+      hold.release();
+      hold.restore();
+    }
+  });
+
+  it('holds the final table height with placeholder rows while the hours load', async () => {
+    resetHours();
+    const hold = holdFetches((u) => u.includes('cal.lib.virginia.edu'));
+    try {
+      const el = await fixture<LibraryWeeklyHours>(
+        `<library-weekly-hours library-slug="clemons" refresh-every="0" style="width: 332px"></library-weekly-hours>`,
+      );
+      await waitUntil(() => hold.count === 1, 'LibCal not requested');
+      await el.updateComplete;
+      const table = root(el).querySelector('table')!;
+      expect(table.getAttribute('aria-busy')).to.equal('true');
+      // Building hours plus Clemons' one space, with hidden placeholder hours.
+      const rows = root(el).querySelectorAll('tbody tr');
+      expect(rows).to.have.length(2);
+      const placeholders = root(el).querySelectorAll('tbody .hours-placeholder');
+      expect(placeholders).to.have.length(14);
+      for (const p of placeholders) {
+        expect(p.getAttribute('aria-hidden')).to.equal('true');
+        expect(getComputedStyle(p).visibility).to.equal('hidden');
+      }
+      expect(text(root(el).querySelector('[role=status]'))).to.equal('Loading hours…');
+      const tableBefore = table.getBoundingClientRect().height;
+      hold.release();
+      await settled(el);
+      expect(el.state).to.equal('ready');
+      expect(root(el).querySelectorAll('tbody .hours-placeholder')).to.have.length(0);
+      expect(root(el).querySelectorAll('tbody tr')).to.have.length(2);
+      // The real hours replace the placeholders in place: the table keeps its height.
+      const tableAfter = root(el).querySelector('table')!.getBoundingClientRect().height;
+      expect(Math.abs(tableAfter - tableBefore)).to.be.below(2);
+    } finally {
+      hold.release();
+      hold.restore();
+    }
+  });
+
+  it('reserves --library-weekly-hours-min-height only during its first load', async () => {
+    resetHours();
+    const hold = holdFetches((u) => u.includes('cal.lib.virginia.edu'));
+    try {
+      const el = await fixture<LibraryWeeklyHours>(
+        `<library-weekly-hours library-slug="clemons" refresh-every="0" style="--library-weekly-hours-min-height: 600px"></library-weekly-hours>`,
+      );
+      await waitUntil(() => hold.count === 1, 'LibCal not requested');
+      await el.updateComplete;
+      expect(el.hasAttribute('loading')).to.equal(true);
+      expect(el.getBoundingClientRect().height).to.be.at.least(600);
+      hold.release();
+      await settled(el);
+      expect(el.state).to.equal('ready');
+      expect(el.hasAttribute('loading')).to.equal(false);
+      expect(el.getBoundingClientRect().height).to.be.below(600);
+      // A later load keeps its rows on screen, so it reserves nothing.
+      root(el)
+        .querySelectorAll<HTMLButtonElement>('.weekly-hours-header-section button')[1]!
+        .click();
+      await waitUntil(() => hold.count === 1, 'next week not requested');
+      await el.updateComplete;
+      expect(el.state).to.equal('loading');
+      expect(el.hasAttribute('loading')).to.equal(false);
+      hold.release();
+      await settled(el);
+    } finally {
+      hold.release();
+      hold.restore();
+    }
+  });
+
   it('describes each week button by its own week heading', async () => {
     const a = await make('library-slug="clemons"');
     const b = await make('library-slug="main"');

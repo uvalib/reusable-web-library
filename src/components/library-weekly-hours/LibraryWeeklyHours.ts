@@ -43,6 +43,8 @@ export type HoursState = 'loading' | 'ready' | 'error';
  */
 const structuralRules = (host: string) => `
   ${host} { display: block; }
+  ${host}[loading] { min-height: var(--library-weekly-hours-min-height, 0); }
+  ${host} .hours-placeholder { visibility: hidden; }
   ${host}[hidden], ${host} [hidden] { display: none !important; }
   ${host} .weekly-hours-header-section {
     display: flex;
@@ -75,6 +77,7 @@ const shadowStructure = unsafeCSS(structuralRules(':host'));
  *
  * @tagname library-weekly-hours
  * @csspart building-hours - The "Building hours" table row (shadow mode).
+ * @cssprop [--library-weekly-hours-min-height=0] - Height the element keeps during its first load (while it has the `loading` attribute, before any rows show), so content below does not jump when the hours arrive. Applies with `no-style` too. Pages can reserve the same height before the element upgrades with `library-weekly-hours:not(:defined) { display: block; min-height: … }`.
  * @cssprop [--uva-brand-orange=#e57200] - Border of today's column; focus ring colour.
  * @cssprop [--uva-brand-blue=#232d4b] - Header and button colour.
  * @cssprop --uva-color-border - Dark-mode role token: table cell borders (else #dadada).
@@ -184,6 +187,11 @@ export class LibraryWeeklyHours extends UvalibElement {
   @state() private _state: HoursState = 'loading';
   @state() private today = '';
   @state() private view?: WeekView;
+  /**
+   * During the first load, once the library list is in: the rows the table will have, so
+   * placeholder rows can hold their height until the hours arrive.
+   */
+  @state() private pending?: Omit<WeekView, 'hours'>;
   @state() private announcement = '';
 
   private readonly uid = `library-weekly-hours-${++instanceCounter}`;
@@ -266,6 +274,8 @@ export class LibraryWeeklyHours extends UvalibElement {
   }
 
   protected override updated(changed: PropertyValues<this>) {
+    // Only the first load, before any rows show, reserves --library-weekly-hours-min-height.
+    this.toggleAttribute('loading', this._state === 'loading' && !this.view);
     // The first value is picked up by connectedCallback.
     if (changed.has('refreshEvery') && changed.get('refreshEvery') !== undefined)
       this.restartRefresh();
@@ -300,12 +310,14 @@ export class LibraryWeeklyHours extends UvalibElement {
       const library = libraries.find((l) => l.slug === slug);
       if (!library) throw new Error(`no library with slug "${slug}"`);
       const spaces = libraries.filter((l) => l.parent === library.id);
+      if (id === this.loadId && !this.view) this.pending = { days, library, spaces };
       const ids = [library, ...spaces]
         .map((l) => l.calId)
         .filter((n): n is number => n !== undefined);
       const hours = await loadHours(ids, days[0]!, days[6]!, maxAge);
       if (id !== this.loadId) return; // a newer load owns the element
       this.view = { days, library, spaces, hours };
+      this.pending = undefined;
       this._state = 'ready';
       if (announce)
         this.announcement = `Showing hours for ${fullDate(days[0]!)} to ${fullDate(days[6]!)}`;
@@ -314,6 +326,7 @@ export class LibraryWeeklyHours extends UvalibElement {
       const sameWeek = this.view?.days[0] === days[0];
       if (background && sameWeek && this._state !== 'error') return;
       if (!sameWeek) this.view = undefined;
+      this.pending = undefined;
       this._state = 'error';
     }
   }
@@ -368,8 +381,52 @@ export class LibraryWeeklyHours extends UvalibElement {
     });
   }
 
+  /**
+   * The first load's rows before the hours arrive: the real row headers with invisible,
+   * typical hours text in each cell, so the table already has its final height in whatever
+   * font the page uses and nothing below it moves when the hours replace the placeholders.
+   */
+  private renderPlaceholderRows({ days, library: lib, spaces }: Omit<WeekView, 'hours'>) {
+    const cells = () =>
+      days.map(
+        (day) =>
+          html`<td class=${day === this.today ? 'today' : nothing}>
+            ${this.renderMobileDate(day)}<span class="hours-placeholder" aria-hidden="true"
+              >10am - 10pm</span
+            >
+          </td>`,
+      );
+    const building =
+      !this.hideBuildingHours && lib.calId !== undefined
+        ? html`<tr part="building-hours">
+            <th scope="row" colspan="2">Building hours</th>
+            ${cells()}
+          </tr>`
+        : nothing;
+    return html`${building}${spaces.map(
+      (space) =>
+        html`<tr>
+          <th scope="row" colspan="2">
+            <span class=${space.siteLink ? 'lib-space-link' : 'lib-space'}>${space.title}</span>
+          </th>
+          ${cells()}
+        </tr>`,
+    )}`;
+  }
+
   private renderRows(view: WeekView | undefined) {
-    if (!view) return nothing;
+    if (!view) {
+      if (this.pending) return this.renderPlaceholderRows(this.pending);
+      // Before the library list is in: the Building hours row nearly every library has, so
+      // only a library's extra spaces can still move what follows the table.
+      if (this._state === 'loading' && !this.hideBuildingHours)
+        return this.renderPlaceholderRows({
+          days: this.days,
+          library: { calId: 0 } as LibraryInfo,
+          spaces: [],
+        });
+      return nothing;
+    }
     const { days, library: lib, spaces, hours } = view;
     const building =
       !this.hideBuildingHours && lib.calId !== undefined && hours.has(lib.calId)

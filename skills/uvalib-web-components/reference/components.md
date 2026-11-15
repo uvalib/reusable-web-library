@@ -33,6 +33,7 @@ One library's opening hours for a week (Sunday to Saturday, in America/New_York)
 
 | Property | Default | Description |
 |---|---|---|
+| `--library-weekly-hours-min-height` | `0` | Height the element keeps during its first load (while it has the `loading` attribute, before any rows show), so content below does not jump when the hours arrive. Applies with `no-style` too. Pages can reserve the same height before the element upgrades with `library-weekly-hours:not(:defined) { display: block; min-height: … }`. |
 | `--uva-brand-orange` | `#e57200` | Border of today's column; focus ring colour. |
 | `--uva-brand-blue` | `#232d4b` | Header and button colour. |
 | `--uva-color-border` |  | Dark-mode role token: table cell borders (else #dadada). |
