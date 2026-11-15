@@ -102,7 +102,7 @@ const stopEvent = (e: Event) => e.stopPropagation();
  * @cssprop --uva-color-utility-link - Dark-mode role token: utility and site link colour (else `--uva-blue-alt-dark`).
  * @cssprop --uva-color-text - Dark-mode role token: Menu button and theme control text (else `--uva-grey-darkest`).
  * @cssprop --uva-color-border - Dark-mode role token: popover border and rules (else #ccc).
- * @cssprop --uva-color-control-border - Dark-mode role token: theme control border (else #808080).
+ * @cssprop --uva-color-control-border - Dark-mode role token: theme control border (else `--uva-grey`, #808080).
  * @cssprop --uva-color-accent-bg - Dark-mode role token: selected theme option and skip-link background (else `--uva-brand-blue`).
  * @cssprop --uva-color-on-accent - Dark-mode role token: selected theme option and skip-link text (else #fff).
  * @cssprop --uva-color-focus - Dark-mode role token: focus ring (else `--uva-brand-orange`).

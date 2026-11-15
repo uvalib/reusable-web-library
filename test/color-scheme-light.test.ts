@@ -47,7 +47,11 @@ describe('light mode is unchanged without the color-scheme switch', function () 
       it('stays light with the OS in dark mode and the host page declaring light dark', async () => {
         await emulateMedia({ colorScheme: 'dark' });
         document.documentElement.style.colorScheme = 'light dark';
-        expectMainExceptBorders(await allColors(mode));
+        // The pre-footer link is the site's own content, which keeps the page's scheme, so
+        // the browser's dark link colour applies, as on main.
+        expectMainExceptBorders(await allColors(mode), {
+          'footer pre link color': 'rgb(158, 158, 255)',
+        });
         expect(document.documentElement.hasAttribute('data-uva-color-scheme')).to.equal(false);
       });
     });

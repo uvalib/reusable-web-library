@@ -46,6 +46,7 @@ export function pageColors(page: Element): Colors {
   const footer = deep(r, 'site-footer');
   const fr = rootOf(footer);
   read(out, 'footer pre', deep(fr, '.footer--pre'), ['color', 'background-color']);
+  read(out, 'footer pre link', page.querySelector('.pre-link')!, TEXT);
   read(out, 'footer main', deep(fr, '.footer--main'), ['color', 'background-color']);
   read(out, 'footer link', deep(fr, '.footer--main a'), TEXT);
   read(out, 'footer post', deep(fr, '.footer--post'), ['color', 'background-color']);

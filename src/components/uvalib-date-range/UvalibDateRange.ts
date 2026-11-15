@@ -36,9 +36,9 @@ const clamp = (iso: string, lo: string, hi: string): string =>
  * @cssprop --uva-color-track - Dark-mode role token: slider track (else #e5e7eb).
  * @cssprop --uva-color-accent-bg - Dark-mode role token: selected range and thumbs (else `--uva-brand-blue`).
  * @cssprop --uva-color-surface-raised - Dark-mode role token: date input background and thumb ring (else #ffffff).
- * @cssprop --uva-color-text - Dark-mode role token: date input text (else #1f2937).
+ * @cssprop --uva-color-input-text - Dark-mode role token: date input text (else #1f2937).
  * @cssprop --uva-color-text-muted - Dark-mode role token: From / To labels (else #4b5563).
- * @cssprop --uva-color-control-border - Dark-mode role token: date input border (else #808080).
+ * @cssprop --uva-color-control-border - Dark-mode role token: date input border (else `--uva-grey`, #808080).
  * @cssprop --uva-color-focus - Dark-mode role token: focus ring (else `--uva-brand-orange`).
  */
 export class UvalibDateRange extends UvalibElement {
@@ -171,10 +171,10 @@ export class UvalibDateRange extends UvalibElement {
     }
     .date-input {
       padding: 0.375rem 0.5rem;
-      border: 1px solid var(--uva-color-control-border, #808080);
+      border: 1px solid var(--uva-color-control-border, var(--uva-grey, #808080));
       border-radius: 0.375rem;
       font-size: 0.875rem;
-      color: var(--uva-color-text, #1f2937);
+      color: var(--uva-color-input-text, #1f2937);
       background-color: var(--uva-color-surface-raised, #ffffff);
       width: 100%;
     }

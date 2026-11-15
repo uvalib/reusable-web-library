@@ -151,7 +151,7 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 | `--uva-color-utility-link` |  | Dark-mode role token: utility and site link colour (else `--uva-blue-alt-dark`). |
 | `--uva-color-text` |  | Dark-mode role token: Menu button and theme control text (else `--uva-grey-darkest`). |
 | `--uva-color-border` |  | Dark-mode role token: popover border and rules (else #ccc). |
-| `--uva-color-control-border` |  | Dark-mode role token: theme control border (else #808080). |
+| `--uva-color-control-border` |  | Dark-mode role token: theme control border (else `--uva-grey`, #808080). |
 | `--uva-color-accent-bg` |  | Dark-mode role token: selected theme option and skip-link background (else `--uva-brand-blue`). |
 | `--uva-color-on-accent` |  | Dark-mode role token: selected theme option and skip-link text (else #fff). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
@@ -351,9 +351,9 @@ A date-range picker: a two-thumb year slider plus "From" and "To" date inputs. `
 | `--uva-color-track` |  | Dark-mode role token: slider track (else #e5e7eb). |
 | `--uva-color-accent-bg` |  | Dark-mode role token: selected range and thumbs (else `--uva-brand-blue`). |
 | `--uva-color-surface-raised` |  | Dark-mode role token: date input background and thumb ring (else #ffffff). |
-| `--uva-color-text` |  | Dark-mode role token: date input text (else #1f2937). |
+| `--uva-color-input-text` |  | Dark-mode role token: date input text (else #1f2937). |
 | `--uva-color-text-muted` |  | Dark-mode role token: From / To labels (else #4b5563). |
-| `--uva-color-control-border` |  | Dark-mode role token: date input border (else #808080). |
+| `--uva-color-control-border` |  | Dark-mode role token: date input border (else `--uva-grey`, #808080). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ## `<uvalib-filter>`
@@ -394,7 +394,7 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 | `--uva-brand-blue` | `#232d4b` | Scope chip text, hover border and pressed background. |
 | `--uva-brand-orange` | `#e57200` | Focus ring colour (focus-visible outline). |
 | `--uva-color-border` |  | Dark-mode role token: divider under the scope chips (else #e5e7eb). |
-| `--uva-color-control-border` |  | Dark-mode role token: scope chip border (else #808080). |
+| `--uva-color-control-border` |  | Dark-mode role token: scope chip border (else `--uva-grey`, #808080). |
 | `--uva-color-surface-raised` |  | Dark-mode role token: scope chip background (else #fff). |
 | `--uva-color-link` |  | Dark-mode role token: scope chip text and hover border (else `--uva-brand-blue`). |
 | `--uva-color-accent-bg` |  | Dark-mode role token: pressed chip background and border (else `--uva-brand-blue`). |

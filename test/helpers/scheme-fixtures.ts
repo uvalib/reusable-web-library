@@ -27,7 +27,11 @@ const modeAttr = (mode: Mode) => (mode === 'light' ? 'no-shadow-dom' : '');
 export async function mountPage(mode: Mode, attrs = ''): Promise<SitePage> {
   const el = await fixture<SitePage>(
     `<site-page ${modeAttr(mode)} alerts-src="https://alerts.test/" ${attrs}>
-      <h1>Page</h1><p>Content</p><div slot="pre-footer"><p>Pre-footer</p></div>
+      <h1>Page</h1><p>Content</p>
+      <div slot="pre-footer">
+        <p>Pre-footer <a class="pre-link" href="https://example.edu/unvisited-pre-footer">help</a>
+          and <a class="pre-visited" href="${location.href}">this page</a> (visited)</p>
+      </div>
     </site-page>`,
   );
   await customElements.whenDefined('site-footer');

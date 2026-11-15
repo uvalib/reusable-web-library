@@ -30,6 +30,7 @@ const DARK: Colors = {
   'bar panel link color': c('#87b9d9'),
   'footer pre color': c('#ffffff'),
   'footer pre background-color': c('#005679'),
+  'footer pre link color': c('#ffffff'),
   'footer main color': c('#ffffff'),
   'footer main background-color': c('#232d4b'),
   'footer link color': c('#ffffff'),
@@ -60,15 +61,14 @@ const DARK: Colors = {
 };
 
 /**
- * Opted in but light: main's colours, except the two fixed control borders, the body's
- * now explicit white background, and the date input's text, which uses the text role.
+ * Opted in but light: main's colours, except the two fixed control borders and the body's
+ * now explicit white background.
  */
 const LIGHT_OPT_IN: Colors = {
   ...MAIN,
   'body background-color': c('#ffffff'),
   'filter chip border-top-color': c('#808080'),
   'date input border-top-color': c('#808080'),
-  'date input color': c('#2b2b2b'),
 };
 
 async function reset(): Promise<void> {
@@ -120,6 +120,27 @@ describe('dark mode colours', function () {
       ['#0d3247', '#55c4ec'],
     ]);
     expect(v('--uvalib-alerts-regional-bg')).to.equal('#0f3a3d');
+    // Every alert surface the stub draws with them: header, alert1-3, regional.
+    await customElements.whenDefined('uvalib-alerts');
+    (window as StubWindow).__uvalibAlertsStubSet!(ALERTS);
+    await nextFrame();
+    const surfaces = [...document.querySelectorAll('*')]
+      .flatMap((n) => (n.shadowRoot ? [n.shadowRoot] : []))
+      .flatMap((r) => [...r.querySelectorAll('uvalib-alerts')])
+      .concat([...document.querySelectorAll('uvalib-alerts')])
+      .flatMap((a) => [...(a.shadowRoot?.querySelectorAll('.a') ?? [])]);
+    const bgs = Object.fromEntries(
+      surfaces.map((d) => [d.classList[1], getComputedStyle(d).backgroundColor]),
+    );
+    expect(bgs).to.deep.equal({
+      header: c('#0e4a57'),
+      alert1: c('#4a1622'),
+      alert2: c('#3d3510'),
+      alert3: c('#0d3247'),
+      regional: c('#0f3a3d'),
+    });
+    for (const d of surfaces) expect(getComputedStyle(d).color).to.equal(c('#e8e8e8'));
+    (window as StubWindow).__uvalibAlertsStubSet!(undefined);
     // Light (opted in) leaves them to the component's own defaults.
     document.documentElement.setAttribute(COLOR_SCHEME_ATTR, 'light');
     expect(
@@ -132,7 +153,12 @@ describe('dark mode colours', function () {
 type StubWindow = Window & { __uvalibAlertsStubSet?: (s?: unknown) => void };
 const ALERTS = {
   headerAlerts: [{ uuid: 'h', title: 'Header alert', body: 'Closed today.' }],
-  menuAlerts: [{ uuid: 'm', title: 'List alert', body: 'Wi-Fi is down.' }],
+  menuAlerts: [1, 2, 3].map((severity) => ({
+    uuid: `m${severity}`,
+    title: `Severity ${severity} alert`,
+    body: 'Wi-Fi is down.',
+    severity,
+  })),
   regionalAlerts: [{ uuid: 'r', title: 'Regional alert', body: 'Snow.' }],
 };
 

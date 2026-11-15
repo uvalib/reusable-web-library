@@ -19,7 +19,7 @@ export const ALERTS_FAIL_HOST = 'alerts-fail.test';
 // The stub does not reproduce the real component's markup or behaviour: it only proves
 // loading, placement and the update event. Counts its own evaluations in `__uvalibAlertsStub`.
 // Tests drive it with `__uvalibAlertsStubSet({ headerAlerts, menuAlerts, regionalAlerts })`
-// (each a list of `{ uuid, title, body }`): every connected element re-renders its part, as
+// (each a list of `{ uuid, title, body }`, list alerts optionally with `severity` 1-3): every connected element re-renders its part, as
 // the real one does, and dispatches a realistic `uvalib-alerts-update` (bubbling, composed).
 // With no state set, each element dispatches one update with empty lists on connect and
 // renders nothing, like the real component with an empty alerts.json.
@@ -64,18 +64,27 @@ if (!customElements.get('uvalib-alerts')) {
       if (items.length) {
         const style = document.createElement('style');
         // The real component's colour properties, with its light defaults, so the alerts
-        // follow dark mode's --uvalib-alerts-* overrides as the real one does.
-        const bg = { header: 'header-bg', list: 'alert1-bg', regional: 'regional-bg' }[show];
+        // follow dark mode's --uvalib-alerts-* overrides as the real one does. List alerts
+        // take their severity (1-3, default 1) from \`severity\`, as alert1/2/3.
         style.textContent =
           ':host{display:block} .a{padding:0.5em;min-height:24px;' +
-          'color:var(--uvalib-alerts-text,#2B2B2B);' +
-          'background:var(--uvalib-alerts-' + bg + ',#BFE7F7)}';
+          'color:var(--uvalib-alerts-text,#2B2B2B)}' +
+          '.header{background:var(--uvalib-alerts-header-bg,#25CAD3)}' +
+          '.regional{background:var(--uvalib-alerts-regional-bg,#C8F2F4);' +
+          'border:var(--uvalib-alerts-regional-border,0.2em solid #25CAD3)}' +
+          '.alert1{background:var(--uvalib-alerts-alert1-bg,#FBCFDA);' +
+          'border-left:4px solid var(--uvalib-alerts-alert1-border,#DF1E43)}' +
+          '.alert2{background:var(--uvalib-alerts-alert2-bg,#FEF6C8);' +
+          'border-left:4px solid var(--uvalib-alerts-alert2-border,#ECC602)}' +
+          '.alert3{background:var(--uvalib-alerts-alert3-bg,#BFE7F7);' +
+          'border-left:4px solid var(--uvalib-alerts-alert3-border,#007BAC)}';
         const wrap = document.createElement('div');
         wrap.setAttribute('part', show);
         if (show === 'header') wrap.setAttribute('role', 'status');
         for (const a of items) {
           const d = document.createElement('div');
-          d.className = 'a';
+          d.className =
+            'a ' + (show === 'list' ? 'alert' + (a.severity ?? 1) : show);
           d.textContent = (a.title ? a.title + ': ' : '') + (a.body ?? '');
           wrap.append(d);
         }

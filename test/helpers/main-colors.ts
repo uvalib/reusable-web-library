@@ -23,6 +23,7 @@ export const MAIN: Colors = {
   'bar panel link color': 'rgb(35, 45, 75)',
   'footer pre color': 'rgb(43, 43, 43)',
   'footer pre background-color': 'rgb(191, 231, 247)',
+  'footer pre link color': 'rgb(0, 0, 238)',
   'footer main color': 'rgb(255, 255, 255)',
   'footer main background-color': 'rgb(35, 45, 75)',
   'footer link color': 'rgb(255, 255, 255)',

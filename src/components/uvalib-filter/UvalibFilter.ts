@@ -42,7 +42,7 @@ let instanceCounter = 0;
  * @cssprop [--uva-brand-blue=#232d4b] - Scope chip text, hover border and pressed background.
  * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour (focus-visible outline).
  * @cssprop --uva-color-border - Dark-mode role token: divider under the scope chips (else #e5e7eb).
- * @cssprop --uva-color-control-border - Dark-mode role token: scope chip border (else #808080).
+ * @cssprop --uva-color-control-border - Dark-mode role token: scope chip border (else `--uva-grey`, #808080).
  * @cssprop --uva-color-surface-raised - Dark-mode role token: scope chip background (else #fff).
  * @cssprop --uva-color-link - Dark-mode role token: scope chip text and hover border (else `--uva-brand-blue`).
  * @cssprop --uva-color-accent-bg - Dark-mode role token: pressed chip background and border (else `--uva-brand-blue`).
@@ -76,7 +76,7 @@ export class UvalibFilter extends UvalibElement {
       .scope {
         appearance: none;
         margin: 0;
-        border: 1px solid var(--uva-color-control-border, #808080);
+        border: 1px solid var(--uva-color-control-border, var(--uva-grey, #808080));
         background: var(--uva-color-surface-raised, #fff);
         color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
         border-radius: 999px;

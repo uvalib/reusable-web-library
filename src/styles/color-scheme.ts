@@ -29,6 +29,13 @@ const darkOnly = `
 
 const dark = unsafeCSS(darkOnly);
 
+/**
+ * Links in the pre-footer band are the site's own content: unstyled ones would keep the
+ * browser's dark link colours (#9e9eff is 3.37:1 on the band). White is 8.05:1, visited too.
+ * Layered like the rest of this sheet, so a site's own link colours still win.
+ */
+const preFooterLinks = 'color: var(--uva-color-pre-footer-text, #ffffff);';
+
 export const colorScheme = css`
   @supports (color: light-dark(#000, #fff)) {
     :root[data-uva-color-scheme] {
@@ -43,7 +50,8 @@ export const colorScheme = css`
       --uva-color-current: light-dark(var(--uva-brand-orange, #e57200), #e57200);
       --uva-color-accent-bg: light-dark(var(--uva-brand-blue, #232d4b), #87b9d9);
       --uva-color-on-accent: light-dark(#ffffff, #10172b);
-      --uva-color-control-border: light-dark(#808080, #7a84a0);
+      --uva-color-control-border: light-dark(var(--uva-grey, #808080), #7a84a0);
+      --uva-color-input-text: light-dark(#1f2937, #e8e8e8);
       --uva-color-track: light-dark(#e5e7eb, #2c3858);
       --uva-color-shadow: light-dark(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.6));
       --uva-color-pre-footer-bg: light-dark(var(--uva-blue-alt-300, #bfe7f7), #005679);
@@ -62,9 +70,15 @@ export const colorScheme = css`
       --uva-color-scheme: dark;
       ${dark}
     }
+    :root[data-uva-color-scheme='dark'] [slot='pre-footer'] a {
+      ${unsafeCSS(preFooterLinks)}
+    }
     @media (prefers-color-scheme: dark) {
       :root[data-uva-color-scheme='system'] {
         ${dark}
+      }
+      :root[data-uva-color-scheme='system'] [slot='pre-footer'] a {
+        ${unsafeCSS(preFooterLinks)}
       }
     }
   }
