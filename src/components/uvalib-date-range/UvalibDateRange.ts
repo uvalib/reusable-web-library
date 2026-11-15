@@ -32,6 +32,14 @@ const clamp = (iso: string, lo: string, hi: string): string =>
  * @cssprop [--uva-brand-blue=#232d4b] - Selected slider range, thumbs, legend and focused date input border.
  * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour (focus-visible outline).
  * @cssprop [--uva-font-family=inherit] - Font family.
+ * @cssprop --uva-color-link - Dark-mode role token: legend and focused date input border (else `--uva-brand-blue`).
+ * @cssprop --uva-color-track - Dark-mode role token: slider track (else #e5e7eb).
+ * @cssprop --uva-color-accent-bg - Dark-mode role token: selected range and thumbs (else `--uva-brand-blue`).
+ * @cssprop --uva-color-surface-raised - Dark-mode role token: date input background and thumb ring (else #ffffff).
+ * @cssprop --uva-color-text - Dark-mode role token: date input text (else #1f2937).
+ * @cssprop --uva-color-text-muted - Dark-mode role token: From / To labels (else #4b5563).
+ * @cssprop --uva-color-control-border - Dark-mode role token: date input border (else #808080).
+ * @cssprop --uva-color-focus - Dark-mode role token: focus ring (else `--uva-brand-orange`).
  */
 export class UvalibDateRange extends UvalibElement {
   static styles = css`
@@ -48,7 +56,7 @@ export class UvalibDateRange extends UvalibElement {
     legend {
       font-weight: bold;
       margin-bottom: 0.5rem;
-      color: var(--uva-brand-blue, #232d4b);
+      color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
     }
     .date-range-container {
       display: flex;
@@ -66,7 +74,7 @@ export class UvalibDateRange extends UvalibElement {
       position: absolute;
       height: 6px;
       border-radius: 3px;
-      background-color: #e5e7eb;
+      background-color: var(--uva-color-track, #e5e7eb);
       left: 0;
       right: 0;
       z-index: 1;
@@ -75,7 +83,7 @@ export class UvalibDateRange extends UvalibElement {
       position: absolute;
       height: 6px;
       border-radius: 3px;
-      background-color: var(--uva-brand-blue, #232d4b);
+      background-color: var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
       z-index: 2;
     }
     /* Each input fills the 24px wrapper so it meets the minimum touch-target size; the track stays a 6px bar. */
@@ -96,7 +104,7 @@ export class UvalibDateRange extends UvalibElement {
       outline: none;
     }
     /* The end input is later in the DOM, so it is on top. When both thumbs sit on the same year
-       in the upper half, the start input goes on top so the pair can still be pulled apart. */
+     in the upper half, the start input goes on top so the pair can still be pulled apart. */
     input[type='range'].on-top {
       z-index: 4;
     }
@@ -106,8 +114,8 @@ export class UvalibDateRange extends UvalibElement {
       height: 24px;
       width: 24px;
       border-radius: 50%;
-      background-color: var(--uva-brand-blue, #232d4b);
-      border: 2px solid #ffffff;
+      background-color: var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
+      border: 2px solid var(--uva-color-surface-raised, #ffffff);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
       cursor: pointer;
       pointer-events: auto;
@@ -120,15 +128,15 @@ export class UvalibDateRange extends UvalibElement {
       background-color: #ffc71a;
     }
     input[type='range']:focus-visible::-webkit-slider-thumb {
-      outline: 3px solid var(--uva-brand-orange, #e57200);
+      outline: 3px solid var(--uva-color-focus, var(--uva-brand-orange, #e57200));
       outline-offset: 2px;
     }
     input[type='range']::-moz-range-thumb {
       height: 20px;
       width: 20px;
       border-radius: 50%;
-      background-color: var(--uva-brand-blue, #232d4b);
-      border: 2px solid #ffffff;
+      background-color: var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
+      border: 2px solid var(--uva-color-surface-raised, #ffffff);
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
       cursor: pointer;
       pointer-events: auto;
@@ -141,7 +149,7 @@ export class UvalibDateRange extends UvalibElement {
       background-color: #ffc71a;
     }
     input[type='range']:focus-visible::-moz-range-thumb {
-      outline: 3px solid var(--uva-brand-orange, #e57200);
+      outline: 3px solid var(--uva-color-focus, var(--uva-brand-orange, #e57200));
       outline-offset: 2px;
     }
     .inputs-wrapper {
@@ -158,21 +166,21 @@ export class UvalibDateRange extends UvalibElement {
     }
     .input-label {
       font-size: 0.75rem;
-      color: #4b5563;
+      color: var(--uva-color-text-muted, #4b5563);
       font-weight: 500;
     }
     .date-input {
       padding: 0.375rem 0.5rem;
-      border: 1px solid #d1d5db;
+      border: 1px solid var(--uva-color-control-border, #808080);
       border-radius: 0.375rem;
       font-size: 0.875rem;
-      color: #1f2937;
-      background-color: #ffffff;
+      color: var(--uva-color-text, #1f2937);
+      background-color: var(--uva-color-surface-raised, #ffffff);
       width: 100%;
     }
     .date-input:focus-visible {
-      border-color: var(--uva-brand-blue, #232d4b);
-      outline: 2px solid var(--uva-brand-orange, #e57200);
+      border-color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
+      outline: 2px solid var(--uva-color-focus, var(--uva-brand-orange, #e57200));
       outline-offset: 1px;
     }
   `;

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Writes tokens.css and base.css from the built dist/styles modules.
+// Writes tokens.css (palette and dark-mode role tokens) and base.css from the built
+// dist/styles modules.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -11,7 +12,10 @@ if (!outDir) {
   process.exit(1);
 }
 mkdirSync(outDir, { recursive: true });
-for (const name of ['tokens', 'base']) {
-  const mod = await import(pathToFileURL(join(root, 'dist/styles', `${name}.js`)).href);
-  writeFileSync(join(outDir, `${name}.css`), mod[name].cssText);
-}
+const load = (name) => import(pathToFileURL(join(root, 'dist/styles', `${name}.js`)).href);
+// tokens.css: the generated palette, then the hand-written opt-in dark-mode role tokens.
+const { tokens } = await load('tokens');
+const { colorScheme } = await load('color-scheme');
+writeFileSync(join(outDir, 'tokens.css'), `${tokens.cssText}\n${colorScheme.cssText}`);
+const { base } = await load('base');
+writeFileSync(join(outDir, 'base.css'), base.cssText);

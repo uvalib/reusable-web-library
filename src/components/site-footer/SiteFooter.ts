@@ -33,6 +33,8 @@ const ABOUT: FooterLink[] = [
  * @cssprop [--uva-blue-alt-300=#bfe7f7] - Pre-footer band background.
  * @cssprop [--uva-blue-alt-darkest=#141e3c] - Copyright bar background.
  * @cssprop [--uva-brand-orange=#e57200] - Social icon hover colour and focus-visible outline. Footer link and text colours are fixed white.
+ * @cssprop --uva-color-pre-footer-bg - Dark-mode role token: pre-footer band background (else `--uva-blue-alt-300`).
+ * @cssprop --uva-color-pre-footer-text - Dark-mode role token: pre-footer band text (else inherited). The footer itself is the same in both schemes.
  */
 export class SiteFooter extends UvalibElement {
   @property({ type: String, attribute: 'root-link-domain' }) rootLinkDomain =
@@ -52,7 +54,9 @@ export class SiteFooter extends UvalibElement {
       }
       .footer--pre {
         display: none;
-        background-color: var(--uva-blue-alt-300, #bfe7f7);
+        background-color: var(--uva-color-pre-footer-bg, var(--uva-blue-alt-300, #bfe7f7));
+        /* No fallback: without dark mode the band inherits the page's text colour, as before. */
+        color: var(--uva-color-pre-footer-text);
       }
       .footer--pre.has-content {
         display: block;
@@ -66,6 +70,8 @@ export class SiteFooter extends UvalibElement {
       .footer--main {
         background-color: var(--uva-brand-blue, #232d4b);
         color: #fff;
+        /* Already dark: unchanged in dark mode, focus ring included. */
+        --uva-color-focus: initial;
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
@@ -117,6 +123,7 @@ export class SiteFooter extends UvalibElement {
       .footer--post {
         background-color: var(--uva-blue-alt-darkest, #141e3c);
         color: #fff;
+        --uva-color-focus: initial;
         padding: 1rem 2rem;
       }
       .footer--post .post-footer {

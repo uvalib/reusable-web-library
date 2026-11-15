@@ -77,6 +77,11 @@ const shadowStructure = unsafeCSS(structuralRules(':host'));
  * @csspart building-hours - The "Building hours" table row (shadow mode).
  * @cssprop [--uva-brand-orange=#e57200] - Border of today's column; focus ring colour.
  * @cssprop [--uva-brand-blue=#232d4b] - Header and button colour.
+ * @cssprop --uva-color-border - Dark-mode role token: table cell borders (else #dadada).
+ * @cssprop --uva-color-current - Dark-mode role token: today's column border (else `--uva-brand-orange`).
+ * @cssprop --uva-color-link - Dark-mode role token: heading, button text and border (else `--uva-brand-blue`).
+ * @cssprop --uva-color-surface-raised - Dark-mode role token: button background (else #fff).
+ * @cssprop --uva-color-focus - Dark-mode role token: focus ring (else `--uva-brand-orange`).
  */
 export class LibraryWeeklyHours extends UvalibElement {
   static styles = [
@@ -91,7 +96,7 @@ export class LibraryWeeklyHours extends UvalibElement {
       th,
       td {
         padding: 0.5rem;
-        border: 1px solid #dadada;
+        border: 1px solid var(--uva-color-border, #dadada);
         text-align: center;
         vertical-align: middle;
       }
@@ -100,10 +105,10 @@ export class LibraryWeeklyHours extends UvalibElement {
       }
       th.today,
       td.today {
-        border-inline: 2px solid var(--uva-brand-orange, #e57200);
+        border-inline: 2px solid var(--uva-color-current, var(--uva-brand-orange, #e57200));
       }
       th.today {
-        border-block-start: 2px solid var(--uva-brand-orange, #e57200);
+        border-block-start: 2px solid var(--uva-color-current, var(--uva-brand-orange, #e57200));
       }
       .date-header-day {
         font-weight: bold;
@@ -114,10 +119,10 @@ export class LibraryWeeklyHours extends UvalibElement {
       .uvalib-button {
         font: inherit;
         padding: 0.4rem 0.9rem;
-        border: 1px solid var(--uva-brand-blue, #232d4b);
+        border: 1px solid var(--uva-color-link, var(--uva-brand-blue, #232d4b));
         border-radius: 0.3rem;
-        background: #fff;
-        color: var(--uva-brand-blue, #232d4b);
+        background: var(--uva-color-surface-raised, #fff);
+        color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
         cursor: pointer;
       }
       .heading-h1,
@@ -128,7 +133,7 @@ export class LibraryWeeklyHours extends UvalibElement {
       .heading-h6 {
         font-size: 1.25rem;
         font-weight: bold;
-        color: var(--uva-brand-blue, #232d4b);
+        color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
       }
     `,
   ];

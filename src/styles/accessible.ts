@@ -18,8 +18,8 @@ export const accessible = css`
     top: 0;
     z-index: 1000;
     padding: 0.5em 1em;
-    background: var(--uva-brand-blue, #232d4b);
-    color: #fff;
+    background: var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
+    color: var(--uva-color-on-accent, #fff);
     transform: translateY(-120%);
   }
   .skip-link:focus-visible {
@@ -31,7 +31,7 @@ export const accessible = css`
   select:focus-visible,
   textarea:focus-visible,
   [tabindex]:focus-visible {
-    outline: 3px solid var(--uva-brand-orange, #e57200);
+    outline: 3px solid var(--uva-color-focus, var(--uva-brand-orange, #e57200));
     outline-offset: 2px;
   }
 `;

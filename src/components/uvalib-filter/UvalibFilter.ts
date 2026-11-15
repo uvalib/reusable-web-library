@@ -41,6 +41,13 @@ let instanceCounter = 0;
  * @csspart see-less - The "See less" button (shadow mode).
  * @cssprop [--uva-brand-blue=#232d4b] - Scope chip text, hover border and pressed background.
  * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour (focus-visible outline).
+ * @cssprop --uva-color-border - Dark-mode role token: divider under the scope chips (else #e5e7eb).
+ * @cssprop --uva-color-control-border - Dark-mode role token: scope chip border (else #808080).
+ * @cssprop --uva-color-surface-raised - Dark-mode role token: scope chip background (else #fff).
+ * @cssprop --uva-color-link - Dark-mode role token: scope chip text and hover border (else `--uva-brand-blue`).
+ * @cssprop --uva-color-accent-bg - Dark-mode role token: pressed chip background and border (else `--uva-brand-blue`).
+ * @cssprop --uva-color-on-accent - Dark-mode role token: pressed chip text (else #fff).
+ * @cssprop --uva-color-focus - Dark-mode role token: focus ring (else `--uva-brand-orange`).
  */
 export class UvalibFilter extends UvalibElement {
   static styles = [
@@ -64,14 +71,14 @@ export class UvalibFilter extends UvalibElement {
         gap: 0.4rem;
         margin: 0 0 0.85rem;
         padding: 0 0 0.75rem;
-        border-bottom: 1px solid #e5e7eb;
+        border-bottom: 1px solid var(--uva-color-border, #e5e7eb);
       }
       .scope {
         appearance: none;
         margin: 0;
-        border: 1px solid #c5cdd8;
-        background: #fff;
-        color: var(--uva-brand-blue, #232d4b);
+        border: 1px solid var(--uva-color-control-border, #808080);
+        background: var(--uva-color-surface-raised, #fff);
+        color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
         border-radius: 999px;
         padding: 0.2rem 0.7rem;
         font: inherit;
@@ -81,12 +88,12 @@ export class UvalibFilter extends UvalibElement {
         cursor: pointer;
       }
       .scope:hover {
-        border-color: var(--uva-brand-blue, #232d4b);
+        border-color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
       }
       .scope[aria-pressed='true'] {
-        background: var(--uva-brand-blue, #232d4b);
-        border-color: var(--uva-brand-blue, #232d4b);
-        color: #fff;
+        background: var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
+        border-color: var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
+        color: var(--uva-color-on-accent, #fff);
       }
       .checkbox {
         margin: 0.5rem 0;
@@ -97,7 +104,7 @@ export class UvalibFilter extends UvalibElement {
       .scope:focus-visible,
       button[part]:focus-visible,
       input[type='checkbox']:focus-visible {
-        outline: 2px solid var(--uva-brand-orange, #e57200);
+        outline: 2px solid var(--uva-color-focus, var(--uva-brand-orange, #e57200));
         outline-offset: 2px;
       }
     `,

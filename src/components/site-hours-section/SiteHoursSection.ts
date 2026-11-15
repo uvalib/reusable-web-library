@@ -34,6 +34,8 @@ import type { HoursState } from '../library-weekly-hours/LibraryWeeklyHours.js';
  * @cssprop [--uva-brand-blue=#232d4b] - Heading and link colour.
  * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour.
  * @cssprop [--site-hours-list-min-height=0] - Height the list keeps while the hours load, so the link and content below do not jump when they arrive (seven `limited` libraries take about 12.75rem).
+ * @cssprop --uva-color-link - Dark-mode role token: heading and link colour (else `--uva-brand-blue`).
+ * @cssprop --uva-color-focus - Dark-mode role token: focus ring (else `--uva-brand-orange`).
  */
 export class SiteHoursSection extends UvalibElement {
   static styles = [
@@ -47,7 +49,7 @@ export class SiteHoursSection extends UvalibElement {
       }
       .hour-head {
         margin: 0.25rem 0 0.75rem;
-        color: var(--uva-brand-blue, #232d4b);
+        color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
       }
       .hours-locations {
         display: grid;
@@ -69,7 +71,7 @@ export class SiteHoursSection extends UvalibElement {
         margin: 0;
       }
       a {
-        color: var(--uva-brand-blue, #232d4b);
+        color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
       }
     `,
   ];

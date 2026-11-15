@@ -16,6 +16,8 @@ import { base } from '../../styles/base.js';
  * @cssprop [--uva-font-family=franklin-gothic-urw, Arial, Helvetica, sans-serif] - Font family.
  * @cssprop [--uva-font-size-base=17px] - Base font size.
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Text colour.
+ * @cssprop --uva-color-text - Dark-mode role token: text colour (else `--uva-grey-darkest`).
+ * @cssprop --uva-color-surface - Dark-mode role token: page background (else none).
  */
 export class SiteStyle extends UvalibElement {
   static styles = [tokens, base];

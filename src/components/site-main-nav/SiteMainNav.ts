@@ -34,14 +34,14 @@ const FOCUS_RULES = `
   .toggle:focus-visible,
   .top-link:focus-visible,
   .panel a:focus-visible {
-    outline: 3px solid var(--uva-brand-orange, #e57200);
+    outline: 3px solid var(--uva-color-focus, var(--uva-brand-orange, #e57200));
     outline-offset: -4px;
   }
   .toggle[aria-expanded='true']:focus-visible,
   .toggle:hover:focus-visible,
   .top-link:hover:focus-visible,
   .panel a:hover:focus-visible {
-    outline-color: var(--uva-brand-blue, #232d4b);
+    outline-color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
   }
 `;
 const focusRules = unsafeCSS(FOCUS_RULES);
@@ -99,6 +99,14 @@ const hashOf = (href: string, base: string): string => {
  * @cssprop [--uva-grey-100=#dadada] - Hover and expanded button background, and panel link hover background.
  * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour, and the underline of the current page's link and group (also bold, with a 3px underline).
  * @cssprop [--uva-font-family=franklin-gothic-urw, Arial, Helvetica, sans-serif] - Font family.
+ * @cssprop --uva-color-text - Dark-mode role token: top-level button text (else `--uva-grey-darkest`).
+ * @cssprop --uva-color-link - Dark-mode role token: chevrons, panel links, hover text and the focus ring over hover (else `--uva-brand-blue`).
+ * @cssprop --uva-color-surface-hover - Dark-mode role token: hover and open-group background (else `--uva-grey-100`).
+ * @cssprop --uva-color-surface-raised - Dark-mode role token: bar and panel background (else #ffffff).
+ * @cssprop --uva-color-accent-bg - Dark-mode role token: bar bottom rule (else `--uva-brand-blue`).
+ * @cssprop --uva-color-shadow - Dark-mode role token: panel shadow colour (else rgba(0, 0, 0, 0.2)).
+ * @cssprop --uva-color-focus - Dark-mode role token: focus ring (else `--uva-brand-orange`).
+ * @cssprop --uva-color-current - Dark-mode role token: current-page underline (else `--uva-brand-orange`).
  */
 export class SiteMainNav extends UvalibElement {
   static styles = [
@@ -130,7 +138,7 @@ export class SiteMainNav extends UvalibElement {
         border: 0;
         border-radius: 0;
         background: transparent;
-        color: var(--uva-grey-darkest, #2b2b2b);
+        color: var(--uva-color-text, var(--uva-grey-darkest, #2b2b2b));
         font: inherit;
         font-weight: 500;
         line-height: 1.5;
@@ -146,7 +154,7 @@ export class SiteMainNav extends UvalibElement {
         block-size: 0.5em;
         margin-inline-start: 0.75em;
         border-style: solid;
-        border-color: var(--uva-brand-blue, #232d4b);
+        border-color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
         border-width: 0 1px 1px 0;
         transform: translateY(-0.15em) rotate(45deg);
       }
@@ -158,17 +166,17 @@ export class SiteMainNav extends UvalibElement {
       .toggle:hover,
       .toggle[aria-expanded='true'],
       .top-link:hover {
-        background-color: var(--uva-grey-100, #dadada);
-        color: var(--uva-brand-blue, #232d4b);
+        background-color: var(--uva-color-surface-hover, var(--uva-grey-100, #dadada));
+        color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
       }
       .panel a {
         display: block;
-        color: var(--uva-brand-blue, #232d4b);
+        color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
         font-weight: 400;
         text-decoration: underline;
       }
       .panel a:hover {
-        background-color: var(--uva-grey-100, #dadada);
+        background-color: var(--uva-color-surface-hover, var(--uva-grey-100, #dadada));
         text-decoration: none;
       }
       ${focusRules}
@@ -178,14 +186,14 @@ export class SiteMainNav extends UvalibElement {
         font-weight: 700;
         text-decoration-line: underline;
         text-decoration-thickness: 3px;
-        text-decoration-color: var(--uva-brand-orange, #e57200);
+        text-decoration-color: var(--uva-color-current, var(--uva-brand-orange, #e57200));
         text-underline-offset: 0.3em;
       }
 
       /* Bar: a full-width row with the brand-blue rule, content capped at 1600px. */
       .bar {
-        border-bottom: 5px solid var(--uva-brand-blue, #232d4b);
-        background: #ffffff;
+        border-bottom: 5px solid var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
+        background: var(--uva-color-surface-raised, #ffffff);
       }
       .bar > ul {
         display: flex;
@@ -212,9 +220,9 @@ export class SiteMainNav extends UvalibElement {
         inline-size: max-content;
         min-inline-size: 100%;
         max-inline-size: 20rem;
-        background: #ffffff;
+        background: var(--uva-color-surface-raised, #ffffff);
         border-radius: 0 0 4px 4px;
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 8px 16px var(--uva-color-shadow, rgba(0, 0, 0, 0.2));
         /* Invisible normally; forced colors paint it, so the panel keeps an edge. */
         outline: 1px solid transparent;
       }

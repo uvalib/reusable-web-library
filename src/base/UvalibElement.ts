@@ -1,9 +1,26 @@
-import { LitElement, type CSSResultGroup } from 'lit';
+import { LitElement, css, type CSSResultGroup, type CSSResultOrNative } from 'lit';
 import { property } from 'lit/decorators.js';
 import { installLightDomStyles } from './light-dom-styles.js';
 
+/**
+ * Each component's own `color-scheme`: `light` unless the page opted in to dark mode (then
+ * the root's `--uva-color-scheme`), so a host page's `color-scheme` never turns a component
+ * dark, and native controls, scrollbars and light-dark() colours inside follow the chosen one.
+ */
+const hostColorScheme = css`
+  :host {
+    color-scheme: var(--uva-color-scheme, light);
+  }
+`;
+
 /** Base class for all UVA Library components: optional light DOM, optional style opt-out. */
 export class UvalibElement extends LitElement {
+  /** Every component's styles start with the host colour-scheme rule. */
+  protected static override finalizeStyles(styles?: CSSResultGroup): CSSResultOrNative[] {
+    const own = super.finalizeStyles(styles);
+    return own.length ? [hostColorScheme, ...own] : own;
+  }
+
   static shadowRootOptions: ShadowRootInit = { ...LitElement.shadowRootOptions, mode: 'open' };
 
   @property({ type: Boolean, attribute: 'no-shadow-dom' }) noShadowDom = false;

@@ -2,6 +2,7 @@ import { css } from 'lit';
 
 export const TYPEKIT_URL = 'https://use.typekit.net/oym8nvz.css';
 
+// The body background has no fallback: without dark mode it stays transparent, as before.
 export const base = css`
   *,
   *::before,
@@ -19,6 +20,7 @@ export const base = css`
     margin: 0;
     line-height: 1.5;
     min-height: 100vh;
-    color: var(--uva-grey-darkest, #2b2b2b);
+    color: var(--uva-color-text, var(--uva-grey-darkest, #2b2b2b));
+    background-color: var(--uva-color-surface);
   }
 `;
