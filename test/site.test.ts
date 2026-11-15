@@ -1,6 +1,15 @@
 import { expect } from '@open-wc/testing';
+import { emulateMedia } from '@web/test-runner-commands';
 import { expectNoPageAxeViolations } from './helpers/axe.js';
-import { examples, GROUPS, withCdnBase, type Preset } from '../site/src/presets.js';
+import { contrast, rgb, type Colors } from './helpers/scheme-colors.js';
+import { editor, siteColors } from './helpers/site-colors.js';
+import {
+  COLOR_SCHEME_SNIPPET,
+  examples,
+  GROUPS,
+  withCdnBase,
+  type Preset,
+} from '../site/src/presets.js';
 import { decode, encode } from '../site/src/share.js';
 import { bombHash, deflateToBase64Url, toBase64Url } from './helpers/share-payloads.js';
 
@@ -75,6 +84,93 @@ async function atWidth(width: number, run: () => Promise<void>) {
 // hook for them: aria-input-field-name (.cm-content) and scrollable-region-focusable
 // (.cm-scroller). Only that third-party subtree is excluded; the site chrome is audited.
 const AXE_SCOPE = { exclude: [['playground-ide']] };
+
+/** Choose Light, Dark or System with the header's Theme control, and wait for it to apply. */
+async function chooseScheme(doc: Document, scheme: 'light' | 'dark' | 'system') {
+  const header = doc.querySelector('site-page')!.shadowRoot!.querySelector('site-header')!;
+  header
+    .shadowRoot!.querySelector<HTMLInputElement>(`fieldset.color-scheme input[value="${scheme}"]`)!
+    .click();
+  await until(
+    () => doc.documentElement.dataset.uvaColorScheme === scheme,
+    `data-uva-color-scheme="${scheme}"`,
+  );
+  await frame();
+}
+
+// The page's colours before dark mode (measured on the site without it). Light keeps them;
+// only the body background is now the surface token's white instead of transparent (over the
+// white canvas, the same on screen).
+const LIGHT: Colors = {
+  'body color': 'rgb(43, 43, 43)',
+  'body background-color': 'rgb(255, 255, 255)',
+  'heading color': 'rgb(43, 43, 43)',
+  'description color': 'rgb(79, 87, 97)',
+  'status color': 'rgb(79, 87, 97)',
+  'button color': 'rgb(43, 43, 43)',
+  'button background-color': 'rgb(255, 255, 255)',
+  'button border-top-color': 'rgb(208, 212, 218)',
+  'site link color': 'rgb(0, 86, 121)',
+  'ide border-top-color': 'rgb(208, 212, 218)',
+  'tab bar background-color': 'rgb(234, 234, 234)',
+  'tab color': 'rgb(0, 0, 0)',
+  'active tab color': 'rgb(11, 92, 173)',
+  'active tab background-color': 'rgba(0, 0, 0, 0)',
+  'editor color': 'rgb(0, 0, 0)',
+  'editor background-color': 'rgb(255, 255, 255)',
+  'gutter background-color': 'rgb(255, 255, 255)',
+  'line number color': 'rgb(118, 118, 118)',
+  'preview toolbar color': 'rgb(68, 68, 68)',
+  'preview toolbar background-color': 'rgb(255, 255, 255)',
+};
+
+// Dark: the role tokens' dark values (README "Dark mode") and the site's editor theme.
+const DARK: Colors = {
+  'body color': rgb('#e8e8e8'),
+  'body background-color': rgb('#10172b'),
+  'heading color': rgb('#e8e8e8'),
+  'description color': rgb('#adadad'),
+  'status color': rgb('#adadad'),
+  'button color': rgb('#e8e8e8'),
+  'button background-color': rgb('#232d4b'),
+  'button border-top-color': rgb('#7a84a0'),
+  'site link color': rgb('#91d8f2'),
+  'ide border-top-color': rgb('#7a84a0'),
+  'tab bar background-color': rgb('#232d4b'),
+  'tab color': rgb('#e8e8e8'),
+  'active tab color': rgb('#87b9d9'),
+  'active tab background-color': rgb('#131a2f'),
+  'editor color': rgb('#e8e8e8'),
+  'editor background-color': rgb('#131a2f'),
+  'gutter background-color': rgb('#131a2f'),
+  'line number color': rgb('#8e98b0'),
+  'preview toolbar color': rgb('#e8e8e8'),
+  'preview toolbar background-color': rgb('#232d4b'),
+};
+
+/** The editor's text colours (`--playground-code-<name>`) the dark theme sets. */
+const CODE_COLORS = [
+  'default-color',
+  'variable-color',
+  'keyword-color',
+  'atom-color',
+  'number-color',
+  'property-color',
+  'type-color',
+  'def-color',
+  'operator-color',
+  'variable-2-color',
+  'variable-3-color',
+  'comment-color',
+  'string-color',
+  'string-2-color',
+  'meta-color',
+  'qualifier-color',
+  'builtin-color',
+  'tag-color',
+  'attribute-color',
+  'linenumber-color',
+];
 
 const indexHtml = (ide: Ide) => ide.config?.files?.['index.html']?.content;
 const expected = (win: Window, p: Preset) =>
@@ -343,27 +439,31 @@ describe('examples page', function () {
   });
 
   for (const width of [1280, 390]) {
-    it(`has no axe violations at ${width}px, closed and open`, async () => {
-      await atWidth(width, async () => {
-        try {
-          await expectNoPageAxeViolations(doc, AXE_SCOPE);
-          // Open what the main nav shows at this width: a bar panel, or the Menu and a group.
-          if (width === 390) {
-            siteHeader(doc)!.querySelector<HTMLButtonElement>('.menu-toggle')!.click();
-            await until(() => menuPopover(doc).matches(':popover-open'), 'Menu open');
+    for (const scheme of ['light', 'dark'] as const) {
+      it(`has no axe violations at ${width}px in ${scheme}, closed and open`, async () => {
+        await atWidth(width, async () => {
+          await chooseScheme(doc, scheme);
+          try {
+            await expectNoPageAxeViolations(doc, AXE_SCOPE);
+            // Open what the main nav shows at this width: a bar panel, or the Menu and a group.
+            if (width === 390) {
+              siteHeader(doc)!.querySelector<HTMLButtonElement>('.menu-toggle')!.click();
+              await until(() => menuPopover(doc).matches(':popover-open'), 'Menu open');
+            }
+            const n = width === 390 ? accordion(doc) : bar(doc);
+            toggles(n)[1]!.click();
+            await until(() => expandedGroups(n).length === 1, 'a group open');
+            await expectNoPageAxeViolations(doc, AXE_SCOPE);
+          } finally {
+            if (menuPopover(doc).matches(':popover-open')) menuPopover(doc).hidePopover();
+            for (const n of [bar(doc), accordion(doc)]) {
+              for (const b of toggles(n)) if (b.getAttribute('aria-expanded') === 'true') b.click();
+            }
+            await chooseScheme(doc, 'system');
           }
-          const n = width === 390 ? accordion(doc) : bar(doc);
-          toggles(n)[1]!.click();
-          await until(() => expandedGroups(n).length === 1, 'a group open');
-          await expectNoPageAxeViolations(doc, AXE_SCOPE);
-        } finally {
-          if (menuPopover(doc).matches(':popover-open')) menuPopover(doc).hidePopover();
-          for (const n of [bar(doc), accordion(doc)]) {
-            for (const b of toggles(n)) if (b.getAttribute('aria-expanded') === 'true') b.click();
-          }
-        }
+        });
       });
-    });
+    }
   }
 
   describe('at 390px', () => {
@@ -396,6 +496,73 @@ describe('examples page', function () {
       await atWidth(390, async () => {
         expect(doc.documentElement.scrollWidth).to.be.at.most(390);
       });
+    });
+  });
+
+  describe('dark mode', () => {
+    // An example with two files, so the IDE shows an active and an inactive tab.
+    before(async () => {
+      await chooseFromBar(doc, byId('dark-mode'));
+      await expectShowing(win, doc, byId('dark-mode'));
+    });
+    afterEach(async () => {
+      await chooseScheme(doc, 'system');
+      await emulateMedia({ colorScheme: 'light' });
+    });
+
+    it('has the Light / Dark / System control on the utility row', () => {
+      const control = siteHeader(doc)!.querySelector('.utility-row > fieldset.color-scheme')!;
+      expect(control).to.not.equal(null);
+      expect(control.checkVisibility()).to.equal(true);
+      expect(
+        [...control.querySelectorAll<HTMLInputElement>('input[type="radio"]')].map((i) => i.value),
+      ).to.deep.equal(['light', 'dark', 'system']);
+    });
+
+    it('Light keeps the colours the page had before dark mode', async () => {
+      await chooseScheme(doc, 'light');
+      expect(siteColors(doc)).to.deep.equal(LIGHT);
+    });
+
+    it('Dark makes the page, its controls and the editor dark, with the palette values', async () => {
+      await chooseScheme(doc, 'dark');
+      expect(siteColors(doc)).to.deep.equal(DARK);
+    });
+
+    it('System follows the OS setting', async () => {
+      await chooseScheme(doc, 'system');
+      await emulateMedia({ colorScheme: 'dark' });
+      await until(
+        () => siteColors(doc)['body background-color'] === DARK['body background-color'],
+        'dark',
+      );
+      expect(siteColors(doc)).to.deep.equal(DARK);
+      await emulateMedia({ colorScheme: 'light' });
+      await until(
+        () => siteColors(doc)['body background-color'] === LIGHT['body background-color'],
+        'light',
+      );
+      expect(siteColors(doc)).to.deep.equal(LIGHT);
+    });
+
+    it('the dark editor theme gives every code colour 4.5:1 on the code background', async () => {
+      await chooseScheme(doc, 'dark');
+      const cs = getComputedStyle(ide);
+      const background = rgb(cs.getPropertyValue('--playground-code-background').trim());
+      const names = [...CODE_COLORS];
+      for (const name of names) {
+        const value = cs.getPropertyValue(`--playground-code-${name}`).trim();
+        expect(value, name).to.match(/^#[0-9a-f]{6}$/);
+        expect(contrast(rgb(value), background), name).to.be.at.least(4.5);
+      }
+      // What CodeMirror paints: the editor and its line numbers.
+      const cm = editor(doc);
+      expect(getComputedStyle(cm).backgroundColor).to.equal(background);
+      const lineNumber = cm.querySelector('.cm-gutterElement:not(:empty)')!;
+      expect(
+        contrast(getComputedStyle(lineNumber).color, background),
+        'line numbers',
+      ).to.be.at.least(4.5);
     });
   });
 });
@@ -478,12 +645,13 @@ describe('playground.html', function () {
 });
 
 // playground.html redirects to ./, so the site's directory URL must serve the page.
-it('the site root serves the examples page with its main nav written in', async () => {
+it('the site root serves the examples page, its main nav and dark mode written in', async () => {
   const res = await fetch(SITE);
   expect(res.ok).to.equal(true);
   const html = await res.text();
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const page = doc.querySelector('site-page')!;
+  expect(page.hasAttribute('color-scheme-switch')).to.equal(true);
   expect(page.getAttribute('main-nav-label')).to.equal('Examples');
   // The main nav markup is in the page as served, slotted like hand-written markup.
   const source = page.querySelector(':scope > nav[slot="main-nav"]')!;
@@ -493,4 +661,17 @@ it('the site root serves the examples page with its main nav written in', async 
   expect([...source.querySelectorAll('a')].map((a) => a.getAttribute('href'))).to.deep.equal(
     examples.map((p) => `#${p.id}`),
   );
+  // Dark mode's anti-flash snippet, the README's, after the linked tokens.css and base.css and
+  // before any module script.
+  const head = doc.head.innerHTML;
+  const links = [...doc.head.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')].map((l) =>
+    l.getAttribute('href'),
+  );
+  expect(links.slice(0, 2)).to.deep.equal(['./cdn/tokens.css', './cdn/base.css']);
+  const snippet = [...doc.head.querySelectorAll('script:not([src])')].map((s) => s.textContent);
+  expect(snippet).to.deep.equal([COLOR_SCHEME_SNIPPET]);
+  expect(head.indexOf(COLOR_SCHEME_SNIPPET)).to.be.below(head.indexOf('type="module"'));
+  for (const file of ['tokens.css', 'base.css']) {
+    expect((await fetch(`${SITE}cdn/${file}`)).ok, file).to.equal(true);
+  }
 });

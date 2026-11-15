@@ -81,6 +81,100 @@ playground-ide {
   border-radius: 4px;
 }
 
+/* Dark mode (color-scheme-switch; README "Dark mode"). The attribute is only set where
+   light-dark() works. Light sets nothing here, so the page keeps the values above and the
+   editor keeps playground-elements' own theme. Dark reads the role tokens for the page and
+   gives the editor a dark theme in which every code colour has at least 4.5:1 on the code
+   background (#131a2f). The previews run on another origin and keep their own scheme.
+   The same block twice: Dark, and System while the OS is dark. */
+:root[data-uva-color-scheme='dark'] {
+  --site-muted: var(--uva-color-text-muted);
+  --site-bg: var(--uva-color-surface-raised);
+  --site-hover-bg: var(--uva-color-surface-hover);
+  --site-border: var(--uva-color-control-border);
+  --site-link: var(--uva-color-link);
+  /* The editor: playground-elements' theme properties. */
+  --playground-code-background: #131a2f;
+  --playground-code-gutter-background: #131a2f;
+  --playground-code-default-color: #e8e8e8;
+  --playground-code-cursor-color: #ffffff;
+  --playground-code-selection-background: #2b3960;
+  --playground-code-linenumber-color: #8e98b0;
+  --playground-code-variable-color: #e8e8e8;
+  --playground-code-keyword-color: #d7a6ff;
+  --playground-code-atom-color: #f5a97f;
+  --playground-code-number-color: #b5e3a1;
+  --playground-code-property-color: #9cdcfe;
+  --playground-code-type-color: #4ec9b0;
+  --playground-code-def-color: #82aaff;
+  --playground-code-operator-color: #d4d4d4;
+  --playground-code-variable-2-color: #9cdcfe;
+  --playground-code-variable-3-color: #4ec9b0;
+  --playground-code-comment-color: #9aa5b8;
+  --playground-code-string-color: #f0c27b;
+  --playground-code-string-2-color: #f78c6c;
+  --playground-code-meta-color: #c0c6d4;
+  --playground-code-qualifier-color: #c0c6d4;
+  --playground-code-builtin-color: #c3e88d;
+  --playground-code-tag-color: #89ddff;
+  --playground-code-attribute-color: #ffcb6b;
+  --playground-tab-bar-background: #232d4b;
+  --playground-tab-bar-foreground-color: #e8e8e8;
+  --playground-tab-bar-active-color: #87b9d9;
+  --playground-tab-bar-active-background: #131a2f;
+  --playground-preview-toolbar-background: #232d4b;
+  --playground-preview-toolbar-foreground-color: #e8e8e8;
+  /* The new-file menu (Material surface and list). */
+  --mdc-theme-surface: #232d4b;
+  --mdc-theme-text-primary-on-background: #e8e8e8;
+  --mdc-theme-text-icon-on-background: #e8e8e8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-uva-color-scheme='system'] {
+    --site-muted: var(--uva-color-text-muted);
+    --site-bg: var(--uva-color-surface-raised);
+    --site-hover-bg: var(--uva-color-surface-hover);
+    --site-border: var(--uva-color-control-border);
+    --site-link: var(--uva-color-link);
+    /* The editor: playground-elements' theme properties. */
+    --playground-code-background: #131a2f;
+    --playground-code-gutter-background: #131a2f;
+    --playground-code-default-color: #e8e8e8;
+    --playground-code-cursor-color: #ffffff;
+    --playground-code-selection-background: #2b3960;
+    --playground-code-linenumber-color: #8e98b0;
+    --playground-code-variable-color: #e8e8e8;
+    --playground-code-keyword-color: #d7a6ff;
+    --playground-code-atom-color: #f5a97f;
+    --playground-code-number-color: #b5e3a1;
+    --playground-code-property-color: #9cdcfe;
+    --playground-code-type-color: #4ec9b0;
+    --playground-code-def-color: #82aaff;
+    --playground-code-operator-color: #d4d4d4;
+    --playground-code-variable-2-color: #9cdcfe;
+    --playground-code-variable-3-color: #4ec9b0;
+    --playground-code-comment-color: #9aa5b8;
+    --playground-code-string-color: #f0c27b;
+    --playground-code-string-2-color: #f78c6c;
+    --playground-code-meta-color: #c0c6d4;
+    --playground-code-qualifier-color: #c0c6d4;
+    --playground-code-builtin-color: #c3e88d;
+    --playground-code-tag-color: #89ddff;
+    --playground-code-attribute-color: #ffcb6b;
+    --playground-tab-bar-background: #232d4b;
+    --playground-tab-bar-foreground-color: #e8e8e8;
+    --playground-tab-bar-active-color: #87b9d9;
+    --playground-tab-bar-active-background: #131a2f;
+    --playground-preview-toolbar-background: #232d4b;
+    --playground-preview-toolbar-foreground-color: #e8e8e8;
+    /* The new-file menu (Material surface and list). */
+    --mdc-theme-surface: #232d4b;
+    --mdc-theme-text-primary-on-background: #e8e8e8;
+    --mdc-theme-text-icon-on-background: #e8e8e8;
+  }
+}
+
 /* Narrow screens: stack the editor above the preview. The IDE's panes size themselves
    with height: 100%, so a grid host gives each one a definite row to fill. Its shadow
    children are the invisible project element, the editor pane and the preview pane. */

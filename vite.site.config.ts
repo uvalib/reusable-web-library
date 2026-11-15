@@ -3,6 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import { examplesMainNav } from './site/src/main-nav.js';
+import { COLOR_SCHEME_SNIPPET } from './site/src/presets.js';
 
 // The GitHub Pages site (spec §9a): `site/` built into `dist-site/`. In dev (`pnpm start`)
 // the server is rooted at the repo, so it also serves `demo/`.
@@ -10,7 +11,10 @@ const root = dirname(fileURLToPath(import.meta.url));
 const outDir = resolve(root, 'dist-site');
 const ASSETS = 'assets';
 
-/** Dev only: `…/cdn/<tag>.js` is served from the component source. */
+/**
+ * Dev only: `…/cdn/<tag>.js` is served from the component source, and `…/cdn/tokens.css` and
+ * `base.css` from the last `pnpm build` (dist-cdn/).
+ */
 function devCdn(): Plugin {
   return {
     name: 'uvalib-dev-cdn',
@@ -19,6 +23,8 @@ function devCdn(): Plugin {
       server.middlewares.use((req, _res, next) => {
         const m = req.url?.match(/\/cdn\/(site-[a-z]+)\.js(?:\?.*)?$/);
         if (m) req.url = `/src/components/${m[1]}/${m[1]}.ts`;
+        const css = req.url?.match(/\/cdn\/(tokens|base)\.css(?:\?.*)?$/);
+        if (css) req.url = `/dist-cdn/${css[1]}.css`;
         next();
       });
     },
@@ -27,8 +33,9 @@ function devCdn(): Plugin {
 
 /**
  * The examples page (site/index.html) as served, in dev and in the build: `<!--examples-main-nav-->`
- * becomes the examples menu's `<nav slot="main-nav">` markup (site/src/main-nav.ts), in the
- * HTML before any script runs.
+ * becomes the examples menu's `<nav slot="main-nav">` markup (site/src/main-nav.ts), and
+ * `<!--color-scheme-snippet-->` dark mode's anti-flash script, the README's text
+ * (COLOR_SCHEME_SNIPPET). Both are in the HTML before any script runs.
  */
 function examplesPage(): Plugin {
   return {
@@ -43,6 +50,7 @@ function examplesPage(): Plugin {
           html = html.replace(re, (_, indent: string) => indent + value(indent));
         };
         fill('examples-main-nav', (indent) => examplesMainNav(indent.length));
+        fill('color-scheme-snippet', () => `<script>${COLOR_SCHEME_SNIPPET}</script>`);
         return html;
       },
     },

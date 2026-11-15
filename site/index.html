@@ -8,13 +8,23 @@
       name="description"
       content="Every UVA Library web component and mode, live and editable, with shareable links."
     />
+    <!-- Dark mode (README "Dark mode"): the tokens and base styles, then the stored choice
+         applied before the first paint. The build writes the README's snippet here. -->
+    <link rel="stylesheet" href="./cdn/tokens.css" vite-ignore />
+    <link rel="stylesheet" href="./cdn/base.css" vite-ignore />
+    <!--color-scheme-snippet-->
     <link rel="stylesheet" href="./src/site.css" />
     <!-- The site's own copy of the CDN build (dist-site/cdn/; in dev, the component source). -->
     <script type="module" src="./cdn/site-page.js" vite-ignore></script>
     <script type="module" src="./src/examples.ts"></script>
   </head>
   <body>
-    <site-page site-links-label="Web components" main-nav-label="Examples" no-footer>
+    <site-page
+      site-links-label="Web components"
+      main-nav-label="Examples"
+      color-scheme-switch
+      no-footer
+    >
       <a slot="site-links" href="./" aria-current="page">Examples</a>
       <a slot="site-links" href="https://github.com/uvalib/reusable-web-library#readme">README</a>
       <!-- The examples menu is the header's main navigation: one group per component, one
