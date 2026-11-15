@@ -95,37 +95,77 @@ function siteHeader(doc: Document): ShadowRoot | null | undefined {
   return doc.querySelector('site-page')?.shadowRoot?.querySelector('site-header')?.shadowRoot;
 }
 
-/** Wait for <site-page> to render its header with the site links. */
+/** The header's main nav: the bar (wide screens) or the Menu popover's accordion. */
+const bar = (doc: Document) =>
+  siteHeader(doc)!.querySelector<HTMLElement>('header > site-main-nav:not([layout="accordion"])')!;
+const accordion = (doc: Document) =>
+  siteHeader(doc)!.querySelector<HTMLElement>('[popover] site-main-nav[layout="accordion"]')!;
+const navOf = (n: Element) => n.shadowRoot!.querySelector<HTMLElement>('nav.main-nav')!;
+const toggles = (n: Element) => [...navOf(n).querySelectorAll<HTMLButtonElement>('button')];
+const linkTo = (n: Element, id: string) =>
+  navOf(n).querySelector<HTMLAnchorElement>(`a[href="#${id}"]`)!;
+const currentIds = (n: Element) =>
+  [...navOf(n).querySelectorAll('a[aria-current="page"]')].map((a) =>
+    a.getAttribute('href')!.slice(1),
+  );
+const currentGroups = (n: Element) =>
+  toggles(n)
+    .filter((b) => b.getAttribute('aria-current') === 'true')
+    .map((b) => b.textContent!.trim());
+const expandedGroups = (n: Element) =>
+  toggles(n)
+    .filter((b) => b.getAttribute('aria-expanded') === 'true')
+    .map((b) => b.textContent!.trim());
+const menuPopover = (doc: Document) => siteHeader(doc)!.querySelector<HTMLElement>('[popover]')!;
+
+/** Wait for <site-page> to render its header with the site links and the examples nav. */
 async function chromeReady(doc: Document): Promise<void> {
   await until(
-    () => siteHeader(doc)?.querySelector('nav[aria-label="Web components"] a') != null,
-    'site-page header with the site links',
+    () =>
+      siteHeader(doc)?.querySelector('nav[aria-label="Web components"] a') != null &&
+      bar(doc)?.shadowRoot?.querySelector(`a[href="#${examples[0]!.id}"]`) != null,
+    'site-page header with the site links and the examples main nav',
   );
 }
 
-const menu = (doc: Document) => doc.querySelector<HTMLElement>('nav[aria-label="Examples"]')!;
-const menuLinks = (doc: Document) => [...menu(doc).querySelectorAll<HTMLAnchorElement>('a')];
-const currentIds = (doc: Document) =>
-  menuLinks(doc)
-    .filter((a) => a.getAttribute('aria-current') === 'page')
-    .map((a) => a.hash.slice(1));
-const picker = (doc: Document) => doc.querySelector<HTMLSelectElement>('select#example-select')!;
+type Nav = { currentEntry: { index: number }; entries(): { url: string | null }[] };
+/**
+ * The page's own session history (the Navigation API): history.length is the joint history,
+ * which also counts entries the cross-origin preview iframe adds. The current entry's index
+ * is used, not the entry count, since a new entry drops forward entries.
+ */
+const navigationOf = (win: Window) => (win as Window & { navigation: Nav }).navigation;
 
-/** Wait until the page shows example `p`: its files, heading, menu item and select option. */
+/** Choose example `p` from the bar: open its group, then click its link. */
+async function chooseFromBar(doc: Document, p: Preset) {
+  const n = bar(doc);
+  const button = toggles(n).find((b) => b.textContent!.trim() === p.group)!;
+  if (button.getAttribute('aria-expanded') !== 'true') button.click();
+  await until(() => linkTo(n, p.id).checkVisibility(), `${p.group} panel open`);
+  linkTo(n, p.id).click();
+}
+
+/** Wait until the page shows example `p`: its files, heading, title and main-nav marking. */
 async function expectShowing(win: Window, doc: Document, p: Preset) {
   const ide = doc.querySelector<Ide>('playground-ide')!;
   await until(() => indexHtml(ide) === expected(win, p), `${p.id} files`);
   expect(doc.querySelector('h1')!.textContent!.trim()).to.equal(p.title);
   expect(doc.querySelector('#example-description')!.textContent!.trim()).to.equal(p.description);
-  expect(currentIds(doc)).to.deep.equal([p.id]);
-  expect(picker(doc).value).to.equal(p.id);
+  // The main nav marks the example (link and group) in both layouts.
+  await until(
+    () =>
+      [bar(doc), accordion(doc)].every(
+        (n) => currentIds(n).join() === p.id && currentGroups(n).join() === p.group,
+      ),
+    `${p.id} marked current in the main nav`,
+  );
   expect(doc.title).to.include(p.title);
   // Only ever one IDE: switching examples reuses it.
   expect(deepAll(doc, 'playground-ide').length).to.equal(1);
 }
 
 describe('examples page', function () {
-  this.timeout(15000); // the full site page: the playground-elements bundle and its IDE
+  this.timeout(20000); // the full site page: the playground-elements bundle and its IDE
   let win: Window;
   let doc: Document;
   let ide: Ide;
@@ -141,7 +181,7 @@ describe('examples page', function () {
     expect(deepAll(doc, 'main').length).to.equal(1);
     expect(doc.querySelectorAll('main, header, .skip-link').length).to.equal(0);
     const header = siteHeader(doc)!;
-    for (const selector of ['nav.inline', '[popover]']) {
+    for (const selector of ['nav.inline', '[popover] nav.menu']) {
       const links = [...header.querySelectorAll<HTMLAnchorElement>(`${selector} a`)];
       expect(
         links.map((a) => a.textContent!.trim()),
@@ -151,35 +191,47 @@ describe('examples page', function () {
       expect(links[1]!.href).to.equal('https://github.com/uvalib/reusable-web-library#readme');
     }
     expect(header.querySelector('nav[aria-label="Utility"]')).to.equal(null);
-    // The menu and the example's heading land in that single <main>.
-    for (const el of [menu(doc), doc.querySelector('h1')!]) {
-      let top: Element = el;
-      while (top.parentElement?.localName !== 'site-page') top = top.parentElement!;
-      expect(top.assignedSlot?.closest('main')).to.not.equal(null);
-    }
+    // The example's heading lands in that single <main>.
+    let top: Element = doc.querySelector('h1')!;
+    while (top.parentElement?.localName !== 'site-page') top = top.parentElement!;
+    expect(top.assignedSlot?.closest('main')).to.not.equal(null);
     // A tool page: site-page no-footer.
     const footer = doc.querySelector('site-page')!.shadowRoot!.querySelector('site-footer')!;
     expect(getComputedStyle(footer).display).to.equal('none');
   });
 
-  it('the menu lists every example exactly once, under its group heading', () => {
-    const nav = menu(doc);
-    expect(getComputedStyle(nav).display).to.not.equal('none');
-    const headings = [...nav.querySelectorAll('h2')];
-    expect(headings.map((h) => h.textContent!.trim())).to.deep.equal([...GROUPS]);
-    for (const [i, h] of headings.entries()) {
-      const list = h.nextElementSibling!;
-      expect(list.localName).to.equal('ul');
-      expect(list.getAttribute('aria-labelledby')).to.equal(h.id);
-      const want = examples.filter((p) => p.group === GROUPS[i]);
-      const links = [...list.querySelectorAll<HTMLAnchorElement>(':scope > li > a')];
-      expect(links.map((a) => a.getAttribute('href'))).to.deep.equal(want.map((p) => `#${p.id}`));
-      expect(links.map((a) => a.textContent!.trim())).to.deep.equal(want.map((p) => p.title));
+  it('the main nav is the examples menu: every example once, grouped, in the presets order', () => {
+    // Slotted markup (written into the page at build time), so it is there before site-page.
+    const source = doc.querySelector('site-page > nav[slot="main-nav"]')!;
+    expect(source).to.not.equal(null);
+    for (const n of [bar(doc), accordion(doc)]) {
+      expect(navOf(n).getAttribute('aria-label')).to.equal('Examples');
+      const groups = [...navOf(n).querySelectorAll(':scope > ul > li')];
+      expect(
+        groups.map((li) => li.querySelector(':scope > button')!.textContent!.trim()),
+      ).to.deep.equal([...GROUPS]);
+      for (const [i, li] of groups.entries()) {
+        const want = examples.filter((p) => p.group === GROUPS[i]);
+        const links = [...li.querySelectorAll<HTMLAnchorElement>(':scope > ul > li > a')];
+        expect(links.map((a) => a.getAttribute('href'))).to.deep.equal(want.map((p) => `#${p.id}`));
+        expect(links.map((a) => a.textContent!.trim())).to.deep.equal(want.map((p) => p.title));
+      }
+      expect([...navOf(n).querySelectorAll('a')].map((a) => a.getAttribute('href'))).to.deep.equal(
+        examples.map((p) => `#${p.id}`),
+      );
     }
-    expect(menuLinks(doc).map((a) => a.hash)).to.deep.equal(examples.map((p) => `#${p.id}`));
+    // Not the library's default main navigation.
+    expect(toggles(bar(doc)).map((b) => b.textContent!.trim())).to.not.include('About');
   });
 
-  it('has one editable IDE on the default sandbox, plus Reset and Copy link', () => {
+  it('has no sidebar or select: one IDE spanning the content width, plus Reset and Copy link', () => {
+    expect(doc.querySelector('nav.example-menu, select, #example-select')).to.equal(null);
+    expect(doc.querySelectorAll('site-page > nav:not([slot])').length).to.equal(0);
+    expect(deepAll(doc, 'playground-ide').length).to.equal(1);
+    const main = doc.querySelector('site-page')!.shadowRoot!.querySelector('main')!;
+    const cs = getComputedStyle(main);
+    const content = main.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    expect(ide.getBoundingClientRect().width).to.be.closeTo(content, 1);
     for (const attr of ['resizable', 'line-numbers', 'editable-file-system']) {
       expect(ide.hasAttribute(attr), attr).to.equal(true);
     }
@@ -189,7 +241,7 @@ describe('examples page', function () {
     expect(doc.querySelector('button#reset')?.textContent).to.match(/reset/i);
   });
 
-  it('starts with the first example', async () => {
+  it('starts with the first example, marked current', async () => {
     await expectShowing(win, doc, examples[0]!);
     expect(win.location.hash).to.equal('');
   });
@@ -205,23 +257,20 @@ describe('examples page', function () {
     expect(height).to.be.closeTo(Math.max(28 * rem, win.innerHeight - top() - 1.5 * rem), 1);
   });
 
-  it('clicking an item swaps the IDE files, updates the hash and sets aria-current', async () => {
-    // The page's own session history (the Navigation API): history.length is the joint
-    // history, which also counts entries the cross-origin preview iframe adds. The current
-    // entry's index is used, not the entry count, since a new entry drops forward entries.
-    const nav = (
-      win as Window & {
-        navigation: { currentEntry: { index: number }; entries(): { url: string | null }[] };
-      }
-    ).navigation;
+  it('a main-nav link swaps the IDE files, sets the hash, marks it current and closes the panel', async () => {
+    const nav = navigationOf(win);
     const start = nav.currentEntry.index;
     for (const p of [...examples].reverse()) {
-      menuLinks(doc)
-        .find((a) => a.hash === `#${p.id}`)!
-        .click();
+      const before = nav.currentEntry.index;
+      await chooseFromBar(doc, p);
       await expectShowing(win, doc, p);
       expect(win.location.hash).to.equal(`#${p.id}`);
       expect(indexHtml(ide)).to.include(new URL('cdn/site-page.js', win.location.href).href);
+      // Exactly one history entry per selection.
+      expect(nav.currentEntry.index).to.equal(before + 1);
+      // The panel closes, and focus moves to the example's heading.
+      expect(expandedGroups(bar(doc))).to.deep.equal([]);
+      expect(doc.activeElement).to.equal(doc.querySelector('h1'));
     }
     // Each selection is its own history entry, without a reload, in order.
     const end = nav.currentEntry.index;
@@ -235,12 +284,33 @@ describe('examples page', function () {
     expect(doc.querySelector('playground-ide')).to.equal(ide);
   });
 
-  it('back and forward move between the selected examples', async () => {
+  it('a modified click (new tab) is left to the browser', async () => {
+    const p = byId('alerts');
+    const link = linkTo(bar(doc), p.id);
+    let prevented: boolean | undefined;
+    const spy = (e: Event) => (prevented = e.defaultPrevented);
+    win.addEventListener('click', spy);
+    // Stop the browser from opening a tab: a capturing listener on the target's window would
+    // also run first, so cancel it after the page's own listeners, on the window, last.
+    const stop = (e: Event) => e.preventDefault();
+    try {
+      const before = win.location.hash;
+      win.addEventListener('click', stop);
+      link.dispatchEvent(
+        new MouseEvent('click', { bubbles: true, composed: true, cancelable: true, ctrlKey: true }),
+      );
+      expect(prevented).to.equal(false);
+      expect(win.location.hash).to.equal(before);
+    } finally {
+      win.removeEventListener('click', spy);
+      win.removeEventListener('click', stop);
+    }
+  });
+
+  it('back and forward move between the chosen examples', async () => {
     const [a, b] = [byId('weekly-hours'), byId('alerts')];
     for (const p of [a, b]) {
-      menuLinks(doc)
-        .find((l) => l.hash === `#${p.id}`)!
-        .click();
+      await chooseFromBar(doc, p);
       await expectShowing(win, doc, p);
     }
     win.history.back();
@@ -261,9 +331,7 @@ describe('examples page', function () {
   });
 
   it('"Reset" restores the current example and its #id', async () => {
-    menuLinks(doc)
-      .find((a) => a.hash === '#theming')!
-      .click();
+    await chooseFromBar(doc, byId('theming'));
     await expectShowing(win, doc, byId('theming'));
     ide.config = { files: { 'index.html': { content: '<p>edited</p>' } } };
     await until(() => indexHtml(ide) === '<p>edited</p>', 'edited files');
@@ -274,59 +342,59 @@ describe('examples page', function () {
     expect(win.location.hash).to.equal('#theming');
   });
 
-  it('has no axe violations in the site chrome', async () => {
-    await expectNoPageAxeViolations(doc, AXE_SCOPE);
-  });
-
-  describe('below 48rem', () => {
-    it('replaces the menu with a labelled select, grouped with optgroups', async () => {
-      await atWidth(390, async () => {
-        const select = picker(doc);
-        expect(getComputedStyle(menu(doc)).display).to.equal('none');
-        expect(getComputedStyle(select).display).to.not.equal('none');
-        expect(select.labels?.[0]?.textContent).to.match(/example/i);
-        // The select sits above the editor.
-        expect(select.getBoundingClientRect().bottom).to.be.at.most(
-          ide.getBoundingClientRect().top,
-        );
-        const groups = [...select.querySelectorAll('optgroup')];
-        expect(groups.map((g) => g.label)).to.deep.equal([...GROUPS]);
-        for (const [i, g] of groups.entries()) {
-          expect([...g.querySelectorAll('option')].map((o) => o.value)).to.deep.equal(
-            examples.filter((p) => p.group === GROUPS[i]).map((p) => p.id),
-          );
+  for (const width of [1280, 390]) {
+    it(`has no axe violations at ${width}px, closed and open`, async () => {
+      await atWidth(width, async () => {
+        try {
+          await expectNoPageAxeViolations(doc, AXE_SCOPE);
+          // Open what the main nav shows at this width: a bar panel, or the Menu and a group.
+          if (width === 390) {
+            siteHeader(doc)!.querySelector<HTMLButtonElement>('.menu-toggle')!.click();
+            await until(() => menuPopover(doc).matches(':popover-open'), 'Menu open');
+          }
+          const n = width === 390 ? accordion(doc) : bar(doc);
+          toggles(n)[1]!.click();
+          await until(() => expandedGroups(n).length === 1, 'a group open');
+          await expectNoPageAxeViolations(doc, AXE_SCOPE);
+        } finally {
+          if (menuPopover(doc).matches(':popover-open')) menuPopover(doc).hidePopover();
+          for (const n of [bar(doc), accordion(doc)]) {
+            for (const b of toggles(n)) if (b.getAttribute('aria-expanded') === 'true') b.click();
+          }
         }
-        expect(select.options.length).to.equal(examples.length);
       });
     });
+  }
 
-    it('choosing an option opens that example and adds a history entry', async () => {
+  describe('at 390px', () => {
+    it('lists the groups as accordions in the Menu; choosing one closes the Menu', async () => {
       await atWidth(390, async () => {
-        const select = picker(doc);
-        const before = win.location.hash;
-        select.value = 'weekly-hours';
-        const nav = (win as Window & { navigation: { currentEntry: { index: number } } })
-          .navigation;
+        expect(bar(doc).checkVisibility()).to.equal(false);
+        const toggle = siteHeader(doc)!.querySelector<HTMLButtonElement>('.menu-toggle')!;
+        toggle.click();
+        await until(() => menuPopover(doc).matches(':popover-open'), 'Menu open');
+        const n = accordion(doc);
+        expect(n.checkVisibility()).to.equal(true);
+        expect(toggles(n).map((b) => b.textContent!.trim())).to.deep.equal([...GROUPS]);
+        const p = byId('weekly-hours');
+        const nav = navigationOf(win);
         const start = nav.currentEntry.index;
-        select.dispatchEvent(new Event('change', { bubbles: true }));
-        await until(() => win.location.hash === '#weekly-hours', 'hash');
-        await expectShowing(win, doc, byId('weekly-hours'));
+        toggles(n)
+          .find((b) => b.textContent!.trim() === p.group)!
+          .click();
+        await until(() => linkTo(n, p.id).checkVisibility(), 'Hours group open');
+        linkTo(n, p.id).click();
+        await expectShowing(win, doc, p);
+        expect(win.location.hash).to.equal(`#${p.id}`);
         expect(nav.currentEntry.index).to.equal(start + 1);
-        win.history.back();
-        await until(() => win.location.hash === before, 'back');
-        expect(select.value).to.equal(before.slice(1));
+        expect(menuPopover(doc).matches(':popover-open')).to.equal(false);
+        expect(doc.activeElement).to.equal(doc.querySelector('h1'));
       });
     });
 
     it('fits a 390px viewport without horizontal scrolling', async () => {
       await atWidth(390, async () => {
         expect(doc.documentElement.scrollWidth).to.be.at.most(390);
-      });
-    });
-
-    it('has no axe violations', async () => {
-      await atWidth(390, async () => {
-        await expectNoPageAxeViolations(doc, AXE_SCOPE);
       });
     });
   });
@@ -338,12 +406,14 @@ describe('example links', function () {
 
   it('#weekly-hours opens that example', async () => {
     const { win, doc } = await open('index.html#weekly-hours');
+    await chromeReady(doc);
     await expectShowing(win, doc, byId('weekly-hours'));
     expect(win.location.hash).to.equal('#weekly-hours');
   });
 
   it('an unknown id falls back to the first example', async () => {
     const { win, doc } = await open('index.html#no-such-example');
+    await chromeReady(doc);
     await expectShowing(win, doc, examples[0]!);
   });
 
@@ -352,7 +422,11 @@ describe('example links', function () {
     const { win, doc } = await open(`index.html#files=${hash}`);
     const ide = doc.querySelector<Ide>('playground-ide')!;
     await until(() => indexHtml(ide) === '<p>hi</p>', 'shared files');
-    expect(currentIds(doc)).to.deep.equal([]);
+    await chromeReady(doc);
+    for (const n of [bar(doc), accordion(doc)]) {
+      expect(currentIds(n)).to.deep.equal([]);
+      expect(currentGroups(n)).to.deep.equal([]);
+    }
     expect(win.location.hash).to.equal(`#files=${hash}`);
   });
 
@@ -365,6 +439,7 @@ describe('example links', function () {
   for (const [name, hash] of Object.entries(badLinks)) {
     it(`a share link that ${name} shows the error status and the first example`, async () => {
       const { win, doc } = await open(`index.html#files=${await hash()}`);
+      await chromeReady(doc);
       const status = doc.querySelector('[role="status"]')!;
       await until(() => /could not be read/.test(status.textContent!), 'error status');
       await expectShowing(win, doc, examples[0]!);
@@ -379,6 +454,7 @@ describe('playground.html', function () {
 
   it('redirects to the examples page, keeping the hash', async () => {
     const { win, doc } = await open('playground.html#weekly-hours', SITE);
+    await chromeReady(doc);
     expect(win.location.hash).to.equal('#weekly-hours');
     await expectShowing(win, doc, byId('weekly-hours'));
   });
@@ -402,8 +478,19 @@ describe('playground.html', function () {
 });
 
 // playground.html redirects to ./, so the site's directory URL must serve the page.
-it('the site root serves the examples page', async () => {
+it('the site root serves the examples page with its main nav written in', async () => {
   const res = await fetch(SITE);
   expect(res.ok).to.equal(true);
-  expect(await res.text()).to.include('aria-label="Examples"');
+  const html = await res.text();
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const page = doc.querySelector('site-page')!;
+  expect(page.getAttribute('main-nav-label')).to.equal('Examples');
+  // The main nav markup is in the page as served, slotted like hand-written markup.
+  const source = page.querySelector(':scope > nav[slot="main-nav"]')!;
+  expect(
+    [...source.querySelectorAll(':scope > ul > li > span')].map((s) => s.textContent),
+  ).to.deep.equal([...GROUPS]);
+  expect([...source.querySelectorAll('a')].map((a) => a.getAttribute('href'))).to.deep.equal(
+    examples.map((p) => `#${p.id}`),
+  );
 });

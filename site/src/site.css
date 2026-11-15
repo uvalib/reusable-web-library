@@ -1,6 +1,6 @@
-/* Layout for the demo site's page content. The page chrome (skip link, header, main and
-   footer) and the base typography come from <site-page>; this sheet only lays out what is
-   inside <main>, with its own --site-* properties for the controls. */
+/* Layout for the demo site's page content. The page chrome (skip link, header with the
+   examples main nav, main) and the base typography come from <site-page>; this sheet only
+   lays out what is inside <main>, with its own --site-* properties for the controls. */
 :root {
   --site-muted: #4f5761;
   --site-bg: #ffffff;
@@ -8,7 +8,6 @@
   --site-border: #d0d4da;
   --site-link: #0b5cad;
   --site-gutter: 16px;
-  color-scheme: light;
 }
 
 /* site-page pads <main> 40px each side; on phones give the editor the width instead. */
@@ -26,89 +25,15 @@ h1 {
   margin-block: 0.5rem;
 }
 
+/* Focus lands here after choosing an example: it is not a control, so no ring. */
+h1:focus {
+  outline: none;
+}
+
 .description {
   max-inline-size: 70ch;
   margin-block: 0 0.75rem;
   color: var(--site-muted);
-}
-
-/* The page: the example menu beside the example (heading, description, toolbar, IDE). */
-.examples {
-  display: grid;
-  grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr);
-  gap: 2rem;
-  align-items: start;
-}
-
-.example {
-  min-inline-size: 0;
-}
-
-/* The menu stays in view beside the tall editor and scrolls on its own if it must. */
-.example-menu {
-  position: sticky;
-  inset-block-start: 1rem;
-  max-block-size: calc(100dvh - 2rem);
-  overflow-y: auto;
-  padding-block: 0.5rem;
-}
-
-.example-menu h2 {
-  margin-block: 1.25rem 0.25rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--site-muted);
-}
-
-.example-menu h2:first-child {
-  margin-block-start: 0;
-}
-
-.example-menu ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.example-menu a {
-  display: block;
-  padding: 0.3rem 0.5rem;
-  border-inline-start: 3px solid transparent;
-  border-radius: 0 4px 4px 0;
-  text-decoration: none;
-  line-height: 1.3;
-}
-
-.example-menu a:hover {
-  background: var(--site-hover-bg);
-  text-decoration: underline;
-}
-
-/* The current example: bold with a bar, not color alone. */
-.example-menu a[aria-current='page'] {
-  border-inline-start-color: var(--site-link);
-  background: var(--site-hover-bg);
-  font-weight: 700;
-  color: inherit;
-}
-
-/* The select stands in for the menu below 48rem. */
-.example-picker {
-  display: none;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.75rem;
-  margin-block-end: 0.5rem;
-}
-
-.example-picker label {
-  font-weight: 600;
-}
-
-.example-picker select {
-  flex: 1 1 12rem;
 }
 
 /* Toolbar: Reset and Copy link. Wraps on narrow screens. */
@@ -119,7 +44,6 @@ h1 {
   gap: 0.5rem 0.75rem;
 }
 
-select,
 button {
   font: inherit;
   min-block-size: 2.25rem;
@@ -128,14 +52,6 @@ button {
   border-radius: 4px;
   background: var(--site-bg);
   color: inherit;
-}
-
-select {
-  min-inline-size: 0;
-  max-inline-size: 100%;
-}
-
-button {
   cursor: pointer;
 }
 
@@ -169,18 +85,6 @@ playground-ide {
    with height: 100%, so a grid host gives each one a definite row to fill. Its shadow
    children are the invisible project element, the editor pane and the preview pane. */
 @media (width < 48rem) {
-  .examples {
-    display: block;
-  }
-
-  .example-menu {
-    display: none;
-  }
-
-  .example-picker {
-    display: flex;
-  }
-
   playground-ide {
     display: grid;
     grid-template-rows: auto minmax(0, 3fr) minmax(0, 2fr);

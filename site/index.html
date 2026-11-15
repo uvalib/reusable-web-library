@@ -14,31 +14,25 @@
     <script type="module" src="./src/examples.ts"></script>
   </head>
   <body>
-    <site-page site-links-label="Web components" no-footer>
+    <site-page site-links-label="Web components" main-nav-label="Examples" no-footer>
       <a slot="site-links" href="./" aria-current="page">Examples</a>
       <a slot="site-links" href="https://github.com/uvalib/reusable-web-library#readme">README</a>
-      <div class="examples">
-        <!-- examples.ts fills the menu and the select from presets.ts. The menu shows on
-             wide screens, the select below 48rem. -->
-        <nav class="example-menu" aria-label="Examples"></nav>
-        <div class="example">
-          <div class="example-picker">
-            <label for="example-select">Example</label>
-            <select id="example-select"></select>
+      <!-- The examples menu is the header's main navigation: one group per component, one
+           #<id> link per example. The build writes it here from presets.ts (main-nav.ts). -->
+      <!--examples-main-nav-->
+      <div class="example">
+        <div class="example-head">
+          <h1 id="example-title" tabindex="-1">Examples</h1>
+          <p id="example-description" class="description"></p>
+          <div class="toolbar">
+            <button type="button" id="reset">Reset</button>
+            <span class="copy">
+              <button type="button" id="copy-link">Copy link</button>
+              <span class="status" role="status"></span>
+            </span>
           </div>
-          <div class="example-head">
-            <h1 id="example-title">Examples</h1>
-            <p id="example-description" class="description"></p>
-            <div class="toolbar">
-              <button type="button" id="reset">Reset</button>
-              <span class="copy">
-                <button type="button" id="copy-link">Copy link</button>
-                <span class="status" role="status"></span>
-              </span>
-            </div>
-          </div>
-          <playground-ide resizable line-numbers editable-file-system></playground-ide>
         </div>
+        <playground-ide resizable line-numbers editable-file-system></playground-ide>
       </div>
     </site-page>
   </body>

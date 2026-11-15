@@ -2,6 +2,7 @@ import { copyFileSync, cpSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
+import { examplesMainNav } from './site/src/main-nav.js';
 
 // The GitHub Pages site (spec §9a): `site/` built into `dist-site/`. In dev (`pnpm start`)
 // the server is rooted at the repo, so it also serves `demo/`.
@@ -20,6 +21,30 @@ function devCdn(): Plugin {
         if (m) req.url = `/src/components/${m[1]}/${m[1]}.ts`;
         next();
       });
+    },
+  };
+}
+
+/**
+ * The examples page (site/index.html) as served, in dev and in the build: `<!--examples-main-nav-->`
+ * becomes the examples menu's `<nav slot="main-nav">` markup (site/src/main-nav.ts), in the
+ * HTML before any script runs.
+ */
+function examplesPage(): Plugin {
+  return {
+    name: 'uvalib-examples-page',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html, { filename }) {
+        if (resolve(filename) !== join(root, 'site/index.html')) return html;
+        const fill = (name: string, value: (indent: string) => string) => {
+          const re = new RegExp(`^( *)<!--${name}-->$`, 'm');
+          if (!re.test(html)) throw new Error(`site/index.html has no <!--${name}--> line`);
+          html = html.replace(re, (_, indent: string) => indent + value(indent));
+        };
+        fill('examples-main-nav', (indent) => examplesMainNav(indent.length));
+        return html;
+      },
     },
   };
 }
@@ -65,7 +90,7 @@ export default defineConfig(({ command, isPreview }) => ({
   // GitHub Pages project path. The tests override it with `--base /dist-site/`, because
   // web-test-runner serves the repo root.
   base: command === 'build' || isPreview ? '/reusable-web-library/' : '/',
-  plugins: [devCdn(), siteFiles()],
+  plugins: [devCdn(), examplesPage(), siteFiles()],
   // Pre-bundling would move playground-elements away from its worker file.
   optimizeDeps: { exclude: ['playground-elements'] },
   build: {
