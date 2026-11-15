@@ -58,3 +58,11 @@ jobs:
       # Re-allow them on this throwaway runner rather than run Chrome with --no-sandbox.
       - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - run: pnpm lhci
+      # On a failure, keep the Lighthouse reports (JSON and HTML per run) for diagnosis:
+      # Actions → the run → Artifacts.
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
+          retention-days: 14
