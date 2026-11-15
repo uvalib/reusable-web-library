@@ -292,8 +292,14 @@ export class SiteHeader extends UvalibElement {
         outline: 3px solid var(--uva-color-focus, var(--uva-brand-orange, #e57200));
         outline-offset: 2px;
       }
+      /* Floated, so it is not drawn into the fieldset's top border (the popover rule). */
       .menu-popover > .color-scheme legend {
+        float: inline-start;
+        inline-size: 100%;
         margin-block-end: 0.375rem;
+      }
+      .menu-popover > .color-scheme .segments {
+        clear: both;
       }
       @media (forced-colors: active) {
         .segments label:has(:checked) {

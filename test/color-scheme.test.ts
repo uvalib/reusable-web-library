@@ -306,6 +306,10 @@ describe('dark mode (color-scheme-switch)', function () {
         expect(fs.checkVisibility()).to.equal(true);
         const legend = fs.querySelector('legend')!.getBoundingClientRect();
         expect(legend.width).to.be.above(20);
+        // Below the rule (the fieldset's top border), not drawn into it.
+        const top =
+          fs.getBoundingClientRect().top + parseFloat(getComputedStyle(fs).borderTopWidth);
+        expect(legend.top).to.be.at.least(top);
         const seg = fs.querySelector('.segments')!.getBoundingClientRect();
         const cs = getComputedStyle(pop);
         const inner = pop.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
