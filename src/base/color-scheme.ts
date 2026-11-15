@@ -121,7 +121,8 @@ export function rootColorScheme(doc: Document = document): ResolvedColorScheme |
  *
  * Every connected controller also follows the root's scheme (`rootDark`) and the OS
  * preference (`systemDark`), so a header without the switch never shows the navy logo on a
- * dark page.
+ * dark page. A controller that is off on a page where dark mode is off stays inert: it reads
+ * no storage and queries no media, and listens only for the controllers' own change event.
  */
 export class ColorSchemeController implements ReactiveController {
   preference: ColorSchemePreference = 'system';
@@ -138,7 +139,12 @@ export class ColorSchemeController implements ReactiveController {
   /** Set while sync() runs, so its own change events do not request a second update. */
   private syncing = false;
 
-  private listening?: { doc: Document; dark?: MediaQueryList; forced?: MediaQueryList };
+  private listening?: {
+    doc: Document;
+    level: 'change' | 'full';
+    dark?: MediaQueryList;
+    forced?: MediaQueryList;
+  };
 
   constructor(
     private readonly host: ReactiveControllerHost & HTMLElement,
@@ -155,7 +161,7 @@ export class ColorSchemeController implements ReactiveController {
   }
 
   hostDisconnected(): void {
-    this.listen(false);
+    this.listen('none');
     this.release(this.host.ownerDocument);
   }
 
@@ -180,9 +186,9 @@ export class ColorSchemeController implements ReactiveController {
         doc.dispatchEvent(new CustomEvent(CHANGE));
       }
     }
-    this.listen(supported);
     this.syncing = false;
     this.refresh(false);
+    this.listen(supported ? this.listenLevel() : 'none');
   }
 
   /**
@@ -224,36 +230,64 @@ export class ColorSchemeController implements ReactiveController {
 
   private refresh(update: boolean): void {
     const doc = this.host.ownerDocument;
-    const next = {
-      preference: readPreference(doc),
-      systemDark: systemIsDark(doc),
-      rootDark: rootColorScheme(doc) === 'dark',
-      rootOn: rootColorScheme(doc) !== null,
-      forcedColors: !!doc.defaultView?.matchMedia?.(FORCED_QUERY).matches,
-    };
+    const root = rootColorScheme(doc);
+    // A controller that is off, on a page where dark mode is off, stays inert: no storage
+    // read and no media queries, only the cheap root-attribute check above.
+    const engaged = this.active || root !== null;
+    const next = engaged
+      ? {
+          preference: readPreference(doc),
+          systemDark: systemIsDark(doc),
+          rootDark: root === 'dark',
+          rootOn: root !== null,
+          forcedColors: !!doc.defaultView?.matchMedia?.(FORCED_QUERY).matches,
+        }
+      : {
+          preference: 'system' as const,
+          systemDark: false,
+          rootDark: false,
+          rootOn: false,
+          forcedColors: false,
+        };
     const changed = (Object.keys(next) as (keyof typeof next)[]).some((k) => next[k] !== this[k]);
     Object.assign(this, next);
+    if (this.listening) this.listen(this.listenLevel());
     if (changed && update && this.renders) this.host.requestUpdate();
   }
 
-  private listen(on: boolean): void {
-    if (on === !!this.listening) return;
-    if (on) {
-      const doc = this.host.ownerDocument;
-      const dark = doc.defaultView?.matchMedia?.(DARK_QUERY);
-      const forced = doc.defaultView?.matchMedia?.(FORCED_QUERY);
-      doc.addEventListener(CHANGE, this.onChange);
-      doc.defaultView?.addEventListener('storage', this.onStorage);
-      dark?.addEventListener('change', this.onChange);
-      forced?.addEventListener('change', this.onChange);
-      this.listening = { doc, dark, forced };
-    } else {
-      const { doc, dark, forced } = this.listening!;
+  /**
+   * What to listen to: nothing without `light-dark()` support; everything (storage, the OS
+   * and forced-colors queries) while this controller owns the attribute or the page shows
+   * dark mode; otherwise only the controllers' own change event, which tells an inert
+   * controller that another one turned dark mode on.
+   */
+  private listenLevel(): 'none' | 'change' | 'full' {
+    if (!colorSchemeSupported(this.host.ownerDocument)) return 'none';
+    return this.active || this.rootOn ? 'full' : 'change';
+  }
+
+  private listen(level: 'none' | 'change' | 'full'): void {
+    if (level === (this.listening?.level ?? 'none')) return;
+    if (this.listening) {
+      const { doc, dark, forced } = this.listening;
       doc.removeEventListener(CHANGE, this.onChange);
       doc.defaultView?.removeEventListener('storage', this.onStorage);
       dark?.removeEventListener('change', this.onChange);
       forced?.removeEventListener('change', this.onChange);
       this.listening = undefined;
     }
+    if (level === 'none') return;
+    const doc = this.host.ownerDocument;
+    doc.addEventListener(CHANGE, this.onChange);
+    if (level === 'change') {
+      this.listening = { doc, level };
+      return;
+    }
+    const dark = doc.defaultView?.matchMedia?.(DARK_QUERY);
+    const forced = doc.defaultView?.matchMedia?.(FORCED_QUERY);
+    doc.defaultView?.addEventListener('storage', this.onStorage);
+    dark?.addEventListener('change', this.onChange);
+    forced?.addEventListener('change', this.onChange);
+    this.listening = { doc, level, dark, forced };
   }
 }

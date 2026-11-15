@@ -69,7 +69,60 @@ describe('dark mode (color-scheme-switch)', function () {
         expect(logoSrc(header)).to.not.equal(DARK_LOGO_URL);
         expect(getComputedStyle(header).colorScheme).to.equal('light');
       });
+
+      it(`${mode}: inert: no storage read, no media query, no storage listener`, async () => {
+        await emulateMedia({ colorScheme: 'dark' });
+        const reads: string[] = [];
+        const queries: string[] = [];
+        const listeners: string[] = [];
+        const getItem = Storage.prototype.getItem;
+        const matchMedia = window.matchMedia;
+        const addEventListener = window.addEventListener;
+        Storage.prototype.getItem = function (key: string) {
+          reads.push(key);
+          return getItem.call(this, key);
+        };
+        window.matchMedia = (q: string) => (queries.push(q), matchMedia.call(window, q));
+        window.addEventListener = function (this: Window, type: string, ...rest: unknown[]) {
+          listeners.push(type);
+          return (addEventListener as (...a: unknown[]) => void).call(this, type, ...rest);
+        } as typeof window.addEventListener;
+        try {
+          const el = await page(mode, '');
+          const header = await headerOf(el);
+          header.requestUpdate();
+          await header.updateComplete;
+          await nextFrame();
+        } finally {
+          Storage.prototype.getItem = getItem;
+          window.matchMedia = matchMedia;
+          window.addEventListener = addEventListener;
+        }
+        expect(reads).to.not.include(COLOR_SCHEME_STORAGE_KEY);
+        expect(queries.filter((q) => /prefers-color-scheme|forced-colors/.test(q))).to.deep.equal(
+          [],
+        );
+        expect(listeners).to.not.include('storage');
+      });
     }
+
+    it('an inert header starts following once another component turns dark mode on', async () => {
+      localStorage.setItem(COLOR_SCHEME_STORAGE_KEY, 'dark');
+      const off = await fixture<SiteHeader>(`<site-header></site-header>`);
+      await off.updateComplete;
+      expect(logoSrc(off)).to.not.equal(DARK_LOGO_URL);
+      const on = document.createElement('site-header') as SiteHeader;
+      on.setAttribute('color-scheme-switch', '');
+      off.after(on);
+      await on.updateComplete;
+      await off.updateComplete;
+      expect(attr()).to.equal('dark');
+      expect(logoSrc(off)).to.equal(DARK_LOGO_URL);
+      on.remove();
+      await off.updateComplete;
+      expect(html.hasAttribute(COLOR_SCHEME_ATTR)).to.equal(false);
+      expect(logoSrc(off)).to.not.equal(DARK_LOGO_URL);
+    });
 
     describe('the header markup with the switch off is byte-identical to main (raw)', () => {
       before(async () => {
