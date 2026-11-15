@@ -228,11 +228,14 @@ Dark mode is **off by default**. Without it nothing changes: no control, no dark
 - **System by default:** the page follows the visitor's `prefers-color-scheme`, live.
 - **The control:** a native radio group, "Theme": Light, Dark, System ("System" also tells screen readers what it currently resolves to). On wide screens it sits at the end of the utility-links row; on narrow screens (992px and below) it is the last item of the Menu popover, with its legend shown. The `vendor` header, which has no Menu, shows it after its link, on a row of its own on narrow screens.
 - **Storage:** the choice is remembered per site (origin) in `localStorage` under `uvalib-color-scheme`, as `light` or `dark`; System removes the key. Other tabs follow through the `storage` event. If storage is unavailable the choice still applies to the page. A stored choice is never cleared because the OS preference happens to match it.
-- **Mechanism:** the component sets `data-uva-color-scheme` (`system`, `light` or `dark`) on `<html>`. The rules under that attribute set `color-scheme` on the root and the `--uva-color-*` role tokens below as `light-dark()` pairs, and every component sets its own `color-scheme` from `--uva-color-scheme` (default `light`). The header swaps in the reversed (white) logo while dark. With `no-style` the attribute and an inline `color-scheme` are still set on `<html>`; style off them yourself.
-- **Footer:** already dark, it is the same in both schemes; the pre-footer band gets a dark band.
-- **Alerts:** dark versions of the alert colours are set through the alerts component's own `--uvalib-alerts-*` properties.
+- **Mechanism:** the component sets `data-uva-color-scheme` (`system`, `light` or `dark`) on `<html>`. The rules under that attribute set `color-scheme` on the root and the `--uva-color-*` role tokens below as `light-dark()` pairs, and the library's own components set their `color-scheme` from `--uva-color-scheme` (default `light`); the site's content inside `<site-page>` and `<site-style>` keeps the page's. With `no-style` the attribute and an inline `color-scheme` are still set on `<html>`; style off them yourself.
+- **Ownership:** every `<site-page>` or `<site-header>` with the switch owns the attribute; it is removed when the last of them is turned off or disconnected. A connected `<site-page>` or `<site-header>` without the switch removes a stray `data-uva-color-scheme` (for example from the snippet below on a page without the switch) unless another component on the page owns it; the stored choice is left alone.
+- **Logo:** while the page shows dark mode, every header shows the reversed (white) logo from `https://static.lib.virginia.edu/files/downloads/LibraryLogos/` (it is not on the library website, so it does not follow `root-link-domain`). Under forced colors (a Windows contrast theme), which repaints the header, it follows the OS theme instead.
+- **Footer:** already dark, it is the same in both schemes.
+- **Alerts:** dark versions of the alert colours are set through the alerts component's own `--uvalib-alerts-*` properties. Its focus ring follows the text colour (`--uvalib-alerts-focus`, default `currentColor`, since alerts 1.1.1), so it passes on the dark alerts too.
+- **Pre-footer band:** dark `#005679`, white text; unstyled links in it are white too (the site's own link colours still win).
 
-**Avoid a flash of light on load.** Module scripts run after the first paint, so put this classic inline script in `<head>`, together with linked `tokens.css` and `base.css` (`<site-page>` also sets the attribute when it connects, so pages without it only flash briefly):
+**Avoid a flash of light on load.** Module scripts run after the first paint, so on pages whose `<site-page>` (or `<site-header>`) has `color-scheme-switch`, and only there, put this classic inline script in `<head>`, together with linked `tokens.css` and `base.css` (`<site-page>` also sets the attribute when it connects, so pages without it only flash briefly):
 
 <!-- prettier-ignore -->
 ```html
@@ -241,11 +244,13 @@ Dark mode is **off by default**. Without it nothing changes: no control, no dark
 <script>try{var s=localStorage.getItem('uvalib-color-scheme')}catch(e){}if(window.CSS&&CSS.supports('color','light-dark(#000,#fff)'))document.documentElement.dataset.uvaColorScheme=s==='light'||s==='dark'?s:'system'</script>
 ```
 
+**Content Security Policy:** allow the reversed logo (`img-src https://static.lib.virginia.edu`) and the inline snippet (a `'sha256-…'` hash of its exact text, or a nonce on the `<script>`).
+
 **Browser support:** dark mode needs CSS `light-dark()` (Chrome and Edge 123, Firefox 120, Safari 17.5). Elsewhere no control is shown, no attribute is set, and the page stays light.
 
 **Host content (caveat):** the components only theme themselves and the page background and text. The site's own CSS must follow too: read the role tokens, with their light values as fallbacks (`color: var(--uva-color-link, #232d4b)`), or style off `:root[data-uva-color-scheme]`. Hard-coded colours in the site's CSS stay as they are. Iframes and third-party widgets will not follow. With `no-global-styles` or standalone components, link `tokens.css`, which holds the role tokens and the opt-in rules (the npm package exports it as `@uvalib/web-components/tokens.css`).
 
-**Role tokens.** Defined only while dark mode is on; components fall back to the palette token or value they always used, so light mode is unchanged. Do not flip the palette tokens instead: `--uva-brand-blue` is both text on white and a background under white text.
+**Role tokens.** Defined only while dark mode is on; components fall back to the palette token or value they always used, so light mode is unchanged. Do not flip the palette tokens instead: `--uva-brand-blue` is both text on white and a background under white text. With dark mode on, the role tokens resolve on `:root`, so `--uva-brand-*` overrides set on `:root` still apply in Light, but overrides scoped below `:root` (for example `site-header { --uva-brand-blue: … }`) are ignored for the colours the role tokens cover; set them on `:root`, or override the `--uva-color-*` token there instead.
 
 | Token                         | Used for                                                    | Light                             | Dark                 |
 | ----------------------------- | ----------------------------------------------------------- | --------------------------------- | -------------------- |
@@ -260,7 +265,8 @@ Dark mode is **off by default**. Without it nothing changes: no control, no dark
 | `--uva-color-current`         | current-page underline                                      | `--uva-brand-orange` (`#e57200`)  | `#e57200`            |
 | `--uva-color-accent-bg`       | pressed chip, slider range and thumbs, skip link, selection | `--uva-brand-blue` (`#232d4b`)    | `#87b9d9`            |
 | `--uva-color-on-accent`       | text on `--uva-color-accent-bg`                             | `#ffffff`                         | `#10172b`            |
-| `--uva-color-control-border`  | borders of controls (chips, inputs, the theme control)      | `#808080`                         | `#7a84a0`            |
+| `--uva-color-control-border`  | borders of controls (chips, inputs, the theme control)      | `--uva-grey` (`#808080`)          | `#7a84a0`            |
+| `--uva-color-input-text`      | date input text                                             | `#1f2937`                         | `#e8e8e8`            |
 | `--uva-color-border`          | decorative borders and rules (dark only)                    | each component's own (`#ccc`, …)  | `#7a84a0`            |
 | `--uva-color-track`           | slider track                                                | `#e5e7eb`                         | `#2c3858`            |
 | `--uva-color-shadow`          | panel shadow                                                | `rgba(0, 0, 0, 0.2)`              | `rgba(0, 0, 0, 0.6)` |
