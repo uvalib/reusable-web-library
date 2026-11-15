@@ -234,12 +234,24 @@ export class SiteHeader extends UvalibElement {
           top: anchor(var(--menu-anchor) bottom);
         }
       }
+      /* One line: the links wrap within their own space, the control stays at the end. */
       .utility-row {
         display: flex;
-        flex-wrap: wrap;
         align-items: center;
         justify-content: flex-end;
         column-gap: 1.5rem;
+        min-inline-size: 0;
+      }
+      .utility-row > nav.inline {
+        min-inline-size: 0;
+      }
+      .utility-row > nav.inline ul {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        row-gap: 0.25rem;
+      }
+      .utility-row > .color-scheme {
+        flex: none;
       }
       .color-scheme {
         min-inline-size: 0;

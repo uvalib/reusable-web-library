@@ -454,6 +454,50 @@ describe('dark mode (color-scheme-switch)', function () {
     });
   }
 
+  describe('long site links: the control stays at the end of the utility row', () => {
+    const LINKS = [
+      'Collections',
+      'Research guides',
+      'Digital exhibits',
+      'Contact us',
+      'About this site',
+    ]
+      .map((t, i) => `<a slot="site-links" href="/l${i}">${t}</a>`)
+      .join('');
+    for (const mode of ['shadow', 'light']) {
+      for (const extra of ['', 'no-main-nav']) {
+        for (const width of [1280, 1000, 993]) {
+          it(`${mode}${extra ? `, ${extra}` : ''}, ${width}px`, async () => {
+            await setViewport({ width, height: 900 });
+            const el = await fixture<SitePage>(
+              `<site-page ${modeAttr(mode)} no-alerts color-scheme-switch ${extra}>${LINKS}<h1>x</h1></site-page>`,
+            );
+            const header = await headerOf(el);
+            await nextFrame();
+            const r = rootOf(header);
+            const h = r.querySelector('header')!;
+            const fs = inlineControl(header).getBoundingClientRect();
+            const links = [...r.querySelectorAll('nav.inline a')].map((a) =>
+              a.getBoundingClientRect(),
+            );
+            expect(links).to.have.length(5);
+            const logo = r.querySelector('.logo img')!.getBoundingClientRect();
+            // Same line as the first row of links, after every link, nothing overflowing.
+            expect(fs.top).to.be.below(links[0]!.bottom);
+            expect(fs.bottom).to.be.above(links[0]!.top);
+            for (const l of links) expect(fs.left).to.be.at.least(l.right);
+            expect(fs.right).to.be.at.most(h.getBoundingClientRect().right);
+            expect(h.scrollWidth).to.be.at.most(h.clientWidth);
+            expect(document.documentElement.scrollWidth).to.be.at.most(window.innerWidth);
+            // The logo row does not wrap: the links start beside the logo.
+            expect(links[0]!.top).to.be.below(logo.bottom);
+            expect(links[0]!.left).to.be.above(logo.right);
+          });
+        }
+      }
+    }
+  });
+
   describe('the "System" hint always names the OS preference', () => {
     for (const mode of ['shadow', 'light']) {
       it(`${mode}: with Light chosen and the OS dark it reads "(currently dark)", live`, async () => {
