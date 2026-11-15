@@ -37,6 +37,11 @@ const ABOUT: FooterLink[] = [
  * @cssprop --uva-color-pre-footer-text - Dark-mode role token: pre-footer band text (else inherited). The footer itself is the same in both schemes.
  */
 export class SiteFooter extends UvalibElement {
+  /**
+   * Only the footer's own blocks follow the library's scheme (below): the pre-footer band
+   * holds the site's content, which keeps the page's scheme.
+   */
+  protected static override hostColorScheme = false;
   @property({ type: String, attribute: 'root-link-domain' }) rootLinkDomain =
     'https://www.library.virginia.edu';
 
@@ -72,6 +77,7 @@ export class SiteFooter extends UvalibElement {
         color: #fff;
         /* Already dark: unchanged in dark mode, focus ring included. */
         --uva-color-focus: initial;
+        color-scheme: var(--uva-color-scheme, light);
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
@@ -124,6 +130,7 @@ export class SiteFooter extends UvalibElement {
         background-color: var(--uva-blue-alt-darkest, #141e3c);
         color: #fff;
         --uva-color-focus: initial;
+        color-scheme: var(--uva-color-scheme, light);
         padding: 1rem 2rem;
       }
       .footer--post .post-footer {

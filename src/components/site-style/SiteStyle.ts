@@ -20,6 +20,8 @@ import { base } from '../../styles/base.js';
  * @cssprop --uva-color-surface - Dark-mode role token: page background (else none).
  */
 export class SiteStyle extends UvalibElement {
+  /** The wrapped content keeps the page's own colour scheme. */
+  protected static override hostColorScheme = false;
   static styles = [tokens, base];
 
   /** Map of tag name to a module URL whose default export is a stylesheet; ported as is. */

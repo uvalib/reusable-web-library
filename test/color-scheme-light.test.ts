@@ -1,4 +1,5 @@
-import { expect } from '@open-wc/testing';
+import { expect, fixture, nextFrame } from '@open-wc/testing';
+import '../src/components/site-style/site-style.js';
 import { emulateMedia } from '@web/test-runner-commands';
 import { allColors } from './helpers/scheme-fixtures.js';
 import { resetHours, setClock } from './helpers/hours.js';
@@ -49,6 +50,54 @@ describe('light mode is unchanged without the color-scheme switch', function () 
         expectMainExceptBorders(await allColors(mode));
         expect(document.documentElement.hasAttribute('data-uva-color-scheme')).to.equal(false);
       });
+    });
+  }
+});
+
+describe("the site's own content keeps the page's colour scheme without the switch", function () {
+  this.timeout(10000);
+  afterEach(async () => {
+    await emulateMedia({ colorScheme: 'light' });
+    document.documentElement.style.removeProperty('color-scheme');
+  });
+
+  // On main, content inside <site-page> and <site-style> (and the pre-footer band) inherits
+  // the host page's `color-scheme`: with the OS dark and `:root { color-scheme: light dark }`
+  // it is `light dark`, light-dark() picks the dark value and native inputs are dark.
+  const CONTENT = `<p class="probe" style="color: light-dark(rgb(1, 2, 3), rgb(4, 5, 6))">x</p>
+    <input class="probe-input" type="date" aria-label="Date" />`;
+
+  async function expectPageScheme(root: ParentNode) {
+    for (const probe of root.querySelectorAll('.probe')) {
+      const cs = getComputedStyle(probe);
+      expect(cs.colorScheme).to.equal('light dark');
+      expect(cs.color).to.equal('rgb(4, 5, 6)');
+    }
+    for (const input of root.querySelectorAll('.probe-input')) {
+      expect(getComputedStyle(input).colorScheme).to.equal('light dark');
+    }
+    expect(root.querySelectorAll('.probe').length).to.be.at.least(1);
+  }
+
+  for (const mode of ['shadow', 'light'] as const) {
+    const attr = mode === 'light' ? 'no-shadow-dom' : '';
+    it(`${mode}: <site-page> content and its pre-footer band`, async () => {
+      await emulateMedia({ colorScheme: 'dark' });
+      document.documentElement.style.colorScheme = 'light dark';
+      const el = await fixture(
+        `<site-page ${attr} no-alerts>${CONTENT}<div slot="pre-footer">${CONTENT}</div></site-page>`,
+      );
+      await customElements.whenDefined('site-footer');
+      await nextFrame();
+      await expectPageScheme(el);
+      expect(el.querySelectorAll('.probe')).to.have.length(2);
+    });
+
+    it(`${mode}: <site-style> content`, async () => {
+      await emulateMedia({ colorScheme: 'dark' });
+      document.documentElement.style.colorScheme = 'light dark';
+      const el = await fixture(`<site-style ${attr}>${CONTENT}</site-style>`);
+      await expectPageScheme(el);
     });
   }
 });

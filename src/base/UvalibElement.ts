@@ -15,10 +15,16 @@ const hostColorScheme = css`
 
 /** Base class for all UVA Library components: optional light DOM, optional style opt-out. */
 export class UvalibElement extends LitElement {
-  /** Every component's styles start with the host colour-scheme rule. */
+  /**
+   * Whether the host gets the colour-scheme rule. Off for elements that wrap the site's own
+   * content (`<site-page>`, `<site-style>`), which must keep inheriting the page's scheme.
+   */
+  protected static hostColorScheme = true;
+
+  /** Every component's styles start with the host colour-scheme rule (unless opted out). */
   protected static override finalizeStyles(styles?: CSSResultGroup): CSSResultOrNative[] {
     const own = super.finalizeStyles(styles);
-    return own.length ? [hostColorScheme, ...own] : own;
+    return own.length && this.hostColorScheme ? [hostColorScheme, ...own] : own;
   }
 
   static shadowRootOptions: ShadowRootInit = { ...LitElement.shadowRootOptions, mode: 'open' };

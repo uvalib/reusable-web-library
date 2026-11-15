@@ -67,6 +67,8 @@ const slotOf = (n: Node): string | null => (n instanceof Element ? n.getAttribut
  * @cssprop --uva-color-focus - Dark-mode role token: focus ring (else `--uva-brand-orange`).
  */
 export class SitePage extends UvalibElement {
+  /** The page's content keeps the page's own colour scheme. */
+  protected static override hostColorScheme = false;
   @property({ type: String, attribute: 'root-link-domain' }) rootLinkDomain =
     'https://www.library.virginia.edu';
   @property({ type: String, attribute: 'header-variant' }) headerVariant: 'full' | 'vendor' =
