@@ -1,6 +1,13 @@
 import { expect } from '@open-wc/testing';
 import { countMain, mount, whenAllDefined } from './helpers/page-probe.js';
-import { examples, GROUPS, presets, withCdnBase, type Preset } from '../site/src/presets.js';
+import {
+  COLOR_SCHEME_SNIPPET,
+  examples,
+  GROUPS,
+  presets,
+  withCdnBase,
+  type Preset,
+} from '../site/src/presets.js';
 
 const STYLES_LINK = /<link rel="stylesheet" href="\.\/styles\.css"\s*\/?>/;
 
@@ -23,6 +30,7 @@ describe('playground presets', function () {
       'pre-footer',
       'theming',
       'light-dom-host-css',
+      'dark-mode',
       'vendor-header',
       'site-navigation',
       'main-navigation',
@@ -40,7 +48,7 @@ describe('playground presets', function () {
         GROUPS.map((g) => [g, examples.filter((p) => p.group === g).map((p) => p.id)]),
       ),
     ).to.deep.equal({
-      Page: ['full-page', 'pre-footer', 'theming', 'light-dom-host-css'],
+      Page: ['full-page', 'pre-footer', 'theming', 'light-dom-host-css', 'dark-mode'],
       Header: [
         'vendor-header',
         'site-navigation',
@@ -122,6 +130,66 @@ describe('playground presets', function () {
     } finally {
       iframe.remove();
     }
+  });
+
+  describe('dark-mode', () => {
+    const p = () => presets.find((x) => x.id === 'dark-mode')!;
+    afterEach(() => localStorage.removeItem('uvalib-color-scheme'));
+
+    it('opts in, and runs the anti-flash snippet in <head> next to tokens.css and base.css', () => {
+      const html = p().files['index.html']!.content;
+      expect(html).to.include('<site-page color-scheme-switch>');
+      const head = html.slice(0, html.indexOf('</head>'));
+      expect(head).to.include(`<script>${COLOR_SCHEME_SNIPPET}</script>`);
+      expect(head).to.include('<link rel="stylesheet" href="{{CDN}}tokens.css" />');
+      expect(head).to.include('<link rel="stylesheet" href="{{CDN}}base.css" />');
+      // Classic and inline, before the module scripts: it runs before the first paint.
+      expect(head.indexOf(COLOR_SCHEME_SNIPPET)).to.be.below(head.indexOf('type="module"'));
+      expect(COLOR_SCHEME_SNIPPET.length).to.be.below(220);
+    });
+
+    for (const [stored, expected] of [
+      [null, 'system'],
+      ['dark', 'dark'],
+      ['light', 'light'],
+      ['bogus', 'system'],
+    ] as const) {
+      it(`the snippet sets data-uva-color-scheme="${expected}" for a stored ${stored}`, () => {
+        if (stored) localStorage.setItem('uvalib-color-scheme', stored);
+        const doc = document.implementation.createHTMLDocument('');
+        new Function('document', COLOR_SCHEME_SNIPPET)(doc);
+        expect(doc.documentElement.dataset.uvaColorScheme).to.equal(expected);
+      });
+    }
+
+    it('the snippet does nothing without light-dark() support', () => {
+      const supports = CSS.supports;
+      CSS.supports = () => false;
+      try {
+        const doc = document.implementation.createHTMLDocument('');
+        new Function('document', COLOR_SCHEME_SNIPPET)(doc);
+        expect(doc.documentElement.hasAttribute('data-uva-color-scheme')).to.equal(false);
+      } finally {
+        CSS.supports = supports;
+      }
+    });
+
+    it('renders the Theme control and the dark palette for a stored Dark', async () => {
+      localStorage.setItem('uvalib-color-scheme', 'dark');
+      const { iframe, errors } = await mount(previewSource(withCdnBase(p(), '/dist-site/cdn/')));
+      try {
+        const doc = iframe.contentDocument!;
+        await whenAllDefined(iframe.contentWindow!, ['site-page', 'site-header']);
+        await new Promise((r) => setTimeout(r, 300));
+        expect(doc.documentElement.dataset.uvaColorScheme).to.equal('dark');
+        const header = doc.querySelector('site-page')!.shadowRoot!.querySelector('site-header')!;
+        expect(header.shadowRoot!.querySelectorAll('fieldset.color-scheme')).to.have.length(2);
+        expect(getComputedStyle(doc.body).backgroundColor).to.equal('rgb(16, 23, 43)');
+        expect(errors).to.deep.equal([]);
+      } finally {
+        iframe.remove();
+      }
+    });
   });
 
   it('withCdnBase replaces every {{CDN}} token and leaves the original untouched', () => {

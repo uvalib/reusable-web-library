@@ -18,6 +18,12 @@
 //     as open 8:00am–10:00pm on every requested day, so the real tables render. The page
 //     sets window.uvalibHoursEndpoints.hours to it; LibCal is also blocked as a backstop.
 //   - The library list already comes from the site's snapshot (data/hours-libraries.json).
+//   - Dark mode's reversed logo comes from static.lib.virginia.edu: the copied bundles get
+//     its URL rewritten to this server, which answers with a white stand-in of the same size
+//     (300x68). static.lib.virginia.edu is blocked as a backstop.
+//
+// The dark-mode example is audited twice: as written (System, which Lighthouse's Chrome
+// resolves to light) and as `dark-mode-forced`, the same page with Dark stored first.
 //
 // Needs `pnpm build && pnpm build:site` first; `pnpm lhci` does both.
 import { spawn } from 'node:child_process';
@@ -26,6 +32,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -105,7 +112,41 @@ const base = `http://localhost:${server.address().port}`;
 
 cpSync(join(site, 'cdn'), join(dir, 'cdn'), { recursive: true });
 cpSync(join(site, 'data'), join(dir, 'data'), { recursive: true });
-for (const preset of examples) {
+
+const DARK_LOGO =
+  'https://static.lib.virginia.edu/files/downloads/LibraryLogos/UVALIB_primary_color_white_web.png';
+const DARK_LOGO_PATH = '/static-logo/UVALIB_primary_color_white_web.png';
+let rewritten = 0;
+for (const file of readdirSync(join(dir, 'cdn'), { recursive: true })) {
+  if (!String(file).endsWith('.js')) continue;
+  const path = join(dir, 'cdn', String(file));
+  const js = readFileSync(path, 'utf8');
+  if (!js.includes(DARK_LOGO)) continue;
+  writeFileSync(path, js.split(DARK_LOGO).join(`${base}${DARK_LOGO_PATH}`));
+  rewritten++;
+}
+if (!rewritten) throw new Error(`the dark-mode logo URL was not found in the CDN build`);
+
+/** The dark-mode example again, with Dark stored before its anti-flash snippet runs. */
+const darkPreset = examples.find((p) => p.id === 'dark-mode');
+const pages = [
+  ...examples,
+  {
+    ...darkPreset,
+    id: 'dark-mode-forced',
+    files: {
+      ...darkPreset.files,
+      'index.html': {
+        content: darkPreset.files['index.html'].content.replace(
+          '<head>',
+          `<head>\n    <script>localStorage.setItem('uvalib-color-scheme', 'dark');</script>`,
+        ),
+      },
+    },
+  },
+];
+
+for (const preset of pages) {
   const { files } = withCdnBase(preset, '/cdn/');
   for (const [name, { content }] of Object.entries(files)) {
     const out = join(dir, preset.id, name);
@@ -125,6 +166,11 @@ for (let i = 0; i < logo.data.length; i += 4) logo.data.set([0x23, 0x2d, 0x4b, 0
 const LOGO_PATH = '/sites/default/files/2022-09/library_rgb.png';
 mkdirSync(dirname(join(dir, LOGO_PATH)), { recursive: true });
 writeFileSync(join(dir, LOGO_PATH), PNG.sync.write(logo));
+// The reversed logo's stand-in: white, its intrinsic size.
+const darkLogo = new PNG({ width: 300, height: 68 });
+darkLogo.data.fill(0xff);
+mkdirSync(dirname(join(dir, DARK_LOGO_PATH)), { recursive: true });
+writeFileSync(join(dir, DARK_LOGO_PATH), PNG.sync.write(darkLogo));
 
 /** Run lhci, asynchronously so this process keeps serving the pages; resolves to its exit code. */
 const lhci = (args) =>
@@ -135,7 +181,7 @@ const lhci = (args) =>
     ),
   );
 
-const urls = examples.map((p) => `${base}/${p.id}/`);
+const urls = pages.map((p) => `${base}/${p.id}/`);
 console.log(`Auditing ${urls.length} example pages from ${dir}`);
 let code = await lhci([
   'collect',

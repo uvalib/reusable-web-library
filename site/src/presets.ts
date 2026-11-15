@@ -19,17 +19,30 @@ export interface Preset {
 
 export const CDN_TOKEN = '{{CDN}}';
 
+/**
+ * Dark mode's anti-flash snippet (the README's "Dark mode"): a classic inline script for
+ * `<head>` that applies the stored choice before the first paint, only where light-dark()
+ * is supported.
+ */
+export const COLOR_SCHEME_SNIPPET =
+  "try{var s=localStorage.getItem('uvalib-color-scheme')}catch(e){}" +
+  "if(window.CSS&&CSS.supports('color','light-dark(#000,#fff)'))" +
+  "document.documentElement.dataset.uvaColorScheme=s==='light'||s==='dark'?s:'system'";
+
 function page({
   title,
   body,
   styles = false,
   components = [],
+  head = '',
 }: {
   title: string;
   body: string;
   styles?: boolean;
   /** Extra component entries to load besides site-page. */
   components?: string[];
+  /** Extra `<head>` markup, after the title. */
+  head?: string;
 }): string {
   const link = styles ? '\n    <link rel="stylesheet" href="./styles.css" />' : '';
   return `<!doctype html>
@@ -37,7 +50,7 @@ function page({
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${title}</title>${link}
+    <title>${title}</title>${head}${link}
     <script type="module" src="${CDN_TOKEN}site-page.js"></script>${components
       .map((c) => `\n    <script type="module" src="${CDN_TOKEN}${c}.js"></script>`)
       .join('')}
@@ -180,6 +193,56 @@ site-header a {
 
 site-footer footer {
   border-block-start: 6px solid #e57200;
+}
+`,
+      },
+    },
+  },
+  {
+    id: 'dark-mode',
+    group: 'Page',
+    title: 'Dark mode',
+    description:
+      'Opt in with color-scheme-switch: the page follows the system light or dark setting, and a Light / Dark / System control in the header overrides it. Only for sites whose own content supports dark mode.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Dark mode',
+          styles: true,
+          head: `
+    <!-- Dark mode: apply the stored choice before the first paint. -->
+    <link rel="stylesheet" href="${CDN_TOKEN}tokens.css" />
+    <link rel="stylesheet" href="${CDN_TOKEN}base.css" />
+    <script>${COLOR_SCHEME_SNIPPET}</script>`,
+          body: `    <site-page color-scheme-switch>
+      <h1>Dark mode</h1>
+      <p>
+        Choose Light, Dark or System under Theme in the header (in the Menu on narrow screens).
+        The choice is remembered for this site.
+      </p>
+      <section class="card" aria-labelledby="own">
+        <h2 id="own">Your own content</h2>
+        <p>
+          Style it with the role tokens, which switch with the scheme, and
+          <a href="https://www.library.virginia.edu/askalibrarian">links</a> follow too.
+        </p>
+      </section>
+    </site-page>`,
+        }),
+      },
+      'styles.css': {
+        content: `/* Your content follows the scheme through the --uva-color-* role tokens. */
+.card {
+  max-inline-size: 40rem;
+  padding: 1rem 1.5rem;
+  border: 1px solid var(--uva-color-control-border, #808080);
+  border-radius: 0.3rem;
+  background: var(--uva-color-surface-raised, #ffffff);
+}
+
+.card h2,
+.card a {
+  color: var(--uva-color-link, #232d4b);
 }
 `,
       },
