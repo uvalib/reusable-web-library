@@ -181,6 +181,92 @@ for (const mode of ['shadow', 'light'] as const) {
         expect(currentLabels(el)).to.deep.equal(['One']);
       });
 
+      describe('hash routes (#<route> links)', () => {
+        const HASH_ITEMS = [
+          {
+            label: 'Group',
+            items: [
+              { label: 'Alpha', href: '#alpha' },
+              { label: 'Beta', href: '#beta' },
+            ],
+          },
+          { label: 'Gamma', href: '#gamma' },
+        ];
+        const hashNav = async () => {
+          const el = await make();
+          el.items = HASH_ITEMS;
+          await settle(el);
+          return el;
+        };
+        const groupCurrent = (el: Element) =>
+          toggles(el).map((b) => b.getAttribute('aria-current'));
+
+        it('keeps fragment-only hrefs on this page, not joined to root-link-domain', async () => {
+          const el = await hashNav();
+          const hrefs = [...root(el).querySelectorAll('nav.main-nav a')].map((a) =>
+            a.getAttribute('href'),
+          );
+          expect(hrefs).to.deep.equal(['#alpha', '#beta', '#gamma']);
+        });
+
+        it('marks the link whose hash the page has, following pushState', async () => {
+          const el = await hashNav();
+          history.pushState(null, '', '#beta');
+          await settle(el);
+          expect(currentLabels(el)).to.deep.equal(['Beta']);
+          expect(groupCurrent(el)).to.deep.equal(['true']);
+          history.pushState(null, '', '#gamma');
+          await settle(el);
+          expect(currentLabels(el)).to.deep.equal(['Gamma']);
+          expect(groupCurrent(el)).to.deep.equal([null]);
+        });
+
+        it('marks nothing for a hash none of the links has', async () => {
+          const el = await hashNav();
+          history.pushState(null, '', '#files=abc');
+          await settle(el);
+          expect(currentLabels(el)).to.deep.equal([]);
+          expect(groupCurrent(el)).to.deep.equal([null]);
+        });
+
+        it('marks the first link while the page has no hash', async () => {
+          const el = await hashNav();
+          history.pushState(null, '', location.pathname + location.search);
+          await settle(el);
+          expect(currentLabels(el)).to.deep.equal(['Alpha']);
+        });
+
+        it('a click on a link closes the open group; a modified click keeps it open', async () => {
+          await setViewport({ width: 1280, height: 800 });
+          const el = await hashNav();
+          // Keep the test page where it is.
+          const stay = (e: Event) => e.preventDefault();
+          el.addEventListener('click', stay);
+          try {
+            const [group] = toggles(el);
+            const link = () => root(el).querySelector<HTMLAnchorElement>('a[href="#beta"]')!;
+            group.click();
+            await settle(el);
+            link().dispatchEvent(
+              new MouseEvent('click', {
+                bubbles: true,
+                composed: true,
+                cancelable: true,
+                ctrlKey: true,
+              }),
+            );
+            await settle(el);
+            expect(expanded(el)).to.deep.equal([group]);
+            link().click();
+            await settle(el);
+            expect(expanded(el)).to.deep.equal([]);
+            expect(openPanels(el)).to.deep.equal([]);
+          } finally {
+            el.removeEventListener('click', stay);
+          }
+        });
+      });
+
       it('stops listening when disconnected', async () => {
         const el = await spa();
         let updates = 0;

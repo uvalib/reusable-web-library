@@ -231,6 +231,39 @@ for (const mode of ['shadow', 'light'] as const) {
         expect(labels(accordion(el)!)).to.deep.equal(GROUPS);
       });
 
+      it('a click on a link in the popover closes it; a modified click keeps it open', async () => {
+        const el = await make('', `${SITE_LINKS}${MARKUP}`);
+        // Keep the test page where it is (link clicks only: the Menu button must still work).
+        const stay = (e: Event) => {
+          if (e.composedPath().some((n) => n instanceof HTMLAnchorElement)) e.preventDefault();
+        };
+        document.addEventListener('click', stay);
+        try {
+          const pop = header(el).querySelector<HTMLElement>('[popover]')!;
+          const mainLink = () => navOf(accordion(el)!).querySelector<HTMLAnchorElement>('a')!;
+          const siteLink = () => pop.querySelector<HTMLAnchorElement>('nav.menu a')!;
+          for (const link of [mainLink, siteLink]) {
+            await open(el);
+            expect(pop.matches(':popover-open')).to.equal(true);
+            link().dispatchEvent(
+              new MouseEvent('click', {
+                bubbles: true,
+                composed: true,
+                cancelable: true,
+                metaKey: true,
+              }),
+            );
+            await settle(el);
+            expect(pop.matches(':popover-open'), 'modified click').to.equal(true);
+            link().click();
+            await settle(el);
+            expect(pop.matches(':popover-open'), link().textContent!).to.equal(false);
+          }
+        } finally {
+          document.removeEventListener('click', stay);
+        }
+      });
+
       it('Escape closes an open accordion group before the popover', async () => {
         const el = await make();
         await open(el);

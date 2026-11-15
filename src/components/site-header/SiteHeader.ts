@@ -404,6 +404,26 @@ export class SiteHeader extends UvalibElement {
   /** Light mode: hidden container this element owns for the `slot="site-links"` children. */
   private holder?: HTMLDivElement;
 
+  constructor() {
+    super();
+    this.addEventListener('click', this.onMenuLinkClick);
+  }
+
+  /**
+   * A plain click on a link in the Menu popover closes it, so a single-page app that handles
+   * the navigation in place does not leave the menu open. Modified clicks (a new tab or
+   * window) keep it open.
+   */
+  private onMenuLinkClick = (e: MouseEvent): void => {
+    if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    const path = e.composedPath();
+    const link = path.findIndex((n) => n instanceof Element && n.localName === 'a');
+    const menu = path.findIndex((n) => n instanceof HTMLElement && n.id === this.menuId);
+    if (link < 0 || menu < link) return;
+    const popover = path[menu] as HTMLElement;
+    if (popover.matches(':popover-open')) popover.hidePopover();
+  };
+
   override connectedCallback(): void {
     super.connectedCallback();
     // Reconnect after a disconnect; the first connect reads the links in firstUpdated().

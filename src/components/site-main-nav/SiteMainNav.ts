@@ -81,12 +81,16 @@ const hashOf = (href: string, base: string): string => {
  * (a group), kept hidden and watched for changes; the `items` property; JSON at `items-src`;
  * and the snapshot of the live menu bundled with the component (see `pnpm sync:main-nav`).
  * Invalid entries are skipped and levels deeper than two are flattened, each with one console
- * warning. Relative hrefs are joined to `root-link-domain`; absolute ones are kept.
+ * warning. Relative hrefs are joined to `root-link-domain`; absolute ones are kept, and
+ * fragment-only ones (`#…`, a hash route) stay on this page. A plain click on a link closes
+ * the open group.
  *
  * The link for the current page (`current`, default the page location, followed through
  * same-document navigations; host and path, ignoring the query, the hash, a trailing slash
  * and a leading `www.`) gets `aria-current="page"`, and its group button
- * `aria-current="true"`, shown bold with a thick underline.
+ * `aria-current="true"`, shown bold with a thick underline. Of links that differ only by
+ * hash, the one with the page's hash is marked, else the one without a hash; if every one
+ * has a hash, the first is marked while the page has none, and none for a hash none has.
  *
  * `<site-header>` renders it: as a row under the logo on wide screens and as an accordion in
  * the Menu popover on narrow ones.
@@ -589,17 +593,36 @@ export class SiteMainNav extends UvalibElement {
     return (
       matches.find((h) => hash && hashOf(h, base) === hash) ??
       matches.find((h) => !hashOf(h, base)) ??
-      matches[0] ??
+      // Every match has a hash: with no hash of its own the page is theirs, so the first is
+      // marked; a hash none of them has (a hash route the menu does not list) marks none.
+      (hash ? null : matches[0]) ??
       null
     );
   }
 
+  /** A link's href: fragment-only (`#…`) stays on this page; others go through siteLink. */
+  private resolve(href: string): string {
+    return href.startsWith('#') ? href : siteLink(this.rootLinkDomain, href);
+  }
+
+  /**
+   * A plain click on a link closes the open group, so a single-page app that handles the
+   * navigation in place does not leave the panel open. Modified clicks (a new tab or
+   * window) keep it open.
+   */
+  private onClick(e: MouseEvent): void {
+    if (this.open === null || e.button !== 0) return;
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    if (e.composedPath().some((n) => n instanceof Element && n.localName === 'a')) {
+      this.setOpen(null);
+    }
+  }
+
   render() {
-    const root = this.rootLinkDomain;
     const items = this.shown.map((item) => ({
       label: item.label,
-      href: item.items ? undefined : siteLink(root, item.href!),
-      items: item.items?.map((l) => ({ label: l.label, href: siteLink(root, l.href) })),
+      href: item.items ? undefined : this.resolve(item.href!),
+      items: item.items?.map((l) => ({ label: l.label, href: this.resolve(l.href) })),
     }));
     const all = items.flatMap((i) => (i.items ? i.items.map((l) => l.href) : [i.href!]));
     const current = this.currentHref(all);
@@ -610,6 +633,7 @@ export class SiteMainNav extends UvalibElement {
       aria-label=${this.label}
       @keydown=${this.onKeyDown}
       @focusout=${this.onFocusOut}
+      @click=${this.onClick}
     >
       <ul>
         ${items.map((item, i) => {

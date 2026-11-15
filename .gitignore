@@ -11,6 +11,7 @@ test/baseline/bovweb-*/
 
 # Agent worktrees (other branches checked out inside this repo)
 .claude/worktrees/
+.claude/launch.json
 
 # Lighthouse CI reports (pnpm lhci)
 .lighthouseci
