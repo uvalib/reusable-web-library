@@ -425,6 +425,7 @@ describe('library-weekly-hours', () => {
       }
       expect(text(root(el).querySelector('[role=status]'))).to.equal('Loading hours…');
       const tableBefore = table.getBoundingClientRect().height;
+      const elBefore = el.getBoundingClientRect().height;
       hold.release();
       await settled(el);
       expect(el.state).to.equal('ready');
@@ -433,6 +434,9 @@ describe('library-weekly-hours', () => {
       // The real hours replace the placeholders in place: the table keeps its height.
       const tableAfter = root(el).querySelector('table')!.getBoundingClientRect().height;
       expect(Math.abs(tableAfter - tableBefore)).to.be.below(2);
+      // The status line keeps its height when "Loading hours…" empties, so the whole
+      // element, and everything after it, stays put.
+      expect(Math.abs(el.getBoundingClientRect().height - elBefore)).to.be.below(2);
     } finally {
       hold.release();
       hold.restore();

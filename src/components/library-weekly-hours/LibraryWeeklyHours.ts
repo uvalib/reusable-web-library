@@ -45,6 +45,8 @@ const structuralRules = (host: string) => `
   ${host} { display: block; }
   ${host}[loading] { min-height: var(--library-weekly-hours-min-height, 0); }
   ${host} .hours-placeholder { visibility: hidden; }
+  /* One line even when empty, so "Loading hours…" giving way to nothing moves nothing below. */
+  ${host} .weekly-hours-status { min-height: 1.5em; min-height: 1lh; }
   ${host}[hidden], ${host} [hidden] { display: none !important; }
   ${host} .weekly-hours-header-section {
     display: flex;
