@@ -481,7 +481,7 @@ pre {
     group: 'Events',
     title: 'Library events',
     description:
-      'events-section shows upcoming library events from LibCal as cards (title, date and time, in America/New_York), as on the library home page. limit sets how many; category and query filter them. Events come live from LibCal, which allows any origin. While they load, invisible placeholder cards hold the final height, and styles.css reserves it before the script runs, so nothing below jumps.',
+      'events-section shows upcoming library events from LibCal as cards (title, date and time, in America/New_York), as on the library home page. limit sets how many; category and query filter them; heading-level=2 because the cards sit right under the page’s h1 (the default, 3, fits a section under an h2, as on the home page). Events come live from LibCal, which allows any origin. While they load, invisible placeholder cards hold the final height, and styles.css reserves it before the script runs, so nothing below jumps.',
     files: {
       'index.html': {
         content: page({
@@ -490,7 +490,7 @@ pre {
           body: `    <site-page>
       <h1>Library events</h1>
       <div class="events">
-        <events-section limit="8"></events-section>
+        <events-section limit="8" heading-level="2"></events-section>
       </div>
       <p class="events-see-all"><a href="https://cal.lib.virginia.edu/calendar/events">See all Library events</a></p>
     </site-page>`,

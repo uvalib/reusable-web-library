@@ -1,6 +1,7 @@
 import { expect } from '@open-wc/testing';
 import { countMain, mount, whenAllDefined } from './helpers/page-probe.js';
 import { setClock } from './helpers/hours.js';
+import { expectNoPageAxeViolations } from './helpers/axe.js';
 import {
   COLOR_SCHEME_SNIPPET,
   examples,
@@ -226,6 +227,8 @@ describe('playground presets', function () {
           expect(el.shadowRoot!.querySelectorAll('.event:not(.event-placeholder)')).to.have.length(
             8,
           );
+          // Lighthouse's accessibility audit runs axe on this page (heading-order included).
+          await expectNoPageAxeViolations(iframe.contentDocument!);
         } else {
           expect(win.customElements.get('events-section')).to.equal(undefined);
         }
