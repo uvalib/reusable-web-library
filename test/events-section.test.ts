@@ -609,6 +609,15 @@ describe('events-section', () => {
       ['styled shadow, narrow', 'limit="8"', { width: 330 }],
       // Four columns, with all-day and multi-day events among the cards.
       ['styled shadow, 4 columns', 'limit="8" category="38740"', { width: 1320, viewport: 1400 }],
+      // The narrowest four and two columns (75rem and 40rem containers), where the
+      // multi-day time line wraps.
+      [
+        'styled shadow, narrowest 4 columns',
+        'limit="8" category="38740"',
+        { width: 1200, viewport: 1400 },
+      ],
+      ['styled shadow, 2 columns', 'limit="8" category="38740"', { width: 992, viewport: 1400 }],
+      ['styled shadow, narrowest 2 columns', 'limit="8" category="38740"', { width: 640 }],
       ['Drupal light no-style, 1 column', 'limit="8" no-shadow-dom no-style', { css: DRUPAL_CSS }],
       [
         'Drupal light no-style, 4 columns',

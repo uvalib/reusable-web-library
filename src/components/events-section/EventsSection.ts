@@ -109,8 +109,15 @@ export class EventsSection extends UvalibElement {
         gap: 2rem;
         align-items: stretch;
       }
-      /* The Drupal theme's single column at 992px, from the space the element has. */
-      @container (width < 62rem) {
+      /* Four columns only where each card leaves its time line room for a multi-day range
+         on two lines; two below 75rem (as the Drupal theme does inside /rmc's columns), one
+         below 40rem. */
+      @container (width < 75rem) {
+        .event-container {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @container (width < 40rem) {
         .event-container {
           grid-template-columns: minmax(0, 1fr);
         }
@@ -165,6 +172,9 @@ export class EventsSection extends UvalibElement {
         grid-area: 2 / 2 / 3 / 3;
         margin: 0;
         padding: 0.5rem 1rem 1rem 0;
+        /* Two lines, so a multi-day range ("Nov 20, 9:00 AM - Nov 21, 5:00 PM EST") that
+           wraps does not make its row taller than the placeholders. */
+        min-height: 2lh;
         font-size: 0.9375rem;
         line-height: 1.3;
       }

@@ -237,7 +237,7 @@ describe('playground presets', function () {
       }
     }
 
-    for (const width of [390, 1280]) {
+    for (const width of [390, 900, 1400]) {
       it(`reserves the loaded cards' height before the script runs (${width}px)`, async () => {
         const reserved = await height(width, false);
         const loaded = await height(width, true);

@@ -489,7 +489,9 @@ pre {
           components: ['events-section'],
           body: `    <site-page>
       <h1>Library events</h1>
-      <events-section limit="8"></events-section>
+      <div class="events">
+        <events-section limit="8"></events-section>
+      </div>
       <p class="events-see-all"><a href="https://cal.lib.virginia.edu/calendar/events">See all Library events</a></p>
     </site-page>`,
           styles: true,
@@ -497,15 +499,24 @@ pre {
       },
       'styles.css': {
         content: `/* Before its script runs, reserve the height the eight cards will take, so the link
-   and footer below do not jump: one column of 9rem cards, 2rem apart, when narrow
-   (under 62rem), two rows of four when wide. */
+   and footer below do not jump. The cards are 9rem tall and 2rem apart, in one column,
+   two from 40rem wide and four from 75rem: the same container widths the element itself
+   uses, measured on this wrapper (which is exactly as wide as the element). */
+.events {
+  container-type: inline-size;
+}
 events-section:not(:defined) {
   display: block;
-  min-height: 86rem;
+  min-height: 86rem; /* 8 rows */
 }
-@media (min-width: 70rem) {
+@container (width >= 40rem) {
   events-section:not(:defined) {
-    min-height: 20rem;
+    min-height: 42rem; /* 4 rows */
+  }
+}
+@container (width >= 75rem) {
+  events-section:not(:defined) {
+    min-height: 20rem; /* 2 rows */
   }
 }
 `,
