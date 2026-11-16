@@ -50,7 +50,8 @@ function page({
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${title}</title>${head}${link}
+    <title>${title}</title>${head}
+    <link rel="stylesheet" href="${CDN_TOKEN}base.css" />${link}
     <script type="module" src="${CDN_TOKEN}site-page.js"></script>${components
       .map((c) => `\n    <script type="module" src="${CDN_TOKEN}${c}.js"></script>`)
       .join('')}
@@ -212,7 +213,6 @@ site-footer footer {
           head: `
     <!-- Dark mode: apply the stored choice before the first paint. -->
     <link rel="stylesheet" href="${CDN_TOKEN}tokens.css" />
-    <link rel="stylesheet" href="${CDN_TOKEN}base.css" />
     <script>${COLOR_SCHEME_SNIPPET}</script>`,
           body: `    <site-page color-scheme-switch>
       <h1>Dark mode</h1>

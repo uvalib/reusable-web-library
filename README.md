@@ -66,6 +66,7 @@ The page is built with the library itself. Its header's main navigation is the e
 ### CDN script tag (plain HTML, 11ty, Drupal templates)
 
 ```html
+<link rel="stylesheet" href="https://unpkg.internal.lib.virginia.edu/web-components/v1/base.css" />
 <script
   type="module"
   src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
@@ -77,6 +78,7 @@ The page is built with the library itself. Its header's main navigation is the e
 - `tokens.css` and `base.css` live at the same prefix (`.../v1/tokens.css`).
 - Never use the legacy `/web-components/latest/` or `/web-components/cdn-v*` paths; they belong to the old components. See [migration](docs/migration.md).
 - `site-page.js` also loads the header and footer. Add `site-analytics.js` only when the site needs Matomo.
+- Link `base.css` in `<head>` too. `<site-page>` installs the same page-level base styles itself, but only after the first paint, so without the link the page jumps once: the browser's default body margin goes away, and a heading's top margin stops collapsing through the not-yet-upgraded `<site-page>` (layout shifts Lighthouse counts on every page). With the link, `<site-page>` also stays invisible until its script has run, so its content never paints above where the header goes; if the script fails to load, the content appears anyway after two seconds. Sites with `no-global-styles` skip `base.css`, as that attribute turns those styles off.
 
 ### npm (bundled apps)
 
@@ -99,6 +101,10 @@ The define entries are `site-page.js`, `site-header.js`, `site-main-nav.js`, `si
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Example page</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.internal.lib.virginia.edu/web-components/v1/base.css"
+    />
     <script
       type="module"
       src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"

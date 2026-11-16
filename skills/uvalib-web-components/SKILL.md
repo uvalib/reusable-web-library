@@ -28,6 +28,7 @@ CDN URLs (all files at one prefix):
 Loading rules:
 
 - One script is enough for the page chrome: `site-page.js` also loads the header (with its main navigation) and footer. Add `site-analytics.js` only when the site needs Matomo.
+- Also link `.../v1/base.css` in `<head>` (npm: `@uvalib/web-components/base.css`), unless the page sets `no-global-styles`. `<site-page>` installs the same base styles only after the first paint, so without the link the page shifts once (the default body margin goes away, and a heading's margin stops collapsing through the not-yet-defined `<site-page>`). The link also keeps `<site-page>` invisible until it is defined, with a two-second fallback.
 - npm: the define entries (`@uvalib/web-components/site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`) register the element. Importing the package root (`@uvalib/web-components`) gives the classes only and registers nothing. If you use the `SitePage` class directly, also import the header and footer define entries.
 - Do not load the same component from both the CDN and npm on one page.
 
@@ -83,6 +84,10 @@ Plain HTML (CDN, version `v1`):
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Example page</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.internal.lib.virginia.edu/web-components/v1/base.css"
+    />
     <script
       type="module"
       src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
@@ -106,6 +111,10 @@ A site with its own navigation (links replace the library utility links in the h
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Current exhibits</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.internal.lib.virginia.edu/web-components/v1/base.css"
+    />
     <script
       type="module"
       src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
@@ -133,6 +142,7 @@ More complete pages (host-CSS `no-shadow-dom`, page with a sidebar and its own `
   <head>
     <meta charset="utf-8" />
     <title>{{ title }}</title>
+    <link rel="stylesheet" href="https://unpkg.internal.lib.virginia.edu/web-components/v1/base.css" />
     <script type="module" src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"></script>
   </head>
   <body>
@@ -170,6 +180,10 @@ For a search results page that needs a checkbox facet or a date-range picker, us
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Search facets</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.internal.lib.virginia.edu/web-components/v1/base.css"
+    />
     <script
       type="module"
       src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"

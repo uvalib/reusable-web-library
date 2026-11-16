@@ -17,6 +17,10 @@ Host CSS owns the styling (`no-shadow-dom`):
         color: #232d4b;
       }
     </style>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.internal.lib.virginia.edu/web-components/v1/base.css"
+    />
     <script
       type="module"
       src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
@@ -40,6 +44,10 @@ Existing page with a sidebar nav and its own `<main>`: delete the page's `<main>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Page with sidebar</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.internal.lib.virginia.edu/web-components/v1/base.css"
+    />
     <script
       type="module"
       src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
@@ -73,6 +81,10 @@ Vendor or third-party site:
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Vendor-hosted page</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.internal.lib.virginia.edu/web-components/v1/base.css"
+    />
     <script
       type="module"
       src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
@@ -96,6 +108,10 @@ Analytics. `<site-analytics>` listens for `site-analytics-event`, `site-analytic
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Search with analytics</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.internal.lib.virginia.edu/web-components/v1/base.css"
+    />
     <script
       type="module"
       src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
