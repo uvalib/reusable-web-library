@@ -251,6 +251,13 @@ describe('bento data', () => {
       expect(articles.searchParams.get('q')).to.equal('keyword: {a&b #c+d}');
       expect(articles.searchParams.get('pool')).to.equal('articles');
     });
+
+    it('braces in the query cannot close or open a keyword clause', () => {
+      expect(JSON.parse(virgoBody('a} OR {b', 1)).query).to.equal('keyword: {a  OR  b}');
+      expect(new URL(virgoSearchUrl('articles', 'c++ {x}')).searchParams.get('q')).to.equal(
+        'keyword: {c++  x }',
+      );
+    });
   });
 
   describe('LibGuides', () => {

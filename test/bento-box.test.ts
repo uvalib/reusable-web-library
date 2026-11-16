@@ -239,6 +239,31 @@ describe('bento-box', () => {
       }
     });
 
+    it('a box moved mid-load loads again instead of showing an error', async () => {
+      const box = await make('limit="3"', { wait: false });
+      const hold = holdBodies('keyword: {slow}');
+      const parent = box.parentElement!;
+      try {
+        box.query = 'slow';
+        await box.updateComplete;
+        await waitUntil(() => hold.count >= 2, 'slow query not requested');
+        box.remove(); // aborts the loads
+        hold.release();
+        await new Promise((r) => setTimeout(r, 50));
+        hold.restore();
+        parent.append(box);
+        await settled(box);
+        const catalog = section(box, 'catalog-section');
+        expect(root(catalog).querySelector('.bs-results--message')?.textContent ?? '').not.to.match(
+          /unavailable/,
+        );
+        expect(entries(catalog)).to.have.length(3);
+      } finally {
+        hold.release();
+        hold.restore();
+      }
+    });
+
     it('fetches the guest token once for the whole page', async () => {
       const rec = recordFetches();
       try {
@@ -503,10 +528,10 @@ describe('bento-box', () => {
         spoken(root(s).querySelector('.bs-results--header button')!),
       );
       expect(names).to.deep.equal([
-        'See all 138,420 Virgo catalog results',
-        'See all 17,262,260 Virgo article results',
-        'See all subject guide results',
-        'See all 16 Library website results',
+        'See all 138,420 results in Virgo catalog',
+        'See all 17,262,260 results in Virgo articles',
+        'See all results in subject guides',
+        'See all 16 results in Library website',
       ]);
       const visible = (b: Element) =>
         [...b.childNodes]

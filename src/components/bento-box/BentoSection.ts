@@ -227,6 +227,10 @@ export abstract class BentoSection<T> extends UvalibElement {
   protected abstract readonly describe: string;
   /** The source's name inside a sentence ("Virgo catalog"), for "See all" and errors. */
   protected abstract readonly sourceName: string;
+  /** Where "See all … results in ___" searches; the source name unless a section says otherwise. */
+  protected get seeAllIn(): string {
+    return this.sourceName;
+  }
   /** The link shown instead of "See all" when nothing was found: its text and URL. */
   protected abstract readonly home: { text: string; url: string };
 
@@ -287,8 +291,13 @@ export abstract class BentoSection<T> extends UvalibElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
-    this.controller?.abort();
-    this.controller = undefined;
+    if (this.controller) {
+      // Abandon the load: its abort must not land as an error, and reconnecting reloads.
+      this.loadId++;
+      this.controller.abort();
+      this.controller = undefined;
+      this._state = 'loading';
+    }
   }
 
   protected get count(): number {
@@ -389,7 +398,7 @@ export abstract class BentoSection<T> extends UvalibElement {
             ? nothing
             : html`<span class="bs-results--qty">${total.toLocaleString('en-US')}</span>`
         }
-        <span class="visually-hidden">${this.sourceName}</span> results
+        results<span class="visually-hidden"> in ${this.seeAllIn}</span>
       </button>
     </form>`;
   }

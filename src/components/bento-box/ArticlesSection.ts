@@ -10,6 +10,9 @@ export class ArticlesSection extends VirgoSection {
   protected readonly pool = 'articles';
   protected readonly heading = 'Article';
   protected readonly sourceName = 'Virgo article';
+  protected override get seeAllIn(): string {
+    return 'Virgo articles';
+  }
   protected readonly describe =
     'An aggregation of tens of millions of articles made available through Library subscriptions.';
   protected readonly home = { text: 'Search articles', url: 'https://search.lib.virginia.edu/' };

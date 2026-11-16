@@ -109,7 +109,10 @@ function shared<T>(
   if (!signal) return e.promise as Promise<T>;
   e.waiting++;
   return new Promise<T>((resolve, reject) => {
+    let left = false;
     const leave = () => {
+      if (left) return;
+      left = true;
       signal.removeEventListener('abort', abort);
       e.waiting--;
     };
@@ -253,10 +256,18 @@ export function parseVirgo(json: unknown, pool: VirgoPool): Results<VirgoItem> {
   return { items, total: Number.isFinite(total) && total >= 0 ? total : undefined };
 }
 
+/**
+ * `query` as a Virgo `keyword: {…}` clause. Braces delimit the clause, so any in the query
+ * become spaces rather than closing it early or opening another.
+ */
+export function virgoKeyword(query: string): string {
+  return `keyword: {${query.replace(/[{}]/g, ' ')}}`;
+}
+
 /** The search body both Virgo pools take. */
 export function virgoBody(query: string, limit: number): string {
   return JSON.stringify({
-    query: `keyword: {${query}}`,
+    query: virgoKeyword(query),
     pagination: { start: 0, rows: limit },
     sort: { sort_id: 'SortRelevance', order: 'desc' },
     filters: [{ pool_id: 'uva_library', facets: [] }],
@@ -312,7 +323,7 @@ export function virgoSearchUrl(pool: VirgoPool, query: string): string {
   const p = new URLSearchParams(
     pool === 'catalog'
       ? { q: query, pool: 'uva_library' }
-      : { q: `keyword: {${query}}`, pool: 'articles' },
+      : { q: virgoKeyword(query), pool: 'articles' },
   );
   return `https://search.lib.virginia.edu/?${p}`;
 }

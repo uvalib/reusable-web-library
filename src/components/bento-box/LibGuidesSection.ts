@@ -12,6 +12,9 @@ import { guidesSearchUrl, searchGuides, type GuideItem } from './bento-data.js';
 export class LibGuidesSection extends BentoSection<GuideItem> {
   protected readonly heading = 'Subject Guides';
   protected readonly sourceName = 'subject guide';
+  protected override get seeAllIn(): string {
+    return 'subject guides';
+  }
   protected readonly describe =
     'Subject guides contain topic-specific information to help with research and coursework.';
   protected readonly home = {
