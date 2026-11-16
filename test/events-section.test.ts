@@ -385,14 +385,18 @@ describe('events-section', () => {
     const retry = (el: EventsSection) =>
       root(el).querySelector<HTMLButtonElement>('[role=status] button')!;
 
+    const focused = (el: EventsSection) =>
+      el.shadowRoot ? el.shadowRoot.activeElement : document.activeElement;
+
     for (const mode of ['', 'no-shadow-dom no-style']) {
-      it(`offers Retry when events cannot be loaded, keeping the reserved height (${mode || 'shadow'})`, async () => {
+      it(`offers Retry when events cannot be loaded, keeping one card row (${mode || 'shadow'})`, async () => {
         useEventsHost('events-fail.test');
         const el = await make(`limit="4" ${mode}`);
         expect(el.state).to.equal('error');
         expect(text(status(el))).to.equal('Events are unavailable right now. Retry');
         expect(retry(el).matches('button.uvalib-button[type=button]')).to.equal(true);
-        expect(placeholders(el)).to.have.length(4);
+        expect(placeholders(el)).to.have.length(1);
+        expect(el.getBoundingClientRect().height).to.be.greaterThan(50);
         await expectNoAxeViolations(el);
         resetEvents();
         retry(el).focus();
@@ -401,10 +405,52 @@ describe('events-section', () => {
         expect(el.state).to.equal('ready');
         expect(cards(el)).to.have.length(4);
         // Focus stays in the element (the Retry button is gone): the first event.
-        const active = el.shadowRoot ? el.shadowRoot.activeElement : document.activeElement;
-        expect(active).to.equal(cards(el)[0]!.querySelector('a'));
+        expect(
+          focused(el) === cards(el)[0]!.querySelector('a'),
+          'focus on the first event',
+        ).to.equal(true);
       });
     }
+
+    it('keeps the Retry button, disabled, while retrying, and keeps focus on it when the retry fails', async () => {
+      useEventsHost('events-fail.test');
+      const el = await make('limit="4"');
+      eventsTiming.timeout = 200;
+      eventsTiming.retries = 1;
+      useEventsHost('events-hang.test');
+      try {
+        const button = retry(el);
+        button.focus();
+        button.click();
+        await el.updateComplete;
+        expect(retry(el) === button, 'the same button').to.equal(true);
+        expect(button.getAttribute('aria-disabled')).to.equal('true');
+        expect(text(button)).to.equal('Retrying…');
+        expect(focused(el) === button, 'focus on the button').to.equal(true);
+        expect(placeholders(el)).to.have.length(1);
+        button.click(); // ignored while retrying
+        await settled(el);
+        expect(el.state).to.equal('error');
+        expect(retry(el).hasAttribute('aria-disabled')).to.equal(false);
+        expect(text(retry(el))).to.equal('Retry');
+        expect(focused(el) === retry(el), 'focus on Retry').to.equal(true);
+      } finally {
+        resetEvents();
+      }
+    });
+
+    it('moves focus to the status line when a retry finds no events', async () => {
+      useEventsHost('events-fail.test');
+      const el = await make('limit="4" no-shadow-dom');
+      useEventsHost('events-empty.test');
+      retry(el).focus();
+      retry(el).click();
+      await settled(el);
+      expect(el.state).to.equal('empty');
+      expect(status(el).getAttribute('tabindex')).to.equal('-1');
+      expect(focused(el) === status(el), 'focus on the status').to.equal(true);
+      await expectNoAxeViolations(el);
+    });
 
     it('retries quietly on an interval after an error', async () => {
       eventsTiming.retryEvery = 40;

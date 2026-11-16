@@ -181,6 +181,9 @@ export class EventsSection extends UvalibElement {
         color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
         cursor: pointer;
       }
+      .uvalib-button[aria-disabled='true'] {
+        cursor: progress;
+      }
     `,
   ];
 
@@ -229,6 +232,8 @@ export class EventsSection extends UvalibElement {
   @state() private _state: EventsState = 'loading';
   /** The events shown: kept on screen while a later load (an attribute change) runs. */
   @state() private events?: EventItem[];
+  /** A Retry click's load is running: the button stays, disabled, so focus stays on it. */
+  @state() private retrying = false;
 
   private loadId = 0;
   private retryTimer?: ReturnType<typeof setInterval>;
@@ -322,13 +327,24 @@ export class EventsSection extends UvalibElement {
     }
   }
 
-  private retry() {
+  private async retry() {
+    if (this.retrying) return;
     const hadFocus = this.focusedInside();
-    void this.load().then(() => {
-      // The Retry button is gone once the events load; keep keyboard focus in the element.
-      if (hadFocus && this._state === 'ready' && !this.focusedInside())
-        this.renderRoot.querySelector<HTMLAnchorElement>('.event-url[href]')?.focus();
-    });
+    this.retrying = true;
+    try {
+      await this.load();
+    } finally {
+      this.retrying = false;
+    }
+    await this.updateComplete;
+    // Keep keyboard focus in the element: on the first event, on Retry again, or on the
+    // status line when there is nothing else to focus.
+    if (!hadFocus) return;
+    const r = this.renderRoot;
+    if (this._state === 'ready') r.querySelector<HTMLAnchorElement>('.event-url[href]')?.focus();
+    else if (this._state === 'error')
+      r.querySelector<HTMLButtonElement>('.events-status button')?.focus();
+    else r.querySelector<HTMLElement>('.events-status')?.focus();
   }
 
   private focusedInside(): boolean {
@@ -384,16 +400,21 @@ export class EventsSection extends UvalibElement {
   }
 
   private renderStatus() {
+    if (this.retrying || this._state === 'error')
+      return html`Events are unavailable right now.
+        <button
+          type="button"
+          class="uvalib-button uvalib-button--basic"
+          aria-disabled=${this.retrying ? 'true' : nothing}
+          @click=${this.retry}
+        >
+          ${this.retrying ? 'Retrying…' : 'Retry'}
+        </button>`;
     switch (this._state) {
       case 'loading':
         return this.events?.length ? nothing : 'Loading events…';
       case 'empty':
         return 'No upcoming events.';
-      case 'error':
-        return html`Events are unavailable right now.
-          <button type="button" class="uvalib-button uvalib-button--basic" @click=${this.retry}>
-            Retry
-          </button>`;
       default:
         return nothing;
     }
@@ -402,9 +423,10 @@ export class EventsSection extends UvalibElement {
   render() {
     const h = unsafeStatic(`h${this.level}`);
     const events = this.events?.length ? this.events : undefined;
-    // Before the first answer and on an error: the limit's worth of placeholders, so the
-    // section keeps its height (and a retry that succeeds moves nothing). Empty: one row.
-    const placeholders = events ? 0 : this._state === 'empty' ? 1 : this.count;
+    // Before the first answer: the limit's worth of placeholders, so the section has its
+    // final height. Empty, failed or retrying: one row, so a failure does not leave a long
+    // blank area (a phone stacks the cards in one column).
+    const placeholders = events ? 0 : this._state === 'loading' && !this.retrying ? this.count : 1;
     return html`<div class="event-container">
         ${
           events
@@ -412,6 +434,6 @@ export class EventsSection extends UvalibElement {
             : Array.from({ length: placeholders }, () => this.renderPlaceholder(h))
         }
       </div>
-      <div class="events-status" role="status">${this.renderStatus()}</div>`;
+      <div class="events-status" role="status" tabindex="-1">${this.renderStatus()}</div>`;
   }
 }

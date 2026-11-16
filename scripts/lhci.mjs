@@ -18,6 +18,9 @@
 //     as open 8:00am–10:00pm on every requested day, so the real tables render. The page
 //     sets window.uvalibHoursEndpoints.hours to it; LibCal is also blocked as a backstop.
 //   - The library list already comes from the site's snapshot (data/hours-libraries.json).
+//   - LibCal's events, on the events page, come from a local stub too: 18 upcoming events
+//     (one a day from tomorrow, some with long titles, one over two days), so the cards
+//     render as they do live. The page sets window.uvalibEventsEndpoints to it.
 //   - Dark mode's reversed logo comes from static.lib.virginia.edu: the copied bundles get
 //     its URL rewritten to this server, which answers with a white stand-in of the same size
 //     (300x68). static.lib.virginia.edu is blocked as a backstop.
@@ -77,6 +80,42 @@ function libcal(url) {
   return ids.map((lid) => ({ lid, name: `Library ${lid}`, dates }));
 }
 
+const EVENTS_COMPONENT = /<script type="module" src="\/cdn\/events-section\.js">/;
+const eventsOverride = `    <script>
+      // Added for Lighthouse CI: LibCal events are stubbed locally (scripts/lhci.mjs).
+      window.uvalibEventsEndpoints = { events: '/stub/events?key=lhci', search: '/stub/events?key=lhci' };
+    </script>
+  </body>`;
+
+const TITLES = [
+  '3D Printing Training',
+  'Workshop: Virtual reality object modeling to 3D print workflow',
+  'Poster Printing Workshop',
+  'FREN 4854 - Introduction to ArcGIS StoryMaps',
+  'Copyright & Open',
+  'Microform Scanner Workshop',
+];
+
+/** LibCal's events response: one event a day from tomorrow, 11:00-12:00 New York (16:00Z). */
+function libcalEvents(url) {
+  const limit = Math.min(Number(url.searchParams.get('limit')) || 18, 18);
+  const day = 864e5;
+  const first = Math.ceil(Date.now() / day) * day + 16 * 36e5;
+  const events = Array.from({ length: limit }, (_, i) => {
+    const start = first + i * day;
+    const end = start + (i === 2 ? day + 2 * 36e5 : 36e5); // the third runs over two days
+    return {
+      id: 900100 + i,
+      title: TITLES[i % TITLES.length],
+      allday: false,
+      start: new Date(start).toISOString(),
+      end: new Date(end).toISOString(),
+      url: { public: `https://cal.lib.virginia.edu/event/${900100 + i}` },
+    };
+  });
+  return { events };
+}
+
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -91,6 +130,10 @@ const dir = mkdtempSync(join(tmpdir(), 'uvalib-lhci-'));
 
 const server = createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
+  if (url.pathname === '/stub/events') {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    return res.end(JSON.stringify(libcalEvents(url)));
+  }
   if (url.pathname.startsWith('/stub/libcal/')) {
     res.writeHead(200, { 'content-type': 'application/json' });
     return res.end(JSON.stringify(libcal(url)));
@@ -155,6 +198,7 @@ for (const preset of pages) {
     if (name === 'index.html') {
       html = html.replace(/<site-page(?=[\s>])/g, `<site-page root-link-domain="${base}"`);
       if (HOURS_COMPONENTS.test(html)) html = html.replace('  </body>', libcalOverride);
+      if (EVENTS_COMPONENT.test(html)) html = html.replace('  </body>', eventsOverride);
     }
     writeFileSync(out, html);
   }
