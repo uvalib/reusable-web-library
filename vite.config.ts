@@ -13,6 +13,7 @@ const tags = [
   'library-weekly-hours',
   'library-hours-setup',
   'events-section',
+  'bento-box',
 ];
 
 // Library mode, ES output: one self-contained entry per component, with Lit and shared

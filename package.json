@@ -17,10 +17,12 @@
     "./dist/components/*/uvalib-*.js",
     "./dist/components/*/library-*.js",
     "./dist/components/events-section/events-section.js",
+    "./dist/components/bento-box/bento-box.js",
     "./src/components/*/site-*.ts",
     "./src/components/*/uvalib-*.ts",
     "./src/components/*/library-*.ts",
     "./src/components/events-section/events-section.ts",
+    "./src/components/bento-box/bento-box.ts",
     "*.css"
   ],
   "customElements": "dist/custom-elements.json",
@@ -80,6 +82,10 @@
     "./events-section.js": {
       "types": "./dist/components/events-section/events-section.d.ts",
       "default": "./dist/components/events-section/events-section.js"
+    },
+    "./bento-box.js": {
+      "types": "./dist/components/bento-box/bento-box.d.ts",
+      "default": "./dist/components/bento-box/bento-box.js"
     },
     "./tokens.css": "./dist/tokens.css",
     "./base.css": "./dist/base.css",

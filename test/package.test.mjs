@@ -20,6 +20,7 @@ const TAGS = [
   'library-weekly-hours',
   'library-hours-setup',
   'events-section',
+  'bento-box',
 ];
 
 const walk = (dir) =>
@@ -76,6 +77,9 @@ test('manifest declares all tags', () => {
   const m = JSON.parse(readFileSync(join(root, 'dist/custom-elements.json'), 'utf8'));
   const tags = m.modules.flatMap((mod) => mod.declarations ?? []).map((d) => d.tagName);
   for (const tag of TAGS) assert.ok(tags.includes(tag), `manifest lacks ${tag}`);
+  // The tags bento-box.js registers besides its own.
+  for (const tag of ['catalog-section', 'articles-section', 'libguides-section', 'website-section'])
+    assert.ok(tags.includes(tag), `manifest lacks ${tag}`);
 });
 
 test('dist imports nothing from src, no .ts paths, and only bare or relative-js specifiers', () => {

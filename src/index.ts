@@ -28,3 +28,16 @@ export type { LibraryInfo, DayHours } from './components/library-hours/hours-dat
 export { EventsSection } from './components/events-section/EventsSection.js';
 export type { EventsState } from './components/events-section/EventsSection.js';
 export type { EventItem } from './components/events-section/events-data.js';
+export { BentoBox } from './components/bento-box/BentoBox.js';
+export type { BentoBoxName } from './components/bento-box/BentoBox.js';
+export { CatalogSection } from './components/bento-box/CatalogSection.js';
+export { ArticlesSection } from './components/bento-box/ArticlesSection.js';
+export { LibGuidesSection } from './components/bento-box/LibGuidesSection.js';
+export { WebsiteSection } from './components/bento-box/WebsiteSection.js';
+export type { BentoState } from './components/bento-box/BentoSection.js';
+export type {
+  BentoEndpoints,
+  GuideItem,
+  VirgoItem,
+  WebsiteItem,
+} from './components/bento-box/bento-data.js';

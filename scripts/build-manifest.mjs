@@ -19,6 +19,7 @@ const TAGS = [
   'library-weekly-hours',
   'library-hours-setup',
   'events-section',
+  'bento-box',
 ];
 
 const manifest = {

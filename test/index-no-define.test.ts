@@ -14,6 +14,14 @@ describe('index', () => {
     expect(lib.LibraryWeeklyHours).to.be.a('function');
     expect(lib.LibraryHoursSetup).to.be.a('function');
     expect(lib.EventsSection).to.be.a('function');
+    expect(lib.BentoBox).to.be.a('function');
+    for (const c of [
+      lib.CatalogSection,
+      lib.ArticlesSection,
+      lib.LibGuidesSection,
+      lib.WebsiteSection,
+    ])
+      expect(c).to.be.a('function');
     for (const tag of [
       'site-page',
       'site-header',
@@ -27,6 +35,11 @@ describe('index', () => {
       'library-weekly-hours',
       'library-hours-setup',
       'events-section',
+      'bento-box',
+      'catalog-section',
+      'articles-section',
+      'libguides-section',
+      'website-section',
     ]) {
       expect(customElements.get(tag) === undefined, `${tag} is defined`).to.equal(true);
     }

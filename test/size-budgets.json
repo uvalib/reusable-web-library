@@ -1,5 +1,5 @@
 {
-  "$comment": "Gzipped bytes per dist-cdn manifest entry, including every chunk it imports (static and dynamic), each counted once. About 12% over the sizes at 1.0.0; checked by test/size-budget.test.mjs. Print today's sizes with: node scripts/bundle-sizes.mjs. Dark mode (color-scheme-switch) raised site-page.js, site-header.js and tokens.css to about 12% over their sizes with it.",
+  "$comment": "Gzipped bytes per dist-cdn manifest entry, including every chunk it imports (static and dynamic), each counted once. About 12% over the sizes at 1.0.0; checked by test/size-budget.test.mjs. Print today's sizes with: node scripts/bundle-sizes.mjs. Dark mode (color-scheme-switch) raised site-page.js, site-header.js and tokens.css to about 12% over their sizes with it. bento-box.js (with its four sections) is about 12% over its first size, 19,741 B.",
   "budgets": {
     "site-page.js": 36900,
     "site-header.js": 24700,
@@ -13,6 +13,7 @@
     "library-weekly-hours.js": 16300,
     "library-hours-setup.js": 17000,
     "events-section.js": 15700,
+    "bento-box.js": 22100,
     "tokens.css": 1280,
     "base.css": 400
   }
