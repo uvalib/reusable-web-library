@@ -1,0 +1,162 @@
+{
+  "elapsed_ms": 425,
+  "pagination": {
+    "start": 0,
+    "rows": 3,
+    "total": 17262260
+  },
+  "sort": {
+    "sort_id": "SortRelevance",
+    "order": "desc"
+  },
+  "group_list": [
+    {
+      "value": "ccm_197059126",
+      "count": 1,
+      "has_availability": false,
+      "record_list": [
+        {
+          "fields": [
+            {
+              "name": "id",
+              "label": "Identifier",
+              "value": "ccm_197059126",
+              "type": "identifier"
+            },
+            {
+              "type": "title",
+              "name": "title",
+              "label": "Title",
+              "value": "Please sign in to see more about this article."
+            },
+            {
+              "name": "pub_type",
+              "label": "Publication Type",
+              "value": "Academic Journal",
+              "type": "text"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "value": "a9h_195151492",
+      "count": 1,
+      "has_availability": false,
+      "record_list": [
+        {
+          "fields": [
+            {
+              "name": "id",
+              "label": "Identifier",
+              "value": "a9h_195151492",
+              "type": "identifier"
+            },
+            {
+              "type": "title",
+              "name": "title",
+              "label": "Title",
+              "value": "Assessing agreement between six-minute walk test and the incremental shuttle walk test in healthy sedentary adults."
+            },
+            {
+              "type": "author",
+              "name": "author",
+              "label": "Author",
+              "value": "Author, Example N"
+            },
+            {
+              "type": "author",
+              "name": "author",
+              "label": "Author",
+              "value": "Author, Example O"
+            },
+            {
+              "type": "author",
+              "name": "author",
+              "label": "Author",
+              "value": "Author, Example P"
+            },
+            {
+              "type": "author",
+              "name": "author",
+              "label": "Author",
+              "value": "Author, Example Q"
+            },
+            {
+              "name": "published_date",
+              "label": "Published Date",
+              "value": "2026-06-01",
+              "type": "text"
+            },
+            {
+              "name": "pub_type",
+              "label": "Publication Type",
+              "value": "Academic Journal",
+              "type": "text"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "value": "a9h_197245221",
+      "count": 1,
+      "has_availability": false,
+      "record_list": [
+        {
+          "fields": [
+            {
+              "name": "id",
+              "label": "Identifier",
+              "value": "a9h_197245221",
+              "type": "identifier"
+            },
+            {
+              "type": "title",
+              "name": "title",
+              "label": "Title",
+              "value": "Reliability of provocative tests in determining the severity of carpal tunnel syndrome."
+            },
+            {
+              "type": "author",
+              "name": "author",
+              "label": "Author",
+              "value": "Author, Example R"
+            },
+            {
+              "type": "author",
+              "name": "author",
+              "label": "Author",
+              "value": "Author, Example S"
+            },
+            {
+              "type": "author",
+              "name": "author",
+              "label": "Author",
+              "value": "Author, Example T"
+            },
+            {
+              "type": "author",
+              "name": "author",
+              "label": "Author",
+              "value": "Author, Example U"
+            },
+            {
+              "name": "published_date",
+              "label": "Published Date",
+              "value": "2026-09-01",
+              "type": "text"
+            },
+            {
+              "name": "pub_type",
+              "label": "Publication Type",
+              "value": "Academic Journal",
+              "type": "text"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "confidence": "medium"
+}

@@ -1,0 +1,340 @@
+{
+  "pagination": {
+    "start": 0,
+    "rows": 4,
+    "total": 138420
+  },
+  "sort": {
+    "sort_id": "SortRelevance",
+    "order": "desc"
+  },
+  "group_list": [
+    {
+      "value": "db_test_11725/borishansky_david/Dataset",
+      "count": 1,
+      "record_list": [
+        {
+          "fields": [
+            {
+              "name": "title_subtitle_edition",
+              "type": "title",
+              "label": "Title",
+              "value": "DB Test 11/7/25"
+            },
+            {
+              "name": "author",
+              "type": "author",
+              "label": "Author",
+              "value": "Author, Example A"
+            },
+            {
+              "name": "published_date",
+              "label": "Publication Date",
+              "value": "2026-07-28"
+            },
+            {
+              "name": "format",
+              "label": "Format",
+              "value": "Computer Resource"
+            },
+            {
+              "name": "format",
+              "label": "Format",
+              "value": "Online"
+            },
+            {
+              "name": "format",
+              "label": "Format",
+              "value": "Dataset"
+            },
+            {
+              "name": "id",
+              "type": "identifier",
+              "label": "Identifier",
+              "value": "dataset_120880"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "value": "test_anxiety_the_state_of_the_art/zeidner_moshe/Book",
+      "count": 3,
+      "record_list": [
+        {
+          "fields": [
+            {
+              "name": "title_subtitle_edition",
+              "type": "title",
+              "label": "Title",
+              "value": "Test Anxiety: The State of the Art"
+            },
+            {
+              "name": "author",
+              "type": "author",
+              "label": "Author",
+              "value": "Author, Example B"
+            },
+            {
+              "name": "author",
+              "type": "author",
+              "label": "Author",
+              "value": "Author, Example C"
+            },
+            {
+              "name": "format",
+              "label": "Format",
+              "value": "EBook"
+            },
+            {
+              "name": "format",
+              "label": "Format",
+              "value": "Book"
+            },
+            {
+              "name": "format",
+              "label": "Format",
+              "value": "Online"
+            },
+            {
+              "name": "published_date",
+              "label": "Publication Date",
+              "value": "1998"
+            },
+            {
+              "name": "id",
+              "type": "identifier",
+              "label": "Identifier",
+              "value": "u8992136"
+            }
+          ]
+        },
+        {
+          "fields": [
+            {
+              "name": "title_subtitle_edition",
+              "type": "title",
+              "label": "Title",
+              "value": "Test Anxiety: The State of the Art"
+            },
+            {
+              "name": "author",
+              "type": "author",
+              "label": "Author",
+              "value": "Author, Example D"
+            },
+            {
+              "name": "format",
+              "label": "Format",
+              "value": "Book"
+            },
+            {
+              "name": "published_date",
+              "label": "Publication Date",
+              "value": "1998"
+            },
+            {
+              "name": "id",
+              "type": "identifier",
+              "label": "Identifier",
+              "value": "u2831748"
+            }
+          ]
+        },
+        {
+          "fields": [
+            {
+              "name": "title_subtitle_edition",
+              "type": "title",
+              "label": "Title",
+              "value": "Test Anxiety: The State of the Art (1st ed.)"
+            },
+            {
+              "name": "author",
+              "type": "author",
+              "label": "Author",
+              "value": "Author, Example E"
+            },
+            {
+              "name": "format",
+              "label": "Format",
+              "value": "EBook"
+            },
+            {
+              "name": "format",
+              "label": "Format",
+              "value": "Book"
+            },
+            {
+              "name": "format",
+              "label": "Format",
+              "value": "Online"
+            },
+            {
+              "name": "published_date",
+              "label": "Publication Date",
+              "value": "1998"
+            },
+            {
+              "name": "id",
+              "type": "identifier",
+              "label": "Identifier",
+              "value": "u12856878"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "value": "differential_item_functioning/holland_paul_w/Book",
+      "count": 2,
+      "record_list": [
+        {
+          "fields": [
+            {
+              "name": "title_subtitle_edition",
+              "type": "title",
+              "label": "Title",
+              "value": "Differential Item Functioning"
+            },
+            {
+              "name": "author",
+              "type": "author",
+              "label": "Author",
+              "value": "Author, Example F"
+            },
+            {
+              "name": "author",
+              "type": "author",
+              "label": "Author",
+              "value": "Author, Example G"
+            },
+            {
+              "name": "author",
+              "type": "author",
+              "label": "Author",
+              "value": "Author, Example H"
+            },
+            {
+              "name": "format",
+              "label": "Format",
+              "value": "Book"
+            },
+            {
+              "name": "published_date",
+              "label": "Publication Date",
+              "value": "1993"
+            },
+            {
+              "name": "id",
+              "type": "identifier",
+              "label": "Identifier",
+              "value": "u2105584"
+            }
+          ]
+        },
+        {
+          "fields": [
+            {
+              "name": "title_subtitle_edition",
+              "type": "title",
+              "label": "Title",
+              "value": "Differential Item Functioning"
+            },
+            {
+              "name": "author",
+              "type": "author",
+              "label": "Author",
+              "value": "Author, Example I"
+            },
+            {
+              "name": "author",
+              "type": "author",
+              "label": "Author",
+              "value": "Author, Example J"
+            },
+            {
+              "name": "author",
+              "type": "author",
+              "label": "Author",
+              "value": "Author, Example K"
+            },
+            {
+              "name": "format",
+              "label": "Format",
+              "value": "EBook"
+            },
+            {
+              "name": "format",
+              "label": "Format",
+              "value": "Book"
+            },
+            {
+              "name": "format",
+              "label": "Format",
+              "value": "Online"
+            },
+            {
+              "name": "published_date",
+              "label": "Publication Date",
+              "value": "1993"
+            },
+            {
+              "name": "id",
+              "type": "identifier",
+              "label": "Identifier",
+              "value": "u12587129"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "value": "test_success_in_the_brain_compatible_classroom/chapman_carolyn/Book",
+      "count": 1,
+      "record_list": [
+        {
+          "fields": [
+            {
+              "name": "title_subtitle_edition",
+              "type": "title",
+              "label": "Title",
+              "value": "Test Success in the Brain-compatible Classroom (2nd ed.)"
+            },
+            {
+              "name": "author",
+              "type": "author",
+              "label": "Author",
+              "value": "Author, Example L"
+            },
+            {
+              "name": "author",
+              "type": "author",
+              "label": "Author",
+              "value": "Author, Example M"
+            },
+            {
+              "name": "format",
+              "label": "Format",
+              "value": "Book"
+            },
+            {
+              "name": "published_date",
+              "label": "Publication Date",
+              "value": "2009"
+            },
+            {
+              "name": "id",
+              "type": "identifier",
+              "label": "Identifier",
+              "value": "u4821493"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "confidence": "high",
+  "elapsed_ms": 275,
+  "status_code": 200
+}

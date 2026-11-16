@@ -1,17 +1,22 @@
 import { esbuildPlugin } from '@web/dev-server-esbuild';
 import { playwrightLauncher } from '@web/test-runner-playwright';
 import { interceptAlerts } from './test/helpers/alerts-intercept.mjs';
+import { interceptBento } from './test/helpers/bento-intercept.mjs';
 import { interceptEvents } from './test/helpers/events-intercept.mjs';
 import { hoursClockPlugin, interceptHours } from './test/helpers/hours-intercept.mjs';
 import { interceptMainNav } from './test/helpers/main-nav-intercept.mjs';
 import { interceptStatic } from './test/helpers/static-intercept.mjs';
 
 const TZ_FILES = 'test/**/*-tz.test.ts';
-const NEW_YORK_TZ_FILES = ['test/library-hours-tz.test.ts', 'test/events-section-tz.test.ts'];
+const NEW_YORK_TZ_FILES = [
+  'test/library-hours-tz.test.ts',
+  'test/events-section-tz.test.ts',
+  'test/bento-box-tz.test.ts',
+];
 
 /**
- * A Chromium launcher whose every context routes the alerts CDN, the library-hours and
- * events endpoints, the main-nav test hosts and static.lib.virginia.edu (dark mode's logo) to
+ * A Chromium launcher whose every context routes the alerts CDN, the library-hours,
+ * events and search-results (bento-box) endpoints, the main-nav test hosts and static.lib.virginia.edu (dark mode's logo) to
  * local fixtures, so no test reaches the network for any of them. Service workers
  * are blocked so every request, including from the playground's preview frames, goes
  * through the routes (a worker's own fetches would not).
@@ -20,12 +25,15 @@ const chromium = (options = {}) =>
   playwrightLauncher({
     product: 'chromium',
     createBrowserContext: ({ browser }) =>
-      // Events last: its routes must be tried before hours-intercept's catch-all for LibCal.
-      interceptEvents(
-        interceptStatic(
-          interceptAlerts(
-            interceptHours(
-              interceptMainNav(browser.newContext({ serviceWorkers: 'block', ...options })),
+      // Events and bento last: their routes must be tried before hours-intercept's
+      // catch-alls for LibCal and the JSON:API index.
+      interceptBento(
+        interceptEvents(
+          interceptStatic(
+            interceptAlerts(
+              interceptHours(
+                interceptMainNav(browser.newContext({ serviceWorkers: 'block', ...options })),
+              ),
             ),
           ),
         ),

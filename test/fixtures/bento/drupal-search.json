@@ -1,0 +1,62 @@
+{
+  "data": [
+    {
+      "type": "node--page",
+      "id": "e6d2d62f-754e-4794-9d84-f03157aeeb85",
+      "attributes": {
+        "drupal_internal__nid": 715,
+        "title": "Printing & Photocopying",
+        "path": {
+          "alias": "/services/printing-photocopying"
+        }
+      }
+    },
+    {
+      "type": "node--article",
+      "id": "7dac5e8a-e7ba-47cf-b196-ff018d6a8748",
+      "attributes": {
+        "drupal_internal__nid": 2567,
+        "title": "“Stolen books,” bad faith, and fair use",
+        "path": {
+          "alias": "/news/2024/stolen-books-bad-faith-and-fair-use"
+        }
+      }
+    },
+    {
+      "type": "node--article",
+      "id": "40e2574d-6a81-47bf-ad4b-3e5419065256",
+      "attributes": {
+        "drupal_internal__nid": 2083,
+        "title": "Library website offers new pathways to services",
+        "path": {
+          "alias": "/news/2023/library-website-offers-new-pathways-services"
+        }
+      }
+    }
+  ],
+  "meta": {
+    "count": 16,
+    "extra_data": {
+      "715": {
+        "excerpt": "… screen Enter your iPhone’s / iPad’s passcode Press “Done” <strong>Test</strong> it out by selecting HoosPrint from the list of printers. … Print. Tap the enable toggle. Exit out of Settings. <strong>Test</strong> it out by selecting HoosPrint from the list of printers. …"
+      },
+      "2567": {
+        "excerpt": "… use. Some AI technologies are sure to pass the fair use <strong>test</strong> from those cases, all else equal. But there is one …"
+      },
+      "2083": {
+        "excerpt": "… work that has been ongoing for many years — to design and <strong>test</strong> a better user experience for new and expert Library …"
+      }
+    }
+  },
+  "links": {
+    "last": {
+      "href": "/jsonapi/index/default_index?filter%5Bfulltext%5D=test&filter%5Btypes-group%5D%5Bgroup%5D%5Bconjunction%5D=OR&filter%5Bpage-filter%5D%5Bcondition%5D%5Bpath%5D=type&filter%5Bpage-filter%5D%5Bcondition%5D%5Bvalue%5D=page&filter%5Bpage-filter%5D%5Bcondition%5D%5BmemberOf%5D=types-group&filter%5Bperson-filter%5D%5Bcondition%5D%5Bpath%5D=type&filter%5Bperson-filter%5D%5Bcondition%5D%5Bvalue%5D=person&filter%5Bperson-filter%5D%5Bcondition%5D%5BmemberOf%5D=types-group&filter%5Blibrary-filter%5D%5Bcondition%5D%5Bpath%5D=type&filter%5Blibrary-filter%5D%5Bcondition%5D%5Bvalue%5D=library&filter%5Blibrary-filter%5D%5Bcondition%5D%5BmemberOf%5D=types-group&filter%5Barticle-filter%5D%5Bcondition%5D%5Bpath%5D=type&filter%5Barticle-filter%5D%5Bcondition%5D%5Bvalue%5D=article&filter%5Barticle-filter%5D%5Bcondition%5D%5BmemberOf%5D=types-group&page%5Boffset%5D=15&page%5Blimit%5D=3"
+    },
+    "next": {
+      "href": "/jsonapi/index/default_index?filter%5Bfulltext%5D=test&filter%5Btypes-group%5D%5Bgroup%5D%5Bconjunction%5D=OR&filter%5Bpage-filter%5D%5Bcondition%5D%5Bpath%5D=type&filter%5Bpage-filter%5D%5Bcondition%5D%5Bvalue%5D=page&filter%5Bpage-filter%5D%5Bcondition%5D%5BmemberOf%5D=types-group&filter%5Bperson-filter%5D%5Bcondition%5D%5Bpath%5D=type&filter%5Bperson-filter%5D%5Bcondition%5D%5Bvalue%5D=person&filter%5Bperson-filter%5D%5Bcondition%5D%5BmemberOf%5D=types-group&filter%5Blibrary-filter%5D%5Bcondition%5D%5Bpath%5D=type&filter%5Blibrary-filter%5D%5Bcondition%5D%5Bvalue%5D=library&filter%5Blibrary-filter%5D%5Bcondition%5D%5BmemberOf%5D=types-group&filter%5Barticle-filter%5D%5Bcondition%5D%5Bpath%5D=type&filter%5Barticle-filter%5D%5Bcondition%5D%5Bvalue%5D=article&filter%5Barticle-filter%5D%5Bcondition%5D%5BmemberOf%5D=types-group&page%5Boffset%5D=3&page%5Blimit%5D=3"
+    },
+    "self": {
+      "href": "/jsonapi/index/default_index?filter%5Bfulltext%5D=test&filter%5Btypes-group%5D%5Bgroup%5D%5Bconjunction%5D=OR&filter%5Bpage-filter%5D%5Bcondition%5D%5Bpath%5D=type&filter%5Bpage-filter%5D%5Bcondition%5D%5Bvalue%5D=page&filter%5Bpage-filter%5D%5Bcondition%5D%5BmemberOf%5D=types-group&filter%5Bperson-filter%5D%5Bcondition%5D%5Bpath%5D=type&filter%5Bperson-filter%5D%5Bcondition%5D%5Bvalue%5D=person&filter%5Bperson-filter%5D%5Bcondition%5D%5BmemberOf%5D=types-group&filter%5Blibrary-filter%5D%5Bcondition%5D%5Bpath%5D=type&filter%5Blibrary-filter%5D%5Bcondition%5D%5Bvalue%5D=library&filter%5Blibrary-filter%5D%5Bcondition%5D%5BmemberOf%5D=types-group&filter%5Barticle-filter%5D%5Bcondition%5D%5Bpath%5D=type&filter%5Barticle-filter%5D%5Bcondition%5D%5Bvalue%5D=article&filter%5Barticle-filter%5D%5Bcondition%5D%5BmemberOf%5D=types-group&page%5Blimit%5D=3"
+    }
+  }
+}
