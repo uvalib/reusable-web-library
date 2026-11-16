@@ -108,4 +108,24 @@ describe('library-hours-setup', () => {
     expect(weekly(shadow)).to.have.length(1);
     expect(weekly(outside)).to.have.length(0);
   });
+
+  it("upgraded tables take their level from each library's heading, as on /hours", async () => {
+    const wrap = await fixture<HTMLElement>(
+      `<div>
+        <h2>Clemons Library</h2>
+        <div type="library-weekly-hours" library-slug="clemons" no-shadow-dom no-style></div>
+        <h2>Harrison Institute</h2>
+        <div type="library-weekly-hours" library-slug="harrison" no-shadow-dom no-style></div>
+        <library-hours-setup></library-hours-setup>
+      </div>`,
+    );
+    await waitUntil(() => wrap.querySelectorAll('library-weekly-hours').length === 2, 'upgraded');
+    const tables = [...wrap.querySelectorAll('library-weekly-hours')] as LibraryWeeklyHours[];
+    for (const el of tables) {
+      await settled(el);
+      const h = el.querySelector('[role=heading]')!;
+      expect(h.getAttribute('aria-level')).to.equal('3');
+      expect(h.classList.contains('heading-h2')).to.equal(true);
+    }
+  });
 });

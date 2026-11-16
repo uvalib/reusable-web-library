@@ -233,6 +233,41 @@ describe('library-weekly-hours', () => {
     );
   });
 
+  describe('heading level from the page', () => {
+    const heading = (el: LibraryWeeklyHours) => root(el).querySelector('[role=heading]')!;
+
+    it("is one below the library's heading, and keeps the heading-h2 class", async () => {
+      const wrap = await fixture<HTMLElement>(
+        '<div><h2>Clemons Library</h2><library-weekly-hours library-slug="clemons"></library-weekly-hours></div>',
+      );
+      const el = wrap.querySelector('library-weekly-hours') as LibraryWeeklyHours;
+      await settled(el);
+      expect(heading(el).getAttribute('aria-level')).to.equal('3');
+      expect(heading(el).classList.contains('heading-h2')).to.equal(true);
+    });
+
+    it('each table follows its own library heading, not the table before it', async () => {
+      const wrap = await fixture<HTMLElement>(
+        `<div>
+          <h2>Clemons Library</h2><library-weekly-hours library-slug="clemons" no-shadow-dom></library-weekly-hours>
+          <h2>Music Library</h2><library-weekly-hours library-slug="music" no-shadow-dom></library-weekly-hours>
+        </div>`,
+      );
+      const [a, b] = [...wrap.querySelectorAll('library-weekly-hours')] as LibraryWeeklyHours[];
+      await settled(a!);
+      await settled(b!);
+      for (const el of [a!, b!]) expect(heading(el).getAttribute('aria-level')).to.equal('3');
+    });
+
+    it('stays level 2 with no heading before it, and an explicit level sets both', async () => {
+      let el = await make('library-slug="clemons"');
+      expect(heading(el).getAttribute('aria-level')).to.equal('2');
+      el = await make('library-slug="clemons" heading-level="4"');
+      expect(heading(el).getAttribute('aria-level')).to.equal('4');
+      expect(heading(el).classList.contains('heading-h4')).to.equal(true);
+    });
+  });
+
   it('shows a polite loading status while fetching, with the table header already laid out', async () => {
     const original = window.fetch;
     window.fetch = () => new Promise<Response>(() => {});

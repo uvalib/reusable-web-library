@@ -1,6 +1,7 @@
 import { html, css, nothing, unsafeCSS, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
+import { precedingHeadingLevel } from '../../base/heading-level.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
 import { accessible } from '../../styles/accessible.js';
 import {
@@ -173,13 +174,21 @@ export class LibraryWeeklyHours extends UvalibElement {
   @property({ type: Boolean, attribute: 'hide-building-hours', reflect: true })
   hideBuildingHours = false;
 
-  /** `aria-level` (1–6) of the week heading, also its `heading-h<n>` class. Default 2. */
+  /**
+   * `aria-level` (1–6) of the week heading, also its `heading-h<n>` class. Unset (the
+   * default), the level is one below the nearest heading before the element in the page
+   * (`aria-level` 3 under a library's `<h2>` on /hours), or 2 when there is none, and the
+   * class stays `heading-h2`, the one the library website's CSS styles.
+   */
   @property({ type: Number, attribute: 'heading-level' })
   headingLevel?: number;
 
   /** Old name of `heading-level`, still accepted; `heading-level` wins. */
   @property({ type: Number, attribute: 'headinglevelstart' })
   headingLevelStart?: number;
+
+  /** One below the nearest preceding heading, worked out on connect (see `level`). */
+  @state() private inferredLevel = 2;
 
   /** `loading` (the default, until data arrives), `ready` or `error`. Read-only. */
   get state(): HoursState {
@@ -214,6 +223,8 @@ export class LibraryWeeklyHours extends UvalibElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
+    const above = precedingHeadingLevel(this);
+    this.inferredLevel = above === null ? 2 : Math.min(above + 1, 6);
     if (this.lightDom && this.noStyle) {
       const node = this.getRootNode();
       installLightDomStyles(
@@ -259,9 +270,20 @@ export class LibraryWeeklyHours extends UvalibElement {
     return Array.from({ length: 7 }, (_, i) => addDays(start, i));
   }
 
+  /** The level set by `heading-level` (or the old `headinglevelstart`), or null. */
+  private get explicitLevel(): number | null {
+    const n = Math.trunc(this.headingLevel ?? this.headingLevelStart ?? Number.NaN);
+    return n >= 1 && n <= 6 ? n : null;
+  }
+
+  /** The week heading's `aria-level`: as set, else inferred from the page on connect. */
   private get level(): number {
-    const n = Math.trunc(this.headingLevel ?? this.headingLevelStart ?? 2);
-    return n >= 1 && n <= 6 ? n : 2;
+    return this.explicitLevel ?? this.inferredLevel;
+  }
+
+  /** The `heading-h<n>` class: as set, else `heading-h2` (what the library's CSS styles). */
+  private get headingClass(): number {
+    return this.explicitLevel ?? 2;
   }
 
   // A plain map: `today` is private, which PropertyValues<this> does not cover.
@@ -481,7 +503,12 @@ export class LibraryWeeklyHours extends UvalibElement {
         >
           Previous week
         </button>
-        <div class="heading-h${level}" role="heading" aria-level=${level} id=${headingId}>
+        <div
+          class="heading-h${this.headingClass}"
+          role="heading"
+          aria-level=${level}
+          id=${headingId}
+        >
           ${weekHeadingDate(days[0]!)} - ${weekHeadingDate(days[6]!)}
         </div>
         <button
