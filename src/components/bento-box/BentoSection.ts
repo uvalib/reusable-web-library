@@ -68,6 +68,8 @@ const structuralRules = (host: string) => `
     white-space: nowrap;
     text-overflow: ellipsis;
   }
+  /* A guide with no author or subjects keeps its placeholder's line. */
+  ${host} .bs-results--byline { min-height: 1.5em; min-height: 1lh; }
   ${host}[hidden], ${host} [hidden] { display: none !important; }
   ${host} .visually-hidden {
     position: absolute;

@@ -239,6 +239,29 @@ describe('bento-box', () => {
       }
     });
 
+    it('text typed while results load is kept when they settle', async () => {
+      const box = await make('limit="3"', { wait: false });
+      const hold = holdBodies('keyword: {slow}');
+      try {
+        box.query = 'slow';
+        await box.updateComplete;
+        await waitUntil(() => hold.count >= 2, 'slow query not requested');
+        const input = root(box).querySelector<HTMLInputElement>('.bento-search-bar input')!;
+        input.value = 'dogs';
+        hold.release();
+        await settled(box);
+        await waitUntil(
+          () => root(box).querySelector('[role="status"]')?.textContent?.trim(),
+          'no status',
+        );
+        await box.updateComplete;
+        expect(input.value).to.equal('dogs');
+      } finally {
+        hold.release();
+        hold.restore();
+      }
+    });
+
     it('a box moved mid-load loads again instead of showing an error', async () => {
       const box = await make('limit="3"', { wait: false });
       const hold = holdBodies('keyword: {slow}');
