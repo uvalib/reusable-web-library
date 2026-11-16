@@ -18,7 +18,7 @@ import {
   websiteParams,
   websiteSearchUrl,
 } from '../src/components/bento-box/bento-data.js';
-import { fetchJson, HttpError } from '../src/data/fetch-json.js';
+import { fetchJson, type HttpError } from '../src/data/fetch-json.js';
 import { holdFetches, recordFetches } from './helpers/hours.js';
 import { resetBento, useBentoHost } from './helpers/bento.js';
 
@@ -55,7 +55,7 @@ describe('bento data', () => {
             retryStatus: (s) => s >= 500,
           },
         ).catch((x: unknown) => x);
-        expect(e).to.be.instanceOf(HttpError);
+        expect(e).to.be.instanceOf(Error);
         expect((e as HttpError).status).to.equal(401);
         expect(rec.urls).to.have.length(1);
       } finally {

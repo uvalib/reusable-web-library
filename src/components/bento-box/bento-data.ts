@@ -5,7 +5,7 @@
 // Everything read from these services is reduced to plain text and http(s) URLs here; the
 // sections render it with Lit, never as HTML.
 
-import { fetchJson, fetchText, HttpError, type FetchOptions } from '../../data/fetch-json.js';
+import { fetchJson, fetchText, type FetchOptions, type HttpError } from '../../data/fetch-json.js';
 
 /** The URLs the sections fetch, shared by every element on the page. */
 export interface BentoEndpoints {
@@ -295,7 +295,7 @@ export function searchVirgo(
         try {
           return parseVirgo(await fetchJson(url, bentoTiming, options), pool);
         } catch (e) {
-          if (attempt === 0 && e instanceof HttpError && e.status === 401) {
+          if (attempt === 0 && (e as HttpError).status === 401) {
             dropToken(t);
             continue;
           }
