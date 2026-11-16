@@ -1,5 +1,6 @@
 import { expect } from '@open-wc/testing';
 import { countMain, mount, whenAllDefined } from './helpers/page-probe.js';
+import { setClock } from './helpers/hours.js';
 import {
   COLOR_SCHEME_SNIPPET,
   examples,
@@ -38,11 +39,12 @@ describe('playground presets', function () {
       'search-facets',
       'todays-hours',
       'weekly-hours',
+      'events',
     ]);
   });
 
   it('lists every example once, grouped by component in menu order', () => {
-    expect(GROUPS).to.deep.equal(['Page', 'Header', 'Alerts', 'Search', 'Hours']);
+    expect(GROUPS).to.deep.equal(['Page', 'Header', 'Alerts', 'Search', 'Hours', 'Events']);
     expect(
       Object.fromEntries(
         GROUPS.map((g) => [g, examples.filter((p) => p.group === g).map((p) => p.id)]),
@@ -67,6 +69,7 @@ describe('playground presets', function () {
         'uvalib-date-range-light',
       ],
       Hours: ['todays-hours', 'weekly-hours'],
+      Events: ['events'],
     });
     // The menu order: each group's examples together, groups in GROUPS order.
     expect(examples.map((p) => GROUPS.indexOf(p.group))).to.deep.equal(
@@ -195,6 +198,54 @@ describe('playground presets', function () {
         iframe.remove();
       }
     });
+  });
+
+  describe('events', () => {
+    const p = () => presets.find((x) => x.id === 'events')!;
+    before(() => setClock('2026-11-16T14:00:00Z'));
+
+    /** The events-section's height in the preview at `width`, defined (loaded) or not. */
+    async function height(width: number, define: boolean): Promise<number> {
+      let src = previewSource(withCdnBase(p(), '/dist-site/cdn/'));
+      if (!define)
+        src = src.replace(/<script type="module" src="[^"]*events-section\.js"><\/script>/, '');
+      const { iframe, errors } = await mount(src);
+      iframe.style.width = `${width}px`;
+      iframe.style.height = '600px';
+      try {
+        const win = iframe.contentWindow!;
+        const el = iframe.contentDocument!.querySelector('events-section') as HTMLElement & {
+          state?: string;
+        };
+        if (define) {
+          await whenAllDefined(win, ['events-section']);
+          const deadline = Date.now() + 4000;
+          while (el.state !== 'ready' && Date.now() < deadline)
+            await new Promise((r) => setTimeout(r, 50));
+          expect(el.state).to.equal('ready');
+          expect(el.shadowRoot!.querySelectorAll('.event:not(.event-placeholder)')).to.have.length(
+            8,
+          );
+        } else {
+          expect(win.customElements.get('events-section')).to.equal(undefined);
+        }
+        await new Promise((r) => requestAnimationFrame(r));
+        expect(errors).to.deep.equal([]);
+        return el.getBoundingClientRect().height;
+      } finally {
+        iframe.remove();
+      }
+    }
+
+    for (const width of [390, 1280]) {
+      it(`reserves the loaded cards' height before the script runs (${width}px)`, async () => {
+        const reserved = await height(width, false);
+        const loaded = await height(width, true);
+        expect(Math.abs(loaded - reserved), `${reserved} reserved, ${loaded} loaded`).to.be.below(
+          2,
+        );
+      });
+    }
   });
 
   it('withCdnBase replaces every {{CDN}} token and leaves the original untouched', () => {

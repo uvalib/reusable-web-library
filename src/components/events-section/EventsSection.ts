@@ -188,7 +188,7 @@ export class EventsSection extends UvalibElement {
 
   /** How many events to show (at most; fewer when fewer are coming up). */
   @property({ type: Number })
-  limit = DEFAULT_LIMIT;
+  limit = 8;
 
   /** Only events in this LibCal category (its id, for example `38740`; several comma-separated). */
   @property({ type: String })
@@ -208,7 +208,7 @@ export class EventsSection extends UvalibElement {
 
   /** The level of each event's title heading, 1 to 6. Default 3 (cards under an h2). */
   @property({ type: Number, attribute: 'heading-level' })
-  headingLevel = DEFAULT_LEVEL;
+  headingLevel = 3;
 
   /** `loading` (the default, until the first answer), `ready`, `empty` or `error`. Read-only. */
   get state(): EventsState {

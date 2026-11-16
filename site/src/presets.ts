@@ -4,7 +4,7 @@
 // absolute URL of the site's own copy of the CDN build (see withCdnBase).
 
 /** The menu's groups, in order: one per component. */
-export const GROUPS = ['Page', 'Header', 'Alerts', 'Search', 'Hours'] as const;
+export const GROUPS = ['Page', 'Header', 'Alerts', 'Search', 'Hours', 'Events'] as const;
 export type Group = (typeof GROUPS)[number];
 
 export interface Preset {
@@ -473,6 +473,42 @@ pre {
       <library-weekly-hours library-slug="clemons"></library-weekly-hours>
     </site-page>`,
         }),
+      },
+    },
+  },
+  {
+    id: 'events',
+    group: 'Events',
+    title: 'Library events',
+    description:
+      'events-section shows upcoming library events from LibCal as cards (title, date and time, in America/New_York), as on the library home page. limit sets how many; category and query filter them. Events come live from LibCal, which allows any origin. While they load, invisible placeholder cards hold the final height, and styles.css reserves it before the script runs, so nothing below jumps.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Library events',
+          components: ['events-section'],
+          body: `    <site-page>
+      <h1>Library events</h1>
+      <events-section limit="8"></events-section>
+      <p class="events-see-all"><a href="https://cal.lib.virginia.edu/calendar/events">See all Library events</a></p>
+    </site-page>`,
+          styles: true,
+        }),
+      },
+      'styles.css': {
+        content: `/* Before its script runs, reserve the height the eight cards will take, so the link
+   and footer below do not jump: one column of 9rem cards, 2rem apart, when narrow
+   (under 62rem), two rows of four when wide. */
+events-section:not(:defined) {
+  display: block;
+  min-height: 86rem;
+}
+@media (min-width: 70rem) {
+  events-section:not(:defined) {
+    min-height: 20rem;
+  }
+}
+`,
       },
     },
   },
