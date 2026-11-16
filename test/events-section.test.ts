@@ -173,6 +173,73 @@ describe('events-section', () => {
     expect(root(el).querySelector('.event-title')!.localName).to.equal('h6');
   });
 
+  describe('heading level from the page', () => {
+    /** Mount `html` (with one events-section in it) and return its card title tag. */
+    async function titleTag(html: string): Promise<string> {
+      const wrap = await fixture<HTMLElement>(`<div>${html}</div>`);
+      const el = wrap.querySelector('events-section') as EventsSection;
+      await settled(el);
+      return root(el).querySelector('.event-title')!.localName;
+    }
+
+    it('is one below the nearest heading before it', async () => {
+      expect(
+        await titleTag('<h2>Library events</h2><events-section limit="1"></events-section>'),
+      ).to.equal('h3');
+      expect(
+        await titleTag('<h3>Upcoming Events</h3><events-section limit="1"></events-section>'),
+      ).to.equal('h4');
+      expect(
+        await titleTag('<h1>Page</h1><p>Intro</p><events-section limit="1"></events-section>'),
+      ).to.equal('h2');
+      // Nested deeper in later markup, as on Drupal pages.
+      expect(
+        await titleTag(
+          '<h2>Events</h2><div class="et-events"><div><events-section limit="1"></events-section></div></div>',
+        ),
+      ).to.equal('h3');
+    });
+
+    it('uses role="heading" with aria-level and caps at 6', async () => {
+      expect(
+        await titleTag(
+          '<div role="heading" aria-level="4">Week</div><events-section limit="1"></events-section>',
+        ),
+      ).to.equal('h5');
+      expect(await titleTag('<h6>Deep</h6><events-section limit="1"></events-section>')).to.equal(
+        'h6',
+      );
+    });
+
+    it('defaults to h3 with no heading before it, and skips hidden headings', async () => {
+      expect(await titleTag('<events-section limit="1"></events-section>')).to.equal('h3');
+      expect(
+        await titleTag(
+          '<h2>Shown</h2><h4 hidden>Hidden</h4><div aria-hidden="true"><h5>Gone</h5></div><events-section limit="1"></events-section>',
+        ),
+      ).to.equal('h3');
+    });
+
+    it("does not nest under another component's titles (light DOM)", async () => {
+      const wrap = await fixture<HTMLElement>(
+        '<div><h2>Events</h2><events-section no-shadow-dom limit="1"></events-section><events-section no-shadow-dom limit="1" category="x"></events-section></div>',
+      );
+      const [a, b] = [...wrap.querySelectorAll('events-section')] as EventsSection[];
+      await settled(a!);
+      await settled(b!);
+      expect(a!.querySelector('.event-title')!.localName).to.equal('h3');
+      expect(b!.querySelector('.event-title')!.localName).to.equal('h3');
+    });
+
+    it('an explicit heading-level wins', async () => {
+      expect(
+        await titleTag(
+          '<h2>Events</h2><events-section limit="1" heading-level="5"></events-section>',
+        ),
+      ).to.equal('h5');
+    });
+  });
+
   describe('titles', () => {
     const LONG =
       'A very long event title that should be truncated by max-title-length at fifty characters';

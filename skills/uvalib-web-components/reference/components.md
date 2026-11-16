@@ -14,7 +14,7 @@ Upcoming UVA Library events from LibCal, as on the library.virginia.edu home pag
 | `category` | `string \| undefined` |  | Only events in this LibCal category (its id, for example `38740`; several comma-separated). |
 | `query` | `string \| undefined` |  | Only events matching this search text (LibCal's event search). |
 | `max-title-length` | `number \| undefined` |  | Cut titles longer than this many characters, with "…", for sighted users; assistive technology still gets the whole title. Titles are clamped to three lines anyway, so this is only kept for old pages. |
-| `heading-level` | `number` | `3` | The level of each event's title heading, 1 to 6. Default 3 (cards under an h2). |
+| `heading-level` | `number \| undefined` |  | The level of each event's title heading, 1 to 6. Unset (the default), it is one below the nearest heading before the element in the page (an `<h2>` above gives `<h3>` titles), or 3 when there is none. |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 

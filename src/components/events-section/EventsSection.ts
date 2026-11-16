@@ -1,3 +1,4 @@
+import { precedingHeadingLevel } from '../../base/heading-level.js';
 import { css, nothing, unsafeCSS, type PropertyValues } from 'lit';
 import { html, unsafeStatic, type StaticValue } from 'lit/static-html.js';
 import { property, state } from 'lit/decorators.js';
@@ -230,9 +231,16 @@ export class EventsSection extends UvalibElement {
   @property({ type: Number, attribute: 'max-title-length' })
   maxTitleLength?: number;
 
-  /** The level of each event's title heading, 1 to 6. Default 3 (cards under an h2). */
+  /**
+   * The level of each event's title heading, 1 to 6. Unset (the default), it is one below
+   * the nearest heading before the element in the page (an `<h2>` above gives `<h3>`
+   * titles), or 3 when there is none.
+   */
   @property({ type: Number, attribute: 'heading-level' })
-  headingLevel = 3;
+  headingLevel?: number;
+
+  /** One below the nearest preceding heading, worked out on connect (see `level`). */
+  @state() private inferredLevel = DEFAULT_LEVEL;
 
   /** `loading` (the default, until the first answer), `ready`, `empty` or `error`. Read-only. */
   get state(): EventsState {
@@ -259,6 +267,8 @@ export class EventsSection extends UvalibElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
+    const above = precedingHeadingLevel(this);
+    this.inferredLevel = above === null ? DEFAULT_LEVEL : Math.min(above + 1, 6);
     if (this.lightDom) {
       const node = this.getRootNode();
       const root = node instanceof ShadowRoot || node instanceof Document ? node : undefined;
@@ -297,8 +307,8 @@ export class EventsSection extends UvalibElement {
   }
 
   private get level(): number {
-    const n = Math.trunc(this.headingLevel);
-    return n >= 1 && n <= 6 ? n : DEFAULT_LEVEL;
+    const n = Math.trunc(this.headingLevel ?? Number.NaN);
+    return n >= 1 && n <= 6 ? n : this.inferredLevel;
   }
 
   protected override willUpdate(changed: PropertyValues<this>) {
