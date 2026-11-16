@@ -1,0 +1,281 @@
+{
+  "events": [
+    {
+      "id": 900001,
+      "title": "All-day exhibit opening",
+      "visibility": "public",
+      "cancelled": false,
+      "allday": true,
+      "start": "2026-11-20T00:00:00-05:00",
+      "end": "2026-11-20T23:59:00-05:00",
+      "url": {
+        "public": "https://cal.lib.virginia.edu/event/900001"
+      },
+      "location": {
+        "id": 33619,
+        "type": 2,
+        "name": "3D Printing Studio "
+      },
+      "campus": {
+        "id": 614,
+        "name": "Clemons Library"
+      },
+      "category": [
+        {
+          "id": 38740,
+          "name": "Robertson Media Center"
+        }
+      ],
+      "calendar": {
+        "id": 4299,
+        "name": "UVA Library Public Events",
+        "public": "https://cal.lib.virginia.edu/calendar/events"
+      },
+      "registration": true,
+      "has_registration_opened": true,
+      "has_registration_closed": false,
+      "seats": 3,
+      "seats_taken": 3,
+      "wait_list": true,
+      "featured_image": "//lcimages.s3.amazonaws.com/data/feat_img/863/8567/1518042555.png",
+      "featured_image_alt_text": "",
+      "future_dates": [],
+      "more_info": "",
+      "description": "<p>Trimmed for fixture.</p>",
+      "owner": {
+        "id": 0,
+        "name": "Library Staff"
+      }
+    },
+    {
+      "id": 900002,
+      "title": "Multi-day workshop",
+      "visibility": "public",
+      "cancelled": false,
+      "allday": false,
+      "start": "2026-11-20T09:00:00-05:00",
+      "end": "2026-11-21T17:00:00-05:00",
+      "url": {
+        "public": "https://cal.lib.virginia.edu/event/900002"
+      },
+      "location": {
+        "id": 33619,
+        "type": 2,
+        "name": "3D Printing Studio "
+      },
+      "campus": {
+        "id": 614,
+        "name": "Clemons Library"
+      },
+      "category": [
+        {
+          "id": 38740,
+          "name": "Robertson Media Center"
+        }
+      ],
+      "calendar": {
+        "id": 4299,
+        "name": "UVA Library Public Events",
+        "public": "https://cal.lib.virginia.edu/calendar/events"
+      },
+      "registration": true,
+      "has_registration_opened": true,
+      "has_registration_closed": false,
+      "seats": 3,
+      "seats_taken": 3,
+      "wait_list": true,
+      "featured_image": "//lcimages.s3.amazonaws.com/data/feat_img/863/8567/1518042555.png",
+      "featured_image_alt_text": "",
+      "future_dates": [],
+      "more_info": "",
+      "description": "<p>Trimmed for fixture.</p>",
+      "owner": {
+        "id": 0,
+        "name": "Library Staff"
+      }
+    },
+    {
+      "id": 900003,
+      "title": "A very long event title that should be truncated by max-title-length at fifty characters",
+      "visibility": "public",
+      "cancelled": false,
+      "allday": false,
+      "start": "2026-11-22T19:00:00-05:00",
+      "end": "2026-11-22T20:00:00-05:00",
+      "url": {
+        "public": "https://cal.lib.virginia.edu/event/900003"
+      },
+      "location": {
+        "id": 33619,
+        "type": 2,
+        "name": "3D Printing Studio "
+      },
+      "campus": {
+        "id": 614,
+        "name": "Clemons Library"
+      },
+      "category": [
+        {
+          "id": 38740,
+          "name": "Robertson Media Center"
+        }
+      ],
+      "calendar": {
+        "id": 4299,
+        "name": "UVA Library Public Events",
+        "public": "https://cal.lib.virginia.edu/calendar/events"
+      },
+      "registration": true,
+      "has_registration_opened": true,
+      "has_registration_closed": false,
+      "seats": 3,
+      "seats_taken": 3,
+      "wait_list": true,
+      "featured_image": "//lcimages.s3.amazonaws.com/data/feat_img/863/8567/1518042555.png",
+      "featured_image_alt_text": "",
+      "future_dates": [],
+      "more_info": "",
+      "description": "<p>Trimmed for fixture.</p>",
+      "owner": {
+        "id": 0,
+        "name": "Library Staff"
+      }
+    },
+    {
+      "id": 900004,
+      "title": "Late evening event crossing UTC midnight",
+      "visibility": "public",
+      "cancelled": false,
+      "allday": false,
+      "start": "2026-11-23T20:30:00-05:00",
+      "end": "2026-11-23T21:30:00-05:00",
+      "url": {
+        "public": "https://cal.lib.virginia.edu/event/900004"
+      },
+      "location": {
+        "id": 33619,
+        "type": 2,
+        "name": "3D Printing Studio "
+      },
+      "campus": {
+        "id": 614,
+        "name": "Clemons Library"
+      },
+      "category": [
+        {
+          "id": 38740,
+          "name": "Robertson Media Center"
+        }
+      ],
+      "calendar": {
+        "id": 4299,
+        "name": "UVA Library Public Events",
+        "public": "https://cal.lib.virginia.edu/calendar/events"
+      },
+      "registration": true,
+      "has_registration_opened": true,
+      "has_registration_closed": false,
+      "seats": 3,
+      "seats_taken": 3,
+      "wait_list": true,
+      "featured_image": "//lcimages.s3.amazonaws.com/data/feat_img/863/8567/1518042555.png",
+      "featured_image_alt_text": "",
+      "future_dates": [],
+      "more_info": "",
+      "description": "<p>Trimmed for fixture.</p>",
+      "owner": {
+        "id": 0,
+        "name": "Library Staff"
+      }
+    },
+    {
+      "id": 900005,
+      "title": "Event after DST starts",
+      "visibility": "public",
+      "cancelled": false,
+      "allday": false,
+      "start": "2027-03-15T10:00:00-04:00",
+      "end": "2027-03-15T11:00:00-04:00",
+      "url": {
+        "public": "https://cal.lib.virginia.edu/event/900005"
+      },
+      "location": {
+        "id": 33619,
+        "type": 2,
+        "name": "3D Printing Studio "
+      },
+      "campus": {
+        "id": 614,
+        "name": "Clemons Library"
+      },
+      "category": [
+        {
+          "id": 38740,
+          "name": "Robertson Media Center"
+        }
+      ],
+      "calendar": {
+        "id": 4299,
+        "name": "UVA Library Public Events",
+        "public": "https://cal.lib.virginia.edu/calendar/events"
+      },
+      "registration": true,
+      "has_registration_opened": true,
+      "has_registration_closed": false,
+      "seats": 3,
+      "seats_taken": 3,
+      "wait_list": true,
+      "featured_image": "//lcimages.s3.amazonaws.com/data/feat_img/863/8567/1518042555.png",
+      "featured_image_alt_text": "",
+      "future_dates": [],
+      "more_info": "",
+      "description": "<p>Trimmed for fixture.</p>",
+      "owner": {
+        "id": 0,
+        "name": "Library Staff"
+      }
+    },
+    {
+      "id": 900006,
+      "title": "No category & entity",
+      "visibility": "public",
+      "cancelled": false,
+      "allday": false,
+      "start": "2026-11-24T12:00:00-05:00",
+      "end": "2026-11-24T13:00:00-05:00",
+      "url": {
+        "public": "https://cal.lib.virginia.edu/event/900006"
+      },
+      "location": {
+        "id": 33619,
+        "type": 2,
+        "name": "3D Printing Studio "
+      },
+      "campus": {
+        "id": 614,
+        "name": "Clemons Library"
+      },
+      "category": [],
+      "calendar": {
+        "id": 4299,
+        "name": "UVA Library Public Events",
+        "public": "https://cal.lib.virginia.edu/calendar/events"
+      },
+      "registration": true,
+      "has_registration_opened": true,
+      "has_registration_closed": false,
+      "seats": 3,
+      "seats_taken": 3,
+      "wait_list": true,
+      "featured_image": "//lcimages.s3.amazonaws.com/data/feat_img/863/8567/1518042555.png",
+      "featured_image_alt_text": "",
+      "future_dates": [],
+      "more_info": "",
+      "description": "<p>Trimmed for fixture.</p>",
+      "owner": {
+        "id": 0,
+        "name": "Library Staff"
+      }
+    }
+  ]
+}

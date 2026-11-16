@@ -1,17 +1,18 @@
 import { esbuildPlugin } from '@web/dev-server-esbuild';
 import { playwrightLauncher } from '@web/test-runner-playwright';
 import { interceptAlerts } from './test/helpers/alerts-intercept.mjs';
+import { interceptEvents } from './test/helpers/events-intercept.mjs';
 import { hoursClockPlugin, interceptHours } from './test/helpers/hours-intercept.mjs';
 import { interceptMainNav } from './test/helpers/main-nav-intercept.mjs';
 import { interceptStatic } from './test/helpers/static-intercept.mjs';
 
 const TZ_FILES = 'test/**/*-tz.test.ts';
-const HOURS_TZ_FILES = 'test/library-hours-tz.test.ts';
+const NEW_YORK_TZ_FILES = ['test/library-hours-tz.test.ts', 'test/events-section-tz.test.ts'];
 
 /**
- * A Chromium launcher whose every context routes the alerts CDN, the library-hours
- * endpoints, the main-nav test hosts and static.lib.virginia.edu (dark mode's logo) to local
- * fixtures, so no test reaches the network for any of them. Service workers
+ * A Chromium launcher whose every context routes the alerts CDN, the library-hours and
+ * events endpoints, the main-nav test hosts and static.lib.virginia.edu (dark mode's logo) to
+ * local fixtures, so no test reaches the network for any of them. Service workers
  * are blocked so every request, including from the playground's preview frames, goes
  * through the routes (a worker's own fetches would not).
  */
@@ -19,10 +20,13 @@ const chromium = (options = {}) =>
   playwrightLauncher({
     product: 'chromium',
     createBrowserContext: ({ browser }) =>
-      interceptStatic(
-        interceptAlerts(
-          interceptHours(
-            interceptMainNav(browser.newContext({ serviceWorkers: 'block', ...options })),
+      // Events last: its routes must be tried before hours-intercept's catch-all for LibCal.
+      interceptEvents(
+        interceptStatic(
+          interceptAlerts(
+            interceptHours(
+              interceptMainNav(browser.newContext({ serviceWorkers: 'block', ...options })),
+            ),
           ),
         ),
       ),
@@ -46,10 +50,10 @@ export default {
       browsers: [chromium({ timezoneId: 'America/New_York' })],
     },
     {
-      // The library-hours time-zone tests again, far east of UTC: dates are computed in
-      // America/New_York whatever the browser's own zone.
+      // The library-hours and events time-zone tests again, far east of UTC: dates are
+      // computed in America/New_York whatever the browser's own zone.
       name: 'timezone-tokyo',
-      files: HOURS_TZ_FILES,
+      files: NEW_YORK_TZ_FILES,
       browsers: [chromium({ timezoneId: 'Asia/Tokyo' })],
     },
   ],

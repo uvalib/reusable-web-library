@@ -1,0 +1,401 @@
+{
+  "events": [
+    {
+      "id": 18006754,
+      "title": "3D Printing Training",
+      "visibility": "public",
+      "cancelled": false,
+      "allday": false,
+      "start": "2026-11-16T11:00:00-05:00",
+      "end": "2026-11-16T12:00:00-05:00",
+      "url": {
+        "public": "https://cal.lib.virginia.edu/event/18006754"
+      },
+      "location": {
+        "id": 33619,
+        "type": 2,
+        "name": "3D Printing Studio "
+      },
+      "campus": {
+        "id": 614,
+        "name": "Clemons Library"
+      },
+      "category": [
+        {
+          "id": 38740,
+          "name": "Robertson Media Center"
+        }
+      ],
+      "calendar": {
+        "id": 4299,
+        "name": "UVA Library Public Events",
+        "public": "https://cal.lib.virginia.edu/calendar/events"
+      },
+      "registration": true,
+      "has_registration_opened": true,
+      "has_registration_closed": false,
+      "seats": 3,
+      "seats_taken": 3,
+      "wait_list": true,
+      "featured_image": "//lcimages.s3.amazonaws.com/data/feat_img/863/8567/1518042555.png",
+      "featured_image_alt_text": "",
+      "future_dates": [],
+      "more_info": "",
+      "description": "<p>Trimmed for fixture.</p>",
+      "owner": {
+        "id": 0,
+        "name": "Library Staff"
+      }
+    },
+    {
+      "id": 17942295,
+      "title": "FREN 4854 - Introduction to ArcGIS StoryMaps",
+      "visibility": "public",
+      "cancelled": false,
+      "allday": false,
+      "start": "2026-11-17T09:30:00-05:00",
+      "end": "2026-11-17T10:45:00-05:00",
+      "url": {
+        "public": "https://cal.lib.virginia.edu/event/17942295"
+      },
+      "location": {
+        "id": 170573,
+        "type": 2,
+        "name": "Scholars' Lab Common Room (Rm 308)"
+      },
+      "campus": "",
+      "category": [],
+      "calendar": {
+        "id": 4299,
+        "name": "UVA Library Public Events",
+        "public": "https://cal.lib.virginia.edu/calendar/events"
+      },
+      "registration": false,
+      "seats": "",
+      "featured_image": "",
+      "featured_image_alt_text": "",
+      "future_dates": [],
+      "more_info": "",
+      "description": "<p>Trimmed for fixture.</p>",
+      "owner": {
+        "id": 0,
+        "name": "Library Staff"
+      }
+    },
+    {
+      "id": 17660322,
+      "title": "Microform Scanner Workshop",
+      "visibility": "public",
+      "cancelled": false,
+      "allday": false,
+      "start": "2026-11-17T11:00:00-05:00",
+      "end": "2026-11-17T12:00:00-05:00",
+      "url": {
+        "public": "https://cal.lib.virginia.edu/event/17660322"
+      },
+      "location": {
+        "id": 39433,
+        "type": 0,
+        "name": "Shannon Library Government Documents, Room 130"
+      },
+      "campus": {
+        "id": 8150,
+        "name": "Shannon Library"
+      },
+      "category": [
+        {
+          "id": 89002,
+          "name": "Microform Services"
+        }
+      ],
+      "calendar": {
+        "id": 4299,
+        "name": "UVA Library Public Events",
+        "public": "https://cal.lib.virginia.edu/calendar/events"
+      },
+      "registration": true,
+      "has_registration_opened": true,
+      "has_registration_closed": false,
+      "seats": 4,
+      "seats_taken": 0,
+      "wait_list": true,
+      "featured_image": "",
+      "featured_image_alt_text": "",
+      "future_dates": [],
+      "more_info": "",
+      "description": "<p>Trimmed for fixture.</p>",
+      "owner": {
+        "id": 0,
+        "name": "Library Staff"
+      }
+    },
+    {
+      "id": 18012780,
+      "title": "Origami free fold session",
+      "visibility": "public",
+      "cancelled": false,
+      "allday": false,
+      "start": "2026-11-17T19:00:00-05:00",
+      "end": "2026-11-17T21:00:00-05:00",
+      "url": {
+        "public": "https://cal.lib.virginia.edu/event/18012780"
+      },
+      "location": {
+        "id": 20407,
+        "type": 0,
+        "name": "The Makerspace (Shannon 308i)"
+      },
+      "campus": {
+        "id": 8150,
+        "name": "Shannon Library"
+      },
+      "category": [
+        {
+          "id": 70846,
+          "name": "Digital Humanities"
+        },
+        {
+          "id": 70848,
+          "name": "Scholars' Lab"
+        },
+        {
+          "id": 51598,
+          "name": "Workshop"
+        }
+      ],
+      "calendar": {
+        "id": 4299,
+        "name": "UVA Library Public Events",
+        "public": "https://cal.lib.virginia.edu/calendar/events"
+      },
+      "registration": true,
+      "has_registration_opened": true,
+      "has_registration_closed": false,
+      "seats": 10,
+      "seats_taken": 0,
+      "wait_list": true,
+      "featured_image": "https://d68g328n4ug0e.cloudfront.net/misc/863/events/4299/2026_11_12_18_48_11.jpg",
+      "featured_image_alt_text": "",
+      "future_dates": [],
+      "more_info": "",
+      "description": "<p>Trimmed for fixture.</p>",
+      "owner": {
+        "id": 0,
+        "name": "Library Staff"
+      }
+    },
+    {
+      "id": 18006767,
+      "title": "3D Printing Training",
+      "visibility": "public",
+      "cancelled": false,
+      "allday": false,
+      "start": "2026-11-18T11:00:00-05:00",
+      "end": "2026-11-18T12:00:00-05:00",
+      "url": {
+        "public": "https://cal.lib.virginia.edu/event/18006767"
+      },
+      "location": {
+        "id": 33619,
+        "type": 2,
+        "name": "3D Printing Studio "
+      },
+      "campus": {
+        "id": 614,
+        "name": "Clemons Library"
+      },
+      "category": [
+        {
+          "id": 38740,
+          "name": "Robertson Media Center"
+        }
+      ],
+      "calendar": {
+        "id": 4299,
+        "name": "UVA Library Public Events",
+        "public": "https://cal.lib.virginia.edu/calendar/events"
+      },
+      "registration": true,
+      "has_registration_opened": true,
+      "has_registration_closed": false,
+      "seats": 3,
+      "seats_taken": 1,
+      "wait_list": true,
+      "featured_image": "//lcimages.s3.amazonaws.com/data/feat_img/863/8567/1518042555.png",
+      "featured_image_alt_text": "",
+      "future_dates": [],
+      "more_info": "",
+      "description": "<p>Trimmed for fixture.</p>",
+      "owner": {
+        "id": 0,
+        "name": "Library Staff"
+      }
+    },
+    {
+      "id": 17444042,
+      "title": "Workshop: Virtual reality object modeling to 3D print workflow",
+      "visibility": "public",
+      "cancelled": false,
+      "allday": false,
+      "start": "2026-11-18T16:00:00-05:00",
+      "end": "2026-11-18T19:00:00-05:00",
+      "url": {
+        "public": "https://cal.lib.virginia.edu/event/17444042"
+      },
+      "location": {
+        "id": 171514,
+        "type": 2,
+        "name": "Scholars' Lab VR Space"
+      },
+      "campus": {
+        "id": 8150,
+        "name": "Shannon Library"
+      },
+      "category": [
+        {
+          "id": 70846,
+          "name": "Digital Humanities"
+        },
+        {
+          "id": 70848,
+          "name": "Scholars' Lab"
+        },
+        {
+          "id": 70849,
+          "name": "Virtual Reality"
+        }
+      ],
+      "calendar": {
+        "id": 4299,
+        "name": "UVA Library Public Events",
+        "public": "https://cal.lib.virginia.edu/calendar/events"
+      },
+      "registration": true,
+      "has_registration_opened": true,
+      "has_registration_closed": false,
+      "seats": 1,
+      "seats_taken": 0,
+      "wait_list": true,
+      "featured_image": "https://d68g328n4ug0e.cloudfront.net/gallery/863/vr-1911452_150.png",
+      "featured_image_alt_text": "",
+      "future_dates": [
+        {
+          "event_id": 17444044,
+          "start": "2026-11-25T16:00:00-05:00"
+        },
+        {
+          "event_id": 17444046,
+          "start": "2026-12-02T16:00:00-05:00"
+        },
+        {
+          "event_id": 17444047,
+          "start": "2026-12-09T16:00:00-05:00"
+        }
+      ],
+      "more_info": "",
+      "description": "<p>Trimmed for fixture.</p>",
+      "owner": {
+        "id": 0,
+        "name": "Library Staff"
+      }
+    },
+    {
+      "id": 18021916,
+      "title": "Poster Printing Workshop",
+      "visibility": "public",
+      "cancelled": false,
+      "allday": false,
+      "start": "2026-11-18T18:00:00-05:00",
+      "end": "2026-11-18T19:00:00-05:00",
+      "url": {
+        "public": "https://cal.lib.virginia.edu/event/18021916"
+      },
+      "location": {
+        "id": 20407,
+        "type": 0,
+        "name": "The Makerspace (Shannon 308i)"
+      },
+      "campus": {
+        "id": 8150,
+        "name": "Shannon Library"
+      },
+      "category": [
+        {
+          "id": 70848,
+          "name": "Scholars' Lab"
+        },
+        {
+          "id": 46484,
+          "name": "The Makerspace "
+        }
+      ],
+      "calendar": {
+        "id": 4299,
+        "name": "UVA Library Public Events",
+        "public": "https://cal.lib.virginia.edu/calendar/events"
+      },
+      "registration": true,
+      "has_registration_opened": true,
+      "has_registration_closed": false,
+      "seats": 10,
+      "seats_taken": 0,
+      "wait_list": false,
+      "featured_image": "",
+      "featured_image_alt_text": "",
+      "future_dates": [],
+      "more_info": "<p>The Scholars&#39; Lab Makerspace is located in Shannon Library on the 3rd floor. See here for The Makerspace open hours:&nbsp;<a href=\"https://scholarslab.lib.virginia.edu/makerspace/#hours\">https://scholarslab.lib.virginia.edu/makerspace/#hours</a></p>\n\n<p>&nbsp;</p>\n\n<p><img alt=\"\" loading=\"lazy\" src=\"https://d2jv02qf7xgjwx.cloudfront.net/customers/73/images/3rd-floor.png\" style=\"width: 498px; height: 660px;\" /></p>",
+      "description": "<p>Trimmed for fixture.</p>",
+      "owner": {
+        "id": 0,
+        "name": "Library Staff"
+      }
+    },
+    {
+      "id": 17614122,
+      "title": "Copyright & Open",
+      "visibility": "public",
+      "cancelled": false,
+      "allday": false,
+      "start": "2026-11-19T12:00:00-05:00",
+      "end": "2026-11-19T12:45:00-05:00",
+      "url": {
+        "public": "https://cal.lib.virginia.edu/event/17614122"
+      },
+      "location": {
+        "id": 0,
+        "type": 0,
+        "name": ""
+      },
+      "campus": {
+        "id": 4231,
+        "name": "Online"
+      },
+      "category": [
+        {
+          "id": 88937,
+          "name": "Open Education "
+        }
+      ],
+      "calendar": {
+        "id": 4299,
+        "name": "UVA Library Public Events",
+        "public": "https://cal.lib.virginia.edu/calendar/events"
+      },
+      "registration": true,
+      "has_registration_opened": true,
+      "has_registration_closed": false,
+      "seats": 10,
+      "seats_taken": 2,
+      "wait_list": true,
+      "featured_image": "https://d68g328n4ug0e.cloudfront.net/misc/863/events/4299/2026_09_09_15_22_40.jpg",
+      "featured_image_alt_text": "Blue lock unlocked with Open Education Series underneath",
+      "future_dates": [],
+      "more_info": "",
+      "description": "<p>Trimmed for fixture.</p>",
+      "owner": {
+        "id": 0,
+        "name": "Library Staff"
+      }
+    }
+  ]
+}
