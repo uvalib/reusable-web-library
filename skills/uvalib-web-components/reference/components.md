@@ -2,6 +2,35 @@
 
 <!-- Generated from dist/custom-elements.json by scripts/gen-reference.mjs. Do not edit by hand. -->
 
+## `<events-section>`
+
+Upcoming UVA Library events from LibCal, as on the library.virginia.edu home page: a grid of cards, each one link with the event's title, a date column (month, day, weekday) and its time, in America/New_York. Events that have ended are left out. Light DOM output keeps the classes the Drupal theme styles (`event-container`, `event`, `event-url`, `event-title`, `event-date`, `event--month`, `event--day`, `event--wkday`, `event-time`).
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `limit` | `number` | `8` | How many events to show (at most; fewer when fewer are coming up). |
+| `category` | `string \| undefined` |  | Only events in this LibCal category (its id, for example `38740`; several comma-separated). |
+| `query` | `string \| undefined` |  | Only events matching this search text (LibCal's event search). |
+| `max-title-length` | `number \| undefined` |  | Cut titles longer than this many characters, with "…", for sighted users; assistive technology still gets the whole title. Titles are clamped to three lines anyway, so this is only kept for old pages. |
+| `heading-level` | `number` | `3` | The level of each event's title heading, 1 to 6. Default 3 (cards under an h2). |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--events-section-min-height` | `0` | Height the element keeps during its first load (while it has the `loading` attribute). Its placeholder cards already hold the final height; this only matters for a page that wants more. Applies with `no-style` too. Pages can reserve height before the element upgrades with `events-section:not(:defined) { display: block; min-height: … }`. |
+| `--uva-brand-orange-dark` | `#b35900` | Background of the date column (white text on it is 4.8:1). |
+| `--uva-brand-blue` | `#232d4b` | Event title colour. |
+| `--uva-color-link` |  | Dark-mode role token: event title colour (else `--uva-brand-blue`). |
+| `--uva-color-text` |  | Dark-mode role token: time and status text (else #2b2b2b). |
+| `--uva-color-border` |  | Dark-mode role token: card border (else #dadada). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: card and button background (else #fff). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+
 ## `<library-hours-setup>`
 
 Upgrades Drupal's hours placeholders. On library.virginia.edu/hours Drupal renders `<div type="library-weekly-hours" library-slug="…" no-shadow-dom no-style>` for each library; this element replaces each one, in its own root node (the document or a shadow root), with a `<library-weekly-hours>` that has the same attributes (except `type`) and children. `library-slug="harrison"` also gets `hide-building-hours`. Placeholders added later are upgraded too, while this element is connected. It renders nothing.

@@ -1,11 +1,11 @@
 ---
 name: uvalib-web-components
-description: Use when building or editing UVA Library web pages or sites, adding the UVA Library header, footer or page wrapper to a page, using the custom elements <site-page>, <site-header>, <site-main-nav>, <site-footer>, <site-analytics>, <site-style>, <uvalib-filter>, <uvalib-date-range>, <site-hours-section>, <library-weekly-hours> or <library-hours-setup>, working with the @uvalib/web-components npm package, or editing script/link URLs on unpkg.internal.lib.virginia.edu (including migrating old /web-components/latest/ or cdn-v URLs). Covers CDN vs npm, version pinning, shadow vs light DOM, theming with --uva-* tokens, and a verification checklist.
+description: Use when building or editing UVA Library web pages or sites, adding the UVA Library header, footer or page wrapper to a page, using the custom elements <site-page>, <site-header>, <site-main-nav>, <site-footer>, <site-analytics>, <site-style>, <uvalib-filter>, <uvalib-date-range>, <site-hours-section>, <library-weekly-hours>, <library-hours-setup> or <events-section>, working with the @uvalib/web-components npm package, or editing script/link URLs on unpkg.internal.lib.virginia.edu (including migrating old /web-components/latest/ or cdn-v URLs). Covers CDN vs npm, version pinning, shadow vs light DOM, theming with --uva-* tokens, and a verification checklist.
 ---
 
 # UVA Library web components
 
-`@uvalib/web-components` provides the UVA Library page chrome as custom elements: `<site-page>` (skip link, header with the library main navigation, one `<main>`, footer), `<site-header>`, `<site-main-nav>` (the main navigation, rendered by the header), `<site-footer>`, `<site-analytics>` (Matomo) and `<site-style>` (legacy compatibility). It also ships two search-page components, `<uvalib-filter>` and `<uvalib-date-range>` (section 6), and three library-hours elements for library.virginia.edu, `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>` (section 7). Tag names are stable.
+`@uvalib/web-components` provides the UVA Library page chrome as custom elements: `<site-page>` (skip link, header with the library main navigation, one `<main>`, footer), `<site-header>`, `<site-main-nav>` (the main navigation, rendered by the header), `<site-footer>`, `<site-analytics>` (Matomo) and `<site-style>` (legacy compatibility). It also ships two search-page components, `<uvalib-filter>` and `<uvalib-date-range>` (section 6), and three library-hours elements for library.virginia.edu, `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`, and `<events-section>` for upcoming library events (section 7). Tag names are stable.
 
 Authority rule: https://www.library.virginia.edu and the UVA Library design system are the source of truth for how the chrome looks and what it says. Do not re-create, copy or restyle the header, footer, logo or links by hand. Use the components, and change appearance only through the theming surface below.
 
@@ -29,7 +29,7 @@ Loading rules:
 
 - One script is enough for the page chrome: `site-page.js` also loads the header (with its main navigation) and footer. Add `site-analytics.js` only when the site needs Matomo.
 - Also link `.../v1/base.css` in `<head>` (npm: `@uvalib/web-components/base.css`), unless the page sets `no-global-styles`. `<site-page>` installs the same base styles only after the first paint, so without the link the page shifts once (the default body margin goes away, and a heading's margin stops collapsing through the not-yet-defined `<site-page>`). The link also keeps `<site-page>` invisible until it is defined, with a two-second fallback.
-- npm: the define entries (`@uvalib/web-components/site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`) register the element. Importing the package root (`@uvalib/web-components`) gives the classes only and registers nothing. If you use the `SitePage` class directly, also import the header and footer define entries.
+- npm: the define entries (`@uvalib/web-components/site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`, `events-section.js`) register the element. Importing the package root (`@uvalib/web-components`) gives the classes only and registers nothing. If you use the `SitePage` class directly, also import the header and footer define entries.
 - Do not load the same component from both the CDN and npm on one page.
 
 ## 2. Required page structure
@@ -244,6 +244,12 @@ Use these only on library.virginia.edu (or with the data endpoints repointed): t
 <div type="library-weekly-hours" library-slug="clemons" no-shadow-dom no-style></div>
 <library-hours-setup></library-hours-setup>
 ```
+
+### Library events
+
+- `<events-section>` from `events-section.js`: upcoming events from LibCal (`cal.lib.virginia.edu`, which allows any origin, so it works on any site) as cards. Attributes: `limit` (default 8), `category` (LibCal category id), `query` (search), `heading-level` (1 to 6, default 3), `max-title-length` (old pages only: titles already clamp to three lines). Read `state` (`loading`, `ready`, `empty`, `error`). Dates and times are America/New_York; do not compute them yourself.
+- On library.virginia.edu use `no-shadow-dom no-style`: the Drupal theme styles its classes (`event-container`, `event-url`, `event-title`, `event-date`, `event-time`). Repoint the data with `window.uvalibEventsEndpoints = { events: '…', search: '…' }` before the define script, or the class's static `endpoints`.
+- Migrating Drupal: `…/web-components/cdn-v2.0.8/@uvalib/bento-box/events-section.js` (or `https://unpkg.com/@uvalib/cdn-builds@1.0.2/build/events-section.js`) becomes `https://unpkg.internal.lib.virginia.edu/web-components/v1/events-section.js`; the markup stays. Add `heading-level="4"` where the section sits under an h3 (/rmc), and drop the inline script that set `max-title-length`.
 
 ## 8. Verification checklist
 

@@ -5,6 +5,7 @@ Reusable web components for UVA Library sites, built with Lit and TypeScript:
 - **Page chrome:** `<site-page>` (skip link, header with the library main navigation and live library alerts, one `<main>`, footer), `<site-header>`, `<site-main-nav>`, `<site-footer>`, `<site-analytics>` (Matomo) and `<site-style>` (legacy compatibility).
 - **Search:** `<uvalib-filter>` and `<uvalib-date-range>`.
 - **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
+- **Library events:** `<events-section>`.
 
 [library.virginia.edu](https://www.library.virginia.edu) and the UVA Library design system are the style authority: these components exist so sites use the real chrome instead of copying it. Change appearance only through the theming surface below.
 
@@ -59,7 +60,7 @@ To do it by hand, read on.
 
 Try every component and mode, edit the code, and share a link: <https://uvalib.github.io/reusable-web-library/>
 
-The page is built with the library itself. Its header's main navigation is the examples menu: one group per component (Page, Header, Alerts, Search, Hours), above one editor with a live preview; on phones the groups are accordions in the header's Menu. Each example has its own link, such as [`#weekly-hours`](https://uvalib.github.io/reusable-web-library/#weekly-hours). Copy link puts your edited files in the URL (`#files=…`), so the link opens with your changes; Reset goes back to the example. Old `playground.html` links, share links included, redirect to the page. The page also has [dark mode](#dark-mode): Light, Dark or System in the header (in the Menu on phones) switches the page and the editor; the previews run on another origin, so they keep their own scheme.
+The page is built with the library itself. Its header's main navigation is the examples menu: one group per component (Page, Header, Alerts, Search, Hours, Events), above one editor with a live preview; on phones the groups are accordions in the header's Menu. Each example has its own link, such as [`#weekly-hours`](https://uvalib.github.io/reusable-web-library/#weekly-hours). Copy link puts your edited files in the URL (`#files=…`), so the link opens with your changes; Reset goes back to the example. Old `playground.html` links, share links included, redirect to the page. The page also has [dark mode](#dark-mode): Light, Dark or System in the header (in the Menu on phones) switches the page and the editor; the previews run on another origin, so they keep their own scheme.
 
 ## Install
 
@@ -90,7 +91,7 @@ npm i @uvalib/web-components
 import '@uvalib/web-components/site-page.js'; // registers site-page, site-header, site-main-nav and site-footer
 ```
 
-The define entries are `site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js` and `library-hours-setup.js`. The package root (`import '@uvalib/web-components'`) exports the classes only and registers nothing. To use a class such as `SitePage` directly, also import the define entries. CSS is available as `@uvalib/web-components/tokens.css` and `base.css`. Do not load the same component from both the CDN and npm on one page.
+The define entries are `site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js` and `events-section.js`. The package root (`import '@uvalib/web-components'`) exports the classes only and registers nothing. To use a class such as `SitePage` directly, also import the define entries. CSS is available as `@uvalib/web-components/tokens.css` and `base.css`. Do not load the same component from both the CDN and npm on one page.
 
 ## Quick start
 
@@ -356,12 +357,63 @@ Three elements show opening hours from the library's own data, for library.virgi
 - **Light DOM output** keeps the class names Drupal's CSS targets (`home-hours-block`, `hours-locations`, `weekly-hours-header-section`, `weekly-hours-body-section`, `date--mobile`, `lib-space-link`, …). `<library-weekly-hours>` keeps a few layout rules even with `no-style` (the host is `display: block`, the week header is a flex row, `[hidden]` hides), scoped to the tag in `@layer uvalib`. `headinglevelstart` is still read as an alias of `heading-level`.
 - **Drupal switch.** Replace the old `…/web-components/cdn-vX.Y.Z/@uvalib/site-hours/<file>.js` script URLs with `https://unpkg.internal.lib.virginia.edu/web-components/v1/<tag>.js` (`site-hours-section.js` on the home page, `library-hours-setup.js` on /hours). The markup stays the same. `library-daily-hours` is not migrated.
 
+## Library events
+
+`<events-section>` shows upcoming library events from LibCal as a grid of cards, as on the library.virginia.edu home page. Each card is one link to the event's LibCal page: its title, a date column (month, day, weekday) and its time. Entry: `events-section.js` on the CDN, `@uvalib/web-components/events-section.js` on npm.
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/events-section.js"
+></script>
+<h2>Library events</h2>
+<events-section limit="8" no-shadow-dom no-style></events-section>
+```
+
+- **Attributes.** `limit` (default 8): at most this many events. `category`: only one LibCal category (its id, such as `38740` for the Robertson Media Center; several comma-separated). `query`: only events matching a search (LibCal's event search). `heading-level` (1 to 6, default 3): the level of each card's title heading; use 4 where the section sits under an h3. `max-title-length`: still accepted from old pages (see below). `no-shadow-dom` and `no-style` as for every element.
+- **Titles** are clamped to three lines with CSS, with the whole title still in the DOM, so screen readers read all of it. With `max-title-length` a longer title is cut with "…" for the eye only; assistive technology still gets the whole title. A title of exactly that many characters is not cut.
+- **Dates and times** are always America/New_York, whatever the visitor's time zone: "11:00 AM - 12:00 PM EST" (EST or EDT for the event's own date), "All day" for all-day events, and "Nov 23, 7:00 PM - Nov 24, 1:00 AM EST" for an event over several days (whose date column shows its start). The date column is abbreviated on screen; screen readers get the full date ("Monday, November 16") from a `<time datetime>`, so each link reads title, date, then time. Events that have ended are left out before `limit` applies.
+- **Data.** LibCal's API 1.0 at `https://cal.lib.virginia.edu/api/1.0/events` (or `event_search` with `query`), for the library's public events calendar, 30 days ahead (LibCal's maximum), with LibCal's public, read-only events widget key (already public in the old bundles). LibCal allows any origin, so the element works on any site. It fetches ten more events than `limit` (at most 100), so the list still fills once ended events are dropped. Elements asking for the same events share one request; each attempt times out after 10 seconds and failed attempts are retried twice, a second apart. To repoint (tests, a proxy), set `window.uvalibEventsEndpoints = { events: '…', search: '…' }` before the define script runs, or assign `customElements.get('events-section').endpoints` (or `EventsSection.endpoints` from npm) afterwards; `limit`, `category` and `search` are added to those URLs.
+- **States.** Read the read-only `state`: `loading`, `ready`, `empty` or `error`. A polite `role="status"` line says "Loading events…" while the first load runs, nothing once the events are in, "No upcoming events." when there are none, and "Events are unavailable right now." with a Retry button when they cannot be loaded; after an error the element also retries quietly every minute.
+- **Layout shift.** From its first render the element draws `limit` invisible placeholder cards (the real DOM and classes, `aria-hidden`), so it has its final height in the page's own font and grid, and the events replace them in place. Fewer events collapse the grid; with none it keeps one row; on an error it keeps the placeholders, so a retry that succeeds moves nothing. The status line sits over the top of the cards at a constant height, so it never moves anything either. To reserve the space before the script has run, add `events-section:not(:defined) { display: block; min-height: … }` (the [Events example](https://uvalib.github.io/reusable-web-library/#events) shows the values for the styled cards); `--events-section-min-height` also applies while the element has its `loading` attribute.
+- **Light DOM output** keeps the classes the Drupal theme styles: `div.event-container` > `div.event` > `a.event-url` > `.event-title`, `p.event-date` (`span.event--month`, `span.event--day`, `span.event--wkday`) and `p.event-time`. A few rules apply even with `no-style`, scoped to the tag in `@layer uvalib`: the host is a block, placeholders are invisible, titles are clamped and underlined on hover, and `[hidden]` hides. The old element's repeated `homehoursMonth` / `homehoursDay` / `homehoursWeekDay` ids and its `see-more` slot are gone. Styled (without `no-style`) the cards follow the Drupal look with the dark-mode role tokens; the date column is `--uva-brand-orange-dark` (#b35900) behind white text (4.8:1), because white on the brand orange is only 3.1:1.
+- **Drupal switch.** Replace the old `…/web-components/cdn-v2.0.8/@uvalib/bento-box/events-section.js` and `https://unpkg.com/@uvalib/cdn-builds@1.0.2/build/events-section.js` script URLs with `https://unpkg.internal.lib.virginia.edu/web-components/v1/events-section.js`. The markup stays the same, except on /rmc, where the cards sit under an h3: add `heading-level="4"` there. The inline script that sets `max-title-length` is no longer needed (titles clamp to three lines) and can go.
+
 ## Components
 
 Generated from `dist/custom-elements.json` by `scripts/gen-reference.mjs`; do not edit between the markers by hand.
 
 <!-- components:start -->
 <!-- prettier-ignore-start -->
+
+### `<events-section>`
+
+Upcoming UVA Library events from LibCal, as on the library.virginia.edu home page: a grid of cards, each one link with the event's title, a date column (month, day, weekday) and its time, in America/New_York. Events that have ended are left out. Light DOM output keeps the classes the Drupal theme styles (`event-container`, `event`, `event-url`, `event-title`, `event-date`, `event--month`, `event--day`, `event--wkday`, `event-time`).
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `limit` | `number` | `8` | How many events to show (at most; fewer when fewer are coming up). |
+| `category` | `string \| undefined` |  | Only events in this LibCal category (its id, for example `38740`; several comma-separated). |
+| `query` | `string \| undefined` |  | Only events matching this search text (LibCal's event search). |
+| `max-title-length` | `number \| undefined` |  | Cut titles longer than this many characters, with "…", for sighted users; assistive technology still gets the whole title. Titles are clamped to three lines anyway, so this is only kept for old pages. |
+| `heading-level` | `number` | `3` | The level of each event's title heading, 1 to 6. Default 3 (cards under an h2). |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--events-section-min-height` | `0` | Height the element keeps during its first load (while it has the `loading` attribute). Its placeholder cards already hold the final height; this only matters for a page that wants more. Applies with `no-style` too. Pages can reserve height before the element upgrades with `events-section:not(:defined) { display: block; min-height: … }`. |
+| `--uva-brand-orange-dark` | `#b35900` | Background of the date column (white text on it is 4.8:1). |
+| `--uva-brand-blue` | `#232d4b` | Event title colour. |
+| `--uva-color-link` |  | Dark-mode role token: event title colour (else `--uva-brand-blue`). |
+| `--uva-color-text` |  | Dark-mode role token: time and status text (else #2b2b2b). |
+| `--uva-color-border` |  | Dark-mode role token: card border (else #dadada). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: card and button background (else #fff). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ### `<library-hours-setup>`
 
@@ -779,7 +831,7 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 
 Three automated checks guard accessibility, best practice and performance. The first two run in `pnpm test`; Lighthouse is slower and runs on its own (`pnpm lhci`, and the `lighthouse` job in the `CI` workflow).
 
-- **axe, at every impact level.** `expectNoAxeViolations` (`test/helpers/axe.ts`) fails on minor, moderate, serious and critical violations, so best-practice rules such as `heading-order`, `region` and the landmark rules count. Every visual component is audited in shadow and light DOM, and in the states people use: menus and groups open (the header Menu popover at 390px, `site-main-nav` at 1280px and 390px), `uvalib-filter` expanded with a scope pressed and a box checked, `uvalib-date-range` with the sliders on one year and dates typed, and the hours elements loading, loaded and failing. Full-page tests use `expectNoPageAxeViolations`, which audits the whole document so the rules that only match `<html>` (`landmark-one-main`, `page-has-heading-one`) run too; it gives the test runner's bare page a `<title>` and `lang` first, and disables no rule. Tests never reach the network: `test/helpers/*-intercept.mjs` route the alerts, hours and main-nav hosts to fixtures.
+- **axe, at every impact level.** `expectNoAxeViolations` (`test/helpers/axe.ts`) fails on minor, moderate, serious and critical violations, so best-practice rules such as `heading-order`, `region` and the landmark rules count. Every visual component is audited in shadow and light DOM, and in the states people use: menus and groups open (the header Menu popover at 390px, `site-main-nav` at 1280px and 390px), `uvalib-filter` expanded with a scope pressed and a box checked, `uvalib-date-range` with the sliders on one year and dates typed, the hours elements loading, loaded and failing, and `events-section` loading, loaded, empty and failing, on its own and in home-page markup in light and dark. Full-page tests use `expectNoPageAxeViolations`, which audits the whole document so the rules that only match `<html>` (`landmark-one-main`, `page-has-heading-one`) run too; it gives the test runner's bare page a `<title>` and `lang` first, and disables no rule. Tests never reach the network: `test/helpers/*-intercept.mjs` route the alerts, hours, events and main-nav hosts to fixtures.
 - **Bundle-size budgets.** `test/size-budget.test.mjs` gzips (level 9) every entry in `dist-cdn/manifest.json` together with every chunk it imports, statically or with `import()` (site-page's lazy site-footer), each counted once, and fails if one exceeds its budget in `test/size-budgets.json` (about 12% over the sizes below). `node scripts/bundle-sizes.mjs` prints today's sizes against the budgets. When a change has to grow a bundle, raise its budget in the same PR and say why.
 
   | Entry                     | gzip (bytes) | Budget |
@@ -795,10 +847,11 @@ Three automated checks guard accessibility, best practice and performance. The f
   | `site-hours-section.js`   |       14,699 | 16,500 |
   | `library-weekly-hours.js` |       14,524 | 16,300 |
   | `library-hours-setup.js`  |       15,128 | 17,000 |
+  | `events-section.js`       |       13,995 | 15,700 |
   | `tokens.css`              |          592 |    670 |
   | `base.css`                |          226 |    260 |
 
-- **Lighthouse CI** (`pnpm lhci`, `@lhci/cli`, settings and assertions in `lighthouserc.json`). The playground's previews run in a cross-origin sandbox, so `scripts/lhci.mjs` writes each example in `site/src/presets.ts` as a plain page into a temporary folder, next to a copy of the site build's `cdn/` (the local `dist-cdn`) and `data/`, serves it from localhost and audits it with Playwright's Chromium (Lighthouse's default mobile emulation, three runs per page, about 10 minutes). Assertions use each metric's median over the three runs, since a single run's CLS depends on when the page's first paint lands. Each page must score 1.0 for accessibility, at least 0.95 for best practices and 0.9 for performance, with CLS at most 0.05 and TBT at most 200 ms. Nothing reaches the network: Typekit and the alerts CDN are blocked (site-page treats both as optional, so the pages fall back to the system font stack and show no alerts, and their font swap is not measured); the header logo and LibCal are answered locally (a same-size stand-in logo through `root-link-domain`, and every library open 8am–10pm), with the library website and LibCal also blocked as a backstop. `pnpm lhci` builds first; reports are left in `.lighthouseci/`.
+- **Lighthouse CI** (`pnpm lhci`, `@lhci/cli`, settings and assertions in `lighthouserc.json`). The playground's previews run in a cross-origin sandbox, so `scripts/lhci.mjs` writes each example in `site/src/presets.ts` as a plain page into a temporary folder, next to a copy of the site build's `cdn/` (the local `dist-cdn`) and `data/`, serves it from localhost and audits it with Playwright's Chromium (Lighthouse's default mobile emulation, three runs per page, about 10 minutes). Assertions use each metric's median over the three runs, since a single run's CLS depends on when the page's first paint lands. Each page must score 1.0 for accessibility, at least 0.95 for best practices and 0.9 for performance, with CLS at most 0.05 and TBT at most 200 ms. Nothing reaches the network: Typekit and the alerts CDN are blocked (site-page treats both as optional, so the pages fall back to the system font stack and show no alerts, and their font swap is not measured); the header logo and LibCal are answered locally (a same-size stand-in logo through `root-link-domain`, and every library open 8am–10pm), with the library website and LibCal also blocked as a backstop. The events example is not stubbed: with LibCal blocked it shows its error state, which keeps the placeholder cards' height, so it is audited for layout shift like the rest. `pnpm lhci` builds first; reports are left in `.lighthouseci/`.
 - `pnpm sync:main-nav` regenerates the bundled main navigation (`src/components/site-main-nav/main-nav-data.ts`) from the desktop "Main navigation" menu of the live library.virginia.edu home page. `node scripts/sync-main-nav.mjs saved.html` reads a saved page instead. It exits non-zero, writing nothing, if the menu's structure is not found or has fewer than 2 groups or 6 links. Commit the result.
 - `pnpm start` runs the Vite dev server for the playground site (`site/`) and the demos (`demo/`), rooted at the repo: open `/site/` for the examples page, or `/demo/` for the demo pages. In dev, `cdn/<tag>.js` is served straight from `src/components/`, so edits show up on reload; `cdn/tokens.css` and `base.css` come from `dist-cdn/` (run `pnpm build` first).
 - Previews run on the playground-elements sandbox at unpkg.com (never self-hosted: share links run untrusted code), which needs internet access. Locally, that public origin has to load the components from `http://localhost`; Vite's localhost-only CORS policy and Chrome's local network protections block this, so the components may not render in previews under `pnpm start` or `vite preview`. The editors, plain HTML previews and share links still work. Components render in previews on GitHub Pages, which serves `cdn/` with `Access-Control-Allow-Origin: *`.
