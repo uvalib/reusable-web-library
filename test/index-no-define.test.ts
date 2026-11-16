@@ -13,6 +13,7 @@ describe('index', () => {
     expect(lib.SiteHoursSection).to.be.a('function');
     expect(lib.LibraryWeeklyHours).to.be.a('function');
     expect(lib.LibraryHoursSetup).to.be.a('function');
+    expect(lib.EventsSection).to.be.a('function');
     for (const tag of [
       'site-page',
       'site-header',
@@ -25,6 +26,7 @@ describe('index', () => {
       'site-hours-section',
       'library-weekly-hours',
       'library-hours-setup',
+      'events-section',
     ]) {
       expect(customElements.get(tag) === undefined, `${tag} is defined`).to.equal(true);
     }

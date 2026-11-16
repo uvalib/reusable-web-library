@@ -25,3 +25,6 @@ export { LibraryWeeklyHours } from './components/library-weekly-hours/LibraryWee
 export type { HoursState } from './components/library-weekly-hours/LibraryWeeklyHours.js';
 export { LibraryHoursSetup } from './components/library-hours-setup/LibraryHoursSetup.js';
 export type { LibraryInfo, DayHours } from './components/library-hours/hours-data.js';
+export { EventsSection } from './components/events-section/EventsSection.js';
+export type { EventsState } from './components/events-section/EventsSection.js';
+export type { EventItem } from './components/events-section/events-data.js';

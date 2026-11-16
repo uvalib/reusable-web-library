@@ -12,6 +12,7 @@ const tags = [
   'site-hours-section',
   'library-weekly-hours',
   'library-hours-setup',
+  'events-section',
 ];
 
 // Library mode, ES output: one self-contained entry per component, with Lit and shared

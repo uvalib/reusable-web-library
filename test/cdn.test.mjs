@@ -19,6 +19,7 @@ const TAGS = [
   'site-hours-section',
   'library-weekly-hours',
   'library-hours-setup',
+  'events-section',
 ];
 
 const manifest = () => JSON.parse(readFileSync(join(cdn, 'manifest.json'), 'utf8'));

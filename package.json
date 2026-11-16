@@ -16,9 +16,11 @@
     "./dist/components/*/site-*.js",
     "./dist/components/*/uvalib-*.js",
     "./dist/components/*/library-*.js",
+    "./dist/components/events-section/events-section.js",
     "./src/components/*/site-*.ts",
     "./src/components/*/uvalib-*.ts",
     "./src/components/*/library-*.ts",
+    "./src/components/events-section/events-section.ts",
     "*.css"
   ],
   "customElements": "dist/custom-elements.json",
@@ -74,6 +76,10 @@
     "./library-hours-setup.js": {
       "types": "./dist/components/library-hours-setup/library-hours-setup.d.ts",
       "default": "./dist/components/library-hours-setup/library-hours-setup.js"
+    },
+    "./events-section.js": {
+      "types": "./dist/components/events-section/events-section.d.ts",
+      "default": "./dist/components/events-section/events-section.js"
     },
     "./tokens.css": "./dist/tokens.css",
     "./base.css": "./dist/base.css",
