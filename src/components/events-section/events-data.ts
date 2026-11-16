@@ -42,10 +42,17 @@ export const eventsEndpoints: EventsEndpoints = {
 };
 
 /**
- * Fetch attempts, the delay between them (ms) and each attempt's timeout (ms), and how often
- * (ms) an element that could not load its events tries again, quietly.
+ * Fetch attempts, the delay between them (ms) and each attempt's timeout (ms); how often (ms)
+ * an element checks its events (after an error it tries again; otherwise it drops ended
+ * events), and the age (ms) after which that check fetches them again.
  */
-export const eventsTiming = { retries: 3, retryDelay: 1000, timeout: 10_000, retryEvery: 60_000 };
+export const eventsTiming = {
+  retries: 3,
+  retryDelay: 1000,
+  timeout: 10_000,
+  retryEvery: 60_000,
+  maxAge: 3_600_000,
+};
 
 /** Events fetched beyond `limit`, so the list still fills once ended events are dropped. */
 const EXTRA = 10;
@@ -95,7 +102,8 @@ const ADDED = new Set(['limit', 'category', 'search']);
  */
 export function eventsUrl({ limit, category, query }: EventsQuery): string {
   const base = query ? endpoints().search : endpoints().events;
-  const [path, search = ''] = base.split('?', 2) as [string, string?];
+  const q = base.indexOf('?');
+  const [path, search] = q < 0 ? [base, ''] : [base.slice(0, q), base.slice(q + 1)];
   const kept = search
     .split('&')
     .filter((pair) => pair && !ADDED.has(decodeURIComponent(pair.split('=')[0]!)));
@@ -150,23 +158,30 @@ export function upcoming(
     .slice(0, Math.max(0, limit));
 }
 
-const cache = new Map<string, Promise<EventItem[]>>();
+interface CacheEntry {
+  at: number;
+  promise: Promise<EventItem[]>;
+}
+const cache = new Map<string, CacheEntry>();
 
 /**
  * The events for `q` (all of them, ended ones included: see `upcoming`). Identical requests
- * share one fetch for the life of the page; a failure is not cached.
+ * share one fetch; a cached answer older than `maxAge` ms is fetched again. A failure is not
+ * cached.
  */
-export function loadEvents(q: EventsQuery): Promise<EventItem[]> {
+export function loadEvents(q: EventsQuery, maxAge = Infinity): Promise<EventItem[]> {
   const url = eventsUrl(q);
-  let p = cache.get(url);
-  if (!p) {
-    const promise = fetchJson(url, eventsTiming).then(parseEvents);
-    cache.set(url, (p = promise));
-    promise.catch(() => {
-      if (cache.get(url) === promise) cache.delete(url);
-    });
-  }
-  return p;
+  const hit = cache.get(url);
+  if (hit && performance.now() - hit.at <= maxAge) return hit.promise;
+  const entry: CacheEntry = {
+    at: performance.now(),
+    promise: fetchJson(url, eventsTiming).then(parseEvents),
+  };
+  cache.set(url, entry);
+  entry.promise.catch(() => {
+    if (cache.get(url) === entry) cache.delete(url);
+  });
+  return entry.promise;
 }
 
 /** Forget cached events and re-read `window.uvalibEventsEndpoints` (for tests). */

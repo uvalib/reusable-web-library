@@ -86,6 +86,13 @@ describe('events data', () => {
       expect(url.searchParams.has('search')).to.equal(false);
     });
 
+    it('keeps an override URL whole when it has a second ?', () => {
+      eventsEndpoints.events = 'https://events-empty.test/api/1.0/events?key=k&next=/a?b=1';
+      expect(eventsUrl({ limit: 1 })).to.equal(
+        'https://events-empty.test/api/1.0/events?key=k&next=/a?b=1&limit=11',
+      );
+    });
+
     it('reads window.uvalibEventsEndpoints at the first fetch', () => {
       window.uvalibEventsEndpoints = { events: 'https://events-empty.test/api/1.0/events?key=w' };
       expect(eventsUrl({ limit: 1 })).to.match(
@@ -229,6 +236,20 @@ describe('events data', () => {
         await loadEvents({ limit: 8 });
         expect(rec.urls).to.have.length(1);
         await loadEvents({ limit: 8, category: '38740' });
+        expect(rec.urls).to.have.length(2);
+      } finally {
+        rec.restore();
+      }
+    });
+
+    it('fetches again once the cached answer is older than maxAge', async () => {
+      const rec = recordFetches();
+      try {
+        await loadEvents({ limit: 3 });
+        await loadEvents({ limit: 3 }, 60_000);
+        expect(rec.urls).to.have.length(1);
+        await new Promise((r) => setTimeout(r, 20));
+        await loadEvents({ limit: 3 }, 10);
         expect(rec.urls).to.have.length(2);
       } finally {
         rec.restore();

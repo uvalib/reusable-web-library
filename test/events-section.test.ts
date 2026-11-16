@@ -465,6 +465,33 @@ describe('events-section', () => {
       expect(text(status(el))).to.equal('');
     });
 
+    it('refetches quietly once its events are an hour old, keeping the cards on screen', async () => {
+      eventsTiming.retryEvery = 30;
+      eventsTiming.maxAge = 60;
+      const rec = recordFetches();
+      try {
+        const el = await make('limit="2"');
+        expect(rec.urls).to.have.length(1);
+        let emptied = false;
+        const watch = setInterval(() => (emptied ||= cards(el).length !== 2), 5);
+        try {
+          await waitUntil(() => rec.urls.length >= 2, 'did not refetch', { timeout: 2000 });
+          // A failing refetch keeps the cards too.
+          useEventsHost('events-fail.test');
+          const n = rec.urls.length;
+          await waitUntil(() => rec.urls.length > n, 'did not refetch again', { timeout: 2000 });
+          await new Promise((r) => setTimeout(r, 100));
+        } finally {
+          clearInterval(watch);
+        }
+        expect(emptied).to.equal(false);
+        expect(el.state).to.equal('ready');
+        expect(text(status(el))).to.equal('');
+      } finally {
+        rec.restore();
+      }
+    });
+
     it('stops retrying when disconnected', async () => {
       eventsTiming.retryEvery = 30;
       useEventsHost('events-fail.test');

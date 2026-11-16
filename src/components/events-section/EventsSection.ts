@@ -266,9 +266,10 @@ export class EventsSection extends UvalibElement {
     }
     clearInterval(this.retryTimer);
     // Quietly try again after an error; once loaded, drop events that have since ended
-    // (from the cache: no new request).
+    // (from the cache), fetching them again when the cached answer is an hour old.
     this.retryTimer = setInterval(() => {
-      if (this._state !== 'loading') void this.load({ background: true });
+      if (this._state !== 'loading')
+        void this.load({ background: true, maxAge: eventsTiming.maxAge });
     }, eventsTiming.retryEvery);
     // Reconnected after a disconnect: catch up.
     if (this.hasUpdated) void this.load({ background: true });
@@ -306,16 +307,22 @@ export class EventsSection extends UvalibElement {
    * `background` load (the retry interval) does not show the loading state and, if it fails
    * while events are shown, keeps them.
    */
-  private async load({ background = false }: { background?: boolean } = {}) {
+  private async load({
+    background = false,
+    maxAge = Infinity,
+  }: { background?: boolean; maxAge?: number } = {}) {
     const id = ++this.loadId;
     const limit = this.count;
     if (!background) this._state = 'loading';
     try {
-      const all = await loadEvents({
-        limit,
-        category: this.category?.trim() || undefined,
-        query: this.query?.trim() || undefined,
-      });
+      const all = await loadEvents(
+        {
+          limit,
+          category: this.category?.trim() || undefined,
+          query: this.query?.trim() || undefined,
+        },
+        maxAge,
+      );
       if (id !== this.loadId) return; // a newer load owns the element
       this.events = upcoming(all, limit);
       this._state = this.events.length ? 'ready' : 'empty';
