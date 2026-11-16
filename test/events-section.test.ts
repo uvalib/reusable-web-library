@@ -1,4 +1,5 @@
 import { expect, fixture, waitUntil } from '@open-wc/testing';
+import { setViewport } from '@web/test-runner-commands';
 import '../src/components/events-section/events-section.js';
 import { define } from '../src/base/define.js';
 import { EventsSection } from '../src/components/events-section/EventsSection.js';
@@ -477,45 +478,90 @@ describe('events-section', () => {
   });
 
   describe('layout stability', () => {
-    /** The Drupal theme's event grid, enough of it to lay out light no-style cards. */
+    /**
+     * Enough of the Drupal theme (uvalib-drupal-theme scss/base/_spacing.scss and
+     * layouts/_event-container.scss) to lay out light no-style cards as library.virginia.edu
+     * does: its 17px root, heading margins (h3 3rem, h4 1rem; .event-title extends .h6,
+     * which sets no top margin), paragraph padding and the event grid.
+     */
     const DRUPAL_CSS = `
+      html { font-size: 17px; }
+      h1, h2, h3 { margin-top: 3rem; margin-bottom: 1rem; }
+      h4, h5 { margin-top: 1rem; margin-bottom: 0.5rem; }
+      p { padding-block-end: 1rem; }
       .event-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2rem; }
       .event-container .event-url { display: grid; grid-template-columns: .25fr 1fr;
         grid-template-rows: 1fr .5fr; gap: 1rem; min-height: 9rem; }
       .event-container .event-date { grid-area: 1 / 1 / 3 / 2; display: flex; flex-direction: column; }
-      .event-container .event-title { grid-area: 1 / 2 / 2 / 3; padding: 1rem 1rem 0 0; }
+      .event-container .event-title { grid-area: 1 / 2 / 2 / 3; padding: 1rem 1rem 0 0; margin-bottom: 0; }
       .event-container .event-time { grid-area: 2 / 2 / 3 / 3; padding: 0 1rem 1rem 0; }
       @media (max-width: 992px) { .event-container { grid-template-columns: 1fr; } }`;
 
-    for (const [name, attrs, css] of [
-      ['styled shadow', '', ''],
-      ['styled shadow, narrow', 'style="width: 330px"', ''],
-      ['light no-style in Drupal-like CSS', 'no-shadow-dom no-style', DRUPAL_CSS],
+    /**
+     * The element's height with its placeholders (the request held) and loaded, in a
+     * `width`-px wrapper (or the page's width) with `css` added to the page and the viewport
+     * at `viewport` px wide.
+     */
+    async function heights(attrs: string, { css = '', width = 0, viewport = 800 } = {}) {
+      resetEvents(); // each call fetches (and holds) its own request
+      const style = document.createElement('style');
+      style.textContent = css;
+      document.head.append(style);
+      await setViewport({ width: viewport, height: 900 });
+      const hold = holdFetches((u) => u.includes('/api/1.0/events'));
+      try {
+        const wrap = await fixture<HTMLElement>(
+          `<div style="${width ? `width: ${width}px` : ''}"><events-section ${attrs}></events-section></div>`,
+        );
+        const el = wrap.firstElementChild as EventsSection;
+        await waitUntil(() => hold.count === 1, 'not requested');
+        await el.updateComplete;
+        const placeholder = el.getBoundingClientRect().height;
+        const statusBefore = status(el).getBoundingClientRect().height;
+        hold.release();
+        await settled(el);
+        const loaded = el.getBoundingClientRect().height;
+        expect(Math.abs(status(el).getBoundingClientRect().height - statusBefore)).to.be.below(1);
+        return { el, placeholder, loaded };
+      } finally {
+        hold.release();
+        hold.restore();
+        style.remove();
+        await setViewport({ width: 800, height: 600 });
+      }
+    }
+
+    for (const [name, attrs, opts] of [
+      ['styled shadow', 'limit="8"', {}],
+      ['styled shadow, narrow', 'limit="8"', { width: 330 }],
+      // Four columns, with all-day and multi-day events among the cards.
+      ['styled shadow, 4 columns', 'limit="8" category="38740"', { width: 1320, viewport: 1400 }],
+      ['Drupal light no-style, 1 column', 'limit="8" no-shadow-dom no-style', { css: DRUPAL_CSS }],
+      [
+        'Drupal light no-style, 4 columns',
+        'limit="8" no-shadow-dom no-style',
+        { css: DRUPAL_CSS, width: 1320, viewport: 1400 },
+      ],
     ] as const) {
       it(`keeps its height when the events replace the placeholders (${name})`, async () => {
-        const style = document.createElement('style');
-        style.textContent = css;
-        document.head.append(style);
-        const hold = holdFetches((u) => u.includes('/api/1.0/events'));
-        try {
-          const el = await fixture<EventsSection>(
-            `<events-section limit="8" ${attrs}></events-section>`,
-          );
-          await waitUntil(() => hold.count === 1, 'not requested');
-          await el.updateComplete;
-          const before = el.getBoundingClientRect().height;
-          const statusBefore = status(el).getBoundingClientRect().height;
-          expect(before).to.be.greaterThan(100);
-          hold.release();
-          await settled(el);
-          expect(cards(el)).to.have.length(8);
-          expect(Math.abs(el.getBoundingClientRect().height - before)).to.be.below(2);
-          expect(Math.abs(status(el).getBoundingClientRect().height - statusBefore)).to.be.below(1);
-        } finally {
-          hold.release();
-          hold.restore();
-          style.remove();
-        }
+        const { el, placeholder, loaded } = await heights(attrs, opts);
+        expect(cards(el).length).to.be.greaterThan(4);
+        expect(placeholder).to.be.greaterThan(100);
+        expect(Math.abs(loaded - placeholder), `${placeholder} then ${loaded}`).to.be.below(2);
+      });
+    }
+
+    for (const [name, opts] of [
+      ['1 column', { css: DRUPAL_CSS }],
+      ['4 columns', { css: DRUPAL_CSS, width: 1320, viewport: 1400 }],
+    ] as const) {
+      it(`keeps the Drupal card geometry whatever heading-level is (${name})`, async () => {
+        const h3 = await heights('limit="8" no-shadow-dom no-style', opts);
+        const h4 = await heights('limit="8" no-shadow-dom no-style heading-level="4"', opts);
+        console.log(`Drupal fixture, ${name}: h3 ${h3.loaded}px, h4 ${h4.loaded}px`);
+        expect(Math.abs(h3.loaded - h4.loaded), `h3 ${h3.loaded}, h4 ${h4.loaded}`).to.be.below(1);
+        // 1rem, the old h4 value (read after the page CSS is gone: 16px at the default root).
+        expect(getComputedStyle(h3.el.querySelector('.event-title')!).marginTop).to.equal('16px');
       });
     }
 

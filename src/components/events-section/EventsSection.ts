@@ -68,6 +68,16 @@ const structuralRules = (host: string) => `
 const shadowStructure = unsafeCSS(structuralRules(':host'));
 
 /**
+ * Light DOM only, unlayered: the card title's top margin. The Drupal theme gives `h3` a 3rem
+ * top margin and `h4` 1rem, and `.event-title` sets none, so without this the default h3
+ * titles would push every card 2rem taller than the old h4 ones. 1rem is the old h4 value,
+ * so the cards keep their geometry whatever `heading-level` is. Unlayered (and more
+ * specific than a bare `h3`) so it beats the page's own heading rules.
+ */
+const lightTitleMargin = (tag: string) =>
+  unsafeCSS(`${tag} .event-url .event-title { margin-block-start: 1rem; }`);
+
+/**
  * Upcoming UVA Library events from LibCal, as on the library.virginia.edu home page: a grid of
  * cards, each one link with the event's title, a date column (month, day, weekday) and its
  * time, in America/New_York. Events that have ended are left out. Light DOM output keeps the
@@ -143,8 +153,9 @@ export class EventsSection extends UvalibElement {
       .event-title {
         grid-area: 1 / 2 / 2 / 3;
         align-self: start;
-        margin: 0;
-        padding: 1rem 1rem 0 0;
+        /* A 1rem top margin, as light DOM gets unlayered (see lightTitleMargin). */
+        margin: 1rem 0 0;
+        padding: 0 1rem 0 0;
         min-height: 3lh;
         font-size: 1rem;
         line-height: 1.3;
@@ -233,16 +244,20 @@ export class EventsSection extends UvalibElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
-    if (this.lightDom && this.noStyle) {
+    if (this.lightDom) {
       const node = this.getRootNode();
-      installLightDomStyles(
-        `${this.localName}::structure`,
-        unsafeCSS(structuralRules(this.localName)),
-        {
-          root: node instanceof ShadowRoot || node instanceof Document ? node : undefined,
-          scope: false,
-        },
-      );
+      const root = node instanceof ShadowRoot || node instanceof Document ? node : undefined;
+      if (this.noStyle)
+        installLightDomStyles(
+          `${this.localName}::structure`,
+          unsafeCSS(structuralRules(this.localName)),
+          { root, scope: false },
+        );
+      installLightDomStyles(`${this.localName}::title-margin`, lightTitleMargin(this.localName), {
+        root,
+        scope: false,
+        layer: false,
+      });
     }
     clearInterval(this.retryTimer);
     // Quietly try again after an error; once loaded, drop events that have since ended
