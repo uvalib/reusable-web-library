@@ -1,6 +1,9 @@
 // Shared data and formatting for the library-hours components. Internal: not exported from
 // the package entry (only the LibraryInfo and DayHours types are). No side effects on import.
 
+import { fetchJson as fetchJsonWith } from '../../data/fetch-json.js';
+import { TIME_ZONE, formatter, todayInNewYork } from '../../data/new-york.js';
+
 /** One day's hours from LibCal: a status and, when open, one or more ranges. */
 export interface DayHours {
   /** `open`, `closed`, `24hours`, or another LibCal status, shown as is. */
@@ -84,26 +87,11 @@ function endpoints(): HoursEndpoints {
   return hoursEndpoints;
 }
 
-export const TIME_ZONE = 'America/New_York';
+export { TIME_ZONE, todayInNewYork };
 
 // --- fetching -------------------------------------------------------------------------
 
-async function fetchJson(url: string): Promise<unknown> {
-  let error: unknown;
-  const attempts = Math.max(1, hoursTiming.retries);
-  for (let i = 0; i < attempts; i++) {
-    if (i > 0) await new Promise((r) => setTimeout(r, hoursTiming.retryDelay));
-    try {
-      // A hung attempt times out and counts as a failed attempt.
-      const response = await fetch(url, { signal: AbortSignal.timeout(hoursTiming.timeout) });
-      if (!response.ok) throw new Error(`${response.status} ${response.statusText} for ${url}`);
-      return await response.json();
-    } catch (e) {
-      error = e;
-    }
-  }
-  throw error instanceof Error ? error : new Error(String(error));
-}
+const fetchJson = (url: string) => fetchJsonWith(url, hoursTiming);
 
 interface RawLibrary {
   id: string;
@@ -238,30 +226,11 @@ export function sortLibraries(libs: readonly LibraryInfo[]): LibraryInfo[] {
 
 // --- dates: all arithmetic on YYYY-MM-DD strings, in UTC -------------------------------
 
-const formatters = new Map<string, Intl.DateTimeFormat>();
-function formatter(key: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
-  let f = formatters.get(key);
-  if (!f) formatters.set(key, (f = new Intl.DateTimeFormat('en-US', options)));
-  return f;
-}
-
 const utc = (iso: string): Date => {
   const [y, m, d] = iso.split('-').map(Number) as [number, number, number];
   return new Date(Date.UTC(y, m - 1, d));
 };
 const iso = (date: Date): string => date.toISOString().slice(0, 10);
-
-/** Today's date in America/New_York, `YYYY-MM-DD`. */
-export function todayInNewYork(now: number = Date.now()): string {
-  const parts = formatter('today', {
-    timeZone: TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(now);
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
-  return `${get('year')}-${get('month')}-${get('day')}`;
-}
 
 export function addDays(date: string, days: number): string {
   const d = utc(date);
