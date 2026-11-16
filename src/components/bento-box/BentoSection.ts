@@ -61,6 +61,8 @@ const structuralRules = (host: string) => `
     min-height: 3lh;
   }
   ${host} .bs-results--author,
+  ${host} .bs-results--date,
+  ${host} .bs-results--format,
   ${host} .bs-results--byline {
     overflow: hidden;
     white-space: nowrap;
@@ -114,9 +116,9 @@ export abstract class BentoSection<T> extends UvalibElement {
       a {
         color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
       }
+      /* One line whatever the count's length, so the header keeps its height. */
       .bs-results--header {
         display: flex;
-        flex-wrap: wrap;
         justify-content: space-between;
         align-items: center;
         gap: 0.5rem 1rem;
@@ -124,6 +126,10 @@ export abstract class BentoSection<T> extends UvalibElement {
         background: var(--uva-color-surface-hover, var(--uva-grey-100, #dadada));
       }
       .bs-results--header > :is(h1, h2, h3, h4, h5, h6) {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
         margin: 0;
         font-size: 1.0625rem;
         line-height: 1.5;
@@ -161,9 +167,11 @@ export abstract class BentoSection<T> extends UvalibElement {
       }
       .ul-1 {
         display: flex;
-        flex-wrap: wrap;
         justify-content: space-between;
-        gap: 0 1rem;
+        gap: 1rem;
+      }
+      .ul-1 > li {
+        min-width: 0;
       }
       .bs-results--teaser {
         padding: 0.5rem 0;
@@ -173,6 +181,7 @@ export abstract class BentoSection<T> extends UvalibElement {
       }
       .uvalib-button {
         display: inline-block;
+        white-space: nowrap;
         font: inherit;
         line-height: 1.5;
         padding: 0.1rem 0.75rem;
