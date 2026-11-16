@@ -76,6 +76,32 @@ describe(`events-section in ${Intl.DateTimeFormat().resolvedOptions().timeZone}`
     ]);
   });
 
+  it('an all-day event says "All day" on its New York date', async () => {
+    await setClock('2026-11-16T14:00:00Z');
+    expect(await first('query="All-day"')).to.deep.equal([
+      'All-day exhibit opening',
+      'Nov',
+      '20',
+      'Fri',
+      '2026-11-20',
+      'Friday, November 20',
+      'All day',
+    ]);
+  });
+
+  it('a multi-day event shows its start date and a range with the end date', async () => {
+    await setClock('2026-11-16T14:00:00Z');
+    expect(await first('query="Multi-day"')).to.deep.equal([
+      'Multi-day workshop',
+      'Nov',
+      '20',
+      'Fri',
+      '2026-11-20',
+      'Friday, November 20',
+      'Nov 20, 9:00 AM - Nov 21, 5:00 PM EST',
+    ]);
+  });
+
   it('an event after clocks go forward says EDT', async () => {
     await setClock('2027-03-10T12:00:00Z');
     expect(await first('query="DST"')).to.deep.equal([

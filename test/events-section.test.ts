@@ -1,5 +1,5 @@
 import { expect, fixture, waitUntil } from '@open-wc/testing';
-import { setViewport } from '@web/test-runner-commands';
+import { emulateMedia, sendKeys, setViewport } from '@web/test-runner-commands';
 import '../src/components/events-section/events-section.js';
 import { define } from '../src/base/define.js';
 import { EventsSection } from '../src/components/events-section/EventsSection.js';
@@ -665,6 +665,37 @@ describe('events-section', () => {
         hold.restore();
       }
     });
+  });
+
+  describe('forced colors', () => {
+    afterEach(() => emulateMedia({ forcedColors: 'none' }));
+
+    for (const [mode, attrs] of [
+      ['shadow', ''],
+      ['light', 'no-shadow-dom'],
+    ] as const) {
+      it(`${mode}: cards keep a visible border, readable text and a focus ring`, async () => {
+        await emulateMedia({ forcedColors: 'active' });
+        expect(matchMedia('(forced-colors: active)').matches).to.equal(true);
+        const el = await make(`limit="2" ${attrs}`);
+        const a = root(el).querySelector<HTMLElement>('.event-url')!;
+        const cs = getComputedStyle(a);
+        expect(cs.borderTopStyle).to.equal('solid');
+        expect(parseFloat(cs.borderTopWidth)).to.be.at.least(1);
+        expect(cs.borderTopColor).to.not.equal(cs.backgroundColor);
+        const date = root(el).querySelector('.event-date')!;
+        const day = root(el).querySelector('.event--day')!;
+        expect(getComputedStyle(day).color).to.not.equal(getComputedStyle(date).backgroundColor);
+        expect(getComputedStyle(root(el).querySelector('.event-time')!).color).to.not.equal(
+          cs.backgroundColor,
+        );
+        await sendKeys({ press: 'Tab' }); // make the next focus keyboard focus
+        a.focus();
+        expect(getComputedStyle(a).outlineStyle).to.not.equal('none');
+        expect(parseFloat(getComputedStyle(a).outlineWidth)).to.be.at.least(2);
+        await expectNoAxeViolations(el);
+      });
+    }
   });
 
   it('exposes the shared endpoints as a static accessor that writes through', () => {
