@@ -90,12 +90,27 @@ describe('analytics from the components', () => {
         await settled(box);
         await nextFrame();
         expect(rec.of('uvalib-analytics-search')).to.have.length(4);
+        // Reloading the same query for a new limit is not a new search.
+        box.setAttribute('limit', '2');
+        await nextFrame();
+        await settled(box);
+        expect(rec.of('uvalib-analytics-search')).to.have.length(4);
         // A new query (as Back or Forward sets it) is a new results view.
         box.query = 'history';
         await nextFrame();
         await settled(box);
         const again = rec.of('uvalib-analytics-search').slice(4);
         expect(again.map((d) => d.searchQuery)).to.deep.equal(Array(4).fill('history'));
+        // Back to the first query counts it again.
+        box.query = 'test';
+        await nextFrame();
+        await settled(box);
+        expect(
+          rec
+            .of('uvalib-analytics-search')
+            .slice(8)
+            .map((d) => d.searchQuery),
+        ).to.deep.equal(Array(4).fill('test'));
       });
 
       it('nothing found counts 0; an error is not a search', async () => {

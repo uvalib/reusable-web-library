@@ -363,6 +363,8 @@ export abstract class BentoSection<T> extends UvalibElement {
     if ((changed as Map<PropertyKey, unknown>).has('_state'))
       this.dispatchEvent(new Event('bento-state', { bubbles: true, composed: true }));
   }
+  /** The query last reported as a site search, so a reload for it is not counted again. */
+  private reportedQuery?: string;
 
   /**
    * Load the results. An older load still running is aborted, and its answer, should it land
@@ -376,6 +378,7 @@ export abstract class BentoSection<T> extends UvalibElement {
       this.controller = undefined;
       this.results = undefined;
       this._state = 'empty';
+      this.reportedQuery = undefined;
       return;
     }
     const controller = (this.controller = new AbortController());
@@ -386,18 +389,23 @@ export abstract class BentoSection<T> extends UvalibElement {
       if (id !== this.loadId) return; // a newer load owns the element
       this.results = { ...results, items: results.items.slice(0, this.count) };
       this._state = this.results.items.length ? 'ready' : 'empty';
-      // One site search per settled load (never on error): a new query, a Back or Forward
-      // to another, or a retry that succeeds. Nothing found counts 0 even without a total.
-      trackSearch(
-        this,
-        query,
-        this.analyticsName,
-        results.total ?? (this._state === 'empty' ? 0 : undefined),
-      );
+      // One site search per query shown (never on error): a new query, a Back or Forward to
+      // another, or a retry that succeeds; a reload for the same query (a `limit` change, a
+      // reconnect) is not a new search. Nothing found counts 0 even without a total.
+      if (query !== this.reportedQuery) {
+        this.reportedQuery = query;
+        trackSearch(
+          this,
+          query,
+          this.analyticsName,
+          results.total ?? (this._state === 'empty' ? 0 : undefined),
+        );
+      }
     } catch {
       if (id !== this.loadId) return;
       this.results = undefined;
       this._state = 'error';
+      this.reportedQuery = undefined;
     } finally {
       if (this.controller === controller) this.controller = undefined;
     }
