@@ -28,6 +28,28 @@ Notes:
 - Shared stylesheets: `/web-components/v1/tokens.css` and `/web-components/v1/base.css`.
 - 11ty sites using the `11ty-template` custom-elements plugin get the new URLs through the plugin; its `webComponentsVersion` option defaults to `"1"`.
 
+## Switching library.virginia.edu
+
+Every live use on library.virginia.edu (checked 17 Nov 2026, HTML comments excluded). Only the script URLs change; keep each page's markup exactly as it is. No page needs `base.css`, which is for `<site-page>` sites.
+
+| Page                                                     | Old script URL                                                                                                 | v1 script URL                                                                      | Markup (unchanged)                                                                                                  |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| every page (theme)                                       | `https://unpkg.internal.lib.virginia.edu/v0.0.12/uvalib-analytics.js`                                          | `https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-analytics.js`    | `<uvalib-analytics matomoid="10">`                                                                                  |
+| `/` (home)                                               | `https://unpkg.internal.lib.virginia.edu/web-components/cdn-v2.2.35/@uvalib/site-hours/site-hours-section.js`  | `https://unpkg.internal.lib.virginia.edu/web-components/v1/site-hours-section.js`  | `<site-hours-section limited no-style no-shadow-dom>`                                                               |
+| `/` (home), `/equipment-and-tech`, `/data`, `/dh-center` | `https://unpkg.internal.lib.virginia.edu/web-components/cdn-v2.0.8/@uvalib/bento-box/events-section.js`        | `https://unpkg.internal.lib.virginia.edu/web-components/v1/events-section.js`      | `<events-section no-style no-shadow-dom limit="8">` (with `category` on /data and /dh-center; `limit="6"` on /data) |
+| `/rmc`                                                   | `https://unpkg.com/@uvalib/cdn-builds@1.0.2/build/events-section.js`                                           | `https://unpkg.internal.lib.virginia.edu/web-components/v1/events-section.js`      | `<events-section category="38740" no-style no-shadow-dom limit="8">`                                                |
+| `/search`                                                | `https://unpkg.internal.lib.virginia.edu/web-components/cdn-v2.2.38/@uvalib/bento-box/bento-box.js`            | `https://unpkg.internal.lib.virginia.edu/web-components/v1/bento-box.js`           | `<bento-box no-style no-shadow-dom limit="3">`                                                                      |
+| `/hours`                                                 | `https://unpkg.internal.lib.virginia.edu/web-components/cdn-v2.2.40/@uvalib/site-hours/library-hours-setup.js` | `https://unpkg.internal.lib.virginia.edu/web-components/v1/library-hours-setup.js` | `<library-hours-setup>`                                                                                             |
+
+Order and checks:
+
+1. **Switch `uvalib-analytics` first, or with the others.** The v1 components report to analytics with `uvalib-analytics-*` events, which the old v0.0.12 element also hears. It calls `resultCount.toString()`, so a search with no known count (the subject-guides section) throws in the old element's listener: no tracking for that search, and an error in the console. The v1 element sends `false` (Matomo's "unknown") instead.
+2. **Switch the whole site at once for analytics.** Two different `uvalib-analytics` scripts cannot both register the tag; the one loaded second fails to define it.
+3. **Drop the inline `max-title-length` script** on the events pages; titles clamp to three lines.
+4. **The Drupal module loader** (`drupal_module_loader/map.yml`) still points at `cdn-v{version}/@uvalib/...`. If pages get their scripts from it, change its entries for these tags to `https://unpkg.internal.lib.virginia.edu/web-components/v1/<tag>.js`; the v1 `manifest.json` (`/web-components/v1/manifest.json`) lists every tag and its file.
+5. **After each switch**, check the page in a browser: the component renders, there are no console errors, and (for `/search`) Matomo receives one site search per section.
+6. **Pin if you want no surprise updates:** use `/web-components/v1.0.1/<tag>.js` (or later) instead of `v1`; `v1` follows every 1.x release.
+
 ## npm package names
 
 | Old                                    | New                                                                                                                                                 |

@@ -31,11 +31,13 @@ const section = (box: BentoBox, tag: string) =>
   root(box).querySelector<Section>(`.bs-results-container > ${tag}`)!;
 const entries = (s: Element) => [
   ...root(s).querySelectorAll<HTMLElement>(
-    'ol.bs-results--list > li:not(.bs-results--placeholder)',
+    'ol.bs-results--list:not(.bs-results--reserve) > li:not(.bs-results--placeholder)',
   ),
 ];
 const placeholders = (s: Element) => [
-  ...root(s).querySelectorAll<HTMLElement>('ol.bs-results--list > li.bs-results--placeholder'),
+  ...root(s).querySelectorAll<HTMLElement>(
+    'ol.bs-results--list:not(.bs-results--reserve) > li.bs-results--placeholder',
+  ),
 ];
 const message = (s: Element) => root(s).querySelector<HTMLElement>('.bs-results--message');
 const status = (box: BentoBox) => root(box).querySelector<HTMLElement>('[role=status]')!;
@@ -820,6 +822,20 @@ describe('bento-box', () => {
         expect(Math.abs(boxAfter - boxBefore), `box: ${boxBefore} then ${boxAfter}`).to.be.below(2);
       });
     }
+
+    it('a one-line title sits right above its author, with the height kept behind', async () => {
+      const { box } = await heights('limit="3"', { width: 1100 });
+      const catalog = section(box, 'catalog-section');
+      const title = entries(catalog)
+        .map((e) => e.querySelector<HTMLElement>('.bs-results--title')!)
+        .find((t) => t.textContent!.trim() === 'DB Test 11/7/25')!;
+      const line = parseFloat(getComputedStyle(title).lineHeight);
+      expect(title.getBoundingClientRect().height, 'one line tall').to.be.below(line * 1.5);
+      const reserve = root(catalog).querySelector<HTMLElement>('ol.bs-results--reserve')!;
+      expect(reserve.getAttribute('aria-hidden')).to.equal('true');
+      expect(getComputedStyle(reserve).visibility).to.equal('hidden');
+      expect(reserve.children).to.have.length(entries(catalog).length);
+    });
 
     it('Drupal: the theme rules reach the sections and the grid has two columns', async () => {
       const { box } = await heights('limit="3" no-shadow-dom no-style', {

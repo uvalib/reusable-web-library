@@ -1162,4 +1162,4 @@ npm expires a new trusted-publisher configuration that has not completed a succe
 
 ## Migration
 
-Moving from the old `/web-components/latest/` and `cdn-v*` URLs or the old `@uvalib/<pkg>` npm names: see [docs/migration.md](docs/migration.md).
+Moving from the old `/web-components/latest/` and `cdn-v*` URLs or the old `@uvalib/<pkg>` npm names: see [docs/migration.md](docs/migration.md). Switching library.virginia.edu: the page-by-page table in [Switching library.virginia.edu](skills/uvalib-web-components/reference/migration.md#switching-libraryvirginiaedu).
