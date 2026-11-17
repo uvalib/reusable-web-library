@@ -20,6 +20,30 @@ export interface Preset {
 export const CDN_TOKEN = '{{CDN}}';
 
 /**
+ * The search-results example's styles.css: before bento-box's script runs, reserve the height
+ * it will take (the search bar, the heading and three sections of three results), so the
+ * links and footer below do not jump. The sections stack in one column below 48rem and sit
+ * two to a row from there: the container widths the element itself uses, measured on this
+ * wrapper (which is exactly as wide as the element).
+ */
+const RESULTS_CSS = `.results {
+  container-type: inline-size;
+}
+bento-box:not(:defined) {
+  display: block;
+  min-height: 135.37rem; /* one column */
+}
+@container (width >= 48rem) {
+  bento-box:not(:defined) {
+    min-height: 90.87rem; /* two columns */
+  }
+}
+.virgo-links {
+  text-align: center;
+}
+`;
+
+/**
  * Dark mode's anti-flash snippet (the README's "Dark mode"): a classic inline script for
  * `<head>` that applies the stored choice before the first paint, only where light-dark()
  * is supported.
@@ -413,6 +437,35 @@ pre {
   white-space: pre-wrap;
 }
 `,
+      },
+    },
+  },
+  {
+    id: 'search-results',
+    group: 'Search',
+    title: 'Search results (bento-box)',
+    description:
+      'bento-box is library.virginia.edu/search: a search bar, then the first results from the Virgo catalog, Virgo articles and the subject guides, each with a "See all" link to the full search. The query comes from the page URL (?q=) or the query attribute; searching pushes ?q= to the history, and Back restores it. Its headings follow the page’s own: h2 then h3 under the h1. The catalog, articles and guides allow any origin, so they run live here; the fourth section, website, reads the library website’s search index, which only answers library.virginia.edu itself, so this example leaves it out with boxes. While results load, invisible placeholder entries hold the final height, and styles.css reserves the box’s height before the script runs, so nothing below jumps.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Search results',
+          components: ['bento-box'],
+          body: `    <site-page>
+      <h1>Search Library resources</h1>
+      <div class="results">
+        <bento-box limit="3" boxes="catalog,articles,libguides" query="climate change"></bento-box>
+      </div>
+      <p class="virgo-links">
+        <a href="https://search.lib.virginia.edu/">Search Virgo</a> |
+        <a href="https://search.lib.virginia.edu/search?mode=advanced">Advanced Virgo search</a>
+      </p>
+    </site-page>`,
+          styles: true,
+        }),
+      },
+      'styles.css': {
+        content: RESULTS_CSS,
       },
     },
   },

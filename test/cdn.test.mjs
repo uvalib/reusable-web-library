@@ -20,6 +20,7 @@ const TAGS = [
   'library-weekly-hours',
   'library-hours-setup',
   'events-section',
+  'bento-box',
 ];
 
 const manifest = () => JSON.parse(readFileSync(join(cdn, 'manifest.json'), 'utf8'));

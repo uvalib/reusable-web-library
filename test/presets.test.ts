@@ -38,6 +38,7 @@ describe('playground presets', function () {
       'main-navigation',
       'alerts',
       'search-facets',
+      'search-results',
       'todays-hours',
       'weekly-hours',
       'events',
@@ -64,6 +65,7 @@ describe('playground presets', function () {
       Alerts: ['alerts'],
       Search: [
         'search-facets',
+        'search-results',
         'uvalib-filter-shadow',
         'uvalib-filter-light',
         'uvalib-date-range-shadow',
@@ -242,6 +244,67 @@ describe('playground presets', function () {
 
     for (const width of [390, 900, 1400]) {
       it(`reserves the loaded cards' height before the script runs (${width}px)`, async () => {
+        const reserved = await height(width, false);
+        const loaded = await height(width, true);
+        expect(Math.abs(loaded - reserved), `${reserved} reserved, ${loaded} loaded`).to.be.below(
+          2,
+        );
+      });
+    }
+  });
+
+  describe('search-results', () => {
+    const p = () => presets.find((x) => x.id === 'search-results')!;
+
+    /** The bento-box's height in the preview at `width`, defined (loaded) or not. */
+    async function height(width: number, define: boolean): Promise<number> {
+      let src = previewSource(withCdnBase(p(), '/dist-site/cdn/'));
+      if (!define)
+        src = src.replace(/<script type="module" src="[^"]*bento-box\.js"><\/script>/, '');
+      const { iframe, errors } = await mount(src);
+      iframe.style.width = `${width}px`;
+      iframe.style.height = '600px';
+      try {
+        const win = iframe.contentWindow!;
+        const box = iframe.contentDocument!.querySelector('bento-box')!;
+        if (define) {
+          await whenAllDefined(win, ['bento-box', 'catalog-section']);
+          const sections = () => [
+            ...box.shadowRoot!.querySelectorAll<HTMLElement & { state: string }>(
+              '.bs-results--block',
+            ),
+          ];
+          const deadline = Date.now() + 4000;
+          while (
+            !(sections().length === 3 && sections().every((s) => s.state === 'ready')) &&
+            Date.now() < deadline
+          )
+            await new Promise((r) => setTimeout(r, 50));
+          expect(sections().map((s) => s.localName)).to.deep.equal([
+            'catalog-section',
+            'articles-section',
+            'libguides-section',
+          ]);
+          expect(sections().map((s) => s.state)).to.deep.equal(['ready', 'ready', 'ready']);
+          for (const s of sections())
+            expect(
+              s.shadowRoot!.querySelectorAll(
+                '.bs-results--list > li:not(.bs-results--placeholder)',
+              ),
+            ).to.have.length(3);
+        } else {
+          expect(win.customElements.get('bento-box')).to.equal(undefined);
+        }
+        await new Promise((r) => requestAnimationFrame(r));
+        expect(errors).to.deep.equal([]);
+        return box.getBoundingClientRect().height;
+      } finally {
+        iframe.remove();
+      }
+    }
+
+    for (const width of [390, 1280]) {
+      it(`reserves the loaded results' height before the script runs (${width}px)`, async () => {
         const reserved = await height(width, false);
         const loaded = await height(width, true);
         expect(Math.abs(loaded - reserved), `${reserved} reserved, ${loaded} loaded`).to.be.below(

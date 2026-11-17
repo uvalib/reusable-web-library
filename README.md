@@ -6,6 +6,7 @@ Reusable web components for UVA Library sites, built with Lit and TypeScript:
 - **Search:** `<uvalib-filter>` and `<uvalib-date-range>`.
 - **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
 - **Library events:** `<events-section>`.
+- **Search results:** `<bento-box>` (library.virginia.edu/search), with its `<catalog-section>`, `<articles-section>`, `<libguides-section>` and `<website-section>`.
 
 [library.virginia.edu](https://www.library.virginia.edu) and the UVA Library design system are the style authority: these components exist so sites use the real chrome instead of copying it. Change appearance only through the theming surface below.
 
@@ -379,12 +380,128 @@ Three elements show opening hours from the library's own data, for library.virgi
 - **Light DOM output** keeps the classes the Drupal theme styles: `div.event-container` > `div.event` > `a.event-url` > `.event-title`, `p.event-date` (`span.event--month`, `span.event--day`, `span.event--wkday`) and `p.event-time`. A few rules apply even with `no-style`, scoped to the tag in `@layer uvalib`: the host is a block, placeholders are invisible, titles are clamped and underlined on hover, and `[hidden]` hides. In light DOM (with or without `no-style`) it also installs one unlayered rule, `events-section .event-url .event-title { margin-block-start: 1rem; }`: the Drupal theme gives `h3` a 3rem top margin (and `h4` 1rem), which would make every card 2rem taller now that titles are `h3` by default, so the cards keep the old h4 geometry whatever `heading-level` is, with no theme change. The old element's repeated `homehoursMonth` / `homehoursDay` / `homehoursWeekDay` ids and its `see-more` slot are gone. Styled (without `no-style`) the cards follow the Drupal look with the dark-mode role tokens; the date column is `--uva-brand-orange-dark` (#b35900) behind white text (4.8:1), because white on the brand orange is only 3.1:1.
 - **Drupal switch.** Replace the old `…/web-components/cdn-v2.0.8/@uvalib/bento-box/events-section.js` and `https://unpkg.com/@uvalib/cdn-builds@1.0.2/build/events-section.js` script URLs with `https://unpkg.internal.lib.virginia.edu/web-components/v1/events-section.js`. The markup stays the same on all five pages: the card headings follow each page's own headings (`<h3>` under the home page's `<h2>`, `<h4>` under /rmc's `<h3>`), so no `heading-level` is needed. The inline script that sets `max-title-length` is no longer needed (titles clamp to three lines) and can go. To reserve the cards' height before the script runs, set `events-section:not(:defined) { display: block; min-height: … }` from your own page's layout: in the Drupal-like test fixture (the theme's 17px root, heading margins, paragraph padding and event grid, but not its fonts), eight cards measure about 1593px in one column and 373px in four (two rows of about 170px), but the real theme's fonts and page width decide it. A recommended theme fix, outside this package: the theme's date column is white on `--uva-brand-orange` (#E57200), 3.1:1, which fails WCAG AA for its small text; #B35900, which styled mode uses, gives 4.8:1.
 
+## Search results (bento-box)
+
+`<bento-box>` is the library's search results page, library.virginia.edu/search: a search bar, then, for the query, a "You searched for" heading and a grid of result sections: the Virgo catalog, Virgo articles, the subject guides (LibGuides) and the library website. Entry: `bento-box.js` on the CDN, `@uvalib/web-components/bento-box.js` on npm; it registers the four sections too (`<catalog-section>`, `<articles-section>`, `<libguides-section>`, `<website-section>`), which also work on their own with `query` and `limit`.
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/bento-box.js"
+></script>
+<h1>Search Library resources</h1>
+<bento-box limit="3" no-shadow-dom no-style></bento-box>
+```
+
+- **Attributes.** `limit` (default 5): results per section, at most. `boxes` (default `catalog,articles,libguides,website`): the sections and their order, as a comma list or a JSON array (`boxes='["catalog","articles"]'`); unknown names are ignored. `search-describe` (default "This page searches Virgo, Virgo articles, subject guides, and the Library website."): the line under the search bar. `no-result-describe` (default "No results found."): what a section says when it finds nothing. `placeholder` (default "Search anything..."): the input's placeholder. `query`: the search when the URL has none. `heading-level` (1 to 6): the level of "You searched for"; the sections' headings are one below. Leave it unset: it is one below the nearest heading before the element, so `<h2>` then `<h3>` under the page's `<h1>`. `no-shadow-dom` and `no-style` as for every element.
+- **The query** comes from the page URL, `?q=` (preferred) or the old `?query=`, which win over the `query` attribute. Searching pushes `?q=…` (encoded, dropping an old `?query=`) to the history, so the results can be bookmarked and shared, and Back and Forward bring each query back. With no query only the search bar and its description show, and nothing is fetched. Every query is encoded wherever it goes (requests, "See all" forms, the URL), so `&`, `#` and `+` are searched as typed.
+- **Sources.** Virgo's guest token (`POST https://search.lib.virginia.edu/authorize`, fetched once per page and shared, fetched again after a 401); the catalog (`pool-solr-ws-uva-library.internal.lib.virginia.edu`) and articles (`pool-eds-ws.internal.lib.virginia.edu`) pools; the LibGuides search proxy (`qmo3jwybkg.execute-api.us-east-1.amazonaws.com/production/library/libguides-proxy`); and Drupal's search index, `/jsonapi/index/default_index` on the page's own origin. The first three allow any origin, so the catalog, articles and guides work on any site. The Drupal index sends no CORS headers, so the website section only works on library.virginia.edu itself (elsewhere, leave it out with `boxes="catalog,articles,libguides"`, or point it at a same-origin copy). To repoint any of them (tests, a proxy), set `window.uvalibBentoEndpoints = { authorize, catalog, articles, guides, website }` (any of the keys) before the define script runs, or assign `customElements.get('bento-box').endpoints` (`BentoBox.endpoints` from npm) afterwards. Each request times out after 10 seconds; server errors and timeouts are tried once more. Identical requests share one fetch; a section's request is aborted when its query changes or it leaves the page, and a slower answer for an older query never replaces a newer one.
+- **What each section shows.** Catalog: one entry per work (a work with several editions shows once, with "N editions"), its authors (five, then "and N more"), published date (a bare year as is, a full date as "Jul 28, 2026", never shifted by a time zone) and formats. Articles: the same, with the publication type; records Virgo hides from guests keep their link under the title "Article details available after signing in to Virgo". Subject guides: the page and its guide, author and subjects, and the matching text. Website: the page title and Drupal's excerpt. Matched words are in `<mark>`. Everything from these services is read as text and http(s) links and rendered with Lit; their HTML is never inserted, so markup in a title shows as text. "See all" goes to each source's own search for the query; its button names the section for screen readers after the visible text, so voice control can use what it sees ("See all 138,420 results in Virgo catalog"). Braces in a query become spaces in Virgo's `keyword: {…}` clause, so they cannot end it early.
+- **States.** Each section has a read-only `state`: `loading`, `ready`, `empty` or `error`, and fires `bento-state` (bubbling) when it changes. While loading its list has `aria-busy="true"` and no message; "No results found." shows only once the answer is in. An error says, for example, "Virgo catalog results are unavailable right now." with a Retry button that stays, disabled, while it runs, so keyboard focus is not lost; afterwards focus moves to the first result, back to Retry, or to the message. One polite `role="status"` line in the box says "Results updated." (or "Results updated. Some results are unavailable.") once every section has settled: one announcement per search rather than one per section, so four sections landing a few hundred milliseconds apart do not talk over each other.
+- **Layout shift.** While a section loads it draws `limit` invisible placeholder entries (the real DOM and classes, `aria-hidden`), and every entry has a fixed shape: titles clamp to two lines (the whole title stays in the DOM), and authors, dates, formats and the guide byline stay on one line each, with an empty, hidden line when a record has none. So the results replace the placeholders in place. With fewer results than `limit` the list collapses once they arrive; empty and failed sections keep one entry's height under their message. To reserve the space before the script has run, add `bento-box:not(:defined) { display: block; min-height: … }` from your own layout: the [Search results example](https://uvalib.github.io/reusable-web-library/#search-results) shows the values for the styled box (one column below a 48rem container, two from there, matched with a container query on a wrapper). A query long enough to wrap the "You searched for" heading still moves what follows by a line.
+- **Light DOM output** keeps the classes the Drupal theme styles under `.uvalib-bento-search`: `.bento-search-bar` (on a `<bento-search>` element, as before) with its `form`, `input`, `button.uvalib-button-home-search` and `p`; `.bs-header` (`h2`, `.bs-search-term`, `p`); `.bs-results-container` with each section as `.bs-results--block`; `.bs-results--header` (`h3` and the "See all" form and `.uvalib-button`), `.bs-results--body`, `ol.bs-results--list`, `.bs-results--list--entry`, `.bs-results--title`, `ul.ul-0`, `ul.ul-1`, `.bs-results--author`, `.bs-results--date`, `.bs-results--format`, `.bs-results--qty`, `.bs-results--teaser`, and the website's `.bento-section-title` and `.bento-section-desc`. Fixes to the markup: each `ul.ul-1` now sits in an `li` of its `ul.ul-0` (the theme's `ul.ul-0 ul.ul-1` still matches), the input has a real label and the submit button a text name (both visually hidden), the format line has no `aria-label` repeating its text, and the repeated `id="no-results"` is gone. A few rules apply even with `no-style`, scoped to the tags in `@layer uvalib`: the hosts are blocks, placeholders are invisible, the clamps and one-line rules above, the message shares the list's grid cell, and `[hidden]` hides. Styled (without `no-style`) the box follows the Drupal look with the dark-mode role tokens.
+- **Drupal switch.** Replace the old `…/web-components/cdn-v2.2.38/@uvalib/bento-box/bento-box.js` script URL with `https://unpkg.internal.lib.virginia.edu/web-components/v1/bento-box.js`. The markup stays: `<bento-box no-style no-shadow-dom limit="3">`. The `uvalib-bento-search` body class is Drupal's and stays as it is; the headings follow the page's `<h1>` (`<h2>`, then `<h3>` sections), so no `heading-level` is needed. Links that used `?query=` keep working; new searches use `?q=`.
+
 ## Components
 
 Generated from `dist/custom-elements.json` by `scripts/gen-reference.mjs`; do not edit between the markers by hand.
 
 <!-- components:start -->
 <!-- prettier-ignore-start -->
+
+### `<articles-section>`
+
+Virgo's first article results for `query`. Articles Virgo hides from guests keep their link, under a neutral title ("Article details available after signing in to Virgo").
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `query` | `string` | `''` | The search text. Empty: nothing is fetched and the section is `empty`. |
+| `limit` | `number` | `5` | How many results to show (at most). |
+| `no-result-describe` | `string` | `'No results found.'` | The message shown when nothing is found. |
+| `heading-level` | `number \| undefined` |  | The level of the section's heading, 1 to 6. Unset (the default), it is one below the nearest heading before the element in the page, or 3 when there is none. `<bento-box>` sets it one below its own heading. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `bento-state` | Whenever `state` changes (bubbles, composed); `<bento-box>` listens to announce "Results updated" once every section has settled. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-text` |  | Dark-mode role token: text (else #2b2b2b). |
+| `--uva-color-link` |  | Dark-mode role token: titles, links and buttons (else `--uva-brand-blue`). |
+| `--uva-color-border` |  | Dark-mode role token: the block's border and entry rules (else #dadada). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: background (else #fff). |
+| `--uva-color-surface-hover` |  | Dark-mode role token: the header band (else #dadada). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+
+### `<bento-box>`
+
+The library's search results page (library.virginia.edu/search): a search bar and, for the query, a grid of result sections from Virgo's catalog and articles, the subject guides and the library website. The query comes from the page URL (`?q=`, or the old `?query=`), else the `query` attribute; searching pushes `?q=` to the history, and Back and Forward restore the query. With no query only the search bar shows and nothing is fetched. Light DOM output keeps the classes the Drupal theme styles under `.uvalib-bento-search`. Registers `catalog-section`, `articles-section`, `libguides-section` and `website-section`.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `query` | `string` | `''` | The search text when the page URL has none (`?q=` or `?query=` win). |
+| `limit` | `number` | `5` | How many results each section shows (at most). |
+| `search-describe` | `string` | `'This page searches Virgo, Virgo articles, subject guides, and the Library website.'` | The line under the search bar. |
+| `no-result-describe` | `string` | `'No results found.'` | What a section says when it finds nothing. |
+| `placeholder` | `string` | `'Search anything...'` | The search input's placeholder. |
+| `boxes` | `BentoBoxName[]` | `['catalog', 'articles', 'libguides', 'website']` | The sections, in order: `catalog`, `articles`, `libguides`, `website`, as a comma list (`boxes="catalog,articles"`) or a JSON array. Default: all four. |
+| `heading-level` | `number \| undefined` |  | The level of the "You searched for" heading, 1 to 6; the sections' headings are one below. Unset (the default), it is one below the nearest heading before the element in the page (the page's `<h1>` gives `<h2>`, then `<h3>` sections), or 2 when there is none. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-text` |  | Dark-mode role token: text (else #2b2b2b). |
+| `--uva-color-control-border` |  | Dark-mode role token: the search input's border (else #808080). |
+| `--uva-color-input-text` |  | Dark-mode role token: the search input's text (else #1f2937). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: the search input's background (else #fff). |
+| `--uva-color-accent-bg` |  | Dark-mode role token: the search button (else `--uva-brand-blue`). |
+| `--uva-color-on-accent` |  | Dark-mode role token: the search button's icon (else #fff). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+
+### `<catalog-section>`
+
+The Virgo catalog's first results for `query` (books, journals, archives, maps, music, theses, videos…). A work with several editions shows once, noting how many.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `query` | `string` | `''` | The search text. Empty: nothing is fetched and the section is `empty`. |
+| `limit` | `number` | `5` | How many results to show (at most). |
+| `no-result-describe` | `string` | `'No results found.'` | The message shown when nothing is found. |
+| `heading-level` | `number \| undefined` |  | The level of the section's heading, 1 to 6. Unset (the default), it is one below the nearest heading before the element in the page, or 3 when there is none. `<bento-box>` sets it one below its own heading. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `bento-state` | Whenever `state` changes (bubbles, composed); `<bento-box>` listens to announce "Results updated" once every section has settled. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-text` |  | Dark-mode role token: text (else #2b2b2b). |
+| `--uva-color-link` |  | Dark-mode role token: titles, links and buttons (else `--uva-brand-blue`). |
+| `--uva-color-border` |  | Dark-mode role token: the block's border and entry rules (else #dadada). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: background (else #fff). |
+| `--uva-color-surface-hover` |  | Dark-mode role token: the header band (else #dadada). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ### `<events-section>`
 
@@ -413,6 +530,38 @@ Upcoming UVA Library events from LibCal, as on the library.virginia.edu home pag
 | `--uva-color-text` |  | Dark-mode role token: time and status text (else #2b2b2b). |
 | `--uva-color-border` |  | Dark-mode role token: card border (else #dadada). |
 | `--uva-color-surface-raised` |  | Dark-mode role token: card and button background (else #fff). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+
+### `<libguides-section>`
+
+The first subject guide pages (LibGuides) matching `query`: the page and its guide, then its author and subjects and the matching text. Only text and links are taken from Springshare's HTML.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `query` | `string` | `''` | The search text. Empty: nothing is fetched and the section is `empty`. |
+| `limit` | `number` | `5` | How many results to show (at most). |
+| `no-result-describe` | `string` | `'No results found.'` | The message shown when nothing is found. |
+| `heading-level` | `number \| undefined` |  | The level of the section's heading, 1 to 6. Unset (the default), it is one below the nearest heading before the element in the page, or 3 when there is none. `<bento-box>` sets it one below its own heading. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `bento-state` | Whenever `state` changes (bubbles, composed); `<bento-box>` listens to announce "Results updated" once every section has settled. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-text` |  | Dark-mode role token: text (else #2b2b2b). |
+| `--uva-color-link` |  | Dark-mode role token: titles, links and buttons (else `--uva-brand-blue`). |
+| `--uva-color-border` |  | Dark-mode role token: the block's border and entry rules (else #dadada). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: background (else #fff). |
+| `--uva-color-surface-hover` |  | Dark-mode role token: the header band (else #dadada). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ### `<library-hours-setup>`
@@ -813,6 +962,38 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 | `--uva-color-link` |  | Dark-mode role token: scope chip text and hover border (else `--uva-brand-blue`). |
 | `--uva-color-accent-bg` |  | Dark-mode role token: pressed chip background and border (else `--uva-brand-blue`). |
 | `--uva-color-on-accent` |  | Dark-mode role token: pressed chip text (else #fff). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+
+### `<website-section>`
+
+The library website's first pages (pages, people, libraries, news) matching `query`, from Drupal's search index, with its excerpt (the matched words marked). The index sends no CORS headers, so this section works on library.virginia.edu (or wherever `BentoBox.endpoints.website` points to a same-origin copy) only.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `query` | `string` | `''` | The search text. Empty: nothing is fetched and the section is `empty`. |
+| `limit` | `number` | `5` | How many results to show (at most). |
+| `no-result-describe` | `string` | `'No results found.'` | The message shown when nothing is found. |
+| `heading-level` | `number \| undefined` |  | The level of the section's heading, 1 to 6. Unset (the default), it is one below the nearest heading before the element in the page, or 3 when there is none. `<bento-box>` sets it one below its own heading. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `bento-state` | Whenever `state` changes (bubbles, composed); `<bento-box>` listens to announce "Results updated" once every section has settled. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-text` |  | Dark-mode role token: text (else #2b2b2b). |
+| `--uva-color-link` |  | Dark-mode role token: titles, links and buttons (else `--uva-brand-blue`). |
+| `--uva-color-border` |  | Dark-mode role token: the block's border and entry rules (else #dadada). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: background (else #fff). |
+| `--uva-color-surface-hover` |  | Dark-mode role token: the header band (else #dadada). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 <!-- prettier-ignore-end -->

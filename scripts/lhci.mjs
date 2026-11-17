@@ -21,6 +21,9 @@
 //   - LibCal's events, on the events page, come from a local stub too: 18 upcoming events
 //     (one a day from tomorrow, some with long titles, one over two days), so the cards
 //     render as they do live. The page sets window.uvalibEventsEndpoints to it.
+//   - Search results, on the search-results page, come from local stubs of Virgo's token and
+//     pools and of the guides proxy, answering the test fixtures (test/fixtures/bento/), so
+//     the sections render real entries. The page sets window.uvalibBentoEndpoints to them.
 //   - Dark mode's reversed logo comes from static.lib.virginia.edu: the copied bundles get
 //     its URL rewritten to this server, which answers with a white stand-in of the same size
 //     (300x68). static.lib.virginia.edu is blocked as a backstop.
@@ -87,6 +90,38 @@ const eventsOverride = `    <script>
     </script>
   </body>`;
 
+const BENTO_COMPONENT = /<script type="module" src="\/cdn\/bento-box\.js">/;
+const bentoOverride = `    <script>
+      // Added for Lighthouse CI: the search sources are stubbed locally (scripts/lhci.mjs).
+      window.uvalibBentoEndpoints = {
+        authorize: '/stub/bento/authorize',
+        catalog: '/stub/bento/catalog',
+        articles: '/stub/bento/articles',
+        guides: '/stub/bento/guides',
+        website: '/stub/bento/website',
+      };
+    </script>
+  </body>`;
+
+const bentoFixture = (name) =>
+  JSON.parse(readFileSync(join(root, 'test/fixtures/bento', name), 'utf8'));
+const BENTO = {
+  catalog: bentoFixture('virgo-catalog.json'),
+  articles: bentoFixture('virgo-articles.json'),
+  guides: bentoFixture('libguides-proxy.json'),
+  website: bentoFixture('drupal-search.json'),
+};
+
+/** A stubbed search source's answer: a pool's first `rows` groups, or the fixture as is. */
+function bento(source, body) {
+  if (source === 'catalog' || source === 'articles') {
+    const rows = JSON.parse(body || '{}').pagination?.rows ?? 3;
+    const all = BENTO[source];
+    return { ...all, group_list: all.group_list.slice(0, rows) };
+  }
+  return BENTO[source];
+}
+
 const TITLES = [
   '3D Printing Training',
   'Workshop: Virtual reality object modeling to 3D print workflow',
@@ -130,6 +165,21 @@ const dir = mkdtempSync(join(tmpdir(), 'uvalib-lhci-'));
 
 const server = createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
+  if (url.pathname.startsWith('/stub/bento/')) {
+    const source = url.pathname.slice('/stub/bento/'.length);
+    if (source === 'authorize') {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      return res.end('lhci-guest-token');
+    }
+    if (!BENTO[source]) return res.writeHead(404).end();
+    let body = '';
+    req.on('data', (chunk) => (body += chunk));
+    req.on('end', () => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(bento(source, body)));
+    });
+    return undefined;
+  }
   if (url.pathname === '/stub/events') {
     res.writeHead(200, { 'content-type': 'application/json' });
     return res.end(JSON.stringify(libcalEvents(url)));
@@ -199,6 +249,7 @@ for (const preset of pages) {
       html = html.replace(/<site-page(?=[\s>])/g, `<site-page root-link-domain="${base}"`);
       if (HOURS_COMPONENTS.test(html)) html = html.replace('  </body>', libcalOverride);
       if (EVENTS_COMPONENT.test(html)) html = html.replace('  </body>', eventsOverride);
+      if (BENTO_COMPONENT.test(html)) html = html.replace('  </body>', bentoOverride);
     }
     writeFileSync(out, html);
   }

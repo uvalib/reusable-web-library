@@ -13,6 +13,10 @@
           "*alerts.lib.virginia.edu*",
           "*alerts-staging.lib.virginia.edu*",
           "*cal.lib.virginia.edu*",
+          "*search.lib.virginia.edu/authorize*",
+          "*pool-solr-ws-uva-library.internal.lib.virginia.edu*",
+          "*pool-eds-ws.internal.lib.virginia.edu*",
+          "*.execute-api.us-east-1.amazonaws.com*",
           "*static.lib.virginia.edu*",
           "*://www.library.virginia.edu/*",
           "*://library.virginia.edu/*"
