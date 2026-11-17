@@ -34,6 +34,12 @@ export const base = css`
     visibility: hidden;
     animation: uvalib-site-page-reveal 0s 2s forwards;
   }
+  uvalib-breadcrumbs:not(:defined) {
+    display: block;
+    line-height: 1.5;
+    visibility: hidden;
+    animation: uvalib-site-page-reveal 0s 2s forwards;
+  }
   @keyframes uvalib-site-page-reveal {
     to {
       visibility: visible;

@@ -53,7 +53,7 @@ const normalize = (s: unknown) =>
  * @cssprop [--uva-blue-alt-dark=#005679] - Link colour.
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Current page colour.
  * @cssprop [--uva-grey-dark=#4f4f4f] - Separator colour.
- * @cssprop --uva-color-link - Dark-mode role token: link colour (else `--uva-blue-alt-dark`).
+ * @cssprop --uva-color-utility-link - Dark-mode role token: link colour, #005679 in light as on library.virginia.edu (else `--uva-blue-alt-dark`).
  * @cssprop --uva-color-text - Dark-mode role token: current page colour (else `--uva-grey-darkest`).
  * @cssprop --uva-color-text-muted - Dark-mode role token: separator colour (else `--uva-grey-dark`).
  * @cssprop --uva-color-focus - Dark-mode role token: focus ring (else `--uva-brand-orange`).
@@ -70,7 +70,7 @@ export class UvalibBreadcrumbs extends UvalibElement {
         overflow-wrap: anywhere;
       }
       a {
-        color: var(--uva-color-link, var(--uva-blue-alt-dark, #005679));
+        color: var(--uva-color-utility-link, var(--uva-blue-alt-dark, #005679));
         text-decoration: underline;
       }
       .separator {

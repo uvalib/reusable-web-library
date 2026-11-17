@@ -120,7 +120,8 @@ for (const mode of ['shadow', 'light'] as const) {
         };
         for (const [what, fg] of Object.entries(parts))
           expect(contrast(fg, page), `${what}: ${fg} on ${page}`).to.be.at.least(4.5);
-        if (scheme === 'dark') expect(parts.link).to.equal(rgb('#87b9d9'));
+        // The utility-link role: #005679 in light (as library.virginia.edu), #91d8f2 in dark.
+        expect(parts.link).to.equal(rgb(scheme === 'dark' ? '#91d8f2' : '#005679'));
         // Keyboard focus on the first link: a ring at least 3:1 against the page.
         (document.activeElement as HTMLElement | null)?.blur();
         link.tabIndex = 0;
