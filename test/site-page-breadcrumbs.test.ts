@@ -97,6 +97,37 @@ for (const mode of ['shadow', 'light'] as const) {
       expectPlacement(el, bandOf(el)!);
     });
 
+    it('an empty or hidden trail takes no space', async () => {
+      const el = await make(
+        '',
+        `<uvalib-breadcrumbs slot="breadcrumbs" ${light}></uvalib-breadcrumbs><h1 id="t">Title</h1>`,
+      );
+      await settle(el, crumbsOf(el));
+      expect(crumbsOf(el).getBoundingClientRect().height).to.equal(0);
+      crumbsOf(el).append(document.createRange().createContextualFragment(TRAIL));
+      await settle(el, crumbsOf(el));
+      expect(crumbsOf(el).getBoundingClientRect().height).to.be.above(0);
+      crumbsOf(el).hidden = true;
+      await settle(el, crumbsOf(el));
+      expect(crumbsOf(el).getBoundingClientRect().height).to.equal(0);
+    });
+
+    it('a content node given slot="breadcrumbs" later moves out of <main>', async () => {
+      const el = await make('', `<h1 id="t">Title</h1>`);
+      const b = document.createElement('uvalib-breadcrumbs') as UvalibBreadcrumbs;
+      if (light) b.setAttribute('no-shadow-dom', '');
+      b.innerHTML = TRAIL;
+      el.append(b);
+      await settle(el, b);
+      b.slot = 'breadcrumbs';
+      await settle(el, b);
+      expect(mainOf(el).contains(placed(b))).to.equal(false);
+      if (light) expect(placed(b).nextElementSibling === mainOf(el)).to.equal(true);
+      b.removeAttribute('slot');
+      await settle(el, b);
+      expect(mainOf(el).contains(placed(b))).to.equal(true);
+    });
+
     it('renders nothing for breadcrumbs without the slot', async () => {
       const el = await make('', '<h1 id="t">Title</h1>');
       expect(root(el).querySelector('slot[name="breadcrumbs"]')).to.equal(null);

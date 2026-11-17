@@ -517,7 +517,7 @@ Compatibility element. Light mode (`no-shadow-dom`) installs the tokens and base
 
 ## `<uvalib-breadcrumbs>`
 
-A breadcrumb trail, as on library.virginia.edu: links separated by slashes, ending with the current page, at body size. A `<nav aria-label="Breadcrumb">` holding an `<ol>`; the separators are hidden from assistive technology and the last item has `aria-current="page"` (a `<span>`, or a link when it has an href). Give the trail as children: `<a href>` elements, ending with the current page as a text-only element (`<span>Hours</span>`) or a link (`<a href aria-current="page">`). The last child is always the current page. An earlier child without an href is shown as plain text. Children with no text are skipped with one console warning. Hrefs are used as written, and the trail follows changes to the children (attributes and text too). Apps that build the trail in JavaScript set the `items` property instead (it then wins over any children); assigning a new array re-renders. Inside `<site-page>`, give it `slot="breadcrumbs"`: it is placed between the header (and alerts band) and `<main>`, with the page's gutters. It works anywhere else too.
+A breadcrumb trail, as on library.virginia.edu: links separated by slashes, ending with the current page, at body size. A `<nav aria-label="Breadcrumb">` holding an `<ol>`; the separators are hidden from assistive technology and the last item has `aria-current="page"` (a `<span>`, or a link when it has an href). Give the trail as children: `<a href>` elements, ending with the current page as a text-only element (`<span>Hours</span>`) or a link (`<a href aria-current="page">`). The last child is always the current page. An earlier child without an href is shown as plain text. Children with no text are skipped with one console warning. Hrefs are used as written, and the trail follows changes to the children (attributes and text too). Apps that build the trail in JavaScript set the `items` property instead (it then wins over any children); assigning a new array re-renders. Inside `<site-page>`, give it `slot="breadcrumbs"`: it is placed between the header (and alerts band) and `<main>`, with the page's gutters. It works anywhere else too. Single-page apps: the trail is drawn from copies of the children, so a router's own click handlers on them do not run. Listen for `uvalib-breadcrumbs-navigate` and cancel it to route in place; hash links need nothing.
 
 ### Attributes
 
@@ -527,6 +527,12 @@ A breadcrumb trail, as on library.virginia.edu: links separated by slashes, endi
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
+### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-breadcrumbs-navigate` | A plain click on a trail link: `detail` is `{ href, index }` (href as written). Cancel it (`preventDefault()`) to navigate in the app; the click's default is then prevented. Bubbles and is composed. |
+
 ### CSS custom properties
 
 | Property | Default | Description |
@@ -534,7 +540,7 @@ A breadcrumb trail, as on library.virginia.edu: links separated by slashes, endi
 | `--uva-blue-alt-dark` | `#005679` | Link colour. |
 | `--uva-grey-darkest` | `#2b2b2b` | Current page colour. |
 | `--uva-grey-dark` | `#4f4f4f` | Separator colour. |
-| `--uva-color-link` |  | Dark-mode role token: link colour (else `--uva-blue-alt-dark`). |
+| `--uva-color-utility-link` |  | Dark-mode role token: link colour, #005679 in light as on library.virginia.edu (else `--uva-blue-alt-dark`). |
 | `--uva-color-text` |  | Dark-mode role token: current page colour (else `--uva-grey-darkest`). |
 | `--uva-color-text-muted` |  | Dark-mode role token: separator colour (else `--uva-grey-dark`). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |

@@ -26,6 +26,18 @@ const structuralRules = (host: string) => `
 `;
 const shadowStructure = unsafeCSS(structuralRules(':host'));
 
+/** What the observer watches in the author's trail: the links, their hrefs and text. */
+const CONTENT: MutationObserverInit = {
+  attributes: true,
+  attributeFilter: ['href'],
+  characterData: true,
+  childList: true,
+  subtree: true,
+};
+
+/** Schemes a breadcrumb may link to; anything else (javascript:, data:, …) is shown as text. */
+const SAFE_SCHEMES = new Set(['http:', 'https:', 'mailto:', 'tel:']);
+
 const normalize = (s: unknown) =>
   String(s ?? '')
     .replace(/\s+/g, ' ')
@@ -49,7 +61,12 @@ const normalize = (s: unknown) =>
  * Inside `<site-page>`, give it `slot="breadcrumbs"`: it is placed between the header (and
  * alerts band) and `<main>`, with the page's gutters. It works anywhere else too.
  *
+ * Single-page apps: the trail is drawn from copies of the children, so a router's own click
+ * handlers on them do not run. Listen for `uvalib-breadcrumbs-navigate` and cancel it to route
+ * in place; hash links need nothing.
+ *
  * @tagname uvalib-breadcrumbs
+ * @fires uvalib-breadcrumbs-navigate - A plain click on a trail link: `detail` is `{ href, index }` (href as written). Cancel it (`preventDefault()`) to navigate in the app; the click's default is then prevented. Bubbles and is composed.
  * @cssprop [--uva-blue-alt-dark=#005679] - Link colour.
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Current page colour.
  * @cssprop [--uva-grey-dark=#4f4f4f] - Separator colour.
@@ -73,6 +90,9 @@ export class UvalibBreadcrumbs extends UvalibElement {
         color: var(--uva-color-utility-link, var(--uva-blue-alt-dark, #005679));
         text-decoration: underline;
       }
+      a[aria-current='page'] {
+        color: inherit;
+      }
       .separator {
         color: var(--uva-color-text-muted, var(--uva-grey-dark, #4f4f4f));
       }
@@ -92,6 +112,7 @@ export class UvalibBreadcrumbs extends UvalibElement {
   /** The trail read from the children. */
   @state() private childItems: BreadcrumbItem[] = [];
   private warned = false;
+  private warnedHref = false;
   private observer?: MutationObserver;
   /** Light mode: the hidden container this element owns for the author's children. */
   private holder?: HTMLDivElement;
@@ -160,6 +181,8 @@ export class UvalibBreadcrumbs extends UvalibElement {
       this.holder = this.ownerDocument.createElement('div');
       this.holder.hidden = true;
       this.holder.className = 'breadcrumbs-source';
+      // Created after watch() ran (children added later): watch it too.
+      if (this.observer && this.hasUpdated) this.observer.observe(this.holder, CONTENT);
     }
     if (this.holder) {
       this.holder.append(...incoming);
@@ -199,34 +222,79 @@ export class UvalibBreadcrumbs extends UvalibElement {
   private watch(): void {
     this.observer ??= new MutationObserver(() => this.sync());
     this.observer.disconnect();
-    const content = {
-      attributes: true,
-      attributeFilter: ['href'],
-      characterData: true,
-      childList: true,
-      subtree: true,
-    };
     if (this.lightDom) {
       this.observer.observe(this, { childList: true });
-      if (this.holder) this.observer.observe(this.holder, content);
+      if (this.holder) this.observer.observe(this.holder, CONTENT);
     } else {
-      this.observer.observe(this, content);
+      this.observer.observe(this, CONTENT);
     }
   }
 
   /** What is shown: `items` while set, else the children; entries without a label left out. */
   private get trail(): BreadcrumbItem[] {
-    if (!this.items) return this.childItems;
-    return this.items
-      .filter((i) => normalize(i?.label))
-      .map((i) => ({ label: normalize(i.label), href: i.href ?? undefined }));
+    const items = this.items
+      ? this.items
+          .filter((i) => normalize(i?.label))
+          .map((i) => ({ label: normalize(i.label), href: i.href ?? undefined }))
+      : this.childItems;
+    return items.map((i) => (i.href === undefined || this.safe(i.href) ? i : { label: i.label }));
+  }
+
+  /**
+   * Whether `href` may be a link: relative, hash and http(s), mailto and tel URLs are kept as
+   * written; any other scheme (javascript:, data:, …) makes the step plain text, with a warning.
+   */
+  private safe(href: string): boolean {
+    let ok = false;
+    try {
+      ok = SAFE_SCHEMES.has(new URL(href, this.ownerDocument.baseURI).protocol);
+    } catch {
+      ok = false;
+    }
+    if (!ok && !this.warnedHref) {
+      this.warnedHref = true;
+      console.warn(
+        `${this.localName}: showing a breadcrumb as text: its href is not http(s), mailto, tel or relative.`,
+      );
+    }
+    return ok;
+  }
+
+  /**
+   * A plain click on a trail link fires a cancelable `uvalib-breadcrumbs-navigate`; a router
+   * that cancels it navigates itself (the click's default is prevented too).
+   */
+  private onClick(e: MouseEvent): void {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
+      return;
+    const a = (e.target as Element | null)?.closest?.('a[href]');
+    if (!a || !this.renderRoot.contains(a)) return;
+    const links = [...this.renderRoot.querySelectorAll('nav a[href]')];
+    const go = new CustomEvent('uvalib-breadcrumbs-navigate', {
+      detail: { href: a.getAttribute('href'), index: links.indexOf(a) },
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+    });
+    if (!this.dispatchEvent(go)) e.preventDefault();
+  }
+
+  protected override updated(changed: PropertyValues): void {
+    super.updated(changed);
+    // Lets <site-page> drop the trail's gutter while it shows nothing.
+    this.toggleAttribute('data-empty', !this.trail.length);
   }
 
   protected override render() {
     const trail = this.trail;
     const last = trail.length - 1;
-    return html`<nav aria-label=${this.label || DEFAULT_LABEL} ?hidden=${!trail.length}>
-      <ol>
+    // role="list": Safari drops the list semantics of a list styled without markers.
+    return html`<nav
+      aria-label=${this.label || DEFAULT_LABEL}
+      ?hidden=${!trail.length}
+      @click=${this.onClick}
+    >
+      <ol role="list">
         ${trail.map((item, i) => {
           const current = i === last ? 'page' : undefined;
           const step =
@@ -235,7 +303,7 @@ export class UvalibBreadcrumbs extends UvalibElement {
               : html`<span aria-current=${current ?? nothing}>${item.label}</span>`;
           // The space before a separator is where a long trail wraps; the separator stays
           // with the item it introduces.
-          return html`<li>
+          return html`<li role="listitem">
             ${i ? html` <span class="separator" aria-hidden="true">/</span>` : nothing}${step}
           </li>`;
         })}

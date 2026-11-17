@@ -187,6 +187,89 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       expect(warns.length).to.equal(1);
     });
 
+    it('exposes the trail as a list even without markers (role="list")', async () => {
+      const el = await make();
+      expect(nav(el).querySelector('ol')!.getAttribute('role')).to.equal('list');
+      for (const li of items(el)) expect(li.getAttribute('role')).to.equal('listitem');
+    });
+
+    it('shows unsafe hrefs (javascript:, data:) as text, with one warning', async () => {
+      const warns = await warnings(async () => {
+        const el = await make(
+          `<a href="javascript:alert(1)">Home</a><a href="java\tscript:alert(1)">Tab</a><a href="mailto:a@b.c">Mail</a><span>Here</span>`,
+        );
+        el.items = [
+          { label: 'Data', href: 'data:text/html,x' },
+          { label: 'Here', href: '#/' },
+        ];
+        await settle(el);
+        expect(shown(el)).to.deep.equal([
+          ['span', 'Data', null, null],
+          ['a', 'Here', '#/', 'page'],
+        ]);
+        el.items = undefined;
+        await settle(el);
+        expect(shown(el)).to.deep.equal([
+          ['span', 'Home', null, null],
+          ['span', 'Tab', null, null],
+          ['a', 'Mail', 'mailto:a@b.c', null],
+          ['span', 'Here', null, 'page'],
+        ]);
+      });
+      expect(warns.filter((w) => w.includes('href'))).to.have.length(1);
+    });
+
+    it('follows links added to an initially empty trail, and their later edits', async () => {
+      const el = await make('');
+      expect(nav(el).hidden).to.equal(true);
+      expect(el.hasAttribute('data-empty')).to.equal(true);
+      const a = document.createElement('a');
+      a.href = '/a';
+      a.textContent = 'A';
+      el.append(a, Object.assign(document.createElement('span'), { textContent: 'Here' }));
+      await settle(el);
+      expect(el.hasAttribute('data-empty')).to.equal(false);
+      a.setAttribute('href', '/b');
+      a.textContent = 'B';
+      await settle(el);
+      expect(shown(el)[0]).to.deep.equal(['a', 'B', '/b', null]);
+    });
+
+    it('fires a cancelable uvalib-breadcrumbs-navigate on a plain link click', async () => {
+      const el = await make();
+      const seen: { href: string; index: number }[] = [];
+      const route = (e: Event) => {
+        seen.push((e as CustomEvent).detail);
+        e.preventDefault();
+      };
+      document.addEventListener('uvalib-breadcrumbs-navigate', route);
+      let clickDefault: boolean | undefined;
+      const spy = (e: Event) => (clickDefault = e.defaultPrevented);
+      try {
+        el.addEventListener('click', spy);
+        nav(el).querySelectorAll('a')[1]!.click();
+        expect(seen).to.deep.equal([{ href: 'research', index: 1 }]);
+        expect(clickDefault).to.equal(true);
+        // A modified click (new tab) is left alone.
+        nav(el)
+          .querySelectorAll('a')[0]!
+          .dispatchEvent(
+            new MouseEvent('click', { bubbles: true, cancelable: true, metaKey: true }),
+          );
+        expect(seen).to.have.length(1);
+      } finally {
+        document.removeEventListener('uvalib-breadcrumbs-navigate', route);
+        el.removeEventListener('click', spy);
+      }
+    });
+
+    it('draws a linked current page in the text colour', async () => {
+      const el = await make(`<a href="/">Home</a><a href="/here">Here</a>`);
+      const [home, here] = nav(el).querySelectorAll('a');
+      expect(getComputedStyle(here!).color).to.equal(getComputedStyle(nav(el)).color);
+      expect(getComputedStyle(home!).color).to.not.equal(getComputedStyle(here!).color);
+    });
+
     it('passes axe', async () => {
       const el = await make();
       await expectNoAxeViolations(el);

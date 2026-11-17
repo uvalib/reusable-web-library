@@ -172,6 +172,14 @@ export class SitePage extends UvalibElement {
         margin: 0 auto;
         padding: 16px 40px 0;
       }
+      /* An empty or hidden trail takes no space. */
+      ::slotted([slot='breadcrumbs']:is([hidden], [data-empty])) {
+        display: none;
+      }
+      /* Light mode (this stylesheet is rewritten to \`site-page > …\` there). */
+      :host > [slot='breadcrumbs']:is([hidden], [data-empty]) {
+        display: none;
+      }
       :host > [slot='breadcrumbs'] {
         display: block;
         box-sizing: border-box;
@@ -408,9 +416,34 @@ export class SitePage extends UvalibElement {
 
   private observe(): void {
     this.observer ??= new MutationObserver((records) => {
-      for (const r of records) this.route(r.addedNodes);
+      for (const r of records) {
+        if (r.type === 'attributes') this.reslot(r.target as Element);
+        else if (r.target === this) this.route(r.addedNodes);
+      }
     });
-    this.observer.observe(this, { childList: true });
+    // One call: observing the same node again would replace these options. Children added to
+    // the page are routed; a content node given slot="breadcrumbs" later (or losing it) moves
+    // out of (or back into) <main>.
+    this.observer.observe(this, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['slot'],
+    });
+  }
+
+  /** Light mode: a top-level content node's `slot` changed to or from `breadcrumbs`. */
+  private reslot(el: Element): void {
+    const main = this.querySelector(':scope > main');
+    const header = this.querySelector(':scope > site-header');
+    if (!main || !header || this.chrome.has(el)) return;
+    if (el.parentNode === main && slotOf(el) === 'breadcrumbs') this.placeBreadcrumbs(el, header);
+    else if (
+      el.parentNode === this &&
+      slotOf(el) !== 'breadcrumbs' &&
+      main.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING
+    )
+      main.append(el);
   }
 
   /**

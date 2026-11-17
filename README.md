@@ -227,10 +227,11 @@ connect-src https://d2q6t6fdv76k7r.cloudfront.net wss://*.appsync-realtime-api.u
 ```
 
 - **Markup.** A `<nav aria-label="Breadcrumb">` (`label` changes the name) holding an `<ol>`, one `<li>` per step. The slashes are `aria-hidden` elements, so screen readers do not read them. The last step is the current page: a `<span aria-current="page">`, or a link with `aria-current="page"` when it has an href.
-- **The trail as children.** `<a href>` children, ending with the current page as a text-only element (`<span>Writing</span>`) or a link (`<a href="…" aria-current="page">`). The last child is always the current page; an earlier child without an href is shown as plain text (a level with no page of its own). Hrefs are used as written (relative, hash routes). Children with no text, and bare text, are skipped with one console warning. The trail follows changes to the children (added, removed, href and text), so a single-page app can rewrite them on each route.
+- **The trail as children.** `<a href>` children, ending with the current page as a text-only element (`<span>Writing</span>`) or a link (`<a href="…" aria-current="page">`). The last child is always the current page; an earlier child without an href is shown as plain text (a level with no page of its own). Hrefs are used as written (relative, hash routes); an href with another scheme than http(s), `mailto:` or `tel:` (such as `javascript:` or `data:`) makes that step plain text, with one console warning. Children with no text, and bare text, are skipped with one console warning. The trail follows changes to the children (added, removed, href and text), so a single-page app can rewrite them on each route. An empty trail renders nothing and, in `<site-page>`, takes no space.
+- **Single-page apps.** The trail is drawn from copies of the children, so a router's own click handlers on them don't run. A plain click on a trail link fires `uvalib-breadcrumbs-navigate` (`detail: { href, index }`, bubbling, cancelable): cancel it with `preventDefault()` and navigate in the app (the click's own navigation is then prevented). Hash links need nothing.
 - **The trail as data.** Apps that build it in JavaScript (React, Vue) set the `items` property: `el.items = [{ label: 'Home', href: '/' }, { label: 'Search' }]`. While set it wins over any children; assign a new array to change it, `undefined` to go back to the children. Entries without a label are skipped with one warning.
 - **Placement.** In `<site-page>` the trail sits where library.virginia.edu puts it: after the header and the alert list band, before `<main>` and outside it, so the skip link lands past it, lined up with `<main>`'s content (same max width and 40px side padding, 16px above). In light mode (`no-shadow-dom`) it is moved there as a real child of `<site-page>`, never into `<main>`. Without a `slot="breadcrumbs"` child the page is unchanged. Elsewhere it is an ordinary block: put it first in the page content, above the `<h1>`.
-- **Styles.** Links `--uva-color-link` (else `--uva-blue-alt-dark`, #005679), underlined; the slash in `--uva-color-text-muted` (else `--uva-grey-dark`); the current page in the text colour; the library focus ring. Long trails wrap (no horizontal scroll at 320px). It follows dark mode through the role tokens. `no-style` keeps only the structure (an inline list without bullets or indent, the separators' spacing); light DOM styles are scoped to the tag in `@layer uvalib`, so a site's own CSS wins.
+- **Styles.** Links `--uva-color-utility-link` (else `--uva-blue-alt-dark`, #005679, as on library.virginia.edu), underlined; a linked current page in the text colour; the slash in `--uva-color-text-muted` (else `--uva-grey-dark`); the current page in the text colour; the library focus ring. Long trails wrap (no horizontal scroll at 320px). It follows dark mode through the role tokens. `no-style` keeps only the structure (an inline list without bullets or indent, the separators' spacing); light DOM styles are scoped to the tag in `@layer uvalib`, so a site's own CSS wins.
 
 ## Rendering modes
 
@@ -986,7 +987,7 @@ Compatibility element. Light mode (`no-shadow-dom`) installs the tokens and base
 
 ### `<uvalib-breadcrumbs>`
 
-A breadcrumb trail, as on library.virginia.edu: links separated by slashes, ending with the current page, at body size. A `<nav aria-label="Breadcrumb">` holding an `<ol>`; the separators are hidden from assistive technology and the last item has `aria-current="page"` (a `<span>`, or a link when it has an href). Give the trail as children: `<a href>` elements, ending with the current page as a text-only element (`<span>Hours</span>`) or a link (`<a href aria-current="page">`). The last child is always the current page. An earlier child without an href is shown as plain text. Children with no text are skipped with one console warning. Hrefs are used as written, and the trail follows changes to the children (attributes and text too). Apps that build the trail in JavaScript set the `items` property instead (it then wins over any children); assigning a new array re-renders. Inside `<site-page>`, give it `slot="breadcrumbs"`: it is placed between the header (and alerts band) and `<main>`, with the page's gutters. It works anywhere else too.
+A breadcrumb trail, as on library.virginia.edu: links separated by slashes, ending with the current page, at body size. A `<nav aria-label="Breadcrumb">` holding an `<ol>`; the separators are hidden from assistive technology and the last item has `aria-current="page"` (a `<span>`, or a link when it has an href). Give the trail as children: `<a href>` elements, ending with the current page as a text-only element (`<span>Hours</span>`) or a link (`<a href aria-current="page">`). The last child is always the current page. An earlier child without an href is shown as plain text. Children with no text are skipped with one console warning. Hrefs are used as written, and the trail follows changes to the children (attributes and text too). Apps that build the trail in JavaScript set the `items` property instead (it then wins over any children); assigning a new array re-renders. Inside `<site-page>`, give it `slot="breadcrumbs"`: it is placed between the header (and alerts band) and `<main>`, with the page's gutters. It works anywhere else too. Single-page apps: the trail is drawn from copies of the children, so a router's own click handlers on them do not run. Listen for `uvalib-breadcrumbs-navigate` and cancel it to route in place; hash links need nothing.
 
 #### Attributes
 
@@ -996,6 +997,12 @@ A breadcrumb trail, as on library.virginia.edu: links separated by slashes, endi
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
+#### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-breadcrumbs-navigate` | A plain click on a trail link: `detail` is `{ href, index }` (href as written). Cancel it (`preventDefault()`) to navigate in the app; the click's default is then prevented. Bubbles and is composed. |
+
 #### CSS custom properties
 
 | Property | Default | Description |
@@ -1003,7 +1010,7 @@ A breadcrumb trail, as on library.virginia.edu: links separated by slashes, endi
 | `--uva-blue-alt-dark` | `#005679` | Link colour. |
 | `--uva-grey-darkest` | `#2b2b2b` | Current page colour. |
 | `--uva-grey-dark` | `#4f4f4f` | Separator colour. |
-| `--uva-color-link` |  | Dark-mode role token: link colour (else `--uva-blue-alt-dark`). |
+| `--uva-color-utility-link` |  | Dark-mode role token: link colour, #005679 in light as on library.virginia.edu (else `--uva-blue-alt-dark`). |
 | `--uva-color-text` |  | Dark-mode role token: current page colour (else `--uva-grey-darkest`). |
 | `--uva-color-text-muted` |  | Dark-mode role token: separator colour (else `--uva-grey-dark`). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
