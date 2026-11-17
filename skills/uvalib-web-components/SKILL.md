@@ -1,11 +1,11 @@
 ---
 name: uvalib-web-components
-description: Use when building or editing UVA Library web pages or sites, adding the UVA Library header, footer or page wrapper to a page, using the custom elements <site-page>, <site-header>, <site-main-nav>, <site-footer>, <site-analytics>, <site-style>, <uvalib-filter>, <uvalib-date-range>, <site-hours-section>, <library-weekly-hours>, <library-hours-setup>, <events-section> or <bento-box>, working with the @uvalib/web-components npm package, or editing script/link URLs on unpkg.internal.lib.virginia.edu (including migrating old /web-components/latest/ or cdn-v URLs). Covers CDN vs npm, version pinning, shadow vs light DOM, theming with --uva-* tokens, and a verification checklist.
+description: Use when building or editing UVA Library web pages or sites, adding the UVA Library header, footer or page wrapper to a page, using the custom elements <site-page>, <site-header>, <site-main-nav>, <site-footer>, <site-analytics>, <uvalib-analytics>, <site-style>, <uvalib-filter>, <uvalib-date-range>, <site-hours-section>, <library-weekly-hours>, <library-hours-setup>, <events-section> or <bento-box>, working with the @uvalib/web-components npm package, or editing script/link URLs on unpkg.internal.lib.virginia.edu (including migrating old /web-components/latest/ or cdn-v URLs). Covers CDN vs npm, version pinning, shadow vs light DOM, theming with --uva-* tokens, and a verification checklist.
 ---
 
 # UVA Library web components
 
-`@uvalib/web-components` provides the UVA Library page chrome as custom elements: `<site-page>` (skip link, header with the library main navigation, one `<main>`, footer), `<site-header>`, `<site-main-nav>` (the main navigation, rendered by the header), `<site-footer>`, `<site-analytics>` (Matomo) and `<site-style>` (legacy compatibility). It also ships two search-page components, `<uvalib-filter>` and `<uvalib-date-range>` (section 6), and three library-hours elements for library.virginia.edu, `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`, `<events-section>` for upcoming library events and `<bento-box>` for the library's search results page (section 7). Tag names are stable.
+`@uvalib/web-components` provides the UVA Library page chrome as custom elements: `<site-page>` (skip link, header with the library main navigation, one `<main>`, footer), `<site-header>`, `<site-main-nav>` (the main navigation, rendered by the header), `<site-footer>`, `<site-analytics>` (Matomo; also registered as `<uvalib-analytics>`) and `<site-style>` (legacy compatibility). It also ships two search-page components, `<uvalib-filter>` and `<uvalib-date-range>` (section 6), and three library-hours elements for library.virginia.edu, `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`, `<events-section>` for upcoming library events and `<bento-box>` for the library's search results page (section 7). Tag names are stable.
 
 Authority rule: https://www.library.virginia.edu and the UVA Library design system are the source of truth for how the chrome looks and what it says. Do not re-create, copy or restyle the header, footer, logo or links by hand. Use the components, and change appearance only through the theming surface below.
 
@@ -27,9 +27,9 @@ CDN URLs (all files at one prefix):
 
 Loading rules:
 
-- One script is enough for the page chrome: `site-page.js` also loads the header (with its main navigation) and footer. Add `site-analytics.js` only when the site needs Matomo.
+- One script is enough for the page chrome: `site-page.js` also loads the header (with its main navigation) and footer. For Matomo, give `<site-page>` a `matomo-id` (it loads the analytics code itself), or add `site-analytics.js` and a `<site-analytics>` (or `uvalib-analytics.js` and `<uvalib-analytics>`) element; never both, and never alongside a hand-written Matomo snippet.
 - Also link `.../v1/base.css` in `<head>` (npm: `@uvalib/web-components/base.css`), unless the page sets `no-global-styles`. `<site-page>` installs the same base styles only after the first paint, so without the link the page shifts once (the default body margin goes away, and a heading's margin stops collapsing through the not-yet-defined `<site-page>`). The link also keeps `<site-page>` invisible until it is defined, with a two-second fallback.
-- npm: the define entries (`@uvalib/web-components/site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`, `events-section.js`, `bento-box.js`) register the element (`bento-box.js` also registers its four sections). Importing the package root (`@uvalib/web-components`) gives the classes only and registers nothing. If you use the `SitePage` class directly, also import the header and footer define entries.
+- npm: the define entries (`@uvalib/web-components/site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`, `events-section.js`, `bento-box.js`) register the element (`bento-box.js` also registers its four sections). Importing the package root (`@uvalib/web-components`) gives the classes only and registers nothing. If you use the `SitePage` class directly, also import the header and footer define entries.
 - Do not load the same component from both the CDN and npm on one page.
 
 ## 2. Required page structure
@@ -162,7 +162,7 @@ import '@uvalib/web-components/tokens.css'; // optional: tokens for your own CSS
 // <site-page> is then used in your HTML or templates exactly as in the plain HTML snippet.
 ```
 
-Analytics: add `site-analytics.js` and a `<site-analytics>` element only when the site needs Matomo; see the analytics page in [reference/snippets.md](reference/snippets.md). It listens on `document`, so dispatch its events only after it is defined, from a user action.
+Analytics: only when the site needs Matomo, set `<site-page matomo-id="N">`, or add `site-analytics.js` and a `<site-analytics matomoid="N">`; see the analytics page in [reference/snippets.md](reference/snippets.md). `<uvalib-analytics>` (`uvalib-analytics.js`) is the same element under its original name, for existing markup. It listens on `document` for `uvalib-analytics-*` and `site-analytics-*` events (`event`, `search`, `pageview`) and queues them for Matomo, so events fired before Matomo loads are kept, and a page never counts twice. The library's own components (bento-box searches and result clicks, main-nav menu opens, the header's colour-scheme choice) already report; do not add tracking for those. Never put titles, URLs or personal data in events.
 
 ## 6. Search facets
 

@@ -99,7 +99,7 @@ Vendor or third-party site:
 </html>
 ```
 
-Analytics. `<site-analytics>` listens for `site-analytics-event`, `site-analytics-search` and `site-analytics-pageview` on `document`. Dispatch them only after the element is defined (and normally from a user action such as a search submit). Events fired before the Matomo tracker has loaded may be dropped. The Matomo property id is found from the page URL for registered library sites; otherwise add `matomoid="N"`. This example has no `matomoid` so that the snippet test never loads real Matomo.
+Analytics. `<site-analytics>` listens for `site-analytics-event`, `site-analytics-search` and `site-analytics-pageview` on `document` (and the original `uvalib-analytics-*` names). Events go through Matomo's `_paq` queue, so one fired before Matomo has loaded is kept; dispatch them normally from a user action such as a search submit. The Matomo property id is found from the page URL for registered library sites; otherwise add `matomoid="N"`, or use `<site-page matomo-id="N">` instead of the element. The snippet tests answer matomo.js with a stub, so nothing reaches real Matomo.
 
 ```html snippet
 <!doctype html>

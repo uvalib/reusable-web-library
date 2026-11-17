@@ -12,6 +12,7 @@ Base: `https://unpkg.internal.lib.virginia.edu/web-components/`. Pick the major 
 | `/web-components/latest/@uvalib/site-header/site-header.js`                                                                                   | `/web-components/v1/site-header.js`                                                                                                                                                                                                   |
 | `/web-components/latest/@uvalib/site-footer/site-footer.js`                                                                                   | `/web-components/v1/site-footer.js`                                                                                                                                                                                                   |
 | `/web-components/latest/@uvalib/site-analytics/site-analytics.js`                                                                             | `/web-components/v1/site-analytics.js`                                                                                                                                                                                                |
+| `/v0.0.12/uvalib-analytics.js` (or any `/vX.Y.Z/uvalib-analytics.js` outside `/web-components/`)                                              | `/web-components/v1/uvalib-analytics.js` (same markup, `<uvalib-analytics matomoid="10">`; events are queued until Matomo loads and a page never counts twice)                                                                        |
 | `/web-components/latest/@uvalib/site-style/site-style.js`                                                                                     | `/web-components/v1/site-style.js`                                                                                                                                                                                                    |
 | `/web-components/cdn-vX.Y.Z/@uvalib/<pkg>/<file>.js`                                                                                          | `/web-components/v1/<tag>.js`, or `/web-components/v1.0.0/<tag>.js` to pin (the old cdn-v number does not map to a new version)                                                                                                       |
 | `/web-components/<latest or cdn-vX.Y.Z>/@uvalib/site-hours/<file>.js`                                                                         | `/web-components/v1/<file>.js` for `site-hours-section`, `library-weekly-hours` and `library-hours-setup` (same markup); `library-daily-hours` is not migrated                                                                        |
@@ -29,17 +30,18 @@ Notes:
 
 ## npm package names
 
-| Old                                    | New                                                                                                                                       |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `@uvalib/site-page`                    | `@uvalib/web-components`, `import '@uvalib/web-components/site-page.js'`                                                                  |
-| `@uvalib/site-header`                  | `import '@uvalib/web-components/site-header.js'`                                                                                          |
-| `@uvalib/site-footer`                  | `import '@uvalib/web-components/site-footer.js'`                                                                                          |
-| `@uvalib/site-analytics`               | `import '@uvalib/web-components/site-analytics.js'`                                                                                       |
-| `@uvalib/site-style`                   | `import '@uvalib/web-components/site-style.js'`                                                                                           |
-| `@uvalib/site-hours`                   | `import '@uvalib/web-components/site-hours-section.js'` (or `library-weekly-hours.js`, `library-hours-setup.js`)                          |
-| `@uvalib/bento-box` (`events-section`) | `import '@uvalib/web-components/events-section.js'`                                                                                       |
-| `@uvalib/bento-box` (`bento-box`)      | `import '@uvalib/web-components/bento-box.js'`                                                                                            |
-| `webSiteInfo` (site registry)          | internal to `site-analytics`; not exported. Do not import it; pass `matomoid` to `<site-analytics>` if the URL-based lookup is not enough |
+| Old                                    | New                                                                                                                                                 |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@uvalib/site-page`                    | `@uvalib/web-components`, `import '@uvalib/web-components/site-page.js'`                                                                            |
+| `@uvalib/site-header`                  | `import '@uvalib/web-components/site-header.js'`                                                                                                    |
+| `@uvalib/site-footer`                  | `import '@uvalib/web-components/site-footer.js'`                                                                                                    |
+| `@uvalib/site-analytics`               | `import '@uvalib/web-components/site-analytics.js'`                                                                                                 |
+| `@uvalib/uvalib-analytics`             | `import '@uvalib/web-components/uvalib-analytics.js'`; `UvalibAnalyticsMixin` (`_analyticsEvent`, `_analyticsSearch`) from `@uvalib/web-components` |
+| `@uvalib/site-style`                   | `import '@uvalib/web-components/site-style.js'`                                                                                                     |
+| `@uvalib/site-hours`                   | `import '@uvalib/web-components/site-hours-section.js'` (or `library-weekly-hours.js`, `library-hours-setup.js`)                                    |
+| `@uvalib/bento-box` (`events-section`) | `import '@uvalib/web-components/events-section.js'`                                                                                                 |
+| `@uvalib/bento-box` (`bento-box`)      | `import '@uvalib/web-components/bento-box.js'`                                                                                                      |
+| `webSiteInfo` (site registry)          | internal to `site-analytics`; not exported. Do not import it; pass `matomoid` to `<site-analytics>` if the URL-based lookup is not enough           |
 
 Importing `@uvalib/web-components` itself returns classes only and registers nothing; use the define entries above.
 

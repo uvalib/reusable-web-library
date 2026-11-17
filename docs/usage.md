@@ -1,6 +1,6 @@
 # Using @uvalib/web-components
 
-Custom elements for UVA Library pages: `<site-page>`, `<site-header>`, `<site-footer>`, `<site-analytics>` and `<site-style>`, plus the search components `<uvalib-filter>` and `<uvalib-date-range>`. Full attribute, slot, part, event and custom-property tables are in [the component reference](../skills/uvalib-web-components/reference/components.md) (generated from `custom-elements.json`).
+Custom elements for UVA Library pages: `<site-page>`, `<site-header>`, `<site-footer>`, `<site-analytics>` (also `<uvalib-analytics>`) and `<site-style>`, plus the search components `<uvalib-filter>` and `<uvalib-date-range>`. Full attribute, slot, part, event and custom-property tables are in [the component reference](../skills/uvalib-web-components/reference/components.md) (generated from `custom-elements.json`).
 
 ## Two ways to load
 
@@ -19,7 +19,7 @@ Custom elements for UVA Library pages: `<site-page>`, `<site-header>`, `<site-fo
 - `/web-components/vX.Y.Z/<tag>.js` is an exact, immutable version. Use it to pin.
 - `tokens.css` and `base.css` are at the same prefix.
 - Do not use the legacy `/web-components/latest/...` or `/web-components/cdn-vX.Y.Z/...` paths. See [migration](migration.md).
-- `site-page.js` also loads the header and footer. Add `site-analytics.js` only when you need Matomo.
+- `site-page.js` also loads the header and footer. For Matomo, set `matomo-id` on `<site-page>`, or add `site-analytics.js` and a `<site-analytics>`.
 
 ### npm (bundled apps)
 
@@ -31,7 +31,7 @@ npm i @uvalib/web-components
 import '@uvalib/web-components/site-page.js'; // registers the element
 ```
 
-The define entries are `site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `site-style.js`, `uvalib-filter.js` and `uvalib-date-range.js`. `import '@uvalib/web-components'` exports the classes only and registers nothing; if you use `SitePage` directly, import the header and footer define entries too. CSS: `@uvalib/web-components/tokens.css` and `base.css`.
+The define entries are `site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-filter.js` and `uvalib-date-range.js`. `import '@uvalib/web-components'` exports the classes only and registers nothing; if you use `SitePage` directly, import the header and footer define entries too. CSS: `@uvalib/web-components/tokens.css` and `base.css`.
 
 ## Page structure
 
@@ -61,7 +61,7 @@ Theme through inherited `--uva-*` custom properties (see `tokens.css`) set on `:
 
 ## Analytics
 
-`<site-analytics matomoid="12" spa>` loads Matomo. It listens on `document` for `site-analytics-pageview`, `site-analytics-search` and `site-analytics-event`; dispatch those events to record data, but only after the element is defined (`await customElements.whenDefined('site-analytics')`), ideally from a user action. Events fired before the Matomo tracker has loaded may be dropped.
+`<site-analytics matomoid="12" spa>` loads Matomo. It listens on `document` for `site-analytics-pageview`, `site-analytics-search` and `site-analytics-event`; (and the original `uvalib-analytics-*` names); dispatch those events to record data, ideally from a user action. They are queued for Matomo, so events fired before it has loaded are kept. See the README's "Analytics".
 
 ## Agent skill
 
