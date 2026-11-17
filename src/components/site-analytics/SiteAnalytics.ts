@@ -1,16 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- ported verbatim from the monorepo */
-import { html, css } from 'lit';
+import { css } from 'lit';
 import { property } from 'lit/decorators.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { findMatomoId } from '../../data/sites.js';
+import { analyticsState, ANALYTICS_EVENTS, type AnalyticsTracker } from '../../base/analytics.js';
 
-// Extend the global Window interface
-declare global {
-  interface Window {
-    _paq: any[];
-    Matomo: any;
-  }
-}
+/** The page's window with Matomo's command queue, which matomo.js replays when it loads. */
+type MatomoWindow = Window & { _paq?: unknown[][] };
 
 interface PageViewDetail {
   customTitle?: string;
@@ -18,22 +13,54 @@ interface PageViewDetail {
 }
 
 interface SearchDetail {
-  searchQuery: string;
-  searchCategory?: string;
-  resultCount: number;
+  searchQuery?: string;
+  searchCategory?: string | null;
+  resultCount?: number | string | null;
 }
 
 interface EventDetail {
-  event: any[];
+  event?: unknown[];
+  /** The old name of `event`. */
+  track?: unknown[];
+}
+
+type Tracker = AnalyticsTracker;
+const shared = analyticsState;
+
+/** Matomo is already on the page: a matomo.js script, or a queue that sets a site id. */
+function matomoOnPage(paq: unknown[][]): boolean {
+  return (
+    !!document.querySelector('script[src*="matomo.js"]') ||
+    paq.some((c) => Array.isArray(c) && c[0] === 'setSiteId')
+  );
+}
+
+/** A result count for Matomo: a number, or `false` (Matomo's "unknown"). */
+function countOf(n: SearchDetail['resultCount']): number | false {
+  if (n === null || n === undefined || n === '') return false;
+  const v = Number(n);
+  return Number.isFinite(v) ? v : false;
 }
 
 /**
- * Matomo analytics loader with no visual output. Listens on `document` for the events below.
+ * Matomo analytics, with no visual output. Loads matomo.js for the site and records the
+ * page view, then forwards the events below, fired anywhere in the page, to Matomo. Every
+ * call goes through Matomo's `_paq` queue, so events fired before matomo.js loads are kept.
+ *
+ * One tracker per page: however many `<site-analytics>` and `<uvalib-analytics>` elements
+ * there are (from any copy of this library), matomo.js is loaded and the page view recorded
+ * once, and only one element forwards each event; if it is removed, the next takes over. A
+ * Matomo snippet already on the page is used as it is (nothing is loaded or recorded again).
+ *
+ * The same element is registered as `<uvalib-analytics>` by `uvalib-analytics.js`.
  *
  * @tagname site-analytics
- * @fires site-analytics-pageview - Listened for on `document` (not fired): `detail` is `{ customTitle?, referrer? }`.
- * @fires site-analytics-search - Listened for on `document` (not fired): `detail` is `{ searchQuery, searchCategory?, resultCount }`.
- * @fires site-analytics-event - Listened for on `document` (not fired): `detail` is `{ event: any[] }`, passed to Matomo `trackEvent`.
+ * @fires uvalib-analytics-pageview - Listened for on `document` (not fired): records a page view; `detail` is `{ customTitle?, referrer? }` (default: the document's title and referrer; a referrer without `http` is taken as a path on this origin).
+ * @fires uvalib-analytics-search - Listened for on `document` (not fired): a Matomo site search; `detail` is `{ searchQuery, searchCategory?, resultCount? }`.
+ * @fires uvalib-analytics-event - Listened for on `document` (not fired): a Matomo event; `detail` is `{ event: [category, action, name?, value?] }` (`track` is the old name of `event`).
+ * @fires site-analytics-pageview - Listened for on `document` too: the same as `uvalib-analytics-pageview`.
+ * @fires site-analytics-search - Listened for on `document` too: the same as `uvalib-analytics-search`.
+ * @fires site-analytics-event - Listened for on `document` too: the same as `uvalib-analytics-event`.
  */
 export class SiteAnalytics extends UvalibElement {
   static styles = css`
@@ -42,109 +69,104 @@ export class SiteAnalytics extends UvalibElement {
     }
   `;
 
+  /** The Matomo server, ending in `/` (attribute `matomourl`). */
   @property({ type: String }) matomoURL: string = 'https://analytics.lib.virginia.edu/';
+  /** The Matomo site id (attribute `matomoid`). Default: the site whose URL the page is under. */
   @property({ type: Number }) matomoId?: number;
+  /** A single-page app records its own page views (`uvalib-analytics-pageview`): none on load. */
   @property({ type: Boolean }) spa: boolean = false;
-  @property({ type: Object }) variables: any = null;
+  /** Custom dimensions, a JSON object of `{ id: value }`, set before the page view. */
+  @property({ type: Object }) variables: Record<string, unknown> | null = null;
 
-  private matomoTracker?: any;
+  private readonly tracker: Tracker = { off: false };
 
-  firstUpdated() {
-    // If matomoId is not provided, find the correct one based on the current URL
-    if (!this.matomoId) {
-      this.matomoId = this.getMatomoIdFromCurrentUrl();
-    }
-
-    this.initMatomo();
-  }
-
-  private readonly onSearch = this.logSearch.bind(this) as EventListener;
-  private readonly onEvent = this.logEvent.bind(this) as EventListener;
-  private readonly onPageView = this.logPageView.bind(this) as EventListener;
+  private readonly onEvent = (e: Event) => {
+    if (!this.forwards()) return;
+    const type = e.type.slice(e.type.lastIndexOf('-') + 1);
+    const detail = (e as CustomEvent).detail ?? {};
+    if (type === 'event') this.logEvent(detail as EventDetail);
+    else if (type === 'search') this.logSearch(detail as SearchDetail);
+    else this.logPageView(detail as PageViewDetail);
+  };
 
   override connectedCallback() {
     super.connectedCallback();
-    document.addEventListener('site-analytics-search', this.onSearch);
-    document.addEventListener('site-analytics-event', this.onEvent);
-    document.addEventListener('site-analytics-pageview', this.onPageView);
+    shared().trackers.push(this.tracker);
+    for (const t of ANALYTICS_EVENTS) document.addEventListener(t, this.onEvent);
   }
 
   override disconnectedCallback() {
-    document.removeEventListener('site-analytics-search', this.onSearch);
-    document.removeEventListener('site-analytics-event', this.onEvent);
-    document.removeEventListener('site-analytics-pageview', this.onPageView);
+    for (const t of ANALYTICS_EVENTS) document.removeEventListener(t, this.onEvent);
+    const { trackers } = shared();
+    const i = trackers.indexOf(this.tracker);
+    if (i >= 0) trackers.splice(i, 1);
     super.disconnectedCallback();
   }
 
-  private getMatomoIdFromCurrentUrl(): number | undefined {
-    return findMatomoId(window.location.href);
+  /** Whether this element is the page's one forwarder: the first connected one with a site id. */
+  private forwards(): boolean {
+    return shared().trackers.find((t) => !t.off) === this.tracker;
   }
 
-  private logPageView(e: CustomEvent<PageViewDetail>) {
-    if (!this.matomoTracker) return;
-
-    const customTitle = e.detail?.customTitle || document.querySelector('title')?.text || '';
-    const referrer = e.detail?.referrer?.startsWith('http')
-      ? e.detail.referrer
-      : document.location.origin + (e.detail?.referrer || document.referrer);
-
-    this.matomoTracker.setDocumentTitle(customTitle);
-    this.matomoTracker.setReferrerUrl(referrer);
-    this.matomoTracker.trackPageView(customTitle);
+  private get paq(): unknown[][] {
+    return ((window as MatomoWindow)._paq ??= []);
   }
 
-  private logSearch(e: CustomEvent<SearchDetail>) {
-    if (this.matomoTracker) {
-      this.matomoTracker.trackSiteSearch(
-        e.detail.searchQuery,
-        e.detail.searchCategory,
-        e.detail.resultCount.toString(),
-      );
+  protected override firstUpdated() {
+    const id = this.matomoId || findMatomoId(window.location.href);
+    if (!id) {
+      this.tracker.off = true;
+      return;
     }
-  }
-
-  private logEvent(e: CustomEvent<EventDetail>) {
-    if (e.detail && Array.isArray(e.detail.event) && this.matomoTracker) {
-      this.matomoTracker.trackEvent(...e.detail.event);
-    }
-  }
-
-  private initMatomo() {
-    if (!this.matomoId) return;
-
-    const _paq: any[] = (window._paq = window._paq || []);
+    const state = shared();
+    if (state.booted) return;
+    state.booted = true;
+    const paq = this.paq;
+    if (matomoOnPage(paq)) return;
+    paq.push(['setTrackerUrl', `${this.matomoURL}matomo.php`]);
+    paq.push(['setSiteId', String(id)]);
+    for (const [key, value] of Object.entries(this.variables ?? {}))
+      paq.push(['setCustomDimension', key, value]);
     if (!this.spa) {
-      _paq.push(['trackPageView']);
-      _paq.push(['enableLinkTracking']);
+      paq.push(['trackPageView']);
+      paq.push(['enableLinkTracking']);
     }
-    _paq.push(['setTrackerUrl', `${this.matomoURL}matomo.php`]);
-    _paq.push(['setSiteId', this.matomoId.toString()]);
-
-    if (this.variables) {
-      for (const key in this.variables) {
-        _paq.push(['setCustomDimension', key, this.variables[key]]);
-      }
-    }
-
-    const scriptElement = document.createElement('script');
-    scriptElement.src = `${this.matomoURL}matomo.js`;
-    document.head.appendChild(scriptElement);
-
-    this.getTracker(1000);
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = `${this.matomoURL}matomo.js`;
+    document.head.append(script);
   }
 
-  private getTracker(timeout: number) {
-    if (window.Matomo) {
-      this.matomoTracker = window.Matomo.getTracker(
-        `${this.matomoURL}matomo.php`,
-        this.matomoId!.toString(),
-      );
-    } else {
-      setTimeout(() => this.getTracker(timeout + 1000), timeout);
-    }
+  private logPageView(d: PageViewDetail) {
+    const title = d.customTitle || document.title;
+    const referrer = d.referrer
+      ? d.referrer.startsWith('http')
+        ? d.referrer
+        : location.origin + d.referrer
+      : document.referrer;
+    this.paq.push(
+      ['setDocumentTitle', title],
+      ['setReferrerUrl', referrer],
+      ['trackPageView', title],
+    );
   }
 
-  render() {
-    return html``; // No visual representation, just the analytics logic
+  private logSearch(d: SearchDetail) {
+    if (!d.searchQuery) return;
+    this.paq.push([
+      'trackSiteSearch',
+      d.searchQuery,
+      d.searchCategory || false,
+      countOf(d.resultCount),
+    ]);
+  }
+
+  private logEvent(d: EventDetail) {
+    const parts = d.event ?? d.track;
+    if (Array.isArray(parts) && parts.length >= 2) this.paq.push(['trackEvent', ...parts]);
+  }
+
+  protected override render() {
+    return null;
   }
 }

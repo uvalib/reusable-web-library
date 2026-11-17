@@ -7,6 +7,7 @@ import { tokens } from '../../styles/tokens.js';
 import { base, TYPEKIT_URL } from '../../styles/base.js';
 import { accessible } from '../../styles/accessible.js';
 import { ColorSchemeController } from '../../base/color-scheme.js';
+import { bufferAnalytics } from '../../base/analytics.js';
 import {
   ALERTS_PRODUCTION_SRC,
   ALERTS_TAG,
@@ -108,6 +109,15 @@ export class SitePage extends UvalibElement {
    * own content must support it (see the README's "Dark mode").
    */
   @property({ type: Boolean, attribute: 'color-scheme-switch' }) colorSchemeSwitch = false;
+  /**
+   * Opt in to Matomo analytics: the site's Matomo id. The page then adds one
+   * `<site-analytics>` for it (loading its code only then), which records the page view and
+   * what the library's components report (see the README's "Analytics"). Off by default. With
+   * an analytics element or a Matomo snippet already on the page nothing is counted twice.
+   */
+  @property({ type: Number, attribute: 'matomo-id' }) matomoId?: number;
+  /** The Matomo server for `matomo-id`, ending in `/` (default: the library's). */
+  @property({ type: String, attribute: 'matomo-url' }) matomoUrl?: string;
 
   /**
    * Sets the stored scheme on <html> as soon as the page connects, before the header renders,
@@ -178,6 +188,8 @@ export class SitePage extends UvalibElement {
     list: HTMLElement;
     regional: HTMLElement;
   };
+  /** The `<site-analytics>` this element added for `matomo-id`. */
+  private analytics?: HTMLElement;
   /** Whether the list alerts have anything to show, from their last update event. */
   @state() private listShown = false;
 
@@ -246,6 +258,53 @@ export class SitePage extends UvalibElement {
   protected override updated(): void {
     if (this.lightDom) this.syncLightAlerts();
     if (!this.noAlerts) loadAlerts(this.ownerDocument, this.alertsUrl);
+    this.syncAnalytics();
+  }
+
+  /** Loads `<site-analytics>` (and registers it) on first use of `matomo-id`. */
+  protected loadAnalytics(): Promise<unknown> {
+    return import('../site-analytics/site-analytics.js');
+  }
+
+  /**
+   * `matomo-id`: one `<site-analytics>`, at the very start of the render root, before Lit's
+   * markers, so no render ever clears it and (being chrome) light DOM routing never moves it.
+   * The element's own one-tracker guard keeps a second element or snippet from double-counting.
+   */
+  private syncAnalytics(): void {
+    const id = Number(this.matomoId);
+    if (!(id > 0)) {
+      this.analytics?.remove();
+      this.analytics = undefined;
+      return;
+    }
+    if (!this.analytics) {
+      // An analytics element the page has already (say the old v0.0.12 <uvalib-analytics>,
+      // which does not share the one-tracker guard) records the page: don't add a second.
+      if (this.ownerDocument.querySelector('site-analytics, uvalib-analytics')) return;
+      const a = (this.analytics = this.ownerDocument.createElement('site-analytics'));
+      this.chrome.add(a);
+      if (!customElements.get('site-analytics')) {
+        // Until the code arrives nothing forwards: keep what the components report meanwhile
+        // (a bento search can settle first) and hand it over once the element is running.
+        const buffer = bufferAnalytics(this.ownerDocument);
+        this.loadAnalytics()
+          .then(() => customElements.whenDefined('site-analytics'))
+          .then(() => (a as HTMLElement & { updateComplete?: Promise<unknown> }).updateComplete)
+          .then(
+            () => buffer.flush(),
+            (err) => {
+              buffer.drop();
+              console.error(`${this.localName}: failed to load site-analytics`, err);
+            },
+          );
+      }
+    }
+    const a = this.analytics;
+    if (a.getAttribute('matomoid') !== String(id)) a.setAttribute('matomoid', String(id));
+    if (this.matomoUrl) a.setAttribute('matomourl', this.matomoUrl);
+    else a.removeAttribute('matomourl');
+    if (a.parentNode !== this.renderRoot) this.renderRoot.prepend(a);
   }
 
   /**

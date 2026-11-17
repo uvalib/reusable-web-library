@@ -2,7 +2,7 @@
 
 Reusable web components for UVA Library sites, built with Lit and TypeScript:
 
-- **Page chrome:** `<site-page>` (skip link, header with the library main navigation and live library alerts, one `<main>`, footer), `<site-header>`, `<site-main-nav>`, `<site-footer>`, `<site-analytics>` (Matomo) and `<site-style>` (legacy compatibility).
+- **Page chrome:** `<site-page>` (skip link, header with the library main navigation and live library alerts, one `<main>`, footer), `<site-header>`, `<site-main-nav>`, `<site-footer>`, `<site-analytics>` and `<uvalib-analytics>` (Matomo, one element under two names) and `<site-style>` (legacy compatibility).
 - **Search:** `<uvalib-filter>` and `<uvalib-date-range>`.
 - **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
 - **Library events:** `<events-section>`.
@@ -79,7 +79,7 @@ The page is built with the library itself. Its header's main navigation is the e
 - `https://unpkg.internal.lib.virginia.edu/web-components/vX.Y.Z/<tag>.js` is an exact, immutable version. Use it to pin.
 - `tokens.css` and `base.css` live at the same prefix (`.../v1/tokens.css`).
 - Never use the legacy `/web-components/latest/` or `/web-components/cdn-v*` paths; they belong to the old components. See [migration](docs/migration.md).
-- `site-page.js` also loads the header and footer. Add `site-analytics.js` only when the site needs Matomo.
+- `site-page.js` also loads the header and footer. For Matomo, give `<site-page>` a `matomo-id` (it then loads the analytics code itself), or add `site-analytics.js` and a `<site-analytics>` element; see [Analytics](#analytics).
 - Link `base.css` in `<head>` too. `<site-page>` installs the same page-level base styles itself, but only after the first paint, so without the link the page jumps once: the browser's default body margin goes away, and a heading's top margin stops collapsing through the not-yet-upgraded `<site-page>` (layout shifts Lighthouse counts on every page). With the link, `<site-page>` also stays invisible until its script has run, so its content never paints above where the header goes; if the script fails to load, the content appears anyway after two seconds. Sites with `no-global-styles` skip `base.css`, as that attribute turns those styles off.
 
 ### npm (bundled apps)
@@ -92,7 +92,7 @@ npm i @uvalib/web-components
 import '@uvalib/web-components/site-page.js'; // registers site-page, site-header, site-main-nav and site-footer
 ```
 
-The define entries are `site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js` and `events-section.js`. The package root (`import '@uvalib/web-components'`) exports the classes only and registers nothing. To use a class such as `SitePage` directly, also import the define entries. CSS is available as `@uvalib/web-components/tokens.css` and `base.css`. Do not load the same component from both the CDN and npm on one page.
+The define entries are `site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`, `events-section.js` and `bento-box.js`. The package root (`import '@uvalib/web-components'`) exports the classes only and registers nothing. To use a class such as `SitePage` directly, also import the define entries. CSS is available as `@uvalib/web-components/tokens.css` and `base.css`. Do not load the same component from both the CDN and npm on one page.
 
 ## Quick start
 
@@ -402,6 +402,38 @@ Three elements show opening hours from the library's own data, for library.virgi
 - **Light DOM output** keeps the classes the Drupal theme styles under `.uvalib-bento-search`: `.bento-search-bar` (on a `<bento-search>` element, as before) with its `form`, `input`, `button.uvalib-button-home-search` and `p`; `.bs-header` (`h2`, `.bs-search-term`, `p`); `.bs-results-container` with each section as `.bs-results--block`; `.bs-results--header` (`h3` and the "See all" form and `.uvalib-button`), `.bs-results--body`, `ol.bs-results--list`, `.bs-results--list--entry`, `.bs-results--title`, `ul.ul-0`, `ul.ul-1`, `.bs-results--author`, `.bs-results--date`, `.bs-results--format`, `.bs-results--qty`, `.bs-results--teaser`, and the website's `.bento-section-title` and `.bento-section-desc`. Fixes to the markup: each `ul.ul-1` now sits in an `li` of its `ul.ul-0` (the theme's `ul.ul-0 ul.ul-1` still matches), the input has a real label and the submit button a text name (both visually hidden), the format line has no `aria-label` repeating its text, and the repeated `id="no-results"` is gone. A few rules apply even with `no-style`, scoped to the tags in `@layer uvalib`: the hosts are blocks, placeholders are invisible, the clamps and one-line rules above, the message shares the list's grid cell, and `[hidden]` hides. Styled (without `no-style`) the box follows the Drupal look with the dark-mode role tokens.
 - **Drupal switch.** Replace the old `…/web-components/cdn-v2.2.38/@uvalib/bento-box/bento-box.js` script URL with `https://unpkg.internal.lib.virginia.edu/web-components/v1/bento-box.js`. The markup stays: `<bento-box no-style no-shadow-dom limit="3">`. The `uvalib-bento-search` body class is Drupal's and stays as it is; the headings follow the page's `<h1>` (`<h2>`, then `<h3>` sections), so no `heading-level` is needed. Links that used `?query=` keep working; new searches use `?q=`.
 
+## Analytics
+
+`<site-analytics>` and `<uvalib-analytics>` are one element under two names (`site-analytics.js`, `uvalib-analytics.js`; npm `@uvalib/web-components/site-analytics.js`, `…/uvalib-analytics.js`). It has no visual output: it loads Matomo (`https://analytics.lib.virginia.edu/matomo.js`), records the page view and forwards the events below to Matomo.
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-analytics.js"
+></script>
+<uvalib-analytics matomoid="10"></uvalib-analytics>
+```
+
+- **Attributes.** `matomoid`: the Matomo site id; without it, the site whose URL the page is under (the library's site registry), and with none, the element does nothing. `matomourl` (default `https://analytics.lib.virginia.edu/`, ending in `/`): the Matomo server. `spa`: no page view on load; a single-page app records each view with a pageview event. `variables`: custom dimensions as a JSON object, `variables='{"1":"staff"}'`, set before the page view.
+- **Events.** Both tags listen on `document` for both families, `uvalib-analytics-*` (the original names) and `site-analytics-*`. Fire them bubbling and composed from anywhere, or with `trackEvent(el, parts)` and `trackSearch(el, query, category?, count?)` from `@uvalib/web-components/base.js`, or the mixins (`UvalibAnalyticsMixin`: `_analyticsEvent`, `_analyticsSearch`, firing `uvalib-analytics-*`; `SiteAnalyticsMixin`: `analyticsEvent`, `analyticsSearch`, firing `site-analytics-*`).
+  - `…-event`: `detail: { event: [category, action, name?, value?] }` (`track` is accepted as the old name), a Matomo `trackEvent`.
+  - `…-search`: `detail: { searchQuery, searchCategory?, resultCount? }`, a Matomo site search; an unknown count (null or missing) is sent as Matomo's "unknown".
+  - `…-pageview`: `detail: { customTitle?, referrer? }`, a page view; the title defaults to the document's, a referrer without `http` is a path on this origin, and with none the document's referrer is used.
+- **Nothing is lost or counted twice.** Every call goes through Matomo's `_paq` queue, which matomo.js replays when it loads, so events fired before it arrives are kept (and nothing waits for it if it is blocked). However many analytics elements a page has, from any copy of this library (an npm build next to a CDN script, two CDN versions), matomo.js is loaded and the page view recorded once and only one element forwards each event; if it is removed, the next one takes over. A Matomo snippet already on the page (a `matomo.js` script, or a `_paq` that sets a site id) is used as it is: nothing is loaded or recorded again, and the element only forwards the events.
+- **Matomo's own link tracking** (`enableLinkTracking`, on unless `spa`, as in the old element) still records clicks on links to other sites and downloads with their URLs, result links included. The components' own events never carry titles or URLs.
+- **`<site-page matomo-id="N">`** (and optional `matomo-url`) adds one `<site-analytics>` for that site and loads its code only then. Off by default. While that code loads, what the components report is kept and handed over, so an early bento search is not lost. If the page already has a `<site-analytics>` or `<uvalib-analytics>` (including the old v0.0.12 one), site-page adds none and that element does the recording.
+- **What the library's components send** (they only fire `uvalib-analytics-*` events, so nothing happens without an analytics element; the old v0.0.12 element records them too):
+
+  | Component         | Matomo call                                                                                                                                                                                                                                                                                                            |
+  | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | `<bento-box>`     | A site search per section once its results are in (not on an error, not again on a re-render): the query, the section (`Virgo catalog`, `Virgo articles`, `Subject guides`, `Library website`) as category, and the section's total (0 when nothing was found). A new query, also by Back or Forward, is a new search. |
+  | `<bento-box>`     | Events `['bento-box', 'result-click', <section>, <position, from 1>]` and `['bento-box', 'see-all-click', <section>]`.                                                                                                                                                                                                 |
+  | `<site-main-nav>` | `['site-main-nav', 'menu-open', <the group's label>]` when a group opens (not when it closes).                                                                                                                                                                                                                         |
+  | `<site-header>`   | `['site-header', 'color-scheme', 'light' \| 'dark' \| 'system']` when the visitor picks a scheme (not the initial value).                                                                                                                                                                                              |
+
+- **Privacy.** The components never send titles, URLs or other text from the page: only the fixed names above, positions and counts. Search queries are what visitors typed, and are sent as Matomo site searches.
+- **Drupal switch.** Replace the script URL `https://unpkg.internal.lib.virginia.edu/v0.0.12/uvalib-analytics.js` with `https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-analytics.js`. The markup stays: `<uvalib-analytics matomoid="10">`.
+
 ## Components
 
 Generated from `dist/custom-elements.json` by `scripts/gen-reference.mjs`; do not edit between the markers by hand.
@@ -429,6 +461,8 @@ Virgo's first article results for `query`. Articles Virgo hides from guests keep
 | Event | Description |
 |---|---|
 | `bento-state` | Whenever `state` changes (bubbles, composed); `<bento-box>` listens to announce "Results updated" once every section has settled. |
+| `uvalib-analytics-search` | For `<site-analytics>`: once per settled search (results or none, not an error): the query, the section's `analyticsName` as category and its total when known. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: `['bento-box', 'result-click', <section>, <1-based position>]` or `['bento-box', 'see-all-click', <section>]`; never titles or URLs. Bubbles and is composed. |
 
 #### CSS custom properties
 
@@ -491,6 +525,8 @@ The Virgo catalog's first results for `query` (books, journals, archives, maps, 
 | Event | Description |
 |---|---|
 | `bento-state` | Whenever `state` changes (bubbles, composed); `<bento-box>` listens to announce "Results updated" once every section has settled. |
+| `uvalib-analytics-search` | For `<site-analytics>`: once per settled search (results or none, not an error): the query, the section's `analyticsName` as category and its total when known. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: `['bento-box', 'result-click', <section>, <1-based position>]` or `['bento-box', 'see-all-click', <section>]`; never titles or URLs. Bubbles and is composed. |
 
 #### CSS custom properties
 
@@ -552,6 +588,8 @@ The first subject guide pages (LibGuides) matching `query`: the page and its gui
 | Event | Description |
 |---|---|
 | `bento-state` | Whenever `state` changes (bubbles, composed); `<bento-box>` listens to announce "Results updated" once every section has settled. |
+| `uvalib-analytics-search` | For `<site-analytics>`: once per settled search (results or none, not an error): the query, the section's `analyticsName` as category and its total when known. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: `['bento-box', 'result-click', <section>, <1-based position>]` or `['bento-box', 'see-all-click', <section>]`; never titles or URLs. Bubbles and is composed. |
 
 #### CSS custom properties
 
@@ -606,16 +644,16 @@ One library's opening hours for a week (Sunday to Saturday, in America/New_York)
 
 ### `<site-analytics>`
 
-Matomo analytics loader with no visual output. Listens on `document` for the events below.
+Matomo analytics, with no visual output. Loads matomo.js for the site and records the page view, then forwards the events below, fired anywhere in the page, to Matomo. Every call goes through Matomo's `_paq` queue, so events fired before matomo.js loads are kept. One tracker per page: however many `<site-analytics>` and `<uvalib-analytics>` elements there are (from any copy of this library), matomo.js is loaded and the page view recorded once, and only one element forwards each event; if it is removed, the next takes over. A Matomo snippet already on the page is used as it is (nothing is loaded or recorded again). The same element is registered as `<uvalib-analytics>` by `uvalib-analytics.js`.
 
 #### Attributes
 
 | Attribute | Type | Default | Description |
 |---|---|---|---|
-| `matomourl` | `string` | `'https://analytics.lib.virginia.edu/'` |  |
-| `matomoid` | `number \| undefined` |  |  |
-| `spa` | `boolean` | `false` |  |
-| `variables` | `any` | `null` |  |
+| `matomourl` | `string` | `'https://analytics.lib.virginia.edu/'` | The Matomo server, ending in `/` (attribute `matomourl`). |
+| `matomoid` | `number \| undefined` |  | The Matomo site id (attribute `matomoid`). Default: the site whose URL the page is under. |
+| `spa` | `boolean` | `false` | A single-page app records its own page views (`uvalib-analytics-pageview`): none on load. |
+| `variables` | `Record<string, unknown> \| null` | `null` | Custom dimensions, a JSON object of `{ id: value }`, set before the page view. |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -623,9 +661,12 @@ Matomo analytics loader with no visual output. Listens on `document` for the eve
 
 | Event | Description |
 |---|---|
-| `site-analytics-pageview` | Listened for on `document` (not fired): `detail` is `{ customTitle?, referrer? }`. |
-| `site-analytics-search` | Listened for on `document` (not fired): `detail` is `{ searchQuery, searchCategory?, resultCount }`. |
-| `site-analytics-event` | Listened for on `document` (not fired): `detail` is `{ event: any[] }`, passed to Matomo `trackEvent`. |
+| `uvalib-analytics-pageview` | Listened for on `document` (not fired): records a page view; `detail` is `{ customTitle?, referrer? }` (default: the document's title and referrer; a referrer without `http` is taken as a path on this origin). |
+| `uvalib-analytics-search` | Listened for on `document` (not fired): a Matomo site search; `detail` is `{ searchQuery, searchCategory?, resultCount? }`. |
+| `uvalib-analytics-event` | Listened for on `document` (not fired): a Matomo event; `detail` is `{ event: [category, action, name?, value?] }` (`track` is the old name of `event`). |
+| `site-analytics-pageview` | Listened for on `document` too: the same as `uvalib-analytics-pageview`. |
+| `site-analytics-search` | Listened for on `document` too: the same as `uvalib-analytics-search`. |
+| `site-analytics-event` | Listened for on `document` too: the same as `uvalib-analytics-event`. |
 
 ### `<site-footer>`
 
@@ -701,6 +742,7 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 | Event | Description |
 |---|---|
 | `site-main-nav-error` | `main-nav-src` could not be loaded; the bundled main navigation is shown. `detail` is `{ src, message }`. Fired once, from the bar's `<site-main-nav>`; bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: the visitor picked a colour scheme, `['site-header', 'color-scheme', 'light' \| 'dark' \| 'system']` (not the initial value), and the main navigation's menu opens (see `<site-main-nav>`). Bubbles and is composed. |
 
 #### CSS custom properties
 
@@ -778,6 +820,7 @@ The UVA Library main navigation (About, Using the Library, Research & teaching s
 | Event | Description |
 |---|---|
 | `site-main-nav-error` | `items-src` could not be loaded: both attempts failed (network error, a 10 s timeout per attempt, or no valid entries), after about 21 s at worst; the nav shows the bundled snapshot. `detail` is `{ src, message }`. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: a group was opened, `['site-main-nav', 'menu-open', <the group's label>]` (not on close). Bubbles and is composed. |
 
 #### CSS custom properties
 
@@ -818,6 +861,8 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 | `alerts-src` | `string \| undefined` |  | Alerts base URL (holding `config.json`, `alerts.json` and `v1/uvalib-alerts.js`); overrides `alerts-env`. For a custom domain, local development and tests. |
 | `no-alerts` | `boolean` | `false` | Render no alert elements and load no alerts script. |
 | `color-scheme-switch` | `boolean` | `false` | Opt in to dark mode, forwarded to `<site-header color-scheme-switch>`: the page follows the OS preference, and a Light / Dark / System control in the header lets the visitor override it (remembered per site). Off by default: the page is always light. The page's own content must support it (see the README's "Dark mode"). |
+| `matomo-id` | `number \| undefined` |  | Opt in to Matomo analytics: the site's Matomo id. The page then adds one `<site-analytics>` for it (loading its code only then), which records the page view and what the library's components report (see the README's "Analytics"). Off by default. With an analytics element or a Matomo snippet already on the page nothing is counted twice. |
+| `matomo-url` | `string \| undefined` |  | The Matomo server for `matomo-id`, ending in `/` (default: the library's). |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -881,6 +926,32 @@ Compatibility element. Light mode (`no-shadow-dom`) installs the tokens and base
 | `--uva-grey-darkest` | `#2b2b2b` | Text colour. |
 | `--uva-color-text` |  | Dark-mode role token: text colour (else `--uva-grey-darkest`). |
 | `--uva-color-surface` |  | Dark-mode role token: page background (else none). |
+
+### `<uvalib-analytics>`
+
+`<site-analytics>` under its original name, for markup such as Drupal's `<uvalib-analytics matomoid="10">`: the same element, attributes and events. A constructor can be registered only once, hence the subclass.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `matomourl` | `string` | `'https://analytics.lib.virginia.edu/'` | The Matomo server, ending in `/` (attribute `matomourl`). |
+| `matomoid` | `number \| undefined` |  | The Matomo site id (attribute `matomoid`). Default: the site whose URL the page is under. |
+| `spa` | `boolean` | `false` | A single-page app records its own page views (`uvalib-analytics-pageview`): none on load. |
+| `variables` | `Record<string, unknown> \| null` | `null` | Custom dimensions, a JSON object of `{ id: value }`, set before the page view. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Listens for (on document)
+
+| Event | Description |
+|---|---|
+| `uvalib-analytics-pageview` | Listened for on `document` (not fired): records a page view; `detail` is `{ customTitle?, referrer? }` (default: the document's title and referrer; a referrer without `http` is taken as a path on this origin). |
+| `uvalib-analytics-search` | Listened for on `document` (not fired): a Matomo site search; `detail` is `{ searchQuery, searchCategory?, resultCount? }`. |
+| `uvalib-analytics-event` | Listened for on `document` (not fired): a Matomo event; `detail` is `{ event: [category, action, name?, value?] }` (`track` is the old name of `event`). |
+| `site-analytics-pageview` | Listened for on `document` too: the same as `uvalib-analytics-pageview`. |
+| `site-analytics-search` | Listened for on `document` too: the same as `uvalib-analytics-search`. |
+| `site-analytics-event` | Listened for on `document` too: the same as `uvalib-analytics-event`. |
 
 ### `<uvalib-date-range>`
 
@@ -984,6 +1055,8 @@ The library website's first pages (pages, people, libraries, news) matching `que
 | Event | Description |
 |---|---|
 | `bento-state` | Whenever `state` changes (bubbles, composed); `<bento-box>` listens to announce "Results updated" once every section has settled. |
+| `uvalib-analytics-search` | For `<site-analytics>`: once per settled search (results or none, not an error): the query, the section's `analyticsName` as category and its total when known. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: `['bento-box', 'result-click', <section>, <1-based position>]` or `['bento-box', 'see-all-click', <section>]`; never titles or URLs. Bubbles and is composed. |
 
 #### CSS custom properties
 

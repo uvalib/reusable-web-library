@@ -11,6 +11,7 @@ import { searchWebsite, websiteSearchUrl, type WebsiteItem } from './bento-data.
  * @tagname website-section
  */
 export class WebsiteSection extends BentoSection<WebsiteItem> {
+  readonly analyticsName = 'Library website';
   protected readonly heading = 'Website';
   protected readonly sourceName = 'Library website';
   protected readonly describe = 'Results from the main Library website.';

@@ -10,6 +10,7 @@ import { guidesSearchUrl, searchGuides, type GuideItem } from './bento-data.js';
  * @tagname libguides-section
  */
 export class LibGuidesSection extends BentoSection<GuideItem> {
+  readonly analyticsName = 'Subject guides';
   protected readonly heading = 'Subject Guides';
   protected readonly sourceName = 'subject guide';
   protected override get seeAllIn(): string {

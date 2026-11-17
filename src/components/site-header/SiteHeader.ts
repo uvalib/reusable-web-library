@@ -1,6 +1,7 @@
 import { html, css, nothing, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
+import { trackEvent } from '../../base/analytics.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { siteLink } from '../link.js';
 import { accessible } from '../../styles/accessible.js';
@@ -94,6 +95,7 @@ const stopEvent = (e: Event) => e.stopPropagation();
  * @slot site-links - Optional `<a href>` elements with text that replace the library utility links in the inline nav and the Menu popover (ignored by the `vendor` variant). In light mode they are moved into a hidden holder.
  * @csspart header - The `<header>` element.
  * @fires site-main-nav-error - `main-nav-src` could not be loaded; the bundled main navigation is shown. `detail` is `{ src, message }`. Fired once, from the bar's `<site-main-nav>`; bubbles and is composed.
+ * @fires uvalib-analytics-event - For `<site-analytics>`: the visitor picked a colour scheme, `['site-header', 'color-scheme', 'light' | 'dark' | 'system']` (not the initial value), and the main navigation's menu opens (see `<site-main-nav>`). Bubbles and is composed.
  * @cssprop [--uva-blue-alt-dark=#005679] - Utility link colour.
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Menu button colour.
  * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour (focus-visible outline), and the underline colour of an `aria-current` link (also bold, with a 3px underline).
@@ -469,7 +471,9 @@ export class SiteHeader extends UvalibElement {
 
   private onSchemeChange(e: Event): void {
     const input = e.target as HTMLInputElement;
-    if (input.checked) this.scheme.choose(input.value as ColorSchemePreference);
+    if (!input.checked) return;
+    this.scheme.choose(input.value as ColorSchemePreference);
+    trackEvent(this, ['site-header', 'color-scheme', input.value]);
   }
 
   /**

@@ -1,11 +1,12 @@
 {
-  "$comment": "Gzipped bytes per dist-cdn manifest entry, including every chunk it imports (static and dynamic), each counted once. About 12% over the sizes at 1.0.0; checked by test/size-budget.test.mjs. Print today's sizes with: node scripts/bundle-sizes.mjs. Dark mode (color-scheme-switch) raised site-page.js, site-header.js and tokens.css to about 12% over their sizes with it. bento-box.js (with its four sections) is about 12% over its first size, 19,741 B.",
+  "$comment": "Gzipped bytes per dist-cdn manifest entry, including every chunk it imports (static and dynamic), each counted once. About 12% over the sizes at 1.0.0; checked by test/size-budget.test.mjs. Print today's sizes with: node scripts/bundle-sizes.mjs. Dark mode (color-scheme-switch) raised site-page.js, site-header.js and tokens.css to about 12% over their sizes with it. bento-box.js (with its four sections) is about 12% over its first size, 19,741 B. Analytics: site-page.js counts its lazy site-analytics (loaded only with matomo-id) and grew by 2,620 B to 36,829 B, so its budget rose by that plus 12% to 39,800; uvalib-analytics.js (the same code as site-analytics.js) is about 12% over its first size, 10,225 B.",
   "budgets": {
-    "site-page.js": 36900,
+    "site-page.js": 39800,
     "site-header.js": 24700,
     "site-main-nav.js": 16600,
     "site-footer.js": 16900,
     "site-analytics.js": 10900,
+    "uvalib-analytics.js": 11500,
     "site-style.js": 10800,
     "uvalib-filter.js": 13700,
     "uvalib-date-range.js": 11900,

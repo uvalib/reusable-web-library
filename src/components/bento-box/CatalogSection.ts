@@ -8,6 +8,7 @@ import { VirgoSection } from './VirgoSection.js';
  */
 export class CatalogSection extends VirgoSection {
   protected readonly pool = 'catalog';
+  readonly analyticsName = 'Virgo catalog';
   protected readonly heading = 'Virgo Catalog';
   protected readonly sourceName = 'Virgo catalog';
   protected readonly describe =
