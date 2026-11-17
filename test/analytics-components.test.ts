@@ -4,13 +4,18 @@ import { expect, fixture, nextFrame, waitUntil } from '@open-wc/testing';
 import '../src/components/bento-box/bento-box.js';
 import '../src/components/site-main-nav/site-main-nav.js';
 import '../src/components/site-header/site-header.js';
+import '../src/components/site-page/site-page.js';
+import '../src/components/uvalib-analytics/uvalib-analytics.js';
 import type { BentoBox } from '../src/components/bento-box/BentoBox.js';
 import type { BentoSection } from '../src/components/bento-box/BentoSection.js';
 import type { SiteMainNav } from '../src/components/site-main-nav/SiteMainNav.js';
 import type { SiteHeader } from '../src/components/site-header/SiteHeader.js';
+import type { SitePage } from '../src/components/site-page/SitePage.js';
+import type { SiteAnalytics } from '../src/components/site-analytics/SiteAnalytics.js';
 import { COLOR_SCHEME_ATTR, COLOR_SCHEME_STORAGE_KEY } from '../src/base/color-scheme.js';
 import { resetBento, useBentoHost } from './helpers/bento.js';
-import { recordAnalytics } from './helpers/analytics.js';
+import { matomoScripts, paq, recordAnalytics, resetAnalytics } from './helpers/analytics.js';
+import { expectNoPageAxeViolations } from './helpers/axe.js';
 
 type Section = BentoSection<unknown>;
 const root = (el: Element): ParentNode => el.shadowRoot ?? el;
@@ -175,4 +180,59 @@ describe('analytics from the components', () => {
       ]);
     });
   });
+
+  for (const mode of ['shadow', 'light'] as const) {
+    describe(`site-page matomo-id (${mode})`, () => {
+      beforeEach(resetAnalytics);
+      after(resetAnalytics);
+      const make = (attrs: string) =>
+        fixture<SitePage>(
+          `<site-page ${mode === 'light' ? 'no-shadow-dom' : ''} no-alerts ${attrs}><h1>Page</h1><p>Body</p></site-page>`,
+        );
+      const analytics = () => {
+        const page = document.querySelector('site-page')!;
+        return [
+          ...document.querySelectorAll('site-analytics, uvalib-analytics'),
+          ...(page.shadowRoot?.querySelectorAll('site-analytics, uvalib-analytics') ?? []),
+        ];
+      };
+
+      it('without it: no analytics element and nothing loaded', async () => {
+        const page = await make('');
+        await page.updateComplete;
+        await nextFrame();
+        expect(analytics()).to.have.length(0);
+        expect(matomoScripts()).to.have.length(0);
+      });
+
+      it('adds one <site-analytics> for the id, outside <main>, and the page stays clean', async () => {
+        const page = await make('matomo-id="10" matomo-url="https://matomo.test/"');
+        await customElements.whenDefined('site-analytics');
+        const [el, ...more] = analytics() as SiteAnalytics[];
+        expect(more).to.have.length(0);
+        await el!.updateComplete;
+        expect(el!.localName).to.equal('site-analytics');
+        expect(el!.closest('main')).to.equal(null);
+        expect(el!.matomoId).to.equal(10);
+        expect(paq()).to.deep.include(['setSiteId', '10']);
+        expect(matomoScripts().map((s) => s.src)).to.deep.equal(['https://matomo.test/matomo.js']);
+        // A re-render keeps the one element.
+        page.requestUpdate();
+        await page.updateComplete;
+        expect(analytics()).to.deep.equal([el]);
+        await expectNoPageAxeViolations();
+      });
+
+      it('with an analytics element already on the page, still one page view', async () => {
+        const host = await fixture(
+          `<div><uvalib-analytics matomoid="10"></uvalib-analytics><site-page ${mode === 'light' ? 'no-shadow-dom' : ''} no-alerts matomo-id="10"><h1>Page</h1></site-page></div>`,
+        );
+        await (host.querySelector('site-page') as SitePage).updateComplete;
+        await customElements.whenDefined('site-analytics');
+        await nextFrame();
+        expect(matomoScripts()).to.have.length(1);
+        expect(paq().filter((c) => c[0] === 'trackPageView')).to.have.length(1);
+      });
+    });
+  }
 });
