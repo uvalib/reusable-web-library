@@ -29,8 +29,9 @@ const MAX_LIMIT = 50;
 /**
  * Rules every section needs even with `no-style`, where the Drupal theme styles it: the host
  * is a block, placeholder entries are invisible, the message sits over the list's first entry
- * (both in one grid cell, so it never moves anything), titles and teasers keep a fixed number
- * of lines (the whole text stays in the DOM), and `[hidden]` hides. `host` is `:host`
+ * (both in one grid cell, so it never moves anything), titles and teasers clamp to a fixed
+ * number of lines (the whole text stays in the DOM) while a hidden reserve list of placeholders
+ * in the same cell keeps the loading height, and `[hidden]` hides. `host` is `:host`
  * (shadow) or the tag name (light DOM, so they stay scoped).
  */
 const structuralRules = (host: string) => `
@@ -49,8 +50,6 @@ const structuralRules = (host: string) => `
     -webkit-line-clamp: 2;
     line-clamp: 2;
     overflow: hidden;
-    min-height: 3em;
-    min-height: 2lh;
   }
   ${host} .bento-section-desc {
     display: -webkit-box;
@@ -58,9 +57,20 @@ const structuralRules = (host: string) => `
     -webkit-line-clamp: 3;
     line-clamp: 3;
     overflow: hidden;
+  }
+  /* Placeholders take every clamped block's full height. Results don't (a one-line title sits
+     right above its author); the reserve list behind them holds the placeholders' height. */
+  ${host} .bs-results--placeholder .bs-results--title,
+  ${host} .bs-results--placeholder .bento-section-title,
+  ${host} .bs-results--placeholder .bs-results--highlights {
+    min-height: 3em;
+    min-height: 2lh;
+  }
+  ${host} .bs-results--placeholder .bento-section-desc {
     min-height: 4.5em;
     min-height: 3lh;
   }
+  ${host} .bs-results--reserve { visibility: hidden; pointer-events: none; }
   ${host} .bs-results--author,
   ${host} .bs-results--date,
   ${host} .bs-results--format,
@@ -512,6 +522,15 @@ export abstract class BentoSection<T> extends UvalibElement {
             ${items.map((i) => this.renderItem(i))}
             ${Array.from({ length: placeholders }, () => this.renderPlaceholder())}
           </ol>
+          ${
+            // Behind the results, as many placeholders as results: the cell keeps the height
+            // the placeholders had while loading, so short titles never move what follows.
+            items.length
+              ? html`<ol class="bs-results--list bs-results--reserve" aria-hidden="true">
+                  ${items.map(() => this.renderPlaceholder())}
+                </ol>`
+              : nothing
+          }
           ${
             message === nothing
               ? nothing
