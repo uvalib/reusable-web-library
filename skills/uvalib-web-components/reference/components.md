@@ -403,7 +403,7 @@ The UVA Library main navigation (About, Using the Library, Research & teaching s
 
 ## `<site-page>`
 
-Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` (and its `<site-main-nav>`) and `<site-footer>`. The header shows the UVA Library main navigation by default (`no-main-nav` turns it off; `header-variant="vendor"` never shows it). Shows live UVA Library alerts by default, placed as Virgo places them: a full-bleed `<uvalib-alerts show="header">` banner at the top of the header landmark (after the skip link), a full-bleed band between the header and `<main>` holding `<uvalib-alerts show="list">` (a `<section aria-label="Library alerts">` region, hidden while the list has nothing to show), and `<uvalib-alerts show="regional">` as the first child of `<main>`, inside its padding. The alerts component is loaded once per document, with a module script, from the alerts CDN (`alerts-env`, or `alerts-src`); if it fails to load, one console warning is logged and the page works as before. `no-alerts` renders no alert elements and loads nothing.
+Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` (and its `<site-main-nav>`) and `<site-footer>`. The header shows the UVA Library main navigation by default (`no-main-nav` turns it off; `header-variant="vendor"` never shows it). Shows live UVA Library alerts by default, placed as Virgo places them: a full-bleed `<uvalib-alerts show="header">` banner at the top of the header landmark (after the skip link), a full-bleed band between the header and `<main>` holding `<uvalib-alerts show="list">` (a `<section aria-label="Library alerts">` region, hidden while the list has nothing to show), and `<uvalib-alerts show="regional">` as the first child of `<main>`, inside its padding. The alerts component is loaded once per document, with a module script, from the alerts CDN (`alerts-env`, or `alerts-src`); if it fails to load, one console warning is logged and the page works as before. `no-alerts` renders no alert elements and loads nothing. A `slot="breadcrumbs"` child (a `<uvalib-breadcrumbs>`) is placed where library.virginia.edu puts the trail: after the header and the alert list band, before `<main>` and outside it (so the skip link lands past it), with the same gutters as `<main>`.
 
 ### Attributes
 
@@ -432,6 +432,7 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 | Slot | Description |
 |---|---|
 | (default) | Main page content, rendered inside the single `<main>`. |
+| `breadcrumbs` | Optional breadcrumb trail (a `<uvalib-breadcrumbs>`), shown between the header (and alert list band) and `<main>`. In light mode it is moved there, never into `<main>`. |
 | `pre-footer` | Optional content shown in a band above the footer. |
 | `site-links` | Optional `<a href>` elements, forwarded to `<site-header>`, that replace the library utility links in the header (inline nav and Menu popover). Ignored with `header-variant="vendor"`. |
 | `main-nav` | Optional `<nav>` forwarded to `<site-header>`, whose list replaces the UVA Library main navigation's links (see `<site-main-nav>`). Ignored with `no-main-nav` and `header-variant="vendor"`. |
@@ -513,6 +514,30 @@ Compatibility element. Light mode (`no-shadow-dom`) installs the tokens and base
 | `site-analytics-pageview` | Listened for on `document` too: the same as `uvalib-analytics-pageview`. |
 | `site-analytics-search` | Listened for on `document` too: the same as `uvalib-analytics-search`. |
 | `site-analytics-event` | Listened for on `document` too: the same as `uvalib-analytics-event`. |
+
+## `<uvalib-breadcrumbs>`
+
+A breadcrumb trail, as on library.virginia.edu: links separated by slashes, ending with the current page, at body size. A `<nav aria-label="Breadcrumb">` holding an `<ol>`; the separators are hidden from assistive technology and the last item has `aria-current="page"` (a `<span>`, or a link when it has an href). Give the trail as children: `<a href>` elements, ending with the current page as a text-only element (`<span>Hours</span>`) or a link (`<a href aria-current="page">`). The last child is always the current page. An earlier child without an href is shown as plain text. Children with no text are skipped with one console warning. Hrefs are used as written, and the trail follows changes to the children (attributes and text too). Apps that build the trail in JavaScript set the `items` property instead (it then wins over any children); assigning a new array re-renders. Inside `<site-page>`, give it `slot="breadcrumbs"`: it is placed between the header (and alerts band) and `<main>`, with the page's gutters. It works anywhere else too.
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `label` | `string` | `'Breadcrumb'` | Accessible name of the navigation landmark. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-blue-alt-dark` | `#005679` | Link colour. |
+| `--uva-grey-darkest` | `#2b2b2b` | Current page colour. |
+| `--uva-grey-dark` | `#4f4f4f` | Separator colour. |
+| `--uva-color-link` |  | Dark-mode role token: link colour (else `--uva-blue-alt-dark`). |
+| `--uva-color-text` |  | Dark-mode role token: current page colour (else `--uva-grey-darkest`). |
+| `--uva-color-text-muted` |  | Dark-mode role token: separator colour (else `--uva-grey-dark`). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ## `<uvalib-date-range>`
 

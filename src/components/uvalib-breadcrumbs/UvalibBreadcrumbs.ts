@@ -80,7 +80,7 @@ export class UvalibBreadcrumbs extends UvalibElement {
   ];
 
   /** Accessible name of the navigation landmark. */
-  @property({ type: String }) label = DEFAULT_LABEL;
+  @property({ type: String }) label = 'Breadcrumb';
 
   /**
    * The trail as data, for apps that build it in JavaScript: `{ label, href? }` objects, the
