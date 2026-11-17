@@ -3,6 +3,7 @@
 Reusable web components for UVA Library sites, built with Lit and TypeScript:
 
 - **Page chrome:** `<site-page>` (skip link, header with the library main navigation and live library alerts, one `<main>`, footer), `<site-header>`, `<site-main-nav>`, `<site-footer>`, `<site-analytics>` and `<uvalib-analytics>` (Matomo, one element under two names) and `<site-style>` (legacy compatibility).
+- **Navigation:** `<uvalib-breadcrumbs>` (the breadcrumb trail).
 - **Search:** `<uvalib-filter>` and `<uvalib-date-range>`.
 - **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
 - **Library events:** `<events-section>`.
@@ -201,6 +202,35 @@ connect-src https://d2q6t6fdv76k7r.cloudfront.net wss://*.appsync-realtime-api.u
 ```
 
 (Use the staging host, or your `alerts-src` host, instead where that applies.) Alert bodies can include images, so allow their hosts in `img-src` too. Alert bodies are inserted as HTML, so a page that enforces Trusted Types (`require-trusted-types-for 'script'`) is incompatible with the alerts; use `no-alerts` there.
+
+## Breadcrumbs
+
+`<uvalib-breadcrumbs>` is the breadcrumb trail, with library.virginia.edu's look (slash separators, underlined `--uva-blue-alt-dark` links) at body size (1rem), as the design system asks. Entry: `uvalib-breadcrumbs.js` on the CDN, `@uvalib/web-components/uvalib-breadcrumbs.js` on npm. Inside `<site-page>` give it `slot="breadcrumbs"` and load both scripts:
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
+></script>
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-breadcrumbs.js"
+></script>
+<site-page>
+  <uvalib-breadcrumbs slot="breadcrumbs">
+    <a href="/">Home</a>
+    <a href="/research-and-teaching">Research &amp; teaching support</a>
+    <span>Writing &amp; publication</span>
+  </uvalib-breadcrumbs>
+  <h1>Writing &amp; publication</h1>
+</site-page>
+```
+
+- **Markup.** A `<nav aria-label="Breadcrumb">` (`label` changes the name) holding an `<ol>`, one `<li>` per step. The slashes are `aria-hidden` elements, so screen readers do not read them. The last step is the current page: a `<span aria-current="page">`, or a link with `aria-current="page"` when it has an href.
+- **The trail as children.** `<a href>` children, ending with the current page as a text-only element (`<span>Writing</span>`) or a link (`<a href="…" aria-current="page">`). The last child is always the current page; an earlier child without an href is shown as plain text (a level with no page of its own). Hrefs are used as written (relative, hash routes). Children with no text, and bare text, are skipped with one console warning. The trail follows changes to the children (added, removed, href and text), so a single-page app can rewrite them on each route.
+- **The trail as data.** Apps that build it in JavaScript (React, Vue) set the `items` property: `el.items = [{ label: 'Home', href: '/' }, { label: 'Search' }]`. While set it wins over any children; assign a new array to change it, `undefined` to go back to the children. Entries without a label are skipped with one warning.
+- **Placement.** In `<site-page>` the trail sits where library.virginia.edu puts it: after the header and the alert list band, before `<main>` and outside it, so the skip link lands past it, lined up with `<main>`'s content (same max width and 40px side padding, 16px above). In light mode (`no-shadow-dom`) it is moved there as a real child of `<site-page>`, never into `<main>`. Without a `slot="breadcrumbs"` child the page is unchanged. Elsewhere it is an ordinary block: put it first in the page content, above the `<h1>`.
+- **Styles.** Links `--uva-color-link` (else `--uva-blue-alt-dark`, #005679), underlined; the slash in `--uva-color-text-muted` (else `--uva-grey-dark`); the current page in the text colour; the library focus ring. Long trails wrap (no horizontal scroll at 320px). It follows dark mode through the role tokens. `no-style` keeps only the structure (an inline list without bullets or indent, the separators' spacing); light DOM styles are scoped to the tag in `@layer uvalib`, so a site's own CSS wins.
 
 ## Rendering modes
 
