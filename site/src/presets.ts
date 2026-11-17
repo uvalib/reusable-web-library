@@ -4,7 +4,15 @@
 // absolute URL of the site's own copy of the CDN build (see withCdnBase).
 
 /** The menu's groups, in order: one per component. */
-export const GROUPS = ['Page', 'Header', 'Alerts', 'Search', 'Hours', 'Events'] as const;
+export const GROUPS = [
+  'Page',
+  'Header',
+  'Alerts',
+  'Search',
+  'Hours',
+  'Events',
+  'Analytics',
+] as const;
 export type Group = (typeof GROUPS)[number];
 
 export interface Preset {
@@ -42,6 +50,49 @@ bento-box:not(:defined) {
   text-align: center;
 }
 `;
+
+/**
+ * The analytics example's styles.css: the results' reserved height, and an event log of a
+ * fixed height (it scrolls), so new entries never move the page.
+ */
+const ANALYTICS_CSS = `${RESULTS_CSS}.event-log {
+  margin: 1.5rem 0;
+}
+.event-log ol {
+  box-sizing: border-box;
+  height: 12rem;
+  margin: 0;
+  padding: 0.5rem 0.75rem 0.5rem 2.5rem;
+  overflow-y: auto;
+  border: 1px solid var(--uva-color-control-border, #808080);
+  border-radius: 0.3rem;
+  background: var(--uva-color-surface-raised, #ffffff);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.875rem;
+}
+.event-log ol:focus-visible {
+  outline: 2px solid var(--uva-color-focus, #e57200);
+  outline-offset: 2px;
+}
+`;
+
+/**
+ * The analytics example's log: a classic script at the end of <body>, so its listeners are
+ * there before any component (module scripts run later) fires. It shows each event's type
+ * and detail as text, newest first, and sends nothing.
+ */
+const ANALYTICS_LOG = `    <script>
+      // No analytics element on this page: nothing is loaded or sent. The components only fire
+      // events, which this log shows; with an analytics element they would go to Matomo.
+      const log = document.querySelector('#event-log');
+      for (const family of ['uvalib-analytics', 'site-analytics'])
+        for (const kind of ['event', 'search', 'pageview'])
+          document.addEventListener(\`\${family}-\${kind}\`, (e) => {
+            const li = document.createElement('li');
+            li.textContent = \`\${e.type} \${JSON.stringify(e.detail)}\`;
+            log.prepend(li);
+          });
+    </script>`;
 
 /**
  * Dark mode's anti-flash snippet (the README's "Dark mode"): a classic inline script for
@@ -573,6 +624,40 @@ events-section:not(:defined) {
   }
 }
 `,
+      },
+    },
+  },
+  {
+    id: 'analytics',
+    group: 'Analytics',
+    title: 'Analytics events',
+    description:
+      'What the library’s components report to Matomo, shown live: open a main-navigation menu, pick a theme in the header, or search, open a result or "See all" (Ctrl- or Cmd-click to stay here). bento-box reports one site search per section with its total. This page has no <site-analytics>, so nothing is loaded or sent; on a real site, <site-page matomo-id="N"> or a <site-analytics> element forwards these events to Matomo. They never carry titles or URLs.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Analytics events',
+          components: ['bento-box'],
+          styles: true,
+          head: `
+    <link rel="stylesheet" href="${CDN_TOKEN}tokens.css" />
+    <script>${COLOR_SCHEME_SNIPPET}</script>`,
+          body: `    <site-page color-scheme-switch>
+      <h1>Analytics events</h1>
+      <p>Use the main navigation, the Theme control or the search below: each event appears here.</p>
+      <section class="event-log" aria-labelledby="event-log-title">
+        <h2 id="event-log-title">Event log</h2>
+        <ol id="event-log" tabindex="0" aria-labelledby="event-log-title"></ol>
+      </section>
+      <div class="results">
+        <bento-box limit="3" boxes="catalog,articles,libguides" query="climate change"></bento-box>
+      </div>
+    </site-page>
+${ANALYTICS_LOG}`,
+        }),
+      },
+      'styles.css': {
+        content: ANALYTICS_CSS,
       },
     },
   },

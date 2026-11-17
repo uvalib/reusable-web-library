@@ -42,11 +42,20 @@ describe('playground presets', function () {
       'todays-hours',
       'weekly-hours',
       'events',
+      'analytics',
     ]);
   });
 
   it('lists every example once, grouped by component in menu order', () => {
-    expect(GROUPS).to.deep.equal(['Page', 'Header', 'Alerts', 'Search', 'Hours', 'Events']);
+    expect(GROUPS).to.deep.equal([
+      'Page',
+      'Header',
+      'Alerts',
+      'Search',
+      'Hours',
+      'Events',
+      'Analytics',
+    ]);
     expect(
       Object.fromEntries(
         GROUPS.map((g) => [g, examples.filter((p) => p.group === g).map((p) => p.id)]),
@@ -73,6 +82,7 @@ describe('playground presets', function () {
       ],
       Hours: ['todays-hours', 'weekly-hours'],
       Events: ['events'],
+      Analytics: ['analytics'],
     });
     // The menu order: each group's examples together, groups in GROUPS order.
     expect(examples.map((p) => GROUPS.indexOf(p.group))).to.deep.equal(
@@ -322,6 +332,34 @@ describe('playground presets', function () {
     expect(all).to.not.include('{{CDN}}');
     expect(all).to.include('https://example.test/cdn/site-page.js');
     expect(presets[0]!.files['index.html']!.content).to.include('{{CDN}}site-page.js');
+  });
+
+  it("analytics logs the components' events, with no analytics element and nothing sent", async () => {
+    const p = presets.find((x) => x.id === 'analytics')!;
+    const html = p.files['index.html']!.content;
+    expect(html).to.not.match(/<(site|uvalib)-analytics[\s>]/);
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-page', 'site-header', 'bento-box', 'catalog-section']);
+      const log = doc.querySelector('#event-log')!;
+      const lines = () => [...log.children].map((li) => li.textContent!);
+      const deadline = Date.now() + 4000;
+      while (lines().filter((l) => l.startsWith('uvalib-analytics-search')).length < 3) {
+        if (Date.now() > deadline) break;
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      const searches = lines().filter((l) => l.startsWith('uvalib-analytics-search'));
+      expect(searches, lines().join('\n')).to.have.length(3);
+      for (const name of ['Virgo catalog', 'Virgo articles', 'Subject guides'])
+        expect(searches.some((l) => l.includes(`"searchCategory":"${name}"`))).to.equal(true);
+      expect(doc.querySelector('script[src*="matomo"]')).to.equal(null);
+      expect((win as unknown as { _paq?: unknown })._paq).to.equal(undefined);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
   });
 
   for (const p of examples) {
