@@ -8,6 +8,7 @@ export const GROUPS = [
   'Page',
   'Header',
   'Alerts',
+  'Breadcrumbs',
   'Search',
   'Hours',
   'Events',
@@ -413,6 +414,63 @@ site-footer footer {
       <h1>Library alerts</h1>
       <p>Current staging alerts appear in the header and above this heading. Without alerts nothing is shown.</p>
     </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'breadcrumbs',
+    group: 'Breadcrumbs',
+    title: 'Breadcrumbs',
+    description:
+      'uvalib-breadcrumbs is the breadcrumb trail: <a href> children ending with the current page (a <span>, or a link with aria-current="page"). Given slot="breadcrumbs", site-page places it where library.virginia.edu does: after the header and alerts, before main and outside it, lined up with the content. It is a nav named "Breadcrumb" with an ordered list; the slashes are hidden from screen readers, and long trails wrap.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Breadcrumbs',
+          components: ['uvalib-breadcrumbs'],
+          body: `    <site-page>
+      <uvalib-breadcrumbs slot="breadcrumbs">
+        <a href="./">Home</a>
+        <a href="#research">Research &amp; teaching support</a>
+        <span>Writing &amp; publication</span>
+      </uvalib-breadcrumbs>
+      <h1>Writing &amp; publication</h1>
+      <p>The trail above sits between the header and main, so the skip link lands past it. Narrow the preview to see a long trail wrap.</p>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'breadcrumbs-standalone',
+    group: 'Breadcrumbs',
+    title: 'Breadcrumbs from JavaScript',
+    description:
+      'Without the slot, uvalib-breadcrumbs is an ordinary block anywhere in the page: here the first thing in the content, above the h1. Apps that build the trail in JavaScript (React, Vue) set its items property, an array of { label, href? } with the current page last; assigning a new array re-renders, and hash links stay hash links.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Breadcrumbs from JavaScript',
+          components: ['uvalib-breadcrumbs'],
+          body: `    <site-page>
+      <uvalib-breadcrumbs id="trail"></uvalib-breadcrumbs>
+      <h1>Search results</h1>
+      <p><button type="button" id="open">Open the first result</button></p>
+    </site-page>
+    <script type="module">
+      await customElements.whenDefined('uvalib-breadcrumbs');
+      const trail = document.querySelector('#trail');
+      trail.items = [{ label: 'Home', href: './' }, { label: 'Search' }];
+      document.querySelector('#open').addEventListener('click', () => {
+        trail.items = [
+          { label: 'Home', href: './' },
+          { label: 'Search', href: '#/search' },
+          { label: 'First result' },
+        ];
+        document.querySelector('h1').textContent = 'First result';
+      });
+    </script>`,
         }),
       },
     },

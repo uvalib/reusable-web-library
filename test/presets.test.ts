@@ -37,6 +37,8 @@ describe('playground presets', function () {
       'site-navigation',
       'main-navigation',
       'alerts',
+      'breadcrumbs',
+      'breadcrumbs-standalone',
       'search-facets',
       'search-results',
       'todays-hours',
@@ -51,6 +53,7 @@ describe('playground presets', function () {
       'Page',
       'Header',
       'Alerts',
+      'Breadcrumbs',
       'Search',
       'Hours',
       'Events',
@@ -72,6 +75,7 @@ describe('playground presets', function () {
         'header-vendor-light',
       ],
       Alerts: ['alerts'],
+      Breadcrumbs: ['breadcrumbs', 'breadcrumbs-standalone'],
       Search: [
         'search-facets',
         'search-results',
@@ -211,6 +215,48 @@ describe('playground presets', function () {
         iframe.remove();
       }
     });
+  });
+
+  it('breadcrumbs sits between the header and main; the JS example re-renders from items', async () => {
+    for (const id of ['breadcrumbs', 'breadcrumbs-standalone']) {
+      const p = presets.find((x) => x.id === id)!;
+      const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+      try {
+        const doc = iframe.contentDocument!;
+        await whenAllDefined(iframe.contentWindow!, ['site-page', 'uvalib-breadcrumbs']);
+        await new Promise((r) => setTimeout(r, 100));
+        const el = doc.querySelector('uvalib-breadcrumbs')!;
+        const page = doc.querySelector('site-page')!;
+        const main = page.shadowRoot!.querySelector('main')!;
+        const labels = () =>
+          [...el.shadowRoot!.querySelectorAll('li > a, li > span:not(.separator)')].map((n) => [
+            n.textContent,
+            n.getAttribute('aria-current'),
+          ]);
+        if (id === 'breadcrumbs') {
+          expect(el.assignedSlot!.nextElementSibling).to.equal(main);
+          expect(labels().at(-1)).to.deep.equal(['Writing & publication', 'page']);
+        } else {
+          expect(el.assignedSlot!.closest('main')).to.equal(main);
+          expect(labels()).to.deep.equal([
+            ['Home', null],
+            ['Search', 'page'],
+          ]);
+          doc.querySelector<HTMLButtonElement>('#open')!.click();
+          await (el as HTMLElement & { updateComplete: Promise<unknown> }).updateComplete;
+          expect(labels()).to.deep.equal([
+            ['Home', null],
+            ['Search', null],
+            ['First result', 'page'],
+          ]);
+        }
+        expect(countMain(doc)).to.equal(1);
+        await expectNoPageAxeViolations(doc);
+        expect(errors).to.deep.equal([]);
+      } finally {
+        iframe.remove();
+      }
+    }
   });
 
   describe('events', () => {
