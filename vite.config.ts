@@ -6,6 +6,7 @@ const tags = [
   'site-main-nav',
   'site-footer',
   'site-analytics',
+  'uvalib-analytics',
   'site-style',
   'uvalib-filter',
   'uvalib-date-range',

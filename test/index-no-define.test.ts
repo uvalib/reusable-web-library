@@ -15,6 +15,11 @@ describe('index', () => {
     expect(lib.LibraryHoursSetup).to.be.a('function');
     expect(lib.EventsSection).to.be.a('function');
     expect(lib.BentoBox).to.be.a('function');
+    expect(lib.UvalibAnalytics).to.be.a('function');
+    expect(lib.SiteAnalyticsMixin).to.be.a('function');
+    expect(lib.UvalibAnalyticsMixin).to.be.a('function');
+    expect(lib.trackEvent).to.be.a('function');
+    expect(lib.trackSearch).to.be.a('function');
     for (const c of [
       lib.CatalogSection,
       lib.ArticlesSection,
@@ -28,6 +33,7 @@ describe('index', () => {
       'site-main-nav',
       'site-footer',
       'site-analytics',
+      'uvalib-analytics',
       'site-style',
       'uvalib-filter',
       'uvalib-date-range',

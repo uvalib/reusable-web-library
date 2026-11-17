@@ -55,6 +55,10 @@
       "types": "./dist/components/site-analytics/site-analytics.d.ts",
       "default": "./dist/components/site-analytics/site-analytics.js"
     },
+    "./uvalib-analytics.js": {
+      "types": "./dist/components/uvalib-analytics/uvalib-analytics.d.ts",
+      "default": "./dist/components/uvalib-analytics/uvalib-analytics.js"
+    },
     "./site-style.js": {
       "types": "./dist/components/site-style/site-style.d.ts",
       "default": "./dist/components/site-style/site-style.js"

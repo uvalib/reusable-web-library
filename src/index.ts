@@ -12,6 +12,9 @@ export { SiteFooter } from './components/site-footer/SiteFooter.js';
 export { SiteAnalytics } from './components/site-analytics/SiteAnalytics.js';
 export { SiteAnalyticsMixin } from './components/site-analytics/SiteAnalyticsMixin.js';
 export type { ISiteAnalyticsMixin } from './components/site-analytics/SiteAnalyticsMixin.js';
+export { UvalibAnalytics } from './components/uvalib-analytics/UvalibAnalytics.js';
+export { UvalibAnalyticsMixin } from './components/uvalib-analytics/UvalibAnalyticsMixin.js';
+export type { IUvalibAnalyticsMixin } from './components/uvalib-analytics/UvalibAnalyticsMixin.js';
 export { SiteStyle } from './components/site-style/SiteStyle.js';
 export { UvalibFilter } from './components/uvalib-filter/UvalibFilter.js';
 export type {
