@@ -190,7 +190,7 @@ describe('<uvalib-analytics> / <site-analytics>', () => {
     });
 
     it('a Matomo snippet already on the page: nothing loaded or recorded again', async () => {
-      window._paq = [['trackPageView'], ['setSiteId', '3']];
+      (window as unknown as { _paq: unknown[][] })._paq = [['trackPageView'], ['setSiteId', '3']];
       await fixture(html`<uvalib-analytics matomoid="10"></uvalib-analytics>`);
       expect(matomoScripts()).to.have.length(0);
       expect(paq()).to.deep.equal([['trackPageView'], ['setSiteId', '3']]);

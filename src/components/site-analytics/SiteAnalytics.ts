@@ -3,12 +3,8 @@ import { property } from 'lit/decorators.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { findMatomoId } from '../../data/sites.js';
 
-declare global {
-  interface Window {
-    /** Matomo's command queue; matomo.js replays it when it loads. */
-    _paq?: unknown[][];
-  }
-}
+/** The page's window with Matomo's command queue, which matomo.js replays when it loads. */
+type MatomoWindow = Window & { _paq?: unknown[][] };
 
 interface PageViewDetail {
   customTitle?: string;
@@ -141,7 +137,7 @@ export class SiteAnalytics extends UvalibElement {
   }
 
   private get paq(): unknown[][] {
-    return (window._paq ??= []);
+    return ((window as MatomoWindow)._paq ??= []);
   }
 
   protected override firstUpdated() {
