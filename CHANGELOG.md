@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.0.1 — 2026-11-17
+
+### Fixes
+
+- one-line titles sit right above their author
+
+### Other
+
+- Merge branch 'release/1.0.1'
+
 ## v1.0.0 — 2026-11-17
 
 ### Features
