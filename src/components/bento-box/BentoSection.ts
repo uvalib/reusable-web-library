@@ -1,6 +1,7 @@
 import { css, nothing, unsafeCSS, type CSSResult, type PropertyValues } from 'lit';
 import { html, unsafeStatic, type StaticValue } from 'lit/static-html.js';
 import { property, state } from 'lit/decorators.js';
+import { trackEvent, trackSearch } from '../../base/analytics.js';
 import { precedingHeadingLevel } from '../../base/heading-level.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
@@ -95,6 +96,8 @@ export const renderRuns = (runs: readonly TextRun[]) =>
  * states, in the DOM and classes the Drupal theme styles. Not registered itself.
  *
  * @fires bento-state - Whenever `state` changes (bubbles, composed); `<bento-box>` listens to announce "Results updated" once every section has settled.
+ * @fires uvalib-analytics-search - For `<site-analytics>`: once per settled search (results or none, not an error): the query, the section's `analyticsName` as category and its total when known. Bubbles and is composed.
+ * @fires uvalib-analytics-event - For `<site-analytics>`: `['bento-box', 'result-click', <section>, <1-based position>]` or `['bento-box', 'see-all-click', <section>]`; never titles or URLs. Bubbles and is composed.
  * @cssprop --uva-color-text - Dark-mode role token: text (else #2b2b2b).
  * @cssprop --uva-color-link - Dark-mode role token: titles, links and buttons (else `--uva-brand-blue`).
  * @cssprop --uva-color-border - Dark-mode role token: the block's border and entry rules (else #dadada).
@@ -229,6 +232,11 @@ export abstract class BentoSection<T> extends UvalibElement {
   protected abstract readonly describe: string;
   /** The source's name inside a sentence ("Virgo catalog"), for "See all" and errors. */
   protected abstract readonly sourceName: string;
+  /**
+   * The section's name in analytics ("Virgo catalog"): the site-search category and the
+   * click events' name.
+   */
+  abstract readonly analyticsName: string;
   /** Where "See all … results in ___" searches; the source name unless a section says otherwise. */
   protected get seeAllIn(): string {
     return this.sourceName;
@@ -273,6 +281,36 @@ export abstract class BentoSection<T> extends UvalibElement {
     }
     return root;
   }
+
+  constructor() {
+    super();
+    this.addEventListener('click', this.onClick);
+  }
+
+  /**
+   * One delegated listener reports clicks on results (`result-click`, with the result's
+   * 1-based position) and on "See all" (`see-all-click`), never the titles or URLs.
+   */
+  private readonly onClick = (e: Event) => {
+    const path = e.composedPath();
+    const list = this.renderRoot.querySelector('.bs-results--list');
+    for (const node of path) {
+      if (node === this) return;
+      if (!(node instanceof Element)) continue;
+      if (node.matches('.bs-results--see-all button')) {
+        trackEvent(this, ['bento-box', 'see-all-click', this.analyticsName]);
+        return;
+      }
+      if (node.matches('a[href]')) {
+        const li = path.find((n) => n instanceof HTMLLIElement && n.parentNode === list) as
+          HTMLLIElement | undefined;
+        if (!li || li.classList.contains('bs-results--placeholder')) return;
+        const position = [...list!.children].indexOf(li) + 1;
+        trackEvent(this, ['bento-box', 'result-click', this.analyticsName, position]);
+        return;
+      }
+    }
+  };
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -348,6 +386,14 @@ export abstract class BentoSection<T> extends UvalibElement {
       if (id !== this.loadId) return; // a newer load owns the element
       this.results = { ...results, items: results.items.slice(0, this.count) };
       this._state = this.results.items.length ? 'ready' : 'empty';
+      // One site search per settled load (never on error): a new query, a Back or Forward
+      // to another, or a retry that succeeds. Nothing found counts 0 even without a total.
+      trackSearch(
+        this,
+        query,
+        this.analyticsName,
+        results.total ?? (this._state === 'empty' ? 0 : undefined),
+      );
     } catch {
       if (id !== this.loadId) return;
       this.results = undefined;

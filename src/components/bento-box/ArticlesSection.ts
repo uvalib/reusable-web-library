@@ -8,6 +8,7 @@ import { VirgoSection } from './VirgoSection.js';
  */
 export class ArticlesSection extends VirgoSection {
   protected readonly pool = 'articles';
+  readonly analyticsName = 'Virgo articles';
   protected readonly heading = 'Article';
   protected readonly sourceName = 'Virgo article';
   protected override get seeAllIn(): string {
