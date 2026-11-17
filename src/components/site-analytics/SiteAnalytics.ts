@@ -2,6 +2,7 @@ import { css } from 'lit';
 import { property } from 'lit/decorators.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { findMatomoId } from '../../data/sites.js';
+import { analyticsState, ANALYTICS_EVENTS, type AnalyticsTracker } from '../../base/analytics.js';
 
 /** The page's window with Matomo's command queue, which matomo.js replays when it loads. */
 type MatomoWindow = Window & { _paq?: unknown[][] };
@@ -23,33 +24,8 @@ interface EventDetail {
   track?: unknown[];
 }
 
-/** The two event families, both listened for by both tags. */
-const FAMILIES = ['uvalib-analytics', 'site-analytics'] as const;
-
-/** One analytics element on the page, as the shared state sees it. */
-interface Tracker {
-  /** Has no Matomo site id: it neither loads Matomo nor forwards events. */
-  off: boolean;
-}
-
-/**
- * State shared by every analytics element on the page, whichever tag, and whichever copy of
- * the bundle defined it (an npm build and a CDN script, or two CDN versions): `Symbol.for`
- * gives every copy the same key. Keep its shape stable across versions.
- */
-interface SharedState {
-  /** Connected elements, in connection order; the first one not `off` forwards events. */
-  trackers: Tracker[];
-  /** Matomo is set up on the page (by an element, or by a snippet found there first). */
-  booted: boolean;
-}
-
-const STATE = Symbol.for('@uvalib/web-components/analytics');
-
-function shared(): SharedState {
-  const w = window as unknown as Record<symbol, SharedState | undefined>;
-  return (w[STATE] ??= { trackers: [], booted: false });
-}
+type Tracker = AnalyticsTracker;
+const shared = analyticsState;
 
 /** Matomo is already on the page: a matomo.js script, or a queue that sets a site id. */
 function matomoOnPage(paq: unknown[][]): boolean {
@@ -116,15 +92,11 @@ export class SiteAnalytics extends UvalibElement {
   override connectedCallback() {
     super.connectedCallback();
     shared().trackers.push(this.tracker);
-    for (const f of FAMILIES)
-      for (const t of ['event', 'search', 'pageview'])
-        document.addEventListener(`${f}-${t}`, this.onEvent);
+    for (const t of ANALYTICS_EVENTS) document.addEventListener(t, this.onEvent);
   }
 
   override disconnectedCallback() {
-    for (const f of FAMILIES)
-      for (const t of ['event', 'search', 'pageview'])
-        document.removeEventListener(`${f}-${t}`, this.onEvent);
+    for (const t of ANALYTICS_EVENTS) document.removeEventListener(t, this.onEvent);
     const { trackers } = shared();
     const i = trackers.indexOf(this.tracker);
     if (i >= 0) trackers.splice(i, 1);

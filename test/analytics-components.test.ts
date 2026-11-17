@@ -13,6 +13,7 @@ import type { SiteHeader } from '../src/components/site-header/SiteHeader.js';
 import type { SitePage } from '../src/components/site-page/SitePage.js';
 import type { SiteAnalytics } from '../src/components/site-analytics/SiteAnalytics.js';
 import { COLOR_SCHEME_ATTR, COLOR_SCHEME_STORAGE_KEY } from '../src/base/color-scheme.js';
+import { analyticsState, bufferAnalytics, trackEvent, trackSearch } from '../src/base/analytics.js';
 import { resetBento, useBentoHost } from './helpers/bento.js';
 import { matomoScripts, paq, recordAnalytics, resetAnalytics } from './helpers/analytics.js';
 import { expectNoPageAxeViolations } from './helpers/axe.js';
@@ -247,7 +248,55 @@ describe('analytics from the components', () => {
         await nextFrame();
         expect(matomoScripts()).to.have.length(1);
         expect(paq().filter((c) => c[0] === 'trackPageView')).to.have.length(1);
+        // The page's own element records it (it may be the old v0.0.12 one, which does not
+        // share the guard), so site-page adds none.
+        expect(analytics().map((a) => a.localName)).to.deep.equal(['uvalib-analytics']);
       });
     });
   }
+
+  describe('bufferAnalytics (site-page while the analytics code loads)', () => {
+    beforeEach(resetAnalytics);
+    after(resetAnalytics);
+
+    it('keeps events nobody forwards, and fires them again on flush', () => {
+      const buffer = bufferAnalytics(document);
+      trackSearch(document.body, 'hours', 'Virgo catalog', 3);
+      const seen: unknown[] = [];
+      const see = (e: Event) => seen.push((e as CustomEvent).detail);
+      document.addEventListener('uvalib-analytics-search', see);
+      try {
+        buffer.flush();
+        expect(seen).to.deep.equal([
+          { searchQuery: 'hours', searchCategory: 'Virgo catalog', resultCount: 3 },
+        ]);
+        // Stopped: later events are not kept.
+        trackSearch(document.body, 'later');
+        buffer.flush();
+        expect(seen).to.have.length(2); // the live event itself, not a replay
+      } finally {
+        document.removeEventListener('uvalib-analytics-search', see);
+      }
+    });
+
+    it('keeps nothing while an element forwards, and drop() forgets', () => {
+      const state = analyticsState();
+      const tracker = { off: false };
+      state.trackers.push(tracker);
+      const buffer = bufferAnalytics(document);
+      trackEvent(document.body, ['a', 'b']);
+      state.trackers.splice(state.trackers.indexOf(tracker), 1);
+      trackEvent(document.body, ['c', 'd']);
+      buffer.drop();
+      const seen: unknown[] = [];
+      const see = (e: Event) => seen.push(e);
+      document.addEventListener('uvalib-analytics-event', see);
+      try {
+        buffer.flush();
+        expect(seen).to.have.length(0);
+      } finally {
+        document.removeEventListener('uvalib-analytics-event', see);
+      }
+    });
+  });
 });

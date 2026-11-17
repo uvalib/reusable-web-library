@@ -7,6 +7,7 @@ import { tokens } from '../../styles/tokens.js';
 import { base, TYPEKIT_URL } from '../../styles/base.js';
 import { accessible } from '../../styles/accessible.js';
 import { ColorSchemeController } from '../../base/color-scheme.js';
+import { bufferAnalytics } from '../../base/analytics.js';
 import {
   ALERTS_PRODUCTION_SRC,
   ALERTS_TAG,
@@ -278,12 +279,25 @@ export class SitePage extends UvalibElement {
       return;
     }
     if (!this.analytics) {
+      // An analytics element the page has already (say the old v0.0.12 <uvalib-analytics>,
+      // which does not share the one-tracker guard) records the page: don't add a second.
+      if (this.ownerDocument.querySelector('site-analytics, uvalib-analytics')) return;
       const a = (this.analytics = this.ownerDocument.createElement('site-analytics'));
       this.chrome.add(a);
       if (!customElements.get('site-analytics')) {
-        this.loadAnalytics().catch((err) =>
-          console.error(`${this.localName}: failed to load site-analytics`, err),
-        );
+        // Until the code arrives nothing forwards: keep what the components report meanwhile
+        // (a bento search can settle first) and hand it over once the element is running.
+        const buffer = bufferAnalytics(this.ownerDocument);
+        this.loadAnalytics()
+          .then(() => customElements.whenDefined('site-analytics'))
+          .then(() => (a as HTMLElement & { updateComplete?: Promise<unknown> }).updateComplete)
+          .then(
+            () => buffer.flush(),
+            (err) => {
+              buffer.drop();
+              console.error(`${this.localName}: failed to load site-analytics`, err);
+            },
+          );
       }
     }
     const a = this.analytics;
