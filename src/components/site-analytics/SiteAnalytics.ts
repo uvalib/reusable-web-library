@@ -3,11 +3,17 @@ import { property } from 'lit/decorators.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { findMatomoId } from '../../data/sites.js';
 import {
+  analyticsAllowed,
+  privacySignal,
+  trackEvent,
+  type AnalyticsContent,
+  type AnalyticsEvent,
+} from '../../base/analytics.js';
+import {
   analyticsState,
   ANALYTICS_EVENTS,
-  type AnalyticsContent,
   type AnalyticsTracker,
-} from '../../base/analytics.js';
+} from '../../base/analytics-state.js';
 
 /** The page's window with Matomo's command queue, which matomo.js replays when it loads. */
 type MatomoWindow = Window & { _paq?: unknown[][] };
@@ -40,6 +46,46 @@ function matomoOnPage(paq: unknown[][]): boolean {
   );
 }
 
+/** File types Matomo's link tracking counts as downloads, besides its own (pdf, doc*, xls*, …). */
+const DOWNLOADS = 'epub|mobi|csv|tsv|json|xml|zip|tar|gz|mp3|mp4|m4a|tif|tiff|jp2|mrc|ris|bib|txt';
+
+/** Fired on `window` after `history.pushState`, by the one wrapper on the page. */
+const PUSH_STATE = 'uvalib-analytics-pushstate';
+const WRAPPED = Symbol.for('@uvalib/web-components/analytics-pushstate');
+
+/**
+ * Wrap `history.pushState` once per page, whichever copy of this library comes first, to fire
+ * `PUSH_STATE` after each call. The wrapper stays: other code may have wrapped it since.
+ */
+function wrapPushState(): void {
+  const h = history as History & { [WRAPPED]?: true };
+  if (h[WRAPPED]) return;
+  h[WRAPPED] = true;
+  const push = h.pushState;
+  h.pushState = function (this: History, ...args: Parameters<History['pushState']>) {
+    push.apply(this, args);
+    window.dispatchEvent(new Event(PUSH_STATE));
+  };
+}
+
+/** The route-change events `spa="auto"` listens for on `window`, and on `navigation`. */
+const ROUTE_EVENTS = ['hashchange', 'popstate', PUSH_STATE];
+
+type NavigationTarget = EventTarget | undefined;
+const navigationApi = (): NavigationTarget =>
+  (window as Window & { navigation?: EventTarget }).navigation;
+
+/** `data-uvalib-track="category,action[,name[,value]]"` as an event, or null. */
+function trackedEvent(spec: string): AnalyticsEvent | null {
+  const [category, action, name, value] = spec.split(',').map((p) => p.trim());
+  if (!category || !action) return null;
+  const event: AnalyticsEvent = [category, action];
+  if (name) event.push(name);
+  const v = Number(value);
+  if (name && value && Number.isFinite(v)) event.push(v);
+  return event;
+}
+
 /** A result count for Matomo: a number, or `false` (Matomo's "unknown"). */
 function countOf(n: SearchDetail['resultCount']): number | false {
   if (n === null || n === undefined || n === '') return false;
@@ -56,6 +102,11 @@ function countOf(n: SearchDetail['resultCount']): number | false {
  * there are (from any copy of this library), matomo.js is loaded and the page view recorded
  * once, and only one element forwards each event; if it is removed, the next takes over. A
  * Matomo snippet already on the page is used as it is (nothing is loaded or recorded again).
+ *
+ * When the browser sends Do Not Track or Global Privacy Control, or the page has `<html
+ * data-uvalib-analytics="off">`, it loads nothing and records nothing. A click on an element with `data-uvalib-track="category,action[,name[,value]]"`
+ * (or inside one, in light or shadow DOM) sends that event, unless `<html
+ * data-uvalib-analytics="off">` or a `no-analytics` ancestor opts it out.
  *
  * The same element is registered as `<uvalib-analytics>` by `uvalib-analytics.js`.
  *
@@ -80,8 +131,17 @@ export class SiteAnalytics extends UvalibElement {
   @property({ type: String }) matomoURL: string = 'https://analytics.lib.virginia.edu/';
   /** The Matomo site id (attribute `matomoid`). Default: the site whose URL the page is under. */
   @property({ type: Number }) matomoId?: number;
-  /** A single-page app records its own page views (`uvalib-analytics-pageview`): none on load. */
-  @property({ type: Boolean }) spa: boolean = false;
+  /**
+   * A single-page app. `spa` (no value): it records its own page views
+   * (`uvalib-analytics-pageview`), none on load. `spa="auto"`: a page view on load and one per
+   * same-document route change (hash change, Back and Forward, `history.pushState`), once the
+   * title has settled, never twice in a row for the same URL, with the previous URL as the
+   * referrer. Either way Matomo's link tracking is off.
+   */
+  @property({
+    converter: (v: string | null) => (v === null ? false : v === 'auto' ? 'auto' : true),
+  })
+  spa: boolean | 'auto' = false;
   /** Custom dimensions, a JSON object of `{ id: value }`, set before the page view. */
   @property({ type: Object }) variables: Record<string, unknown> | null = null;
 
@@ -90,6 +150,9 @@ export class SiteAnalytics extends UvalibElement {
   private readonly onEvent = (e: Event) => {
     if (!this.forwards()) return;
     const type = e.type.slice(e.type.lastIndexOf('-') + 1);
+    // What the helpers fire is checked already; this covers events fired by hand (mixins,
+    // an app's own page views), with the privacy signals read now, not only at connect.
+    if (!analyticsAllowed(e.composedPath()[0])) return;
     const detail = (e as CustomEvent).detail ?? {};
     if (type === 'event') this.logEvent(detail as EventDetail);
     else if (type === 'search') this.logSearch(detail as SearchDetail);
@@ -97,14 +160,71 @@ export class SiteAnalytics extends UvalibElement {
     else this.logPageView(detail as PageViewDetail);
   };
 
+  /** `data-uvalib-track`: the nearest tagged element on the click's path sends its event. */
+  private readonly onClick = (e: Event) => {
+    if (!this.forwards()) return;
+    for (const n of e.composedPath()) {
+      const spec = n instanceof Element ? n.getAttribute('data-uvalib-track') : null;
+      if (spec === null) continue;
+      const event = trackedEvent(spec);
+      if (event) trackEvent(n, event);
+      return;
+    }
+  };
+
+  /** `spa="auto"`: a route change records a page view on the next frame (the new title). */
+  private routeFrame = 0;
+  private readonly onRoute = () => {
+    cancelAnimationFrame(this.routeFrame);
+    this.routeFrame = requestAnimationFrame(() => this.autoPageView());
+  };
+
+  /** The Navigation API also reports replaceState and reloads: neither is a new page. */
+  private readonly onNavigation = (e: Event) => {
+    const type = (e as Event & { navigationType?: string }).navigationType;
+    if (type === 'replace' || type === 'reload') return;
+    this.onRoute();
+  };
+
+  private autoPageView() {
+    const state = shared();
+    const url = location.href;
+    if (!this.forwards() || !state.booted || url === state.pageUrl) return;
+    if (!analyticsAllowed(this)) return; // Do Not Track or GPC turned on, or the page opted out
+    const referrer = state.pageUrl;
+    state.pageUrl = url;
+    if (referrer) this.paq.push(['setReferrerUrl', referrer]);
+    this.paq.push(['setCustomUrl', url], ['setDocumentTitle', document.title], ['trackPageView']);
+  }
+
+  /** Listen for route changes (`on`), or stop. */
+  private listenRoutes(on: boolean) {
+    const method = on ? 'addEventListener' : 'removeEventListener';
+    for (const t of ROUTE_EVENTS) window[method](t, this.onRoute);
+    navigationApi()?.[method]('currententrychange', this.onNavigation);
+    if (!on) cancelAnimationFrame(this.routeFrame);
+  }
+
   override connectedCallback() {
     super.connectedCallback();
+    // Do Not Track, Global Privacy Control or the page's own off switch: load nothing,
+    // record nothing, forward nothing.
+    if (privacySignal() || document.documentElement.dataset.uvalibAnalytics === 'off')
+      this.tracker.off = true;
     shared().trackers.push(this.tracker);
     for (const t of ANALYTICS_EVENTS) document.addEventListener(t, this.onEvent);
+    // Capture: a component that stops a click's propagation does not hide a tagged ancestor.
+    document.addEventListener('click', this.onClick, true);
+    if (this.spa === 'auto') {
+      wrapPushState();
+      this.listenRoutes(true);
+    }
   }
 
   override disconnectedCallback() {
     for (const t of ANALYTICS_EVENTS) document.removeEventListener(t, this.onEvent);
+    document.removeEventListener('click', this.onClick, true);
+    this.listenRoutes(false);
     const { trackers } = shared();
     const i = trackers.indexOf(this.tracker);
     if (i >= 0) trackers.splice(i, 1);
@@ -121,12 +241,14 @@ export class SiteAnalytics extends UvalibElement {
   }
 
   protected override firstUpdated() {
+    if (this.tracker.off) return; // Do Not Track or Global Privacy Control
     const id = this.matomoId || findMatomoId(window.location.href);
     if (!id) {
       this.tracker.off = true;
       return;
     }
     const state = shared();
+    if (this.spa === 'auto') state.pageUrl ??= location.href;
     if (state.booted) return;
     state.booted = true;
     const paq = this.paq;
@@ -135,7 +257,10 @@ export class SiteAnalytics extends UvalibElement {
     paq.push(['setSiteId', String(id)]);
     for (const [key, value] of Object.entries(this.variables ?? {}))
       paq.push(['setCustomDimension', key, value]);
-    if (!this.spa) {
+    paq.push(['addDownloadExtensions', DOWNLOADS]);
+    if (this.spa === 'auto') {
+      paq.push(['trackPageView']);
+    } else if (!this.spa) {
       paq.push(['trackPageView']);
       paq.push(['enableLinkTracking']);
     }

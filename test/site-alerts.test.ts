@@ -682,6 +682,27 @@ describe('site-alerts analytics', () => {
     expect(JSON.stringify(rec.events)).to.not.contain('/hours"');
   });
 
+  for (const optOut of ['no-analytics', 'page'] as const) {
+    it(`opted out (${optOut}): alerts are shown, nothing is reported`, async () => {
+      if (optOut === 'page') document.documentElement.dataset.uvalibAnalytics = 'off';
+      try {
+        const el = await fixture<SiteAlerts>(
+          `<site-alerts ${optOut === 'page' ? '' : 'no-analytics'} show="list" alerts-src="${SRC}"></site-alerts>`,
+        );
+        await setAlerts({ menuAlerts: LIST }, el);
+        expect(el.shadowRoot!.querySelectorAll('.dismiss').length).to.be.greaterThan(0);
+        const a = el.shadowRoot!.querySelector<HTMLAnchorElement>('.body a');
+        a?.addEventListener('click', (e) => e.preventDefault());
+        a?.click();
+        el.shadowRoot!.querySelector<HTMLElement>('.dismiss')!.click();
+        await settle(el);
+        expect(rec.events).to.deep.equal([]);
+      } finally {
+        delete document.documentElement.dataset.uvalibAnalytics;
+      }
+    });
+  }
+
   it('names are capped at 100 characters', async () => {
     const long = 'x'.repeat(150);
     const el = await fixture<SiteAlerts>(

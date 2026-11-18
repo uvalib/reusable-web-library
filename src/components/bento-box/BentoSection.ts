@@ -1,7 +1,7 @@
 import { css, nothing, unsafeCSS, type CSSResult, type PropertyValues } from 'lit';
 import { html, unsafeStatic, type StaticValue } from 'lit/static-html.js';
 import { property, state } from 'lit/decorators.js';
-import { trackEvent, trackSearch } from '../../base/analytics.js';
+import { trackError, trackEvent, trackSearch } from '../../base/analytics.js';
 import { precedingHeadingLevel } from '../../base/heading-level.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
@@ -107,7 +107,7 @@ export const renderRuns = (runs: readonly TextRun[]) =>
  *
  * @fires bento-state - Whenever `state` changes (bubbles, composed); `<bento-box>` listens to announce "Results updated" once every section has settled.
  * @fires uvalib-analytics-search - For `<site-analytics>`: once per settled search (results or none, not an error): the query, the section's `analyticsName` as category and its total when known. Bubbles and is composed.
- * @fires uvalib-analytics-event - For `<site-analytics>`: `['bento-box', 'result-click', <section>, <1-based position>]` or `['bento-box', 'see-all-click', <section>]`; never titles or URLs. Bubbles and is composed.
+ * @fires uvalib-analytics-event - For `<site-analytics>`: `['bento-box', 'result-click', <section>, <1-based position>]` or `['bento-box', 'see-all-click', <section>]`; `['bento-box', 'retry', <section>]` for its Retry button; `['bento-box', 'error', 'section-load: <section>']` once when its results cannot be loaded; never titles or URLs. Bubbles and is composed.
  * @cssprop --uva-color-text - Dark-mode role token: text (else #2b2b2b).
  * @cssprop --uva-color-link - Dark-mode role token: titles, links and buttons (else `--uva-brand-blue`).
  * @cssprop --uva-color-border - Dark-mode role token: the block's border and entry rules (else #dadada).
@@ -307,6 +307,10 @@ export abstract class BentoSection<T> extends UvalibElement {
     for (const node of path) {
       if (node === this) return;
       if (!(node instanceof Element)) continue;
+      if (node.matches('.bs-results--message button:not([aria-disabled])')) {
+        trackEvent(this, ['bento-box', 'retry', this.analyticsName]);
+        return;
+      }
       if (node.matches('.bs-results--see-all button')) {
         trackEvent(this, ['bento-box', 'see-all-click', this.analyticsName]);
         return;
@@ -416,6 +420,7 @@ export abstract class BentoSection<T> extends UvalibElement {
       this.results = undefined;
       this._state = 'error';
       this.reportedQuery = undefined;
+      trackError(this, 'bento-box', `section-load: ${this.analyticsName}`);
     } finally {
       if (this.controller === controller) this.controller = undefined;
     }
