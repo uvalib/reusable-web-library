@@ -1,5 +1,6 @@
 import { html, css, nothing, unsafeCSS, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
+import { trackError, trackEvent } from '../../base/analytics.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { precedingHeadingLevel } from '../../base/heading-level.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
@@ -79,6 +80,7 @@ const shadowStructure = unsafeCSS(structuralRules(':host'));
  * Used on library.virginia.edu/hours through `<library-hours-setup>`.
  *
  * @tagname library-weekly-hours
+ * @fires uvalib-analytics-event - For `<site-analytics>`: `['library-weekly-hours', 'week-change', 'next' | 'previous']` for the week buttons, and `['library-weekly-hours', 'error', 'hours-load']` once when the hours cannot be loaded. Bubbles and is composed.
  * @csspart building-hours - The "Building hours" table row (shadow mode).
  * @cssprop [--library-weekly-hours-min-height=0] - Height the element keeps during its first load (while it has the `loading` attribute, before any rows show), so content below does not jump when the hours arrive. Applies with `no-style` too. Pages can reserve the same height before the element upgrades with `library-weekly-hours:not(:defined) { display: block; min-height: … }`.
  * @cssprop [--uva-brand-orange=#e57200] - Border of today's column; focus ring colour.
@@ -352,6 +354,7 @@ export class LibraryWeeklyHours extends UvalibElement {
       if (!sameWeek) this.view = undefined;
       this.pending = undefined;
       this._state = 'error';
+      trackError(this, 'library-weekly-hours', 'hours-load');
     }
   }
 
@@ -378,11 +381,13 @@ export class LibraryWeeklyHours extends UvalibElement {
   private previousWeek() {
     this.userInitiated = true;
     this.weekCount = (Math.trunc(this.weekCount) || 0) - 1;
+    trackEvent(this, ['library-weekly-hours', 'week-change', 'previous']);
   }
 
   private nextWeek() {
     this.userInitiated = true;
     this.weekCount = (Math.trunc(this.weekCount) || 0) + 1;
+    trackEvent(this, ['library-weekly-hours', 'week-change', 'next']);
   }
 
   private renderMobileDate(day: string) {

@@ -1,5 +1,6 @@
 import { html, css, nothing, type PropertyValues } from 'lit';
 import { property } from 'lit/decorators.js';
+import { trackEvent } from '../../base/analytics.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 
 /** Element ids share the document id space in light DOM, so each instance gets its own prefix. */
@@ -18,6 +19,9 @@ function isIsoDate(s: unknown): s is string {
 }
 
 const yearOf = (iso: string): number => Number(iso.slice(0, 4));
+
+/** How long (ms) after the last change the range is reported to analytics. Tests shorten it. */
+export const dateRangeTiming = { debounce: 1000 };
 const clamp = (iso: string, lo: string, hi: string): string =>
   iso < lo ? lo : iso > hi ? hi : iso;
 
@@ -29,6 +33,7 @@ const clamp = (iso: string, lo: string, hi: string): string =>
  *
  * @tagname uvalib-date-range
  * @fires date-range-change - The range changed from a slider or a date input. `detail` is `{ value: [start, end] }` (ISO dates). Bubbles and is composed.
+ * @fires uvalib-analytics-event - For `<site-analytics>`: `['uvalib-date-range', 'range-change', '<from year>–<to year>']`, 1 s after the visitor's last change (not when the range ends where it started). Bubbles and is composed.
  * @cssprop [--uva-brand-blue=#232d4b] - Selected slider range, thumbs, legend and focused date input border.
  * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour (focus-visible outline).
  * @cssprop [--uva-font-family=inherit] - Font family.
@@ -256,7 +261,29 @@ export class UvalibDateRange extends UvalibElement {
     else this.updateRange(start, clamp(input.value, start, this.max));
   }
 
+  /** Analytics: the years before the visitor's current run of changes, and its debounce. */
+  private reported?: string;
+  private reportTimer?: ReturnType<typeof setTimeout>;
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    clearTimeout(this.reportTimer);
+    this.reported = undefined;
+  }
+
+  private years(): string {
+    const [start, end] = this.range;
+    return `${yearOf(start)}–${yearOf(end)}`;
+  }
+
   private updateRange(start: string, end: string) {
+    this.reported ??= this.years();
+    clearTimeout(this.reportTimer);
+    this.reportTimer = setTimeout(() => {
+      const years = this.years();
+      if (years !== this.reported) trackEvent(this, ['uvalib-date-range', 'range-change', years]);
+      this.reported = undefined;
+    }, dateRangeTiming.debounce);
     this.value = [start, end];
     this.dispatchEvent(
       new CustomEvent('date-range-change', {

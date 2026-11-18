@@ -1,6 +1,7 @@
 import { html, css, nothing, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
+import { trackEvent } from '../../base/analytics.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { accessible } from '../../styles/accessible.js';
 
@@ -25,6 +26,9 @@ export interface FilterScopeOption {
   label: string;
 }
 
+/** The analytics category. */
+const TAG = 'uvalib-filter';
+
 /** Element ids share the document id space in light DOM, so each instance gets its own prefix. */
 let instanceCounter = 0;
 
@@ -37,6 +41,7 @@ let instanceCounter = 0;
  * @tagname uvalib-filter
  * @fires filter-change - A checkbox was toggled. `detail` is `{ name, value }`: the facet name and the new array of selected keys. Does not bubble.
  * @fires scope-change - A scope chip was toggled. `detail` is `{ value }`: the new array of pressed scope values. Does not bubble.
+ * @fires uvalib-analytics-event - For `<site-analytics>`, on the visitor's changes only: `['uvalib-filter', 'facet-change', '<title>: <value>', 1 | 0]` (checked or unchecked), `['uvalib-filter', 'scope-change', <scope label>, 1 | 0]` (pressed or not), and `['uvalib-filter', 'see-more' | 'see-less', <title>]`. Bubbles and is composed.
  * @csspart see-more - The "See more" button (shadow mode).
  * @csspart see-less - The "See less" button (shadow mode).
  * @cssprop [--uva-brand-blue=#232d4b] - Scope chip text, hover border and pressed background.
@@ -147,6 +152,7 @@ export class UvalibFilter extends UvalibElement {
     const input = e.target as HTMLInputElement;
     const rest = this.value.filter((v) => v.toLowerCase() !== input.value.toLowerCase());
     this.value = input.checked ? [...rest, input.value] : rest;
+    trackEvent(this, [TAG, 'facet-change', `${this.filter.title}: ${input.value}`, +input.checked]);
     this.dispatchEvent(
       new CustomEvent('filter-change', { detail: { name: this.filter.name, value: this.value } }),
     );
@@ -156,7 +162,10 @@ export class UvalibFilter extends UvalibElement {
     e.preventDefault();
     e.stopPropagation();
     const rest = this.scopeValue.filter((v) => v.toLowerCase() !== key.toLowerCase());
-    this.scopeValue = rest.length < this.scopeValue.length ? rest : [...rest, key];
+    const pressed = rest.length === this.scopeValue.length;
+    this.scopeValue = pressed ? [...rest, key] : rest;
+    const label = this.scopes.find((s) => s.value === key)?.label ?? key;
+    trackEvent(this, [TAG, 'scope-change', label, +pressed]);
     this.dispatchEvent(new CustomEvent('scope-change', { detail: { value: this.scopeValue } }));
   }
 
@@ -223,10 +232,12 @@ export class UvalibFilter extends UvalibElement {
 
   private showMore() {
     this.currentLimit = Math.min(this.currentLimit * 2, this.buckets.length);
+    trackEvent(this, [TAG, 'see-more', this.filter.title]);
   }
 
   private showLess() {
     this.currentLimit = Math.max(Math.ceil(this.currentLimit / 2), this.limit);
+    trackEvent(this, [TAG, 'see-less', this.filter.title]);
   }
 
   render() {

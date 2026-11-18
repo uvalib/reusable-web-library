@@ -2,6 +2,7 @@ import { css, nothing } from 'lit';
 import { html, unsafeStatic } from 'lit/static-html.js';
 import { property, state } from 'lit/decorators.js';
 import { repeat } from 'lit/directives/repeat.js';
+import { trackError, trackEvent } from '../../base/analytics.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { accessible } from '../../styles/accessible.js';
 import {
@@ -29,6 +30,7 @@ import type { HoursState } from '../library-weekly-hours/LibraryWeeklyHours.js';
  * changes in New York.
  *
  * @tagname site-hours-section
+ * @fires uvalib-analytics-event - For `<site-analytics>`: `['site-hours-section', 'link-click', 'See all hours']` for a "See all hours" link, and `['site-hours-section', 'error', 'hours-load']` once when the libraries or their hours cannot be loaded. Bubbles and is composed.
  * @fires got-library-hours - The hours were loaded. `detail` is `{ message }`. Bubbles and is composed.
  * @fires got-libraries - The libraries were loaded (fired after `got-library-hours`). `detail` is `{ message }`. Bubbles and is composed.
  * @cssprop [--uva-brand-blue=#232d4b] - Heading and link colour.
@@ -155,7 +157,9 @@ export class SiteHoursSection extends UvalibElement {
     try {
       libraries = sortLibraries(await loadLibraries());
     } catch {
-      if (id === this.loadId) this._state = 'error';
+      if (id !== this.loadId) return;
+      this._state = 'error';
+      trackError(this, 'site-hours-section', 'hours-load');
       return;
     }
     let hours: HoursByCalendar | undefined;
@@ -164,6 +168,7 @@ export class SiteHoursSection extends UvalibElement {
       hours = await loadHours(ids, today, today);
     } catch {
       hours = undefined; // libraries with a calendar show "Hours unavailable"
+      if (id === this.loadId) trackError(this, 'site-hours-section', 'hours-load');
     }
     if (id !== this.loadId) return;
     this.libraries = libraries;
@@ -209,6 +214,13 @@ export class SiteHoursSection extends UvalibElement {
     return unavailable;
   }
 
+  /** Analytics: the "See all hours" links (not the libraries' own). */
+  private onClick(e: Event) {
+    const a = (e.target as Element).closest('a');
+    if (a?.textContent!.startsWith('See all hours'))
+      trackEvent(this, ['site-hours-section', 'link-click', 'See all hours']);
+  }
+
   private renderStatus() {
     if (this._state === 'loading') return 'Loading hours…';
     // The "See all hours and locations" link is right above.
@@ -222,7 +234,10 @@ export class SiteHoursSection extends UvalibElement {
     const level = Math.min(6, Math.max(2, Math.trunc(this.headingLevel) || 3));
     const h = unsafeStatic(`h${level}`);
     return html`
-      <div class="home-hours-block${this._state === 'loading' ? ' is-loading' : ''}">
+      <div
+        class="home-hours-block${this._state === 'loading' ? ' is-loading' : ''}"
+        @click=${this.onClick}
+      >
         <div id="homehoursdate" class="home-hour-date">
           ${fullDate(this.hoursDate || this.today)}
         </div>

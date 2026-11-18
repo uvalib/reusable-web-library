@@ -2,6 +2,7 @@ import { precedingHeadingLevel } from '../../base/heading-level.js';
 import { css, nothing, unsafeCSS, type PropertyValues } from 'lit';
 import { html, unsafeStatic, type StaticValue } from 'lit/static-html.js';
 import { property, state } from 'lit/decorators.js';
+import { trackError, trackEvent } from '../../base/analytics.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
 import { accessible } from '../../styles/accessible.js';
@@ -86,6 +87,7 @@ const lightTitleMargin = (tag: string) =>
  * `event-date`, `event--month`, `event--day`, `event--wkday`, `event-time`).
  *
  * @tagname events-section
+ * @fires uvalib-analytics-event - For `<site-analytics>`: a click on an event, `['events-section', 'event-click', <category id, or all>, <position, from 1>]` (never its title or URL), and `['events-section', 'error', 'events-load']` once when the events cannot be loaded. Bubbles and is composed.
  * @cssprop [--events-section-min-height=0] - Height the element keeps during its first load (while it has the `loading` attribute). Its placeholder cards already hold the final height; this only matters for a page that wants more. Applies with `no-style` too. Pages can reserve height before the element upgrades with `events-section:not(:defined) { display: block; min-height: … }`.
  * @cssprop [--uva-brand-orange-dark=#b35900] - Background of the date column (white text on it is 4.8:1).
  * @cssprop [--uva-brand-blue=#232d4b] - Event title colour.
@@ -351,7 +353,16 @@ export class EventsSection extends UvalibElement {
       if (background && this._state !== 'error') return;
       this.events = undefined;
       this._state = 'error';
+      trackError(this, 'events-section', 'events-load');
     }
+  }
+
+  /** Analytics: which card (its position) was opened, and under which category. */
+  private onClick(e: Event) {
+    const card = (e.target as Element).closest('.event');
+    if (!card?.querySelector('.event-url[href]')) return;
+    const position = [...card.parentNode!.children].indexOf(card) + 1;
+    trackEvent(this, ['events-section', 'event-click', this.category?.trim() || 'all', position]);
   }
 
   private async retry() {
@@ -454,7 +465,7 @@ export class EventsSection extends UvalibElement {
     // final height. Empty, failed or retrying: one row, so a failure does not leave a long
     // blank area (a phone stacks the cards in one column).
     const placeholders = events ? 0 : this._state === 'loading' && !this.retrying ? this.count : 1;
-    return html`<div class="event-container">
+    return html`<div class="event-container" @click=${this.onClick}>
         ${
           events
             ? events.map((e) => this.renderEvent(e, h))
