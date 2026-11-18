@@ -131,7 +131,7 @@ describe('analytics opt-out', () => {
     }
   });
 
-  it('the page opt-out: events fired by hand are not forwarded; the page view still is', async () => {
+  it('the page opt-out: no matomo.js, no page view, nothing forwarded', async () => {
     root.dataset.uvalibAnalytics = 'off';
     const el = await fixture(
       html`<div>
@@ -139,7 +139,8 @@ describe('analytics opt-out', () => {
         <test-optout-old-app></test-optout-old-app>
       </div>`,
     );
-    expect(commands('trackPageView')).to.have.length(1);
+    expect(commands('trackPageView')).to.have.length(0);
+    expect(document.querySelectorAll('script[src*="matomo.js"]')).to.have.length(0);
     el.querySelector<OldApp>('test-optout-old-app')!._analyticsEvent(['app', 'hold']);
     fire(document.body, 'site-analytics-search', { searchQuery: 'q' });
     expect(commands('trackEvent')).to.deep.equal([]);

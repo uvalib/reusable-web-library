@@ -103,8 +103,8 @@ function countOf(n: SearchDetail['resultCount']): number | false {
  * once, and only one element forwards each event; if it is removed, the next takes over. A
  * Matomo snippet already on the page is used as it is (nothing is loaded or recorded again).
  *
- * When the browser sends Do Not Track or Global Privacy Control, it loads nothing and records
- * nothing. A click on an element with `data-uvalib-track="category,action[,name[,value]]"`
+ * When the browser sends Do Not Track or Global Privacy Control, or the page has `<html
+ * data-uvalib-analytics="off">`, it loads nothing and records nothing. A click on an element with `data-uvalib-track="category,action[,name[,value]]"`
  * (or inside one, in light or shadow DOM) sends that event, unless `<html
  * data-uvalib-analytics="off">` or a `no-analytics` ancestor opts it out.
  *
@@ -198,8 +198,10 @@ export class SiteAnalytics extends UvalibElement {
 
   override connectedCallback() {
     super.connectedCallback();
-    // Do Not Track or Global Privacy Control: load nothing, record nothing, forward nothing.
-    if (privacySignal()) this.tracker.off = true;
+    // Do Not Track, Global Privacy Control or the page's own off switch: load nothing,
+    // record nothing, forward nothing.
+    if (privacySignal() || document.documentElement.dataset.uvalibAnalytics === 'off')
+      this.tracker.off = true;
     shared().trackers.push(this.tracker);
     for (const t of ANALYTICS_EVENTS) document.addEventListener(t, this.onEvent);
     // Capture: a component that stops a click's propagation does not hide a tagged ancestor.

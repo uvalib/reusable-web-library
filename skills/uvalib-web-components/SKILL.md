@@ -174,7 +174,7 @@ The library's components already report what visitors do with them; do not add t
 
 For the host page's own content, tag the clickable element (or a wrapper) with `data-uvalib-track="category,action[,name[,value]]"` instead of writing a listener, for example `<a href="/spaces" data-uvalib-track="home-page,banner-click,Study spaces">`: the category is your page or widget, the action a fixed kebab-case verb, the name a short fixed label, the value a number. It works inside shadow DOM too. Never put titles, URLs, search text, ids, email addresses, phone numbers or other personal data in events.
 
-To opt out: `no-analytics` on an element (or any ancestor) silences it and everything inside; `<html data-uvalib-analytics="off">` silences every event on the page (the page view is still counted). Browsers that send Do Not Track or Global Privacy Control get no Matomo at all, with nothing to configure.
+To opt out: `no-analytics` on an element (or any ancestor) silences it and everything inside; `<html data-uvalib-analytics="off">` turns analytics off for the whole page (no Matomo, no page view, no events). Browsers that send Do Not Track or Global Privacy Control get no Matomo at all, with nothing to configure.
 
 A page with a breadcrumb trail (between the header and `<main>`):
 
