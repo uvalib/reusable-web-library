@@ -12,6 +12,7 @@ import { trackContent } from '../src/base/analytics.js';
 import { resetAnalytics, paq, matomoScripts, stub, fire } from './helpers/analytics.js';
 
 const MATOMO = 'https://analytics.lib.virginia.edu/';
+const DOWNLOADS = 'epub|mobi|csv|tsv|json|xml|zip|tar|gz|mp3|mp4|m4a|tif|tiff|jp2|mrc|ris|bib|txt';
 
 describe('findMatomoId', () => {
   it('matches by url prefix', () => {
@@ -42,6 +43,7 @@ describe('<uvalib-analytics> / <site-analytics>', () => {
     expect(paq()).to.deep.equal([
       ['setTrackerUrl', `${MATOMO}matomo.php`],
       ['setSiteId', '10'],
+      ['addDownloadExtensions', DOWNLOADS],
       ['trackPageView'],
       ['enableLinkTracking'],
     ]);
@@ -65,6 +67,7 @@ describe('<uvalib-analytics> / <site-analytics>', () => {
       ['setSiteId', '7'],
       ['setCustomDimension', '1', 'staff'],
       ['setCustomDimension', '3', 'Alderman'],
+      ['addDownloadExtensions', DOWNLOADS],
       ['trackPageView'],
       ['enableLinkTracking'],
     ]);
