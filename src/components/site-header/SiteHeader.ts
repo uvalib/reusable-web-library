@@ -90,6 +90,13 @@ const stopEvent = (e: Event) => e.stopPropagation();
  * has no Menu, shows it after its inline link, on a row of its own under the logo row on
  * narrow screens. In dark mode the logo is the reversed (white) one.
  *
+ * `site-name` shows a sub-site's name after the logo, past a thin divider, as a link to the
+ * site's home (`site-name-href`, default `/`); the logo still links to library.virginia.edu.
+ * The name is not a heading (the page keeps its own `<h1>`) and its link is named
+ * "<name> home". On wide screens it sits in the logo row, wrapping to at most two lines (keep
+ * it short), so the header is no taller; at 992px and below it gets its own line under the
+ * logo. The `vendor` variant shows it too.
+ *
  * @tagname site-header
  * @slot skip-link - Shadow mode only: optional skip link, rendered first inside `<header>` (`<site-page>` uses it).
  * @slot alerts - Optional alert banner (`<site-page>` passes its `<site-alerts show="header">`), shown as a full-bleed row at the very top of `<header>` (flush with its top and both edges, outside its padding), after the skip link and before the logo row. In light mode the children are moved to the start of `<header>`. The header never loads alerts itself.
@@ -97,7 +104,7 @@ const stopEvent = (e: Event) => e.stopPropagation();
  * @slot site-links - Optional `<a href>` elements with text that replace the library utility links in the inline nav and the Menu popover (ignored by the `vendor` variant). In light mode they are moved into a hidden holder.
  * @csspart header - The `<header>` element.
  * @fires site-main-nav-error - `main-nav-src` could not be loaded; the bundled main navigation is shown. `detail` is `{ src, message }`. Fired once, from the bar's `<site-main-nav>`; bubbles and is composed.
- * @fires uvalib-analytics-event - For `<site-analytics>`: the visitor picked a colour scheme, `['site-header', 'color-scheme', 'light' | 'dark' | 'system']` (not the initial value); `['site-header', 'link-click', <label>]` for a utility or site link, `['site-header', 'logo-click']`, `['site-header', 'skip-link']` (a slotted skip link) and `['site-header', 'menu-open']` when the Menu popover opens; and the main navigation's menu opens and link clicks (see `<site-main-nav>`). Never a URL. Bubbles and is composed.
+ * @fires uvalib-analytics-event - For `<site-analytics>`: the visitor picked a colour scheme, `['site-header', 'color-scheme', 'light' | 'dark' | 'system']` (not the initial value); `['site-header', 'link-click', <label>]` for a utility or site link, `['site-header', 'logo-click']`, `['site-header', 'site-name-click']` (the `site-name` link), `['site-header', 'skip-link']` (a slotted skip link) and `['site-header', 'menu-open']` when the Menu popover opens; and the main navigation's menu opens and link clicks (see `<site-main-nav>`). Never a URL. Bubbles and is composed.
  * @cssprop [--uva-blue-alt-dark=#005679] - Utility link colour.
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Menu button colour.
  * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour (focus-visible outline), and the underline colour of an `aria-current` link (also bold, with a 3px underline).
@@ -115,6 +122,11 @@ const stopEvent = (e: Event) => e.stopPropagation();
 export class SiteHeader extends UvalibElement {
   static styles = [
     accessible,
+    // site-name (.brand, .site-name): the logo, a divider and the site's name, centred on the
+    // logo, at most two lines (10em, 18em from 1200px), so the logo row is no taller and the
+    // utility links keep their room down to 993px. At 992px and below the name gets its own lines
+    // under the logo, no wider than it, so the logo column is exactly as wide as before and the
+    // Menu button (or vendor link) keeps its place.
     css`
       :host {
         display: block;
@@ -133,7 +145,7 @@ export class SiteHeader extends UvalibElement {
         --_pad-inline: 16px; /* old: .w3-container 16px side padding */
         padding: var(--_pad-block) var(--_pad-inline);
       }
-      header > :not(.logo) {
+      header > :not(.logo, .brand) {
         grid-column: 2;
         justify-self: end;
       }
@@ -156,6 +168,32 @@ export class SiteHeader extends UvalibElement {
         display: block;
         max-width: 225px;
         height: auto;
+      }
+      .brand {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.25rem 0.625rem;
+        min-inline-size: 0;
+      }
+      .site-name {
+        max-inline-size: 10em;
+        padding-inline-start: 0.625rem;
+        border-inline-start: 1px solid var(--uva-color-control-border, var(--uva-grey, #808080));
+        color: var(--uva-color-text, var(--uva-grey-darkest, #2b2b2b));
+        font-size: 1.125rem;
+        font-weight: 700;
+        line-height: 1.2;
+        text-decoration: none;
+        overflow-wrap: anywhere;
+      }
+      .site-name:hover {
+        text-decoration: underline;
+      }
+      @media screen and (min-width: 1200px) {
+        .site-name {
+          max-inline-size: 18em;
+        }
       }
       nav ul {
         list-style-type: none;
@@ -350,6 +388,15 @@ export class SiteHeader extends UvalibElement {
         .menu-toggle {
           display: inline-flex;
         }
+        .brand {
+          max-inline-size: 225px;
+        }
+        .site-name {
+          flex-basis: 100%;
+          max-inline-size: none;
+          padding: 0;
+          border: 0;
+        }
       }
       @media screen and (min-width: 993px) {
         .menu-toggle,
@@ -365,6 +412,14 @@ export class SiteHeader extends UvalibElement {
   @property({ type: String, reflect: true }) variant: 'full' | 'vendor' = 'full';
   /** Accessible name of the nav when site links replace the utility links (default "Site"; the popover nav's name adds " menu"). */
   @property({ type: String, attribute: 'site-links-label' }) siteLinksLabel?: string;
+
+  /**
+   * The sub-site's name, shown after the library logo as a link to the site's home
+   * (`site-name-href`). The logo still links to library.virginia.edu. Not a heading.
+   */
+  @property({ type: String, attribute: 'site-name' }) siteName?: string;
+  /** Where the site name links (default `/`, the site's own home). */
+  @property({ type: String, attribute: 'site-name-href' }) siteNameHref?: string;
 
   /** Hide the UVA Library main navigation (the row under the logo and the popover accordion). */
   @property({ type: Boolean, attribute: 'no-main-nav' }) noMainNav = false;
@@ -429,6 +484,7 @@ export class SiteHeader extends UvalibElement {
       return;
     if (a.slot === 'skip-link' && a.parentNode === this) trackEvent(this, [TAG, 'skip-link']);
     else if (a.matches('.logo')) trackEvent(this, [TAG, 'logo-click']);
+    else if (a.matches('.site-name')) trackEvent(this, [TAG, 'site-name-click']);
     else if (a.closest('nav.inline, nav.menu') && this.renderRoot.contains(a))
       trackEvent(this, [TAG, 'link-click', a.textContent!.replace(/\s+/g, ' ').trim()]);
   };
@@ -471,27 +527,60 @@ export class SiteHeader extends UvalibElement {
     this.observer?.disconnect();
   }
 
+  /** Which header template render() uses: with dark mode, with a site name, or neither. */
+  private get template(): string {
+    return this.scheme.active ? 'scheme' : this.name ? 'named' : 'plain';
+  }
+  private renderedTemplate?: string;
+
   protected override willUpdate(changed: PropertyValues): void {
-    if (!changed.has('colorSchemeSwitch')) return;
-    const was = this.scheme.active;
-    this.scheme.sync();
-    // Light mode: turning dark mode on or off swaps the header template, and Lit clears
-    // everything after its start marker: the alerts moved into the old <header> and the
-    // hidden source holders. Move them before the marker; updated() re-adopts the alerts.
-    if (this.lightDom && this.hasUpdated && was !== this.scheme.active) {
+    if (changed.has('colorSchemeSwitch')) this.scheme.sync();
+    // Light mode: turning dark mode or the site name on or off swaps the header template, and
+    // Lit clears everything after its start marker: the alerts moved into the old <header>
+    // and the hidden source holders. Move them before the marker; updated() re-adopts the
+    // alerts.
+    const was = this.renderedTemplate;
+    this.renderedTemplate = this.template;
+    if (this.lightDom && this.hasUpdated && was !== this.renderedTemplate) {
       const header = this.querySelector(':scope > header');
       const keep = [...(header?.children ?? [])].filter(isAlertsChild);
       for (const holder of [this.holder, this.mainNavHolder]) if (holder) keep.push(holder);
       this.prepend(...keep);
+      this.templateSwapped = true;
     }
   }
+  private templateSwapped = false;
 
-  protected override updated(changed: PropertyValues): void {
-    if (changed.has('colorSchemeSwitch') && this.hasUpdated) this.adoptAlerts();
+  protected override updated(): void {
+    if (!this.templateSwapped) return;
+    this.templateSwapped = false;
+    this.adoptAlerts();
   }
 
   protected override firstUpdated(): void {
     this.syncChildren();
+  }
+
+  /** The site name, trimmed, or empty for none. */
+  private get name(): string {
+    return (this.siteName ?? '').replace(/\s+/g, ' ').trim();
+  }
+
+  /**
+   * The logo, and with `site-name` the site's name after it. Their link names differ ("UVA
+   * Library home", "<name> home"), and each starts with its visible text, for voice control.
+   */
+  private brand() {
+    const logo = html`<a class="logo" href=${siteLink(this.rootLinkDomain, '/')}
+      ><img src=${this.logoSrc()} alt="UVA Library home" width="304" height="69"
+    /></a>`;
+    const name = this.name;
+    if (!name) return logo;
+    return html`<div class="brand">
+      ${logo}<a class="site-name" href=${this.siteNameHref || '/'} aria-label=${`${name} home`}
+        >${name}</a
+      >
+    </div>`;
   }
 
   /** The navy logo, or the reversed (white) one while the page shows dark mode. */
@@ -715,7 +804,6 @@ export class SiteHeader extends UvalibElement {
     mainNav: boolean,
     mainNavEl: (accordion: boolean) => unknown,
   ) {
-    const root = this.rootLinkDomain;
     const vendor = this.variant === 'vendor';
     const id = this.menuId;
     const anchor = `--${id}`;
@@ -756,9 +844,7 @@ export class SiteHeader extends UvalibElement {
     return html`
       <header part="header" class=${vendor ? 'vendor' : ''}>
         ${this.lightDom ? nothing : html`<slot name="skip-link"></slot><slot name="alerts"></slot>`}
-        <a class="logo" href=${siteLink(root, '/')}
-          ><img src=${this.logoSrc()} alt="UVA Library home" width="304" height="69"
-        /></a>
+        ${this.brand()}
         <div class="utility-row">
           <nav class="inline" aria-label=${label}>
             <ul>
@@ -898,6 +984,23 @@ export class SiteHeader extends UvalibElement {
         <slot name="main-nav" @slotchange=${this.onSourcesChange}></slot>
       </div>`;
     if (this.scheme.active) return this.renderWithScheme(items, label, mainNav, mainNavEl);
+    const end = vendor ? nothing : mainNav ? withMainNav : classic;
+    const hidden = this.lightDom ? nothing : mainNav ? withMainNavHidden : classicHidden;
+    // A template of its own, so the header without a site name stays byte-identical.
+    if (this.name)
+      return html`
+        <header part="header" class=${vendor ? 'vendor' : ''}>
+          ${this.lightDom ? nothing : html`<slot name="skip-link"></slot><slot name="alerts"></slot>`}
+          ${this.brand()}
+          <nav class="inline" aria-label=${label}>
+            <ul>
+              ${items}
+            </ul>
+          </nav>
+          ${end}
+        </header>
+        ${hidden}
+      `;
     return html`
       <header part="header" class=${vendor ? 'vendor' : ''}>
         ${this.lightDom ? nothing : html`<slot name="skip-link"></slot><slot name="alerts"></slot>`}
@@ -909,9 +1012,9 @@ export class SiteHeader extends UvalibElement {
             ${items}
           </ul>
         </nav>
-        ${vendor ? nothing : mainNav ? withMainNav : classic}
+        ${end}
       </header>
-      ${this.lightDom ? nothing : mainNav ? withMainNavHidden : classicHidden}
+      ${hidden}
     `;
   }
 }

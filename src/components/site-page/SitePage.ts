@@ -84,6 +84,10 @@ export class SitePage extends UvalibElement {
   @property({ type: Boolean, attribute: 'no-footer', reflect: true }) noFooter = false;
   /** Accessible name of the header navigation when site links are given (default "Site"). */
   @property({ type: String, attribute: 'site-links-label' }) siteLinksLabel?: string;
+  /** The sub-site's name, forwarded to `<site-header site-name>`: shown after the logo as a link to the site's home. */
+  @property({ type: String, attribute: 'site-name' }) siteName?: string;
+  /** Where the site name links, forwarded to `<site-header site-name-href>` (default `/`). */
+  @property({ type: String, attribute: 'site-name-href' }) siteNameHref?: string;
   /** Hide the UVA Library main navigation in the header. */
   @property({ type: Boolean, attribute: 'no-main-nav' }) noMainNav = false;
   /** Accessible name of the header's main navigation (default "Main"). */
@@ -562,6 +566,8 @@ export class SitePage extends UvalibElement {
         variant=${this.headerVariant}
         root-link-domain=${this.rootLinkDomain}
         site-links-label=${ifDefined(this.siteLinksLabel)}
+        site-name=${ifDefined(this.siteName)}
+        site-name-href=${ifDefined(this.siteNameHref)}
         ?no-main-nav=${this.noMainNav}
         main-nav-label=${ifDefined(this.mainNavLabel)}
         main-nav-src=${ifDefined(this.mainNavSrc)}
