@@ -10,6 +10,7 @@ const tags = [
   'site-style',
   'uvalib-filter',
   'uvalib-date-range',
+  'uvalib-breadcrumbs',
   'site-hours-section',
   'library-weekly-hours',
   'library-hours-setup',

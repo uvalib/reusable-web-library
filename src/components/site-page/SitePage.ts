@@ -43,8 +43,13 @@ const slotOf = (n: Node): string | null => (n instanceof Element ? n.getAttribut
  * if it fails to load, one console warning is logged and the page works as before.
  * `no-alerts` renders no alert elements and loads nothing.
  *
+ * A `slot="breadcrumbs"` child (a `<uvalib-breadcrumbs>`) is placed where library.virginia.edu
+ * puts the trail: after the header and the alert list band, before `<main>` and outside it (so
+ * the skip link lands past it), with the same gutters as `<main>`.
+ *
  * @tagname site-page
  * @slot - Main page content, rendered inside the single `<main>`.
+ * @slot breadcrumbs - Optional breadcrumb trail (a `<uvalib-breadcrumbs>`), shown between the header (and alert list band) and `<main>`. In light mode it is moved there, never into `<main>`.
  * @slot pre-footer - Optional content shown in a band above the footer.
  * @slot site-links - Optional `<a href>` elements, forwarded to `<site-header>`, that replace the library utility links in the header (inline nav and Menu popover). Ignored with `header-variant="vendor"`.
  * @slot main-nav - Optional `<nav>` forwarded to `<site-header>`, whose list replaces the UVA Library main navigation's links (see `<site-main-nav>`). Ignored with `no-main-nav` and `header-variant="vendor"`.
@@ -159,6 +164,29 @@ export class SitePage extends UvalibElement {
       .alerts-list > uvalib-alerts {
         display: block;
       }
+      /* The breadcrumb trail lines up with main's content (same max width and side padding). */
+      ::slotted([slot='breadcrumbs']) {
+        display: block;
+        box-sizing: border-box;
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 16px 40px 0;
+      }
+      /* An empty or hidden trail takes no space. */
+      ::slotted([slot='breadcrumbs']:is([hidden], [data-empty])) {
+        display: none;
+      }
+      /* Light mode (this stylesheet is rewritten to \`site-page > …\` there). */
+      :host > [slot='breadcrumbs']:is([hidden], [data-empty]) {
+        display: none;
+      }
+      :host > [slot='breadcrumbs'] {
+        display: block;
+        box-sizing: border-box;
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 16px 40px 0;
+      }
       /* Old layout: .main-container-inner (max 1600px, centred) > .w3-row-padding 8px
          > .w3-col 8px > .d8-fade 24px = 40px each side; 12px margin + 24px padding below. */
       main {
@@ -192,9 +220,29 @@ export class SitePage extends UvalibElement {
   private analytics?: HTMLElement;
   /** Whether the list alerts have anything to show, from their last update event. */
   @state() private listShown = false;
+  /**
+   * Shadow mode: whether a `slot="breadcrumbs"` child exists, so the slot is rendered only
+   * then and the page without breadcrumbs renders exactly what it did before them.
+   */
+  @state() private hasBreadcrumbs = false;
+  private breadcrumbsObserver?: MutationObserver;
+
+  private syncHasBreadcrumbs = (): void => {
+    this.hasBreadcrumbs = [...this.children].some((c) => slotOf(c) === 'breadcrumbs');
+  };
 
   override connectedCallback(): void {
     super.connectedCallback();
+    if (!this.lightDom) {
+      this.syncHasBreadcrumbs();
+      this.breadcrumbsObserver ??= new MutationObserver(this.syncHasBreadcrumbs);
+      this.breadcrumbsObserver.observe(this, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['slot'],
+      });
+    }
     if (!this.noGlobalStyles && !this.globalsInstalled) {
       this.globalsInstalled = true;
       this.installGlobalStyles(this.ownerDocument);
@@ -209,6 +257,7 @@ export class SitePage extends UvalibElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     this.observer?.disconnect();
+    this.breadcrumbsObserver?.disconnect();
   }
 
   private installGlobalStyles(doc: Document): void {
@@ -367,14 +416,53 @@ export class SitePage extends UvalibElement {
 
   private observe(): void {
     this.observer ??= new MutationObserver((records) => {
-      for (const r of records) this.route(r.addedNodes);
+      for (const r of records) {
+        if (r.type === 'attributes') this.reslot(r.target as Element);
+        else if (r.target === this) this.route(r.addedNodes);
+      }
     });
-    this.observer.observe(this, { childList: true });
+    // One call: observing the same node again would replace these options. Children added to
+    // the page are routed; a content node given slot="breadcrumbs" later (or losing it) moves
+    // out of (or back into) <main>.
+    this.observer.observe(this, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['slot'],
+    });
+  }
+
+  /** Light mode: a top-level content node's `slot` changed to or from `breadcrumbs`. */
+  private reslot(el: Element): void {
+    const main = this.querySelector(':scope > main');
+    const header = this.querySelector(':scope > site-header');
+    if (!main || !header || this.chrome.has(el)) return;
+    if (el.parentNode === main && slotOf(el) === 'breadcrumbs') this.placeBreadcrumbs(el, header);
+    else if (
+      el.parentNode === this &&
+      slotOf(el) !== 'breadcrumbs' &&
+      main.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING
+    )
+      main.append(el);
   }
 
   /**
-   * Light mode has no slots: move content into `<main>`, pre-footer nodes to the footer and
-   * site links and main-nav markup to the header.
+   * Light mode: a `slot="breadcrumbs"` node goes after the header, the alert list band and any
+   * breadcrumbs already there, before Lit's markers (so no render clears it) and `<main>`.
+   */
+  private placeBreadcrumbs(n: Node, header: Element): void {
+    let ref: Node = header;
+    for (let next = ref.nextSibling; next; next = ref.nextSibling) {
+      if (next !== this.lightAlerts?.band && slotOf(next) !== 'breadcrumbs') break;
+      if (next === n) return; // already in place
+      ref = next;
+    }
+    (ref as ChildNode).after(n);
+  }
+
+  /**
+   * Light mode has no slots: move content into `<main>`, pre-footer nodes to the footer,
+   * site links and main-nav markup to the header and breadcrumbs before `<main>`.
    */
   private route(nodes: Iterable<Node>): void {
     const main = this.querySelector(':scope > main');
@@ -386,6 +474,10 @@ export class SitePage extends UvalibElement {
       if (n.nodeType === Node.TEXT_NODE && !n.textContent?.trim()) continue;
       // The header and footer adopt their own slotted children, even before they upgrade.
       const slot = slotOf(n);
+      if (slot === 'breadcrumbs') {
+        this.placeBreadcrumbs(n, header);
+        continue;
+      }
       const to =
         slot === 'pre-footer'
           ? footer
@@ -459,6 +551,7 @@ export class SitePage extends UvalibElement {
         }</site-header
       >
       ${alerts ? band : nothing}
+      ${!light && this.hasBreadcrumbs ? html`<slot name="breadcrumbs"></slot>` : nothing}
       ${
         light
           ? html`<main id="main-content" tabindex="-1" part="main"></main>`
