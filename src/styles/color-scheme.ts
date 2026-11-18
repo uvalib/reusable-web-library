@@ -46,6 +46,13 @@ export const colorScheme = css`
       --uva-color-shadow: light-dark(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.6));
       --uva-color-pre-footer-bg: light-dark(var(--uva-blue-alt-300, #bfe7f7), #005679);
       --uva-color-pre-footer-text: light-dark(var(--uva-grey-darkest, #2b2b2b), #ffffff);
+      /* base.css's .uvalib-button family: library.virginia.edu's blue-alt button, and a
+         light-blue one on the dark surface (dark text 8.9:1). */
+      --uva-color-button-bg: light-dark(var(--uva-blue-alt, #007bac), #55c4ec);
+      --uva-color-button-text: light-dark(#ffffff, #10172b);
+      --uva-color-button-hover-bg: light-dark(var(--uva-blue-alt-A, #005679), #91d8f2);
+      --uva-color-button-subtle-bg: light-dark(var(--uva-blue-alt-300, #bfe7f7), #0d3247);
+      --uva-color-button-subtle-hover-bg: light-dark(var(--uva-blue-alt-200, #91d8f2), #134a66);
       /* <site-alerts>: library.virginia.edu's alert colours, and a muted dark palette. Text
          is 7:1 or more (WCAG AAA) on every alert background in both schemes. */
       --uva-color-alert-text: light-dark(var(--uva-grey-darkest, #2b2b2b), #e8e8e8);

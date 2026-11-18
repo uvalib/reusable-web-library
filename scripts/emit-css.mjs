@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Writes tokens.css (palette and dark-mode role tokens) and base.css from the built
+// Writes tokens.css (palette and dark-mode role tokens) and base.css (base and controls) from the built
 // dist/styles modules.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -17,5 +17,8 @@ const load = (name) => import(pathToFileURL(join(root, 'dist/styles', `${name}.j
 const { tokens } = await load('tokens');
 const { colorScheme } = await load('color-scheme');
 writeFileSync(join(outDir, 'tokens.css'), `${tokens.cssText}\n${colorScheme.cssText}`);
+// base.css: the page-level base rules (which <site-page> also installs), then the button,
+// toggle and form classes for host content (base.css only).
 const { base } = await load('base');
-writeFileSync(join(outDir, 'base.css'), base.cssText);
+const { controls } = await load('controls');
+writeFileSync(join(outDir, 'base.css'), `${base.cssText}\n${controls.cssText}`);
