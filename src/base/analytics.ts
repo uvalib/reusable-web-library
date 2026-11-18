@@ -3,20 +3,66 @@
  * composed `uvalib-analytics-*` event from `el`; `<uvalib-analytics>` and `<site-analytics>`
  * (and the old v0.0.12 `<uvalib-analytics>`) listen on `document` and forward it to Matomo.
  * Without a listener nothing happens. Never pass titles, URLs or other personal text.
+ * Nothing is fired while `analyticsAllowed(el)` is false.
  */
+
+/** The browser asks not to be tracked: Do Not Track or Global Privacy Control. */
+export function privacySignal(): boolean {
+  const n = navigator as Navigator & { globalPrivacyControl?: boolean };
+  return n.doNotTrack === '1' || n.globalPrivacyControl === true;
+}
+
+/**
+ * Whether `el` may report: not when the browser sends Do Not Track or Global Privacy Control,
+ * not when `<html data-uvalib-analytics="off">`, and not when `el` or an ancestor (across
+ * shadow hosts) has the `no-analytics` attribute.
+ */
+export function analyticsAllowed(el?: EventTarget | null): boolean {
+  if (privacySignal() || document.documentElement.dataset.uvalibAnalytics === 'off') return false;
+  for (
+    let n = el instanceof Node ? el : null;
+    n;
+    n = n instanceof ShadowRoot ? n.host : n.parentNode
+  )
+    if (n instanceof Element && n.hasAttribute('no-analytics')) return false;
+  return true;
+}
 
 /** A Matomo event: category, action, then optional name and numeric value. */
 export type AnalyticsEvent = [category: string, action: string, name?: string, value?: number];
 
 const send = (el: EventTarget, type: string, detail: object): void => {
+  if (!analyticsAllowed(el)) return;
   el.dispatchEvent(
     new CustomEvent(`uvalib-analytics-${type}`, { detail, bubbles: true, composed: true }),
   );
 };
 
-/** A Matomo event (`trackEvent`), e.g. `['site-main-nav', 'menu-open', 'Research']`. */
+/** Names are cut to this many characters. */
+const MAX_NAME = 100;
+
+/**
+ * A Matomo event (`trackEvent`), e.g. `['site-main-nav', 'menu-open', 'Research']`. The name
+ * is cut to 100 characters.
+ */
 export function trackEvent(el: EventTarget, parts: AnalyticsEvent): void {
-  send(el, 'event', { event: parts });
+  const event = [...parts];
+  if (typeof event[2] === 'string') event[2] = event[2].slice(0, MAX_NAME);
+  send(el, 'event', { event });
+}
+
+const failures = new WeakMap<EventTarget, Set<string>>();
+
+/**
+ * An `error` event, `[category, 'error', name]`, once per element and `name` (the kind of
+ * failure): a retry loop that keeps failing reports it once.
+ */
+export function trackError(el: EventTarget, category: string, name: string): void {
+  const seen = failures.get(el) ?? new Set<string>();
+  failures.set(el, seen);
+  if (seen.has(name)) return;
+  seen.add(name);
+  trackEvent(el, [category, 'error', name]);
 }
 
 /**
@@ -68,6 +114,8 @@ export interface AnalyticsState {
   trackers: AnalyticsTracker[];
   /** Matomo is set up on the page (by an element, or by a snippet found there first). */
   booted: boolean;
+  /** `spa="auto"`: the URL of the last page view, so a route change to it is not counted again. */
+  pageUrl?: string;
 }
 
 const STATE = Symbol.for('@uvalib/web-components/analytics');
