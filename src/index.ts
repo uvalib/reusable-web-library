@@ -25,6 +25,9 @@ export type {
 export { UvalibDateRange } from './components/uvalib-date-range/UvalibDateRange.js';
 export { UvalibBreadcrumbs } from './components/uvalib-breadcrumbs/UvalibBreadcrumbs.js';
 export type { BreadcrumbItem } from './components/uvalib-breadcrumbs/UvalibBreadcrumbs.js';
+export { UvalibCard } from './components/uvalib-card/UvalibCard.js';
+export { UvalibCardGrid } from './components/uvalib-card-grid/UvalibCardGrid.js';
+export { UvalibPager } from './components/uvalib-pager/UvalibPager.js';
 export { SiteAlerts } from './components/site-alerts/SiteAlerts.js';
 export type { SiteAlert, SiteAlertsShow } from './components/site-alerts/SiteAlerts.js';
 export { SiteHoursSection } from './components/site-hours-section/SiteHoursSection.js';

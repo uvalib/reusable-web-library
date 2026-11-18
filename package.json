@@ -75,6 +75,18 @@
       "types": "./dist/components/uvalib-breadcrumbs/uvalib-breadcrumbs.d.ts",
       "default": "./dist/components/uvalib-breadcrumbs/uvalib-breadcrumbs.js"
     },
+    "./uvalib-card.js": {
+      "types": "./dist/components/uvalib-card/uvalib-card.d.ts",
+      "default": "./dist/components/uvalib-card/uvalib-card.js"
+    },
+    "./uvalib-card-grid.js": {
+      "types": "./dist/components/uvalib-card-grid/uvalib-card-grid.d.ts",
+      "default": "./dist/components/uvalib-card-grid/uvalib-card-grid.js"
+    },
+    "./uvalib-pager.js": {
+      "types": "./dist/components/uvalib-pager/uvalib-pager.d.ts",
+      "default": "./dist/components/uvalib-pager/uvalib-pager.js"
+    },
     "./site-alerts.js": {
       "types": "./dist/components/site-alerts/site-alerts.d.ts",
       "default": "./dist/components/site-alerts/site-alerts.js"
