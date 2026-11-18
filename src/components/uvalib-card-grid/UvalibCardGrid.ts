@@ -94,6 +94,8 @@ export class UvalibCardGrid extends UvalibElement {
   private warnedWidth = false;
   /** Author nodes captured before the first light-DOM render. */
   private stash: Node[] = [];
+  /** Set once those nodes have been lifted off the host, including a reconnect before the first render. */
+  private captured = false;
   private own = new WeakSet<Node>();
   private placing = false;
 
@@ -108,7 +110,11 @@ export class UvalibCardGrid extends UvalibElement {
 
   override connectedCallback(): void {
     const light = this.hasAttribute('no-shadow-dom') || this.noShadowDom;
-    if (light && !this.hasUpdated) {
+    // A parent (for example `<site-page no-shadow-dom>`) can move this grid, and so
+    // disconnect and reconnect it, before the first update. Capturing again would
+    // replace `stash` with an empty child list and drop the cards.
+    if (light && !this.hasUpdated && !this.captured) {
+      this.captured = true;
       this.stash = [...this.childNodes];
       for (const n of this.stash) n.parentNode?.removeChild(n);
     }

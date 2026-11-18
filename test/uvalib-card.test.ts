@@ -130,6 +130,53 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       expect(titleOf(el).hidden).to.equal(true);
     });
 
+    it('hides a heading with no accessible name and warns when the card is a link', async () => {
+      const warns = await warnings(async () => {
+        const blank = await make(
+          `<img slot="heading" alt="" src="${IMG}"><img slot="media" alt="" src="${IMG}">`,
+          'href="#item"',
+        );
+        expect(titleOf(blank).hidden).to.equal(true);
+        expect(linkOf(blank)).to.not.equal(null);
+        const media = root(blank).querySelector<HTMLElement>('[data-region="media"]')!;
+        expect(media.hidden).to.equal(false);
+        await expectNoAxeViolations(blank);
+
+        const named = await make(
+          `<img slot="heading" alt="Rotunda" src="${IMG}">`,
+          'href="#rotunda"',
+        );
+        expect(titleOf(named).hidden).to.equal(false);
+        expect(linkOf(named)!.getAttribute('href')).to.equal('#rotunda');
+        expect(named.querySelector('img')!.getAttribute('alt')).to.equal('Rotunda');
+        await expectNoAxeViolations(named);
+
+        const titled = await make(
+          `<svg slot="heading" role="img"><title>Rotunda seal</title></svg>`,
+          'href="#seal"',
+        );
+        expect(titleOf(titled).hidden).to.equal(false);
+
+        const labelled = await make(
+          `<svg slot="heading" role="img" aria-label="Library clock"></svg>`,
+          'href="#clock"',
+        );
+        expect(titleOf(labelled).hidden).to.equal(false);
+
+        const bare = await make(`<svg slot="heading"></svg>`, 'href="#bare"');
+        expect(titleOf(bare).hidden).to.equal(true);
+        expect(linkOf(bare)).to.not.equal(null);
+
+        const missing = await make(`No title here`, 'href="#missing"');
+        expect(titleOf(missing).hidden).to.equal(true);
+
+        const quiet = await make(`No title`);
+        expect(titleOf(quiet).hidden).to.equal(true);
+        expect(linkOf(quiet)).to.equal(null);
+      });
+      expect(warns.filter((w) => w.includes('no accessible name')).length).to.equal(3);
+    });
+
     it('does not link an empty or unsafe href, and warns once for the unsafe one', async () => {
       const blank = await make(`<span slot="heading">Plain</span>`, 'href="  "');
       expect(linkOf(blank)).to.equal(null);
@@ -151,6 +198,36 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         await nextFrame();
         el.requestUpdate();
         await el.updateComplete;
+      });
+      expect(warns.filter((w) => w.includes('must not contain')).length).to.equal(1);
+    });
+
+    it('warns once when a clickable card contains another control', async () => {
+      const warns = await warnings(async () => {
+        const el = await make(
+          `<span slot="heading">Title</span>
+           <input type="hidden" name="h" value="1">
+           <input type="text" aria-label="Search">
+           <select aria-label="Pick"><option>A</option></select>
+           <textarea aria-label="Note"></textarea>
+           <details><summary>More</summary><p>Body</p></details>
+           <span role="button" tabindex="0">Act</span>
+           <span role="link">Go</span>`,
+          'href="#card"',
+        );
+        await nextFrame();
+        await el.updateComplete;
+        const skipped = await make(
+          `<span slot="heading">Title</span><span tabindex="-1">Skip</span><input type="hidden" value="1">`,
+          'href="#ok"',
+        );
+        await nextFrame();
+        await skipped.updateComplete;
+        const stat = await make(
+          `<span slot="heading">Title</span><input type="text" aria-label="Search">`,
+        );
+        await nextFrame();
+        await stat.updateComplete;
       });
       expect(warns.filter((w) => w.includes('must not contain')).length).to.equal(1);
     });
@@ -244,6 +321,80 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       } finally {
         document.removeEventListener('uvalib-card-navigate', route);
       }
+    });
+
+    it('ignores a canceled or non-primary click and still tracks a modified one', async () => {
+      const rec = recordAnalytics();
+      const el = await make(`<span slot="heading">Early</span>`, 'href="#early"');
+      const link = linkOf(el)!;
+      const navs: unknown[] = [];
+      const route = (e: Event) => navs.push((e as CustomEvent).detail);
+      const stop = (e: Event) => e.preventDefault();
+      document.addEventListener('uvalib-card-navigate', route);
+      try {
+        link.addEventListener('click', stop, { capture: true });
+        link.dispatchEvent(
+          new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }),
+        );
+        link.removeEventListener('click', stop, { capture: true });
+        link.dispatchEvent(
+          new MouseEvent('click', { bubbles: true, composed: true, cancelable: true, button: 2 }),
+        );
+        expect(rec.of('uvalib-analytics-event')).to.deep.equal([]);
+        expect(navs).to.deep.equal([]);
+        link.dispatchEvent(
+          new MouseEvent('click', {
+            bubbles: true,
+            composed: true,
+            cancelable: true,
+            ctrlKey: true,
+          }),
+        );
+        expect(rec.of('uvalib-analytics-event').map((d) => d.event)).to.deep.equal([
+          ['uvalib-card', 'card-click', 'single'],
+        ]);
+        expect(navs).to.deep.equal([]);
+      } finally {
+        link.removeEventListener('click', stop, { capture: true });
+        document.removeEventListener('uvalib-card-navigate', route);
+        rec.restore();
+      }
+    });
+
+    it('paints the badge from the accent role tokens so it stays readable on the card', async () => {
+      const el = await make(
+        `<span slot="badge">13 photos</span><span slot="heading">Rotunda</span>`,
+        'href="#rotunda"',
+      );
+      const badge = root(el).querySelector<HTMLElement>('.badge')!;
+      const card = root(el).querySelector<HTMLElement>('.card')!;
+      const media = root(el).querySelector<HTMLElement>('.media')!;
+      expect(badge.hidden).to.equal(false);
+      expect(media.hidden).to.equal(false);
+      expect(getComputedStyle(badge).backgroundColor).to.equal('rgb(35, 45, 75)');
+      expect(getComputedStyle(badge).color).to.equal('rgb(255, 255, 255)');
+      // The shadow colour transitions, so a same-turn read would still be the start value.
+      card.style.transition = 'none';
+      const link = linkOf(el)!;
+      link.focus();
+      expect(el.matches(':focus-within')).to.equal(true);
+      expect(getComputedStyle(card).boxShadow).to.contain('rgb(218, 218, 218)');
+      el.style.setProperty('--uva-color-accent-bg', '#87b9d9');
+      el.style.setProperty('--uva-color-on-accent', '#10172b');
+      el.style.setProperty('--uva-color-surface-raised', '#232d4b');
+      el.style.setProperty('--uva-color-shadow', 'rgb(1, 2, 3)');
+      expect(getComputedStyle(badge).backgroundColor).to.equal('rgb(135, 185, 217)');
+      expect(getComputedStyle(badge).color).to.equal('rgb(16, 23, 43)');
+      expect(getComputedStyle(card).backgroundColor).to.equal('rgb(35, 45, 75)');
+      expect(getComputedStyle(card).boxShadow).to.contain('rgb(1, 2, 3)');
+      el.style.removeProperty('--uva-color-accent-bg');
+      el.style.removeProperty('--uva-color-on-accent');
+      el.style.removeProperty('--uva-color-surface-raised');
+      el.style.removeProperty('--uva-color-shadow');
+      expect(getComputedStyle(badge).backgroundColor).to.equal('rgb(35, 45, 75)');
+      expect(getComputedStyle(badge).color).to.equal('rgb(255, 255, 255)');
+      expect(getComputedStyle(card).boxShadow).to.contain('rgb(218, 218, 218)');
+      link.blur();
     });
 
     it('shows the focus ring on the card when the heading link is focused', async () => {

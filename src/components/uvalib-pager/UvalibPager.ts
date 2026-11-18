@@ -85,8 +85,9 @@ type WindowItem = number | 'gap';
  *
  * Previous/next: set `prev-href` and `next-href` (either may be omitted). Each link shows
  * a “Previous” or “Next” kicker and, when `prev-label` or `next-label` is set, that title.
- * A long title truncates visually; the full text stays in the accessible name. The links
- * use `rel="prev"` and `rel="next"`. With neither href, nothing is rendered.
+ * A visually hidden “: ” sits between them, so the accessible name is punctuated even
+ * when CSS is off. A long title truncates visually; the full text stays in the accessible
+ * name. The links use `rel="prev"` and `rel="next"`. With neither href, nothing is rendered.
  *
  * Numbered pages: set `pages` (a positive count). `page` is the current page, clamped to
  * `1…pages`. Each link’s href comes from `href-template`, which must contain `{page}`
@@ -100,7 +101,7 @@ type WindowItem = number | 'gap';
  * page need different labels: a repeated landmark name fails the accessibility check.
  *
  * @tagname uvalib-pager
- * @fires uvalib-analytics-event - For `<site-analytics>`: a click on a page link, `['uvalib-pager', 'page-change', 'number', <n>]`, or on a section link `['uvalib-pager', 'page-change', 'next'|'previous']` (no page number: that mode has none). Never the label or URL. Bubbles and is composed.
+ * @fires uvalib-analytics-event - For `<site-analytics>`: a primary-button click that was not already canceled, including a modified click, on a page link `['uvalib-pager', 'page-change', 'number', <n>]`, or on a section link `['uvalib-pager', 'page-change', 'next'|'previous']` (no page number: that mode has none). Never the label or URL. Bubbles and is composed.
  * @fires uvalib-pager-navigate - A plain click on a pager link: `detail` is `{ href, kind, page? }` (`kind` is `'next'`, `'previous'` or `'number'`; `page` is set for `'number'`). Cancel it (`preventDefault()`) to route in the app; the click’s default is then prevented. Bubbles and is composed.
  * @cssprop --uva-color-link - Dark-mode role token: link colour (else `--uva-brand-blue`).
  * @cssprop --uva-color-text - Dark-mode role token: current page (else `--uva-grey-darkest`).
@@ -316,6 +317,11 @@ export class UvalibPager extends UvalibElement {
     return out;
   }
 
+  /**
+   * A plain primary-button click fires a cancelable `uvalib-pager-navigate`. A click that
+   * was already canceled, or that is not the primary button, is ignored. Modified clicks
+   * are tracked and do not fire the navigate event.
+   */
   private onClick(e: MouseEvent): void {
     const node = e.target instanceof Node ? e.target : null;
     const el = node instanceof Element ? node : node?.parentElement;
@@ -323,12 +329,12 @@ export class UvalibPager extends UvalibElement {
     if (!(a instanceof HTMLAnchorElement) || !this.renderRoot.contains(a)) return;
     const kind = a.dataset.kind as Kind | undefined;
     if (kind !== 'next' && kind !== 'previous' && kind !== 'number') return;
+    if (e.defaultPrevented || e.button !== 0) return;
     const page = kind === 'number' ? Number(a.dataset.page) : undefined;
     if (kind === 'number' && page !== undefined && Number.isFinite(page))
       trackEvent(this, ['uvalib-pager', 'page-change', 'number', page]);
     else trackEvent(this, ['uvalib-pager', 'page-change', kind]);
-    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
-      return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     const detail: { href: string | null; kind: Kind; page?: number } = {
       href: a.getAttribute('href'),
       kind,
@@ -381,7 +387,11 @@ export class UvalibPager extends UvalibElement {
       data-kind=${kind}
     >
       <span class="pager-dir">${kicker}</span>
-      ${title ? html`<span class="pager-title">${title}</span>` : nothing}
+      ${
+        title
+          ? html`<span class="visually-hidden">: </span><span class="pager-title">${title}</span>`
+          : nothing
+      }
     </a>`;
   }
 

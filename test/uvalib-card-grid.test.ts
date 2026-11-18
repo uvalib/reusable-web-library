@@ -175,6 +175,32 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
   });
 }
 
+describe('uvalib-card-grid light DOM reconnect', () => {
+  it('keeps its cards when the grid reconnects before the first update', async () => {
+    const holder = document.createElement('div');
+    document.body.append(holder);
+    const grid = document.createElement('uvalib-card-grid') as UvalibCardGrid;
+    grid.setAttribute('no-shadow-dom', '');
+    const card = document.createElement('uvalib-card') as UvalibCard;
+    card.setAttribute('no-shadow-dom', '');
+    card.innerHTML = '<span slot="heading">Kept</span>';
+    grid.append(card);
+    try {
+      holder.append(grid);
+      holder.removeChild(grid);
+      holder.append(grid);
+      await grid.updateComplete;
+      await card.updateComplete;
+      await nextFrame();
+      expect(grid.contains(card)).to.equal(true);
+      expect(card.textContent).to.contain('Kept');
+      expect(root(grid).querySelectorAll(':scope > ul > li').length).to.equal(1);
+    } finally {
+      holder.remove();
+    }
+  });
+});
+
 describe('uvalib-card-grid shadow slots', () => {
   it('clears the slot it assigned when a card leaves the grid', async () => {
     const el = await fixture<UvalibCardGrid>(

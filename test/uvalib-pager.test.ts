@@ -82,9 +82,28 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       const nextOnly = await make('next-href="?page=2"');
       const next = navOf(nextOnly)!.querySelector('a.pager-next')!;
       expect(next.querySelector('.pager-title')).to.equal(null);
+      expect(next.querySelector('.visually-hidden')).to.equal(null);
       expect(next.querySelector('.pager-dir')!.textContent).to.equal('Next');
       const none = await make('');
       expect(navOf(none)).to.equal(null);
+    });
+
+    it('separates the kicker and the title in the accessible name', async () => {
+      const el = await make('prev-href="#p" prev-label="The opening" next-href="#n"');
+      const prev = navOf(el)!.querySelector('a.pager-prev')!;
+      const sep = prev.querySelector('.visually-hidden')!;
+      expect(sep.textContent).to.equal(': ');
+      const text = prev.textContent ?? '';
+      const colon = text.indexOf(':');
+      expect(text.indexOf('Previous')).to.be.lessThan(colon);
+      expect(colon).to.be.lessThan(text.indexOf('The opening'));
+      const style = getComputedStyle(sep);
+      expect(style.position).to.equal('absolute');
+      expect(parseFloat(style.width)).to.be.at.most(1);
+      const next = navOf(el)!.querySelector('a.pager-next')!;
+      expect(next.querySelector('.pager-title')).to.equal(null);
+      expect(next.querySelector('.visually-hidden')).to.equal(null);
+      await expectNoAxeViolations(el);
     });
 
     it('truncates a long title without dropping it from the accessible name', async () => {
@@ -225,6 +244,47 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         expect(seen).to.deep.equal([{ href: '?page=3', kind: 'number', page: 3 }]);
       } finally {
         document.removeEventListener('uvalib-pager-navigate', route);
+      }
+    });
+
+    it('ignores a canceled or non-primary click and still tracks a modified one', async () => {
+      const rec = recordAnalytics();
+      const el = await make(
+        'prev-href="#prev" prev-label="Padua" next-href="#next" next-label="Crucifix"',
+      );
+      const link = navOf(el)!.querySelector<HTMLAnchorElement>('.pager-prev')!;
+      const navs: unknown[] = [];
+      const route = (e: Event) => navs.push((e as CustomEvent).detail);
+      const stop = (e: Event) => e.preventDefault();
+      document.addEventListener('uvalib-pager-navigate', route);
+      try {
+        link.addEventListener('click', stop, { capture: true });
+        link.dispatchEvent(
+          new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }),
+        );
+        link.removeEventListener('click', stop, { capture: true });
+        link.dispatchEvent(
+          new MouseEvent('click', { bubbles: true, composed: true, cancelable: true, button: 2 }),
+        );
+        expect(rec.of('uvalib-analytics-event')).to.deep.equal([]);
+        expect(navs).to.deep.equal([]);
+        link.dispatchEvent(
+          new MouseEvent('click', {
+            bubbles: true,
+            composed: true,
+            cancelable: true,
+            ctrlKey: true,
+          }),
+        );
+        expect(rec.of('uvalib-analytics-event').map((d) => d.event)).to.deep.equal([
+          ['uvalib-pager', 'page-change', 'previous'],
+        ]);
+        expect(navs).to.deep.equal([]);
+        expect(JSON.stringify(rec.events)).to.not.include('Padua');
+      } finally {
+        link.removeEventListener('click', stop, { capture: true });
+        document.removeEventListener('uvalib-pager-navigate', route);
+        rec.restore();
       }
     });
 

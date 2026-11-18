@@ -108,9 +108,10 @@ const arrow = html`<svg
  * pseudo-element stretches that link over the card, so the whole card is one click. The
  * arrow is only a visual aid. The card is never wrapped in an `<a>`.
  *
- * A clickable card must not contain any other link or button: the stretched link covers
- * them, and a link inside a link is invalid. A static card (no `href`, or an empty or
- * unsafe one) has no stretch, so its excerpt may contain links.
+ * A clickable card must not contain another link, button or other control: the stretched
+ * link covers it. A static card (no `href`, or an empty or unsafe one) has no stretch, so
+ * its excerpt may contain links. With `href`, the heading needs an accessible name (text,
+ * or an image `alt` or `aria-label`); otherwise the link is hidden.
  *
  * Regions are light-DOM children. Give `slot="media"`, `slot="badge"`, `slot="heading"`,
  * `slot="meta"` or `slot="chip"`; anything else (including text) is the excerpt. An image
@@ -124,22 +125,25 @@ const arrow = html`<svg
  * @tagname uvalib-card
  * @slot media - Image or other media. An `<img>` needs a real alt, or `alt=""` when the heading names it.
  * @slot badge - Short label drawn over the media, such as “13 photos”.
- * @slot heading - The card title. With `href`, this heading’s link is the card.
+ * @slot heading - The card title. With `href`, this heading’s link is the card, so it needs an accessible name.
  * @slot meta - Date (`<time>`) or byline, under the title.
  * @slot chip - Category. One element per chip.
- * @slot - Excerpt. A static card may put links here; a clickable card must not.
- * @fires uvalib-analytics-event - For `<site-analytics>`: a click on the card link, `['uvalib-card', 'card-click', 'single']` or, inside `<uvalib-card-grid>`, `['uvalib-card', 'card-click', '<n>', <n>]` (n from 1, the card’s place in that grid). Never the title or URL. Bubbles and is composed.
+ * @slot - Excerpt. A static card may put links here; a clickable card must not contain other controls.
+ * @fires uvalib-analytics-event - For `<site-analytics>`: a primary-button click on the card link that was not already canceled, including a modified click, `['uvalib-card', 'card-click', 'single']` or, inside `<uvalib-card-grid>`, `['uvalib-card', 'card-click', '<n>', <n>]` (n from 1, the card’s place in that grid). Never the title or URL. Bubbles and is composed.
  * @fires uvalib-card-navigate - A plain click on the card link: `detail` is `{ href, position }` (`position` is `'single'` or `'1'`, `'2'`, …). Cancel it (`preventDefault()`) to route in the app; the click’s default is then prevented. Bubbles and is composed.
- * @cssprop [--uva-brand-blue=#232d4b] - Badge background, and the title link when `--uva-color-link` is unset.
+ * @cssprop [--uva-brand-blue=#232d4b] - Title link when `--uva-color-link` is unset, and the badge background when `--uva-color-accent-bg` is unset.
  * @cssprop [--uva-blue-alt-300=#BFE7F7] - Chip background. With `--uva-blue-alt-dark` this pair is 6.13:1 (WCAG AA for normal text, short of AAA’s 7:1).
  * @cssprop [--uva-blue-alt-dark=#005679] - Chip text.
- * @cssprop [--uva-grey-100=#DADADA] - Hover shadow colour.
+ * @cssprop [--uva-grey-100=#DADADA] - Hover shadow colour when `--uva-color-shadow` is unset.
  * @cssprop --uva-color-surface-raised - Dark-mode role token: card background (else #fff).
  * @cssprop --uva-color-border - Dark-mode role token: card border (else `--uva-grey-100`).
  * @cssprop --uva-color-text - Dark-mode role token: body text (else `--uva-grey-darkest`).
  * @cssprop --uva-color-text-muted - Dark-mode role token: meta line (else #4f4f4f).
  * @cssprop --uva-color-link - Dark-mode role token: title link (else `--uva-brand-blue`).
  * @cssprop --uva-color-focus - Dark-mode role token: focus ring on the card (else `--uva-brand-orange`).
+ * @cssprop --uva-color-accent-bg - Dark-mode role token: badge background (else `--uva-brand-blue`).
+ * @cssprop --uva-color-on-accent - Text on the badge (else #fff).
+ * @cssprop --uva-color-shadow - Dark-mode role token: hover shadow colour (else `--uva-grey-100`).
  */
 export class UvalibCard extends UvalibElement {
   static styles = [
@@ -157,7 +161,7 @@ export class UvalibCard extends UvalibElement {
       }
       :host(:hover) .card,
       :host(:focus-within) .card {
-        box-shadow: 0 0 20px 0 var(--uva-grey-100, #dadada);
+        box-shadow: 0 0 20px 0 var(--uva-color-shadow, var(--uva-grey-100, #dadada));
       }
       /* The ring is on the card, not the heading link. :has() on .card sees the link
          in this tree; :host(:has()) would look outside the shadow root and miss it. */
@@ -200,8 +204,8 @@ export class UvalibCard extends UvalibElement {
         max-width: calc(100% - 1rem);
         padding: 0.15rem 0.5rem;
         border-radius: 0.25rem;
-        background: var(--uva-brand-blue, #232d4b);
-        color: #fff;
+        background: var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
+        color: var(--uva-color-on-accent, #fff);
         font-size: 0.875rem;
         line-height: 1.4;
       }
@@ -277,6 +281,7 @@ export class UvalibCard extends UvalibElement {
   private inferred = DEFAULT_LEVEL;
   private warnedHref = false;
   private warnedNested = false;
+  private warnedHeading = false;
   private observer?: MutationObserver;
   /** Author nodes captured before the first light-DOM render. */
   private saved: Node[] = [];
@@ -398,14 +403,16 @@ export class UvalibCard extends UvalibElement {
   }
 
   /**
-   * A plain click on the card link fires a cancelable `uvalib-card-navigate`. Tracking
-   * happens first, including modified clicks (which do not fire the navigate event).
+   * A plain primary-button click on the card link fires a cancelable `uvalib-card-navigate`.
+   * A click that was already canceled, or that is not the primary button, is ignored.
+   * Modified clicks are tracked and do not fire the navigate event.
    */
   private onClick(e: MouseEvent): void {
     const node = e.target instanceof Node ? e.target : null;
     const el = node instanceof Element ? node : node?.parentElement;
     const a = el?.closest('a.title-link');
     if (!a || !this.renderRoot.contains(a)) return;
+    if (e.defaultPrevented || e.button !== 0) return;
     const pos = this.position();
     trackEvent(
       this,
@@ -413,8 +420,7 @@ export class UvalibCard extends UvalibElement {
         ? ['uvalib-card', 'card-click', pos.name]
         : ['uvalib-card', 'card-click', pos.name, pos.value],
     );
-    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
-      return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     const go = new CustomEvent('uvalib-card-navigate', {
       detail: { href: a.getAttribute('href'), position: pos.name },
       bubbles: true,
@@ -458,14 +464,51 @@ export class UvalibCard extends UvalibElement {
     return false;
   }
 
+  /**
+   * An accessible name: trimmed text (including an `svg` `title`), or a non-empty
+   * `alt` / `aria-label`. An `img` with `alt=""` does not count.
+   */
+  private hasName(n: Node): boolean {
+    if (n.nodeType === Node.TEXT_NODE) return !!n.textContent?.trim();
+    if (!(n instanceof Element)) return false;
+    const own = n.getAttribute('alt')?.trim() || n.getAttribute('aria-label')?.trim();
+    if (own) return true;
+    if (n.textContent?.trim()) return true;
+    return [...n.querySelectorAll('[alt], [aria-label]')].some(
+      (el) => !!(el.getAttribute('alt')?.trim() || el.getAttribute('aria-label')?.trim()),
+    );
+  }
+
   private isEmpty(region: Element | null): boolean {
     if (!region) return true;
+    // Only the heading needs a name. A decorative media image (`alt=""`) still counts.
+    const named = region.getAttribute('data-region') === 'heading';
+    const filled = (n: Node) => (named ? this.hasName(n) : this.hasContent(n));
     if (!this.lightDom) {
       const slot = region.querySelector('slot');
       const nodes = slot ? slot.assignedNodes({ flatten: true }) : [...region.childNodes];
-      return !nodes.some((n) => this.hasContent(n));
+      return !nodes.some(filled);
     }
-    return ![...region.childNodes].some((n) => this.hasContent(n));
+    return ![...region.childNodes].some(filled);
+  }
+
+  /** Shadow slots can still be empty on the first update, before the browser assigns them. */
+  private headingPending(): boolean {
+    if (this.lightDom) return false;
+    const slot = this.renderRoot.querySelector('[data-region="heading"] slot');
+    if (!(slot instanceof HTMLSlotElement) || slot.assignedNodes({ flatten: true }).length > 0)
+      return false;
+    return [...this.childNodes].some(
+      (n) => n instanceof Element && n.getAttribute('slot') === 'heading' && this.hasName(n),
+    );
+  }
+
+  private warnEmptyHeading(): void {
+    if (!this.linkHref || this.warnedHeading || this.headingPending()) return;
+    this.warnedHeading = true;
+    console.warn(
+      `${this.localName}: a clickable card (one with href) has a heading with no accessible name, so its link is hidden.`,
+    );
   }
 
   /** Put each author node in the region its slot names; the rest is the excerpt. */
@@ -492,8 +535,10 @@ export class UvalibCard extends UvalibElement {
     for (const region of this.regions()) {
       const empty = this.isEmpty(region);
       region.toggleAttribute('hidden', empty);
-      if (region.dataset.region === 'heading')
+      if (region.dataset.region === 'heading') {
         region.closest('.title')?.toggleAttribute('hidden', empty);
+        if (empty) this.warnEmptyHeading();
+      }
     }
     const media = root.querySelector('.media');
     if (media instanceof HTMLElement) {
@@ -506,13 +551,15 @@ export class UvalibCard extends UvalibElement {
 
   private warnNested(): void {
     if (!this.linkHref || this.warnedNested) return;
-    const nested = [...this.querySelectorAll('a[href], button')].filter(
-      (n) => !n.classList.contains('title-link'),
-    );
+    const nested = [
+      ...this.querySelectorAll(
+        'a[href], button, input:not([type="hidden"]), select, textarea, summary, [role="button"], [role="link"], [tabindex]:not([tabindex="-1"])',
+      ),
+    ].filter((n) => !n.classList.contains('title-link'));
     if (!nested.length) return;
     this.warnedNested = true;
     console.warn(
-      `${this.localName}: a clickable card (one with href) must not contain other links or buttons; the card link covers them.`,
+      `${this.localName}: a clickable card (one with href) must not contain other links, buttons or controls; the card link covers them.`,
     );
   }
 
