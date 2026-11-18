@@ -1,10 +1,10 @@
 import { css, nothing, unsafeCSS, type PropertyValues } from 'lit';
 import { html, unsafeStatic } from 'lit/static-html.js';
 import { property, state } from 'lit/decorators.js';
-import { ref } from 'lit/directives/ref.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
+import { trackContent, trackEvent } from '../../base/analytics.js';
 import { accessible } from '../../styles/accessible.js';
 import { ALERTS_PRODUCTION_SRC, alertsBase, isAlertsEnv } from './alerts.js';
 import {
@@ -35,6 +35,13 @@ const severityOf = (a: SiteAlert): Severity =>
 
 const EMPTY: AlertsSnapshot = { headerAlerts: [], menuAlerts: [], regionalAlerts: [], status: '' };
 const DEFAULT_LEVEL = 2;
+
+/** Analytics names are capped at 100 characters. */
+const cap = (s: string) => (s.length > 100 ? s.slice(0, 100) : s);
+/** The alerts already reported as seen in this document (page view), shared by every copy. */
+const IMPRESSIONS = Symbol.for('uvalib.site-alerts.impressions');
+const impressions = (doc: Document): Set<string> =>
+  ((doc as unknown as Record<symbol, Set<string>>)[IMPRESSIONS] ??= new Set());
 
 /**
  * Kept with `no-style`: severity text stays visually hidden, the icons keep a size and
@@ -255,6 +262,50 @@ export class SiteAlerts extends UvalibElement {
   private pendingFocus?: { uuid: string; index: number };
   private lastCount = 0;
 
+  constructor() {
+    super();
+    // A link clicked in an alert's body (the URL is not sent). composedPath() finds it in
+    // shadow and light DOM alike.
+    this.addEventListener('click', (e) => {
+      const path = e.composedPath();
+      const link = path.find((n) => n instanceof Element && n.matches('a[href]'));
+      const body = path.find(
+        (n): n is HTMLElement => n instanceof HTMLElement && n.matches('.body[data-uuid]'),
+      );
+      if (!link || !body || !this.renderRoot.contains(body)) return;
+      const a = this.shown().find((x) => x.alert.uuid === body.dataset.uuid);
+      if (a) trackEvent(this, ['site-alerts', 'link-click', a.piece]);
+    });
+  }
+
+  /** Every alert this element shows, with its analytics label, `<severity>: <title>`. */
+  private shown(): { alert: SiteAlert; piece: string }[] {
+    const d = this.data;
+    const label = (a: SiteAlert, part: Part) =>
+      part === 'header'
+        ? 'Header'
+        : part === 'regional'
+          ? `Regional ${a.severity === 'alert3' ? 'information' : 'warning'}`
+          : SEVERITY[severityOf(a)].label.slice(0, -1);
+    const of = (alerts: SiteAlert[], part: Part) =>
+      alerts.map((alert) => ({ alert, piece: cap(`${label(alert, part)}: ${alert.title}`) }));
+    return [
+      ...of(this.has('header') ? d.headerAlerts : [], 'header'),
+      ...of(this.list, 'list'),
+      ...of(this.has('regional') ? d.regionalAlerts : [], 'regional'),
+    ];
+  }
+
+  /** A content impression for each alert shown, once per alert per page view. */
+  private reportImpressions(): void {
+    const seen = impressions(this.ownerDocument);
+    for (const { alert, piece } of this.shown()) {
+      if (seen.has(alert.uuid)) continue;
+      seen.add(alert.uuid);
+      trackContent(this, { name: 'Library alert', piece });
+    }
+  }
+
   protected override createRenderRoot(): HTMLElement | DocumentFragment {
     const root = super.createRenderRoot();
     if (root instanceof ShadowRoot && this.noStyle) {
@@ -352,6 +403,8 @@ export class SiteAlerts extends UvalibElement {
         });
       }
     }
+    this.fillBodies();
+    if (this.isConnected) this.reportImpressions();
     this.moveFocus();
     const count = this.count;
     this.toggleAttribute('data-empty', !count);
@@ -365,6 +418,8 @@ export class SiteAlerts extends UvalibElement {
 
   private onDismiss(a: SiteAlert, index: number): void {
     this.pendingFocus = { uuid: a.uuid, index };
+    const shown = this.shown().find((x) => x.alert.uuid === a.uuid);
+    if (shown) trackEvent(this, ['site-alerts', 'dismiss', shown.piece]);
     this.sub?.dismiss(a.uuid);
   }
 
@@ -410,8 +465,21 @@ export class SiteAlerts extends UvalibElement {
     }
   }
 
-  private body(h: string) {
-    return html`<div class="body" ${ref((el) => setBody(el, h))}></div>`;
+  /** An alert's body: filled in updated(), so Lit never manages its content. */
+  private body(a: SiteAlert) {
+    return html`<div class="body" data-uuid=${a.uuid}></div>`;
+  }
+
+  /** Insert each shown alert's body HTML into its (keyed, so stable) body element. */
+  private fillBodies(): void {
+    const d = this.data;
+    const html = new Map(
+      [...d.headerAlerts, ...d.menuAlerts, ...d.regionalAlerts].map((a) => [a.uuid, a.body]),
+    );
+    for (const el of this.renderRoot.querySelectorAll<HTMLElement>('.body[data-uuid]')) {
+      const body = html.get(el.dataset.uuid!);
+      if (body !== undefined) setBody(el, body);
+    }
   }
 
   /** The header banner (library.virginia.edu's alert4): a polite status row. */
@@ -421,9 +489,7 @@ export class SiteAlerts extends UvalibElement {
         alerts,
         (a) => a.uuid,
         (a) =>
-          html`<div class="entry">
-            <span class="title">${a.title}:</span> ${this.body(a.body)}
-          </div>`,
+          html`<div class="entry"><span class="title">${a.title}:</span> ${this.body(a)}</div>`,
       )}
     </div>`;
   }
@@ -440,7 +506,7 @@ export class SiteAlerts extends UvalibElement {
     >
       ${icon}
       <${h} class="title"><span class="visually-hidden">${label} </span>${a.title}</${h}>
-      ${this.body(a.body)}
+      ${this.body(a)}
       ${
         dismissible
           ? html`<button
@@ -460,8 +526,7 @@ export class SiteAlerts extends UvalibElement {
   private renderRegional(a: SiteAlert) {
     const info = a.severity === 'alert3';
     return html`<div class="regional ${info ? 'info' : ''}">
-      <span class="visually-hidden">${info ? 'Information:' : 'Warning:'} </span
-      >${this.body(a.body)}
+      <span class="visually-hidden">${info ? 'Information:' : 'Warning:'} </span>${this.body(a)}
     </div>`;
   }
 

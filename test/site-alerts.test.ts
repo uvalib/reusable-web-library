@@ -6,6 +6,7 @@ import { BODY_SANITIZER, setBody } from '../src/components/site-alerts/body.js';
 import { COLOR_SCHEME_ATTR, installColorSchemeStyles } from '../src/base/color-scheme.js';
 import { expectNoPageAxeViolations } from './helpers/axe.js';
 import { contrast } from './helpers/scheme-colors.js';
+import { recordAnalytics } from './helpers/analytics.js';
 
 // The alerts hosts are routed to a stub by the test runner (test/helpers/alerts-intercept.mjs):
 // a fake headless <uvalib-alerts> with the real element's properties, dismiss() and events.
@@ -23,6 +24,7 @@ type StubWindow = Window & {
   __uvalibAlertsStubStatus?: (status: string) => void;
   __uvalibAlertsStubDismissed?: string[];
   __warnings: string[];
+  __errors: unknown[];
 };
 const stub = () => window as unknown as StubWindow;
 
@@ -68,8 +70,15 @@ async function warnings(fn: () => Promise<void>): Promise<string[]> {
   return calls;
 }
 
+/** Forget which alerts were reported (a new page view). */
+const resetImpressions = () =>
+  delete (document as unknown as Record<symbol, unknown>)[
+    Symbol.for('uvalib.site-alerts.impressions')
+  ];
+
 afterEach(async () => {
   stub().__uvalibAlertsStubSet?.(undefined);
+  resetImpressions();
   document.documentElement.removeAttribute(COLOR_SCHEME_ATTR);
   await emulateMedia({ forcedColors: 'none', colorScheme: 'light' });
   await setViewport({ width: 800, height: 600 });
@@ -381,6 +390,8 @@ describe('site-alerts script load failure', function () {
     const moduleUrl = new URL('/src/components/site-alerts/site-alerts.ts', location.href).href;
     iframe.srcdoc = `<!doctype html><html><head><script>
         window.__warnings = [];
+        window.__errors = [];
+        document.addEventListener('uvalib-analytics-event', (e) => window.__errors.push(e.detail.event));
         const warn = console.warn.bind(console);
         console.warn = (...a) => {
           const t = a.map(String).join(' ');
@@ -401,6 +412,7 @@ describe('site-alerts script load failure', function () {
       const doc = iframe.contentDocument!;
       expect(win().__warnings.length).to.equal(1);
       expect(win().__warnings[0]).to.contain(`${FAIL}v1/uvalib-alerts.js`);
+      expect(win().__errors).to.deep.equal([['site-alerts', 'error', 'alerts-script']]);
       for (const a of doc.querySelectorAll('site-alerts'))
         expect(a.getBoundingClientRect().height).to.equal(0);
       expect(doc.getElementById('c')!.checkVisibility()).to.equal(true);
@@ -505,4 +517,105 @@ describe('site-alerts accessibility', function () {
       });
     }
   }
+});
+
+describe('site-alerts analytics', () => {
+  let rec: ReturnType<typeof recordAnalytics>;
+  beforeEach(() => {
+    resetImpressions();
+    rec = recordAnalytics();
+  });
+  afterEach(() => rec.restore());
+
+  const content = () => rec.of('uvalib-analytics-content');
+  const events = () => rec.of('uvalib-analytics-event').map((d) => d.event);
+
+  it('one content impression per alert shown, never twice across elements or re-renders', async () => {
+    const wrap = await fixture<HTMLElement>(
+      `<div>
+        <site-alerts show="sitewide" alerts-src="${SRC}"></site-alerts>
+        <site-alerts show="list" alerts-src="${SRC}" no-shadow-dom></site-alerts>
+        <site-alerts show="regional" alerts-src="${SRC}"></site-alerts>
+      </div>`,
+    );
+    const els = [...wrap.querySelectorAll<SiteAlerts>('site-alerts')];
+    await setAlerts(ALL, ...els);
+    const pieces = content().map((d) => d.piece);
+    expect(content().every((d) => d.name === 'Library alert')).to.equal(true);
+    expect(pieces).to.have.members([
+      'Header: Closed today',
+      'Critical: Building closed',
+      'Warning: Wi-Fi down',
+      'Warning: Printing slow',
+      'Information: New hours',
+      'Regional warning: Snow',
+      'Regional information: Tour',
+    ]);
+    expect(pieces.length).to.equal(7);
+    // Re-renders, an update with the same alerts, a heading change: nothing new.
+    for (const el of els) el.headingLevel = 3;
+    await setAlerts(ALL, ...els);
+    expect(content().length).to.equal(7);
+    expect(events()).to.deep.equal([]);
+  });
+
+  it('only alerts an element actually shows are reported', async () => {
+    const el = await fixture<SiteAlerts>(
+      `<site-alerts show="header" alerts-src="${SRC}"></site-alerts>`,
+    );
+    await setAlerts(ALL, el);
+    expect(content().map((d) => d.piece)).to.deep.equal(['Header: Closed today']);
+  });
+
+  it('dismiss sends one event; no impression or event for the dismissed alert after that', async () => {
+    const el = await fixture<SiteAlerts>(
+      `<site-alerts show="list" alerts-src="${SRC}"></site-alerts>`,
+    );
+    await setAlerts({ menuAlerts: LIST }, el);
+    el.shadowRoot!.querySelector<HTMLElement>('.alert2 .dismiss')!.click();
+    await settle(el);
+    expect(events()).to.deep.equal([['site-alerts', 'dismiss', 'Warning: Wi-Fi down']]);
+    // A new page view (impressions forgotten) and a new element: the dismissed alert stays
+    // hidden (restored from the seen list) and is neither reported nor counted as dismissed.
+    el.remove();
+    resetImpressions();
+    rec.events.length = 0;
+    const again = await fixture<SiteAlerts>(
+      `<site-alerts show="list" alerts-src="${SRC}"></site-alerts>`,
+    );
+    await setAlerts({ menuAlerts: LIST }, again);
+    expect(content().map((d) => d.piece)).to.not.include('Warning: Wi-Fi down');
+    expect(content().length).to.equal(3);
+    expect(events()).to.deep.equal([]);
+  });
+
+  it('a link click in an alert body: link-click with the alert, never the URL', async () => {
+    for (const light of ['', 'no-shadow-dom']) {
+      const el = await fixture<SiteAlerts>(
+        `<site-alerts ${light} show="list" alerts-src="${SRC}"></site-alerts>`,
+      );
+      await setAlerts({ menuAlerts: [LIST[0]!] }, el);
+      const a = root(el).querySelector<HTMLAnchorElement>('.body a')!;
+      a.addEventListener('click', (e) => e.preventDefault());
+      a.click();
+      // A click elsewhere in the alert is not a link click.
+      root(el).querySelector<HTMLElement>('.title')!.click();
+    }
+    expect(events()).to.deep.equal([
+      ['site-alerts', 'link-click', 'Information: New hours'],
+      ['site-alerts', 'link-click', 'Information: New hours'],
+    ]);
+    expect(JSON.stringify(rec.events)).to.not.contain('/hours"');
+  });
+
+  it('names are capped at 100 characters', async () => {
+    const long = 'x'.repeat(150);
+    const el = await fixture<SiteAlerts>(
+      `<site-alerts show="list" alerts-src="${SRC}"></site-alerts>`,
+    );
+    await setAlerts({ menuAlerts: [{ uuid: 'long', title: long, body: '', severity: 2 }] }, el);
+    expect((content()[0]!.piece as string).length).to.equal(100);
+    el.shadowRoot!.querySelector<HTMLElement>('.dismiss')!.click();
+    expect((events()[0] as string[])[2]!.length).to.equal(100);
+  });
 });

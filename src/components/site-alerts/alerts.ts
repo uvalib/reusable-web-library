@@ -1,3 +1,5 @@
+import { trackEvent } from '../../base/analytics.js';
+
 // Live UVA Library alerts come from the alerts project (github.com/uvalib/uvalib-alerts): its
 // <uvalib-alerts> element, loaded at runtime from the alerts CDN (it is not on npm), keeps the
 // data, the live connection and the dismissals. <site-alerts> uses it headless and draws the
@@ -91,6 +93,8 @@ export function loadAlerts(doc: Document, base: string): void {
       console.warn(
         `site-alerts: could not load the alerts component from ${src}; no alerts are shown.`,
       );
+      // Reported once per failed URL per document, like the warning.
+      trackEvent(doc, ['site-alerts', 'error', 'alerts-script']);
     },
     { once: true },
   );
