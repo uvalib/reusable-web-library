@@ -250,12 +250,25 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         nav(el).querySelectorAll('a')[1]!.click();
         expect(seen).to.deep.equal([{ href: 'research', index: 1 }]);
         expect(clickDefault).to.equal(true);
-        // A modified click (new tab) is left alone.
-        nav(el)
-          .querySelectorAll('a')[0]!
-          .dispatchEvent(
-            new MouseEvent('click', { bubbles: true, cancelable: true, metaKey: true }),
-          );
+        // A modified click (new tab) is left alone. The test cancels it at the element's root,
+        // after the component's own handler has seen it, so the runner's page never navigates.
+        const stop = (e: Event) => e.preventDefault();
+        const at = el.shadowRoot ?? el;
+        at.addEventListener('click', stop);
+        try {
+          nav(el)
+            .querySelectorAll('a')[0]!
+            .dispatchEvent(
+              new MouseEvent('click', {
+                bubbles: true,
+                composed: true,
+                cancelable: true,
+                metaKey: true,
+              }),
+            );
+        } finally {
+          at.removeEventListener('click', stop);
+        }
         expect(seen).to.have.length(1);
       } finally {
         document.removeEventListener('uvalib-breadcrumbs-navigate', route);
