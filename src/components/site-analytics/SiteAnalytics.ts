@@ -150,8 +150,9 @@ export class SiteAnalytics extends UvalibElement {
   private readonly onEvent = (e: Event) => {
     if (!this.forwards()) return;
     const type = e.type.slice(e.type.lastIndexOf('-') + 1);
-    // What the helpers fire is checked already; this covers events fired by hand (mixins).
-    if (type !== 'pageview' && !analyticsAllowed(e.composedPath()[0])) return;
+    // What the helpers fire is checked already; this covers events fired by hand (mixins,
+    // an app's own page views), with the privacy signals read now, not only at connect.
+    if (!analyticsAllowed(e.composedPath()[0])) return;
     const detail = (e as CustomEvent).detail ?? {};
     if (type === 'event') this.logEvent(detail as EventDetail);
     else if (type === 'search') this.logSearch(detail as SearchDetail);
@@ -178,10 +179,18 @@ export class SiteAnalytics extends UvalibElement {
     this.routeFrame = requestAnimationFrame(() => this.autoPageView());
   };
 
+  /** The Navigation API also reports replaceState and reloads: neither is a new page. */
+  private readonly onNavigation = (e: Event) => {
+    const type = (e as Event & { navigationType?: string }).navigationType;
+    if (type === 'replace' || type === 'reload') return;
+    this.onRoute();
+  };
+
   private autoPageView() {
     const state = shared();
     const url = location.href;
     if (!this.forwards() || !state.booted || url === state.pageUrl) return;
+    if (!analyticsAllowed(this)) return; // Do Not Track or GPC turned on, or the page opted out
     const referrer = state.pageUrl;
     state.pageUrl = url;
     if (referrer) this.paq.push(['setReferrerUrl', referrer]);
@@ -192,7 +201,7 @@ export class SiteAnalytics extends UvalibElement {
   private listenRoutes(on: boolean) {
     const method = on ? 'addEventListener' : 'removeEventListener';
     for (const t of ROUTE_EVENTS) window[method](t, this.onRoute);
-    navigationApi()?.[method]('currententrychange', this.onRoute);
+    navigationApi()?.[method]('currententrychange', this.onNavigation);
     if (!on) cancelAnimationFrame(this.routeFrame);
   }
 

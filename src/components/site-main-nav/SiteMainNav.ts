@@ -617,15 +617,15 @@ export class SiteMainNav extends UvalibElement {
    */
   private onClick(e: MouseEvent): void {
     const a = e.composedPath().find((n) => n instanceof HTMLAnchorElement);
-    if (a) {
+    // Only the menu's own links (rendered here), never anything else on the click's path.
+    if (a && this.renderRoot.contains(a)) {
+      const text = (n: Node | null | undefined) =>
+        (n?.textContent ?? '').replace(/\s+/g, ' ').trim();
       // `Group > Link` for a link in a group, the link alone for a top-level one.
-      const group = a.closest('.panel')?.previousElementSibling?.textContent;
-      const label = a.textContent!.trim();
-      trackEvent(this, [
-        'site-main-nav',
-        'link-click',
-        group ? `${group.trim()} > ${label}` : label,
-      ]);
+      const group = text(a.closest('.panel')?.previousElementSibling);
+      const label = text(a);
+      if (label)
+        trackEvent(this, ['site-main-nav', 'link-click', group ? `${group} > ${label}` : label]);
     }
     if (this.open === null || e.button !== 0) return;
     if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;

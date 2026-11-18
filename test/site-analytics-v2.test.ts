@@ -347,6 +347,43 @@ describe('spa="auto" page views', () => {
     history.replaceState(null, '', at('#/a'));
     await frames();
     expect(views()).to.have.length(2); // the load and #/a
+    // replaceState to a new URL (a search page syncing its filters) is not a page view either,
+    // even where the Navigation API reports it as a 'replace' entry change.
+    history.replaceState(null, '', at('#/a?format=book'));
+    await frames();
+    history.replaceState(null, '', at('#/a?format=video'));
+    await frames();
+    expect(views()).to.have.length(2);
+  });
+
+  it('a privacy signal turned on mid-session stops automatic and hand-fired views', async () => {
+    await fixture(html`<site-analytics spa="auto" matomoid="5"></site-analytics>`);
+    expect(views()).to.have.length(1);
+    const n = navigator as Navigator & { globalPrivacyControl?: boolean };
+    Object.defineProperty(n, 'globalPrivacyControl', { configurable: true, get: () => true });
+    try {
+      history.pushState(null, '', at('#/gpc'));
+      await frames();
+      document.body.dispatchEvent(
+        new CustomEvent('uvalib-analytics-pageview', { detail: {}, bubbles: true, composed: true }),
+      );
+      expect(views()).to.have.length(1);
+    } finally {
+      delete (n as { globalPrivacyControl?: boolean }).globalPrivacyControl;
+    }
+  });
+
+  it('a page view fired from inside a no-analytics subtree is not recorded', async () => {
+    const el = await fixture(
+      html`<div>
+        <site-analytics spa matomoid="5"></site-analytics>
+        <p no-analytics><span></span></p>
+      </div>`,
+    );
+    el.querySelector('span')!.dispatchEvent(
+      new CustomEvent('uvalib-analytics-pageview', { detail: {}, bubbles: true, composed: true }),
+    );
+    expect(views()).to.have.length(0);
   });
 
   it('pushState is wrapped once, however many elements (or copies) listen', async () => {
