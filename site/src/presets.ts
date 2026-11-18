@@ -87,7 +87,7 @@ const ANALYTICS_LOG = `    <script>
       // events, which this log shows; with an analytics element they would go to Matomo.
       const log = document.querySelector('#event-log');
       for (const family of ['uvalib-analytics', 'site-analytics'])
-        for (const kind of ['event', 'search', 'pageview'])
+        for (const kind of ['event', 'search', 'pageview', 'content'])
           document.addEventListener(\`\${family}-\${kind}\`, (e) => {
             const li = document.createElement('li');
             li.textContent = \`\${e.type} \${JSON.stringify(e.detail)}\`;
@@ -692,19 +692,23 @@ events-section:not(:defined) {
     group: 'Analytics',
     title: 'Analytics events',
     description:
-      'What the library’s components report to Matomo, shown live: open a main-navigation menu, pick a theme in the header, or search, open a result or "See all" (Ctrl- or Cmd-click to stay here). bento-box reports one site search per section with its total. This page has no <site-analytics>, so nothing is loaded or sent; on a real site, <site-page matomo-id="N"> or a <site-analytics> element forwards these events to Matomo. They never carry titles or URLs.',
+      'What the library’s components report to Matomo, shown live: open a main-navigation menu or the phone Menu, pick a theme in the header, follow a header, main-navigation, breadcrumb or footer link, or search, open a result or "See all" (Ctrl- or Cmd-click links to stay here). bento-box reports one site search per section with its total; alerts report an impression per alert shown. This page has no <site-analytics>, so nothing is loaded or sent; on a real site, <site-page matomo-id="N"> or a <site-analytics> element forwards these events to Matomo, and also sends data-uvalib-track="category,action,name" clicks from the page’s own content. They never carry titles, URLs or anything typed but the search, and nothing is sent under Do Not Track, Global Privacy Control, <html data-uvalib-analytics="off"> or inside a no-analytics element.',
     files: {
       'index.html': {
         content: page({
           title: 'Analytics events',
-          components: ['bento-box'],
+          components: ['bento-box', 'uvalib-breadcrumbs'],
           styles: true,
           head: `
     <link rel="stylesheet" href="${CDN_TOKEN}tokens.css" />
     <script>${COLOR_SCHEME_SNIPPET}</script>`,
           body: `    <site-page color-scheme-switch>
+      <uvalib-breadcrumbs slot="breadcrumbs">
+        <a href="https://www.library.virginia.edu/">Home</a>
+        <span>Analytics events</span>
+      </uvalib-breadcrumbs>
       <h1>Analytics events</h1>
-      <p>Use the main navigation, the Theme control or the search below: each event appears here.</p>
+      <p>Use the main navigation, the Theme control, a link (Ctrl- or Cmd-click to stay here) or the search below: each event appears here.</p>
       <section class="event-log" aria-labelledby="event-log-title">
         <h2 id="event-log-title">Event log</h2>
         <ol id="event-log" tabindex="0" aria-labelledby="event-log-title"></ol>

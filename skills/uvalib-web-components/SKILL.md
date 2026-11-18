@@ -168,7 +168,13 @@ import '@uvalib/web-components/tokens.css'; // optional: tokens for your own CSS
 // <site-page> is then used in your HTML or templates exactly as in the plain HTML snippet.
 ```
 
-Analytics: only when the site needs Matomo, set `<site-page matomo-id="N">`, or add `site-analytics.js` and a `<site-analytics matomoid="N">`; see the analytics page in [reference/snippets.md](reference/snippets.md). `<uvalib-analytics>` (`uvalib-analytics.js`) is the same element under its original name, for existing markup. It listens on `document` for `uvalib-analytics-*` and `site-analytics-*` events (`event`, `search`, `pageview`) and queues them for Matomo, so events fired before Matomo loads are kept, and a page never counts twice. The library's own components (bento-box searches and result clicks, main-nav menu opens, the header's colour-scheme choice) already report; do not add tracking for those. Never put titles, URLs or personal data in events.
+Analytics: only when the site needs Matomo, set `<site-page matomo-id="N">`, or add `site-analytics.js` and a `<site-analytics matomoid="N">`; see the analytics page in [reference/snippets.md](reference/snippets.md). `<uvalib-analytics>` (`uvalib-analytics.js`) is the same element under its original name, for existing markup. It listens on `document` for `uvalib-analytics-*` and `site-analytics-*` events (`event`, `search`, `pageview`, `content`) and queues them for Matomo, so events fired before Matomo loads are kept, and a page never counts twice. A single-page app whose router uses `pushState` or hashes can set `spa="auto"` to have each route change counted (after the new title is set, never twice for one URL); bare `spa` means the app sends its own `uvalib-analytics-pageview` events.
+
+The library's components already report what visitors do with them; do not add tracking for any of it: header utility and site links, logo, skip link, Menu and colour scheme; main-nav menu opens and links; footer links; breadcrumb levels; alerts (impressions, dismiss, links, errors); event clicks; See all hours, week changes; filter facets, scopes and See more/less; date-range changes; bento searches, result and See all clicks, retries; and load errors. The README's "Analytics" section has the full table.
+
+For the host page's own content, tag the clickable element (or a wrapper) with `data-uvalib-track="category,action[,name[,value]]"` instead of writing a listener, for example `<a href="/spaces" data-uvalib-track="home-page,banner-click,Study spaces">`: the category is your page or widget, the action a fixed kebab-case verb, the name a short fixed label, the value a number. It works inside shadow DOM too. Never put titles, URLs, search text, ids, email addresses, phone numbers or other personal data in events.
+
+To opt out: `no-analytics` on an element (or any ancestor) silences it and everything inside; `<html data-uvalib-analytics="off">` silences every event on the page (the page view is still counted). Browsers that send Do Not Track or Global Privacy Control get no Matomo at all, with nothing to configure.
 
 A page with a breadcrumb trail (between the header and `<main>`):
 
@@ -316,6 +322,7 @@ Before finishing, load the page in a browser (or test) and confirm:
 6. `no-shadow-dom` appears only where the host CSS is meant to own the styling.
 7. A full header shows the library main navigation (unless the site deliberately set `no-main-nav`), and the page has no second hand-built copy of it.
 8. `color-scheme-switch` appears only where the user asked for dark mode and the site's own content supports it; if it is set, the page passes the axe test in both Light and Dark.
+9. With analytics: no hand-written listener duplicates what the components already report, host-page tracking uses `data-uvalib-track`, and no event name holds a title, URL, search text or personal data.
 
 ## 9. Keeping this skill current
 
