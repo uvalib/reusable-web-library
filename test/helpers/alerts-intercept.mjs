@@ -1,6 +1,6 @@
 // Keeps browser tests off the alerts CDN. Every browser context the test runner opens
 // routes the alerts hosts to a local stub: `v1/uvalib-alerts.js` is a tiny module that
-// defines an inert <uvalib-alerts>, and config.json / alerts.json are empty documents.
+// defines a fake headless <uvalib-alerts>, and config.json / alerts.json are empty documents.
 // Any other request to those hosts is aborted, logged and fails the test file, so a new,
 // unexpected network dependency shows up as a failure instead of hitting the CDN.
 
@@ -16,82 +16,88 @@ export const ALERTS_TEST_HOST = 'alerts.test';
 /** Test-only host whose every request fails, to exercise the load-failure path. */
 export const ALERTS_FAIL_HOST = 'alerts-fail.test';
 
-// The stub does not reproduce the real component's markup or behaviour: it only proves
-// loading, placement and the update event. Counts its own evaluations in `__uvalibAlertsStub`.
-// Tests drive it with `__uvalibAlertsStubSet({ headerAlerts, menuAlerts, regionalAlerts })`
-// (each a list of `{ uuid, title, body }`, list alerts optionally with `severity` 1-3): every connected element re-renders its part, as
-// the real one does, and dispatches a realistic `uvalib-alerts-update` (bubbling, composed).
-// With no state set, each element dispatches one update with empty lists on connect and
-// renders nothing, like the real component with an empty alerts.json.
+// The stub is a fake of the real component's headless API (alerts project, component/src/
+// element.ts): the read-only properties (alerts, headerAlerts, menuAlerts, menuCount,
+// seenAlerts, seenCount, regionalAlerts, status, lastUpdated), dismiss(uuid) and clearSeen(),
+// and the bubbling, composed uvalib-alerts-update / -status / -dismiss events. It renders
+// nothing (this library only uses it headless). Counts its own evaluations in
+// `__uvalibAlertsStub`. Tests drive it with:
+//   __uvalibAlertsStubSet({ headerAlerts, menuAlerts, regionalAlerts }): each a list of
+//     `{ uuid, title, body, severity? }` (severity `alert1`-`alert4`, or 1-3 for list alerts;
+//     default alert4 in the header, alert1 in the list, alert2 regional). Every connected
+//     element dispatches an update, as the real one does when a new document arrives; seen
+//     (dismissed) uuids are kept. `__uvalibAlertsStubSet(undefined)` resets everything.
+//   __uvalibAlertsStubStatus('offline'): every element's status changes and it dispatches
+//     uvalib-alerts-status.
+// `__uvalibAlertsStubDismissed` lists every dismiss(uuid) call (per window); dismissing an
+// alert4 is refused, as in the real element. With no state set, each element dispatches one
+// update with empty lists on connect, like the real component with an empty alerts.json.
 const STUB = `
 const w = globalThis;
 w.__uvalibAlertsStub = (w.__uvalibAlertsStub ?? 0) + 1;
 if (!customElements.get('uvalib-alerts')) {
   const live = new Set();
+  const seen = new Set();
+  let status = 'live';
+  w.__uvalibAlertsStubDismissed = [];
+  const sev = (s, d) => (typeof s === 'number' ? 'alert' + s : s || d);
+  const norm = (list, d) =>
+    (list ?? []).map((a) => ({
+      id: a.uuid, uuid: a.uuid, title: a.title ?? '', body: a.body ?? '',
+      severity: sev(a.severity, d), created: '', changed: '', promote: false, sticky: false,
+      ...(a.url ? { url: a.url } : {}),
+    }));
   const state = () => {
     const s = w.__uvalibAlertsStubState ?? {};
-    const headerAlerts = s.headerAlerts ?? [];
-    const menuAlerts = s.menuAlerts ?? [];
+    const headerAlerts = norm(s.headerAlerts, 'alert4');
+    const listed = norm(s.menuAlerts, 'alert1');
+    const menuAlerts = listed.filter((a) => !seen.has(a.uuid));
     return {
-      alerts: [...headerAlerts, ...menuAlerts],
+      alerts: [...headerAlerts, ...listed],
       headerAlerts,
       menuAlerts,
       menuCount: menuAlerts.length,
-      seenAlerts: [],
-      seenCount: 0,
-      regionalAlerts: s.regionalAlerts ?? [],
+      seenAlerts: [...seen],
+      seenCount: seen.size,
+      regionalAlerts: norm(s.regionalAlerts, 'alert2'),
       updated: '2026-01-01T00:00:00Z',
     };
   };
+  const emit = (el, type, detail) =>
+    el.dispatchEvent(new CustomEvent(type, { detail, bubbles: true, composed: true }));
+  const updateAll = () => { for (const el of live) emit(el, 'uvalib-alerts-update', state()); };
   w.__uvalibAlertsStubSet = (s) => {
     w.__uvalibAlertsStubState = s;
-    for (const el of live) el.refresh();
+    if (s === undefined) { seen.clear(); status = 'live'; w.__uvalibAlertsStubDismissed = []; }
+    updateAll();
+  };
+  w.__uvalibAlertsStubStatus = (next) => {
+    status = next;
+    for (const el of live) emit(el, 'uvalib-alerts-status', { status });
   };
   customElements.define('uvalib-alerts', class extends HTMLElement {
-    static observedAttributes = ['show', 'src'];
-    connectedCallback() { live.add(this); this.refresh(); }
+    static observedAttributes = ['show', 'src', 'headless', 'storage-key'];
+    connectedCallback() { live.add(this); emit(this, 'uvalib-alerts-update', state()); }
     disconnectedCallback() { live.delete(this); }
-    attributeChangedCallback() { if (this.isConnected) this.refresh(); }
+    attributeChangedCallback() { if (this.isConnected) emit(this, 'uvalib-alerts-update', state()); }
+    get alerts() { return state().alerts; }
+    get headerAlerts() { return state().headerAlerts; }
     get menuAlerts() { return state().menuAlerts; }
-    refresh() {
-      const st = state();
-      const show = this.getAttribute('show') || 'all';
-      const items =
-        show === 'header' ? st.headerAlerts : show === 'list' ? st.menuAlerts :
-        show === 'regional' ? st.regionalAlerts : [];
-      const root = this.shadowRoot ?? this.attachShadow({ mode: 'open' });
-      root.replaceChildren();
-      if (items.length) {
-        const style = document.createElement('style');
-        // The real component's colour properties, with its light defaults, so the alerts
-        // follow dark mode's --uvalib-alerts-* overrides as the real one does. List alerts
-        // take their severity (1-3, default 1) from \`severity\`, as alert1/2/3.
-        style.textContent =
-          ':host{display:block} .a{padding:0.5em;min-height:24px;' +
-          'color:var(--uvalib-alerts-text,#2B2B2B)}' +
-          '.header{background:var(--uvalib-alerts-header-bg,#25CAD3)}' +
-          '.regional{background:var(--uvalib-alerts-regional-bg,#C8F2F4);' +
-          'border:var(--uvalib-alerts-regional-border,0.2em solid #25CAD3)}' +
-          '.alert1{background:var(--uvalib-alerts-alert1-bg,#FBCFDA);' +
-          'border-left:4px solid var(--uvalib-alerts-alert1-border,#DF1E43)}' +
-          '.alert2{background:var(--uvalib-alerts-alert2-bg,#FEF6C8);' +
-          'border-left:4px solid var(--uvalib-alerts-alert2-border,#ECC602)}' +
-          '.alert3{background:var(--uvalib-alerts-alert3-bg,#BFE7F7);' +
-          'border-left:4px solid var(--uvalib-alerts-alert3-border,#007BAC)}';
-        const wrap = document.createElement('div');
-        wrap.setAttribute('part', show);
-        if (show === 'header') wrap.setAttribute('role', 'status');
-        for (const a of items) {
-          const d = document.createElement('div');
-          d.className =
-            'a ' + (show === 'list' ? 'alert' + (a.severity ?? 1) : show);
-          d.textContent = (a.title ? a.title + ': ' : '') + (a.body ?? '');
-          wrap.append(d);
-        }
-        root.append(style, wrap);
-      }
-      this.dispatchEvent(new CustomEvent('uvalib-alerts-update', { detail: st, bubbles: true, composed: true }));
+    get menuCount() { return state().menuCount; }
+    get seenAlerts() { return state().seenAlerts; }
+    get seenCount() { return state().seenCount; }
+    get regionalAlerts() { return state().regionalAlerts; }
+    get status() { return status; }
+    get lastUpdated() { return state().updated; }
+    dismiss(uuid) {
+      w.__uvalibAlertsStubDismissed.push(uuid);
+      const a = state().alerts.find((x) => x.uuid === uuid);
+      if (!a || a.severity === 'alert4') return;
+      seen.add(uuid);
+      for (const el of live) emit(el, 'uvalib-alerts-dismiss', { uuid });
+      updateAll();
     }
+    clearSeen() { seen.clear(); updateAll(); }
   });
 }
 `;

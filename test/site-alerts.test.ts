@@ -1,79 +1,65 @@
 import { expect, fixture, nextFrame } from '@open-wc/testing';
-import { setViewport } from '@web/test-runner-commands';
-import '../src/components/site-page/site-page.js';
-import { ALERTS_PRODUCTION_SRC, ALERTS_STAGING_SRC } from '../src/components/site-page/SitePage.js';
-import type { SitePage } from '../src/components/site-page/SitePage.js';
-import type { SiteHeader } from '../src/components/site-header/SiteHeader.js';
+import { emulateMedia, sendKeys, setViewport } from '@web/test-runner-commands';
+import '../src/components/site-alerts/site-alerts.js';
+import type { SiteAlerts } from '../src/components/site-alerts/SiteAlerts.js';
+import { BODY_SANITIZER, setBody } from '../src/components/site-alerts/body.js';
+import { COLOR_SCHEME_ATTR, installColorSchemeStyles } from '../src/base/color-scheme.js';
 import { expectNoPageAxeViolations } from './helpers/axe.js';
-import { ALERTS_HOSTS } from './helpers/alerts-intercept.mjs';
-import { normalizeMarkup } from './helpers/header-snapshot.js';
+import { contrast } from './helpers/scheme-colors.js';
 
 // The alerts hosts are routed to a stub by the test runner (test/helpers/alerts-intercept.mjs):
-// https://alerts.test/ serves the same stub, https://alerts-fail.test/ fails every request.
-// The stub does not reproduce the real component's markup: it renders one plain row per alert
-// set with __uvalibAlertsStubSet() and dispatches a realistic uvalib-alerts-update.
-const CUSTOM = 'https://alerts.test/custom/';
+// a fake headless <uvalib-alerts> with the real element's properties, dismiss() and events.
+const SRC = 'https://alerts.test/';
 const FAIL = 'https://alerts-fail.test/';
-const SCRIPT = (base: string) => `${base}v1/uvalib-alerts.js`;
 
-type StubAlert = { uuid: string; title: string; body: string };
+type StubAlert = { uuid: string; title: string; body: string; severity?: string | number };
 type StubState = {
   headerAlerts?: StubAlert[];
   menuAlerts?: StubAlert[];
   regionalAlerts?: StubAlert[];
 };
-const ALERT = (n: number): StubAlert => ({ uuid: `u${n}`, title: `Alert ${n}`, body: 'Body' });
-
-type Updatable = HTMLElement & { updateComplete: Promise<unknown> };
 type StubWindow = Window & {
-  __uvalibAlertsStub?: number;
   __uvalibAlertsStubSet?: (state?: StubState) => void;
+  __uvalibAlertsStubStatus?: (status: string) => void;
+  __uvalibAlertsStubDismissed?: string[];
   __warnings: string[];
 };
+const stub = () => window as unknown as StubWindow;
+
+const BANNER: StubAlert = { uuid: 'h1', title: 'Closed today', body: '<p>All libraries.</p>' };
+const LIST: StubAlert[] = [
+  { uuid: 'i1', title: 'New hours', body: '<p>See <a href="/hours">hours</a>.</p>', severity: 3 },
+  { uuid: 'c1', title: 'Building closed', body: '<p>Clemons is closed.</p>', severity: 1 },
+  { uuid: 'w1', title: 'Wi-Fi down', body: '<p>Use eduroam.</p>', severity: 2 },
+  { uuid: 'w2', title: 'Printing slow', body: '<p>Queue is long.</p>', severity: 2 },
+];
+const REGIONAL: StubAlert[] = [
+  { uuid: 'r1', title: 'Snow', body: '<p>Closing early.</p>', severity: 'alert2' },
+  { uuid: 'r2', title: 'Tour', body: '<p>Tours at noon.</p>', severity: 'alert3' },
+];
+const ALL: StubState = { headerAlerts: [BANNER], menuAlerts: LIST, regionalAlerts: REGIONAL };
 
 const root = (el: Element): ParentNode => el.shadowRoot ?? el;
+const headless = () => [...document.querySelectorAll<HTMLElement>('uvalib-alerts[headless]')];
 
-async function settle(...els: Element[]): Promise<void> {
+async function settle(...els: SiteAlerts[]): Promise<void> {
   for (let i = 0; i < 2; i++) {
     await nextFrame();
-    for (const el of els) await (el as Updatable).updateComplete;
+    for (const el of els) await el.updateComplete;
   }
 }
 
-/** Every element matching `selector` in `node` and its open shadow roots. */
-function deepAll(node: ParentNode, selector: string): Element[] {
-  const found = [...node.querySelectorAll(selector)];
-  for (const el of node.querySelectorAll('*')) {
-    if (el.shadowRoot) found.push(...deepAll(el.shadowRoot, selector));
-  }
-  return found;
-}
-
-const alertsOf = (el: Element) => deepAll(root(el), 'uvalib-alerts');
-const headerOf = (el: SitePage) => root(el).querySelector('site-header') as SiteHeader;
-const mainOf = (el: SitePage) => root(el).querySelector('main')!;
-/** The list band: a labelled region between the header and <main>. */
-const bandOf = (el: SitePage) =>
-  ([...(root(el) as Element).children].find((c) => c.matches('section.alerts-list')) ??
-    null) as HTMLElement | null;
-
-/** Set the stub's alerts for every connected element, then let the page re-render. */
-async function stubAlerts(state: StubState | undefined, ...els: Element[]): Promise<void> {
+async function setAlerts(state: StubState | undefined, ...els: SiteAlerts[]): Promise<void> {
   await customElements.whenDefined('uvalib-alerts');
-  (window as unknown as StubWindow).__uvalibAlertsStubSet!(state);
+  stub().__uvalibAlertsStubSet!(state);
   await settle(...els);
 }
-/** `node` is rendered in the page's <main> (slotted into it in shadow mode). */
-const inMain = (el: SitePage, node: Element) =>
-  (node.assignedSlot ?? node).closest('main') === mainOf(el);
-const headerAlert = (el: SitePage) =>
-  alertsOf(el).find((a) => a.getAttribute('show') === 'header')!;
 
 /** Capture console.warn calls made while `fn` runs. */
-async function warnings(fn: () => Promise<void>): Promise<unknown[][]> {
+async function warnings(fn: () => Promise<void>): Promise<string[]> {
   const warn = console.warn;
-  const calls: unknown[][] = [];
-  console.warn = (...args: unknown[]) => void calls.push(args);
+  const calls: string[] = [];
+  console.warn = (...args: unknown[]) => void calls.push(args.map(String).join(' '));
   try {
     await fn();
   } finally {
@@ -82,646 +68,441 @@ async function warnings(fn: () => Promise<void>): Promise<unknown[][]> {
   return calls;
 }
 
+afterEach(async () => {
+  stub().__uvalibAlertsStubSet?.(undefined);
+  document.documentElement.removeAttribute(COLOR_SCHEME_ATTR);
+  await emulateMedia({ forcedColors: 'none', colorScheme: 'light' });
+  await setViewport({ width: 800, height: 600 });
+});
+
 for (const mode of ['shadow', 'light'] as const) {
   const light = mode === 'light' ? 'no-shadow-dom' : '';
 
-  describe(`site-page alerts (${mode})`, () => {
-    afterEach(async () => {
-      (window as unknown as StubWindow).__uvalibAlertsStubSet?.(undefined);
-      await setViewport({ width: 800, height: 600 });
-    });
-
-    const make = async (attrs = '', children = '<p id="c">content</p>'): Promise<SitePage> => {
-      const el = await fixture<SitePage>(`<site-page ${light} ${attrs}>${children}</site-page>`);
-      await settle(el, headerOf(el));
+  describe(`site-alerts (${mode})`, () => {
+    const make = async (attrs = '', state: StubState | undefined = ALL): Promise<SiteAlerts> => {
+      const el = await fixture<SiteAlerts>(
+        `<site-alerts ${light} alerts-src="${SRC}" ${attrs}></site-alerts>`,
+      );
+      await setAlerts(state, el);
       return el;
     };
+    const q = (el: Element, sel: string) => root(el).querySelector<HTMLElement>(sel);
+    const qa = (el: Element, sel: string) => [...root(el).querySelectorAll<HTMLElement>(sel)];
+    const titles = (el: Element) => qa(el, '.alert .title').map((t) => t.textContent!.trim());
 
-    /** The three alert elements, in document order, as [show, src] pairs. */
-    const shown = (el: SitePage) =>
-      alertsOf(el).map((a) => [a.getAttribute('show'), a.getAttribute('src')]);
-
-    /** The header alert is in <header> after the skip link and before the logo row. */
-    function expectHeaderPlacement(el: SitePage) {
-      const h = headerOf(el);
-      const alert = headerAlert(el);
-      const skip = root(el).querySelector('.skip-link')!;
-      if (mode === 'shadow') {
-        const header = h.shadowRoot!.querySelector('header')!;
-        const slot = header.querySelector<HTMLSlotElement>(':scope > slot[name="alerts"]')!;
-        expect(alert.getAttribute('slot')).to.equal('alerts');
-        expect(alert.assignedSlot).to.equal(slot);
-        expect(slot.previousElementSibling).to.equal(
-          header.querySelector(':scope > slot[name="skip-link"]'),
-        );
-        expect(slot.nextElementSibling).to.equal(header.querySelector(':scope > .logo'));
-        expect(skip.assignedSlot?.name).to.equal('skip-link');
-      } else {
-        const header = h.querySelector(':scope > header')!;
-        expect(alert.parentElement).to.equal(header);
-        expect(header.firstElementChild).to.equal(alert);
-        const logo = header.querySelector(':scope > .logo')!;
-        expect(alert.compareDocumentPosition(logo) & Node.DOCUMENT_POSITION_FOLLOWING).to.not.equal(
-          0,
-        );
-        expect(skip.compareDocumentPosition(alert) & Node.DOCUMENT_POSITION_FOLLOWING).to.not.equal(
-          0,
-        );
-      }
-    }
-
-    /**
-     * The list band is a labelled <section> between <site-header> and <main>, holding the
-     * list alerts; regional is the first child of <main>, before any content.
-     */
-    function expectMainPlacement(el: SitePage) {
-      const band = bandOf(el)!;
-      expect(band, 'list band').to.not.equal(null);
-      expect(band.previousElementSibling!.localName).to.equal('site-header');
-      expect(band.nextElementSibling).to.equal(mainOf(el));
-      expect(band.getAttribute('aria-label')).to.equal('Library alerts');
-      expect([...band.children].map((k) => [k.localName, k.getAttribute('show')])).to.deep.equal([
-        ['uvalib-alerts', 'list'],
-      ]);
-      const kids = [...mainOf(el).children];
-      expect([kids[0]!.localName, kids[0]!.getAttribute('show')]).to.deep.equal([
-        'uvalib-alerts',
-        'regional',
-      ]);
-      // Light mode: nothing at all precedes it (shadow mode has Lit's comment markers).
-      if (mode === 'light') expect(mainOf(el).firstChild).to.equal(kids[0]);
-      if (mode === 'shadow') expect(kids[1]!.localName).to.equal('slot');
-      else if (document.getElementById('c'))
-        expect(kids.indexOf(document.getElementById('c')!)).to.be.greaterThan(0);
-    }
-
-    it('renders header, list and regional alerts from production by default', async () => {
+    it('renders the banner, the list and the regional alerts by default', async () => {
       const el = await make();
-      expect(shown(el)).to.deep.equal([
-        ['header', ALERTS_PRODUCTION_SRC],
-        ['list', ALERTS_PRODUCTION_SRC],
-        ['regional', ALERTS_PRODUCTION_SRC],
-      ]);
-      // The storage key and headless mode stay the component defaults.
-      for (const a of alertsOf(el)) {
-        expect(a.hasAttribute('storage-key')).to.equal(false);
-        expect(a.hasAttribute('headless')).to.equal(false);
-      }
-      expect(el.hasAttribute('alerts-env')).to.equal(false);
-    });
-
-    it('places the header alert in <header>, the list band before <main>, regional first in <main>', async () => {
-      const el = await make();
-      expectHeaderPlacement(el);
-      expectMainPlacement(el);
-      expect(inMain(el, document.getElementById('c')!)).to.equal(true);
-      expect(mainOf(el).contains(headerAlert(el))).to.equal(false);
-    });
-
-    it('keeps the alerts first in <main> when content is added later', async () => {
-      const el = await make();
-      const late = Object.assign(document.createElement('p'), { id: 'late' });
-      el.append(late);
-      await settle(el);
-      expectMainPlacement(el);
-      if (mode === 'light') expect(late.parentElement).to.equal(mainOf(el));
-    });
-
-    it('uses staging with alerts-env="staging"', async () => {
-      const el = await make('alerts-env="staging"');
-      expect(shown(el).map((s) => s[1])).to.deep.equal(Array(3).fill(ALERTS_STAGING_SRC));
-    });
-
-    it('accepts alerts-env="production" explicitly', async () => {
-      const calls = await warnings(async () => {
-        const el = await make('alerts-env="production"');
-        expect(shown(el).map((s) => s[1])).to.deep.equal(Array(3).fill(ALERTS_PRODUCTION_SRC));
-      });
-      expect(calls).to.deep.equal([]);
-    });
-
-    it('stacks banner, logo row, main nav row and alerts band at 1280px', async () => {
-      await setViewport({ width: 1280, height: 900 });
-      const el = await make();
-      await stubAlerts({ headerAlerts: [ALERT(1)], menuAlerts: [ALERT(2)] }, el, headerOf(el));
-      const h = root(headerOf(el));
-      const header = h.querySelector('header')!.getBoundingClientRect();
-      const banner = headerAlert(el).getBoundingClientRect();
-      const logo = h.querySelector('.logo')!.getBoundingClientRect();
-      const bar = h.querySelector('header > site-main-nav')!.getBoundingClientRect();
-      const band = bandOf(el)!.getBoundingClientRect();
-      expect(banner.height).to.be.greaterThan(0);
-      expect(banner.top, 'banner at the top of the header').to.be.closeTo(header.top, 0.5);
-      expect(logo.top, 'logo row under the banner').to.be.at.least(banner.bottom);
-      expect(bar.top, 'main nav under the logo row').to.be.at.least(logo.bottom);
-      expect(bar.bottom, 'main nav flush with the header bottom').to.be.closeTo(header.bottom, 0.5);
-      expect(band.height).to.be.greaterThan(0);
-      expect(band.top, 'alerts band right under the header').to.be.closeTo(header.bottom, 0.5);
-    });
-
-    it('alerts-src overrides the base URL and wins over alerts-env', async () => {
-      const el = await make(`alerts-env="staging" alerts-src="${CUSTOM}"`);
-      expect(shown(el).map((s) => s[1])).to.deep.equal(Array(3).fill(CUSTOM));
-    });
-
-    it('warns once for an invalid alerts-env and falls back to production', async () => {
-      let el!: SitePage;
-      const calls = await warnings(async () => {
-        el = await make('alerts-env="prod"');
-        el.rootLinkDomain = 'https://x.edu'; // an unrelated re-render does not warn again
-        await settle(el, headerOf(el));
-      });
-      expect(calls.length).to.equal(1);
-      expect(String(calls[0]![0])).to.contain('alerts-env');
-      expect(String(calls[0]![0])).to.contain('prod');
-      expect(shown(el).map((s) => s[1])).to.deep.equal(Array(3).fill(ALERTS_PRODUCTION_SRC));
-    });
-
-    it('renders no alert elements with no-alerts', async () => {
-      const el = await make('no-alerts');
-      expect(alertsOf(el)).to.deep.equal([]);
-      expect(alertsOf(headerOf(el))).to.deep.equal([]);
-      expect(bandOf(el)).to.equal(null);
-      expect(deepAll(root(el), 'section').length).to.equal(0);
-      expect(mainOf(el).firstElementChild!.localName).to.equal(mode === 'shadow' ? 'slot' : 'p');
-    });
-
-    it('adds and removes the alert elements when no-alerts toggles', async () => {
-      const el = await make();
-      const before = alertsOf(el);
-      el.setAttribute('no-alerts', '');
-      await settle(el, headerOf(el));
-      expect(alertsOf(el)).to.deep.equal([]);
-      expect(bandOf(el)).to.equal(null);
-      for (const a of before) expect(a.isConnected).to.equal(false);
-      expect(inMain(el, document.getElementById('c')!)).to.equal(true);
-
-      el.removeAttribute('no-alerts');
-      await settle(el, headerOf(el));
-      expect(shown(el).map((s) => s[0])).to.deep.equal(['header', 'list', 'regional']);
-      expectHeaderPlacement(el);
-      expectMainPlacement(el);
-      expect(document.getElementById('c')!.textContent).to.equal('content');
-    });
-
-    it('updates src on the existing elements when alerts-env or alerts-src change', async () => {
-      const el = await make();
-      const before = alertsOf(el);
-      el.setAttribute('alerts-env', 'staging');
-      await settle(el);
-      expect(alertsOf(el)).to.deep.equal(before);
-      expect(shown(el).map((s) => s[1])).to.deep.equal(Array(3).fill(ALERTS_STAGING_SRC));
-
-      el.setAttribute('alerts-src', CUSTOM);
-      await settle(el);
-      expect(alertsOf(el)).to.deep.equal(before);
-      expect(shown(el).map((s) => s[1])).to.deep.equal(Array(3).fill(CUSTOM));
-
-      el.removeAttribute('alerts-src');
-      await settle(el);
-      expect(shown(el).map((s) => s[1])).to.deep.equal(Array(3).fill(ALERTS_STAGING_SRC));
-
-      el.removeAttribute('alerts-env');
-      await settle(el);
-      expect(alertsOf(el)).to.deep.equal(before);
-      expect(shown(el).map((s) => s[1])).to.deep.equal(Array(3).fill(ALERTS_PRODUCTION_SRC));
-    });
-
-    it('does not duplicate alerts when removed and re-appended', async () => {
-      const el = await make();
-      const before = alertsOf(el);
-      const parent = el.parentElement!;
-      el.remove();
-      parent.append(el);
-      await settle(el, headerOf(el));
-      expect(alertsOf(el)).to.deep.equal(before);
-      expect(deepAll(root(el), 'section.alerts-list').length).to.equal(1);
-      expectHeaderPlacement(el);
-      expectMainPlacement(el);
-    });
-
-    it('gives the vendor header variant the same alerts', async () => {
-      const el = await make('header-variant="vendor"');
-      expect(shown(el)).to.deep.equal([
-        ['header', ALERTS_PRODUCTION_SRC],
-        ['list', ALERTS_PRODUCTION_SRC],
-        ['regional', ALERTS_PRODUCTION_SRC],
-      ]);
-      expectHeaderPlacement(el);
-      expectMainPlacement(el);
-    });
-
-    describe('list band visibility', () => {
-      it('is hidden before the first update and while the list is empty', async () => {
-        const el = await make();
-        expect(bandOf(el)!.hidden).to.equal(true);
-        await stubAlerts({ headerAlerts: [ALERT(1)] }, el);
-        expect(bandOf(el)!.hidden, 'only a header alert').to.equal(true);
-        expect(bandOf(el)!.checkVisibility()).to.equal(false);
-      });
-
-      it('shows with list alerts and hides again when they go', async () => {
-        const el = await make();
-        await stubAlerts({ menuAlerts: [ALERT(1), ALERT(2)] }, el);
-        const band = bandOf(el)!;
-        expect(band.hidden).to.equal(false);
-        expect(band.checkVisibility()).to.equal(true);
-        await stubAlerts({ menuAlerts: [] }, el);
-        expect(band.hidden).to.equal(true);
-        await stubAlerts({ menuAlerts: [ALERT(3)] }, el);
-        expect(band.hidden).to.equal(false);
-      });
-
-      it('ignores update events from the header and regional alerts', async () => {
-        const el = await make();
-        await stubAlerts({ menuAlerts: [ALERT(1)] }, el);
-        const regional = alertsOf(el).find((a) => a.getAttribute('show') === 'regional')!;
-        regional.dispatchEvent(
-          new CustomEvent('uvalib-alerts-update', {
-            detail: { menuAlerts: [] },
-            bubbles: true,
-            composed: true,
-          }),
-        );
-        await settle(el);
-        expect(bandOf(el)!.hidden).to.equal(false);
-      });
-
-      it('starts hidden again after no-alerts is toggled off and on', async () => {
-        const el = await make();
-        await stubAlerts({ menuAlerts: [ALERT(1)] }, el);
-        el.setAttribute('no-alerts', '');
-        await settle(el, headerOf(el));
-        (window as unknown as StubWindow).__uvalibAlertsStubSet!(undefined);
-        el.removeAttribute('no-alerts');
-        await settle(el, headerOf(el));
-        expect(bandOf(el)!.hidden).to.equal(true);
-      });
-
-      it('is a region named "Library alerts"', async () => {
-        const el = await make();
-        await stubAlerts({ menuAlerts: [ALERT(1)] }, el);
-        const band = bandOf(el)!;
-        expect(band.localName).to.equal('section');
-        expect(band.getAttribute('aria-label')).to.equal('Library alerts');
-        expect(band.hasAttribute('role')).to.equal(false); // a named <section> is a region
-      });
-    });
-
-    describe('full-bleed geometry', () => {
-      for (const width of [1280, 768, 390]) {
-        it(`at ${width}px: banner flush with the header box, band flush with the page`, async () => {
-          await setViewport({ width, height: 900 });
-          const el = await make();
-          await stubAlerts({ headerAlerts: [ALERT(1)], menuAlerts: [ALERT(2)] }, el, headerOf(el));
-          const host = headerOf(el);
-          const header = root(host).querySelector('header')!.getBoundingClientRect();
-          const banner = headerAlert(el).getBoundingClientRect();
-          expect(banner.height).to.be.greaterThan(0);
-          expect(banner.left, 'banner left').to.be.closeTo(header.left, 0.5);
-          expect(banner.right, 'banner right').to.be.closeTo(header.right, 0.5);
-          expect(banner.top, 'banner top').to.be.closeTo(header.top, 0.5);
-          // The logo row keeps the header's top padding below the banner.
-          const logo = root(host).querySelector('header .logo')!.getBoundingClientRect();
-          const padTop = parseFloat(
-            getComputedStyle(root(host).querySelector('header')!).paddingTop,
-          );
-          expect(logo.top - banner.bottom).to.be.closeTo(padTop, 0.5);
-
-          const page = el.getBoundingClientRect();
-          const band = bandOf(el)!.getBoundingClientRect();
-          expect(band.height).to.be.greaterThan(0);
-          expect(band.left, 'band left').to.be.closeTo(page.left, 0.5);
-          expect(band.right, 'band right').to.be.closeTo(page.right, 0.5);
-          expect(band.top, 'band top').to.be.closeTo(host.getBoundingClientRect().bottom, 0.5);
-          const list = alertsOf(el).find((a) => a.getAttribute('show') === 'list')!;
-          expect(list.getBoundingClientRect().left).to.be.closeTo(page.left, 0.5);
-          expect(list.getBoundingClientRect().width).to.be.closeTo(page.width, 0.5);
-          // Main follows the band directly and keeps its own padding.
-          const main = mainOf(el);
-          expect(main.getBoundingClientRect().top, 'main top').to.be.closeTo(band.bottom, 0.5);
-          const cs = getComputedStyle(main);
-          expect(cs.paddingTop).to.equal(width >= 993 ? '24px' : '36px');
-          expect([cs.paddingLeft, cs.paddingRight]).to.deep.equal(['40px', '40px']);
-          // Regional stays inside main's padding.
-          const regional = alertsOf(el).find((a) => a.getAttribute('show') === 'regional')!;
-          expect(regional.getBoundingClientRect().left).to.be.closeTo(
-            main.getBoundingClientRect().left + 40,
-            0.5,
-          );
-        });
-      }
-
-      it('without list alerts the band takes no space and main follows the header', async () => {
-        const el = await make();
-        await stubAlerts(undefined, el);
-        expect(mainOf(el).getBoundingClientRect().top).to.be.closeTo(
-          headerOf(el).getBoundingClientRect().bottom,
-          0.5,
-        );
-      });
-    });
-
-    it('has no axe violations on a full page with alerts present', async () => {
-      const el = await make(
-        '',
-        '<h1>Page title</h1><p>Body <a href="/x">link</a></p><p slot="pre-footer">Notice</p>',
+      const banner = q(el, '.banner')!;
+      expect(banner.getAttribute('role')).to.equal('status');
+      expect(banner.textContent!.replace(/\s+/g, ' ').trim()).to.equal(
+        'Closed today: All libraries.',
       );
-      await customElements.whenDefined('site-footer');
-      await stubAlerts(
-        { headerAlerts: [ALERT(1)], menuAlerts: [ALERT(2)], regionalAlerts: [ALERT(3)] },
-        el,
-        headerOf(el),
-      );
-      // The stub rendered a row in each alert element.
-      for (const a of alertsOf(el)) expect(a.shadowRoot?.textContent).to.contain('Alert');
-      expect(bandOf(el)!.hidden).to.equal(false);
-      await expectNoPageAxeViolations();
+      expect(qa(el, '.alert').length).to.equal(4);
+      expect(
+        qa(el, '.regional').map((r) => r.textContent!.replace(/\s+/g, ' ').trim()),
+      ).to.deep.equal(['Warning: Closing early.', 'Information: Tours at noon.']);
+      expect(qa(el, '.regional').map((r) => r.classList.contains('info'))).to.deep.equal([
+        false,
+        true,
+      ]);
+      expect(el.hasAttribute('data-empty')).to.equal(false);
     });
 
-    it('has no axe violations, including landmark rules, with no alerts to show', async () => {
-      const el = await make('', '<h1>Page title</h1><p>Body</p>');
-      await customElements.whenDefined('site-footer');
-      await stubAlerts(undefined, el, headerOf(el));
-      expect(bandOf(el)!.hidden).to.equal(true);
-      await expectNoPageAxeViolations();
+    it('lists the most severe first, with severity in text, not colour alone', async () => {
+      const el = await make('show="list"');
+      expect(titles(el)).to.deep.equal([
+        'Critical: Building closed',
+        'Warning: Wi-Fi down',
+        'Warning: Printing slow',
+        'Information: New hours',
+      ]);
+      for (const label of qa(el, '.alert .title .visually-hidden')) {
+        expect(label.getBoundingClientRect().width).to.be.at.most(1);
+      }
+      for (const icon of qa(el, '.alert > svg.icon')) {
+        expect(icon.getAttribute('aria-hidden')).to.equal('true');
+        expect(icon.getBoundingClientRect().width).to.be.closeTo(32, 3);
+      }
+      expect(qa(el, '.alert > svg.icon').length).to.equal(4);
+      // Only the critical alert is assertive; the list itself is polite.
+      expect(qa(el, '.alert').map((a) => a.getAttribute('role'))).to.deep.equal([
+        'alert',
+        null,
+        null,
+        null,
+      ]);
+      expect(q(el, '.list')!.getAttribute('aria-live')).to.equal('polite');
+      expect(q(el, '.banner')).to.equal(null);
+      expect(q(el, '.regional')).to.equal(null);
+    });
+
+    it('show picks the parts', async () => {
+      const parts = async (show: string) => {
+        const el = await make(`show="${show}"`);
+        return ['.banner', '.list', '.regional'].filter((s) => q(el, s));
+      };
+      expect(await parts('header')).to.deep.equal(['.banner']);
+      expect(await parts('list')).to.deep.equal(['.list']);
+      expect(await parts('regional')).to.deep.equal(['.regional']);
+      expect(await parts('sitewide')).to.deep.equal(['.banner', '.list']);
+      expect(await parts('all')).to.deep.equal(['.banner', '.list', '.regional']);
+    });
+
+    it('titles are h2 by default; heading-level sets the level', async () => {
+      const el = await make('show="list"');
+      expect(qa(el, '.alert .title').map((t) => t.localName)).to.deep.equal(Array(4).fill('h2'));
+      el.headingLevel = 4;
+      await settle(el);
+      expect(qa(el, '.alert .title').map((t) => t.localName)).to.deep.equal(Array(4).fill('h4'));
+      el.setAttribute('heading-level', '9');
+      await settle(el);
+      expect(q(el, '.alert .title')!.localName).to.equal('h2');
+    });
+
+    it('critical alerts have no dismiss button; others are named for their alert', async () => {
+      const el = await make('show="list"');
+      expect(
+        qa(el, '.alert').map(
+          (a) => a.querySelector('.dismiss')?.getAttribute('aria-label') ?? null,
+        ),
+      ).to.deep.equal([
+        null,
+        'Dismiss alert: Wi-Fi down',
+        'Dismiss alert: Printing slow',
+        'Dismiss alert: New hours',
+      ]);
+      for (const b of qa(el, '.dismiss')) {
+        const r = b.getBoundingClientRect();
+        expect([r.width, r.height], 'a 44px target (WCAG 2.5.5)').to.deep.equal([44, 44]);
+        expect(b.querySelector('svg')!.getAttribute('aria-hidden')).to.equal('true');
+      }
+    });
+
+    it('dismiss calls dismiss(uuid) and moves focus to the next alert, never <body>', async () => {
+      const el = await make('show="list"');
+      const first = q(el, '.alert.alert2 .dismiss')!;
+      first.focus();
+      first.click();
+      await settle(el);
+      expect(stub().__uvalibAlertsStubDismissed).to.deep.equal(['w1']);
+      expect(titles(el)).to.not.include('Warning: Wi-Fi down');
+      const active = () => (el.shadowRoot ? el.shadowRoot.activeElement : document.activeElement);
+      expect(active()?.getAttribute('aria-label')).to.equal('Dismiss alert: Printing slow');
+      // The keyboard works too: Enter on the focused button.
+      await sendKeys({ press: 'Enter' });
+      await settle(el);
+      expect(active()?.getAttribute('aria-label')).to.equal('Dismiss alert: New hours');
+      await sendKeys({ press: 'Space' });
+      await settle(el);
+      // The last one was dismissed: the critical alert, which has no button, gets focus.
+      expect(stub().__uvalibAlertsStubDismissed).to.deep.equal(['w1', 'w2', 'i1']);
+      expect(active()).to.equal(q(el, '.alert.alert1'));
+      expect(document.activeElement).to.not.equal(document.body);
+    });
+
+    it('with no alert left, focus goes to <main>', async () => {
+      const wrap = await fixture<HTMLElement>(
+        `<div><site-alerts ${light} show="list" alerts-src="${SRC}"></site-alerts><main><h1>Page</h1></main></div>`,
+      );
+      const el = wrap.querySelector<SiteAlerts>('site-alerts')!;
+      await setAlerts({ menuAlerts: [LIST[2]!] }, el);
+      q(el, '.dismiss')!.click();
+      await settle(el);
+      expect(qa(el, '.alert')).to.deep.equal([]);
+      expect(document.activeElement).to.equal(wrap.querySelector('main'));
+      expect(wrap.querySelector('main')!.getAttribute('tabindex')).to.equal('-1');
+      expect(el.hasAttribute('data-empty')).to.equal(true);
+    });
+
+    it('re-renders on update events and fires site-alerts-change with the count', async () => {
+      const el = await make('show="list"', { menuAlerts: [LIST[1]!] });
+      const counts: number[] = [];
+      el.addEventListener('site-alerts-change', (e) =>
+        counts.push((e as CustomEvent<{ count: number }>).detail.count),
+      );
+      await setAlerts({ menuAlerts: LIST }, el);
+      expect(qa(el, '.alert').length).to.equal(4);
+      await setAlerts({ menuAlerts: [] }, el);
+      expect(q(el, '.list')).to.equal(null);
+      expect(el.hasAttribute('data-empty')).to.equal(true);
+      expect(counts).to.deep.equal([4, 0]);
+    });
+
+    it('a status change (offline) renders nothing new', async () => {
+      const el = await make();
+      const before = root(el) instanceof ShadowRoot ? el.shadowRoot!.innerHTML : el.innerHTML;
+      stub().__uvalibAlertsStubStatus!('offline');
+      await settle(el);
+      const after = root(el) instanceof ShadowRoot ? el.shadowRoot!.innerHTML : el.innerHTML;
+      expect(after).to.equal(before);
+      stub().__uvalibAlertsStubStatus!('live');
+    });
+
+    it('inserts the body HTML (links kept)', async () => {
+      const el = await make('show="list"', { menuAlerts: [LIST[0]!] });
+      const a = q(el, '.alert .body a')!;
+      expect(a.getAttribute('href')).to.equal('/hours');
+      expect(getComputedStyle(a).textDecorationLine).to.equal('underline');
+    });
+
+    it('no-style keeps the severity text visually hidden and the icons sized', async () => {
+      const el = await make('no-style show="list"');
+      const label = q(el, '.visually-hidden')!;
+      expect(label.getBoundingClientRect().width).to.be.at.most(1);
+      expect(q(el, '.alert > svg')!.getBoundingClientRect().width).to.be.closeTo(32, 3);
+      // Shadow mode drops the look (light mode shares the document's tag-scoped sheet).
+      if (mode === 'shadow')
+        expect(getComputedStyle(q(el, '.alert1')!).backgroundColor).to.equal('rgba(0, 0, 0, 0)');
+    });
+
+    it('at 320px nothing overflows and the dismiss button clears the text', async () => {
+      await setViewport({ width: 320, height: 800 });
+      const el = await make();
+      expect(el.scrollWidth).to.be.at.most(el.clientWidth);
+      expect(document.documentElement.scrollWidth).to.be.at.most(320);
+      for (const alert of qa(el, '.alert.dismissible')) {
+        const button = alert.querySelector('.dismiss')!.getBoundingClientRect();
+        const title = alert.querySelector('.title')!.getBoundingClientRect();
+        expect(title.right, 'title clear of the button').to.be.at.most(button.left + 0.5);
+      }
+    });
+
+    it('forced colors: every alert keeps a system-colour border', async () => {
+      const el = await make();
+      await emulateMedia({ forcedColors: 'active' });
+      for (const sel of ['.banner', '.alert', '.regional']) {
+        for (const box of qa(el, sel)) {
+          const cs = getComputedStyle(box);
+          expect(cs.borderTopStyle, sel).to.equal('solid');
+          expect(parseFloat(cs.borderTopWidth), sel).to.be.at.least(1);
+        }
+      }
+      for (const box of qa(el, '.alert'))
+        expect(getComputedStyle(box).borderLeftWidth).to.equal('10px');
     });
   });
 }
 
-// Script loading runs in fresh documents (same-origin iframes), one per test, so each test
-// starts with <uvalib-alerts> undefined and no alerts script in the page.
-describe('header snapshot normalizer', () => {
-  const A = '<uvalib-alerts slot="alerts" show="header" src="x"></uvalib-alerts>';
-  it('drops only one empty header alert right after <header>', () => {
-    expect(normalizeMarkup(`<header class="">${A}<a class="logo"></a></header>`)).to.equal(
-      '<header class=""><a class="logo"></a></header>',
+describe('site-alerts shared headless element', () => {
+  it('one <uvalib-alerts headless> feeds every <site-alerts>, and goes with the last', async () => {
+    const wrap = await fixture<HTMLElement>(
+      `<div>
+        <site-alerts show="header" alerts-src="${SRC}"></site-alerts>
+        <site-alerts show="list" alerts-src="${SRC}" no-shadow-dom></site-alerts>
+        <site-alerts show="regional" alerts-src="${SRC}"></site-alerts>
+      </div>`,
     );
-    expect(normalizeMarkup(`<header>${A}${A}<a></a></header>`)).to.equal(
-      `<header>${A}<a></a></header>`,
+    const els = [...wrap.querySelectorAll<SiteAlerts>('site-alerts')];
+    await setAlerts(ALL, ...els);
+    expect(headless().length).to.equal(1);
+    const h = headless()[0]!;
+    expect([h.parentElement, h.hidden, h.getAttribute('src')]).to.deep.equal([
+      document.body,
+      true,
+      SRC,
+    ]);
+    expect(h.hasAttribute('storage-key')).to.equal(false);
+    for (const el of els) expect(el.hasAttribute('data-empty')).to.equal(false);
+    // A move (disconnect and reconnect in one task) keeps it.
+    wrap.append(els[0]!);
+    await settle(...els);
+    expect(headless()).to.deep.equal([h]);
+    for (const el of els) el.remove();
+    await Promise.resolve();
+    await nextFrame();
+    expect(headless()).to.deep.equal([]);
+  });
+
+  it('a different storage-key or base gets its own element', async () => {
+    const wrap = await fixture<HTMLElement>(
+      `<div>
+        <site-alerts alerts-src="${SRC}"></site-alerts>
+        <site-alerts alerts-src="${SRC}" storage-key="v4SeenAlerts"></site-alerts>
+        <site-alerts alerts-src="${SRC}other/"></site-alerts>
+      </div>`,
     );
-    expect(normalizeMarkup(`<header><a></a>${A}</header>`)).to.equal(
-      `<header><a></a>${A}</header>`,
+    const els = [...wrap.querySelectorAll<SiteAlerts>('site-alerts')];
+    await settle(...els);
+    expect(
+      headless().map((h) => [h.getAttribute('src'), h.getAttribute('storage-key')]),
+    ).to.deep.equal([
+      [SRC, null],
+      [SRC, 'v4SeenAlerts'],
+      [`${SRC}other/`, null],
+    ]);
+  });
+
+  it('dismissing in one element updates the others', async () => {
+    const wrap = await fixture<HTMLElement>(
+      `<div><site-alerts show="list" alerts-src="${SRC}"></site-alerts>
+        <site-alerts show="list" alerts-src="${SRC}"></site-alerts></div>`,
     );
+    const [a, b] = [...wrap.querySelectorAll<SiteAlerts>('site-alerts')];
+    await setAlerts({ menuAlerts: LIST }, a!, b!);
+    a!.shadowRoot!.querySelector<HTMLElement>('.alert2 .dismiss')!.click();
+    await settle(a!, b!);
+    expect(b!.shadowRoot!.querySelectorAll('.alert').length).to.equal(3);
+  });
+
+  it('warns once for an invalid alerts-env and uses production', async () => {
+    const calls = await warnings(async () => {
+      const el = await fixture<SiteAlerts>(`<site-alerts alerts-env="prod"></site-alerts>`);
+      el.headingLevel = 3;
+      await settle(el);
+    });
+    expect(calls.length).to.equal(1);
+    expect(calls[0]).to.contain('alerts-env');
+    expect(headless().map((h) => h.getAttribute('src'))).to.deep.equal([
+      'https://d2q6t6fdv76k7r.cloudfront.net/',
+    ]);
   });
 });
 
-describe('alerts test interception', () => {
-  it('routes the hosts of both alerts CDNs', () => {
-    for (const base of [ALERTS_PRODUCTION_SRC, ALERTS_STAGING_SRC]) {
-      expect(ALERTS_HOSTS).to.include(new URL(base).host);
-    }
+describe('site-alerts body sanitizing', () => {
+  it('uses setHTML() with the allowlist where the browser has it', () => {
+    const calls: unknown[][] = [];
+    const el = Object.assign(document.createElement('div'), {
+      setHTML: (...args: unknown[]) => void calls.push(args),
+    });
+    setBody(el, '<p>x</p>');
+    setBody(el, '<p>x</p>'); // same value: not inserted again
+    expect(calls).to.deep.equal([['<p>x</p>', { sanitizer: BODY_SANITIZER }]]);
+    expect(BODY_SANITIZER.elements).to.include.members(['p', 'a', 'ul', 'h2']);
+    expect(BODY_SANITIZER.elements).to.not.include('script');
+    expect(BODY_SANITIZER.attributes).to.deep.equal(['href', 'class', 'rel']);
   });
 });
 
-describe('site-page alerts script loading', function () {
+describe('site-alerts script load failure', function () {
   this.timeout(8000);
-  let iframe: HTMLIFrameElement | undefined;
-  afterEach(() => {
-    iframe?.remove();
-    iframe = undefined;
-  });
-
-  async function until(check: () => boolean, what: string, ms = 4000): Promise<void> {
-    const end = Date.now() + ms;
-    while (!check()) {
-      if (Date.now() > end) throw new Error(`timed out waiting for ${what}`);
-      await new Promise((r) => setTimeout(r, 20));
-    }
-  }
-
-  /** A fresh page that loads site-page from source, with console.warn recorded. */
-  async function page(
-    body: string,
-    head = '',
-    module = '/src/components/site-page/site-page.ts',
-  ): Promise<{ win: StubWindow; doc: Document }> {
-    const moduleUrl = new URL(module, location.href).href; // absolute, so <base href> is safe
-    iframe = document.createElement('iframe');
+  it('warns once, renders nothing and leaves the page alone', async () => {
+    const iframe = document.createElement('iframe');
     document.body.append(iframe);
-    iframe.srcdoc = `<!doctype html><html><head>
-      <script>
+    const moduleUrl = new URL('/src/components/site-alerts/site-alerts.ts', location.href).href;
+    iframe.srcdoc = `<!doctype html><html><head><script>
         window.__warnings = [];
         const warn = console.warn.bind(console);
         console.warn = (...a) => {
-          const text = a.map(String).join(' ');
-          if (!text.includes('Lit is in dev mode')) window.__warnings.push(text);
+          const t = a.map(String).join(' ');
+          if (!t.includes('Lit is in dev mode')) window.__warnings.push(t);
           warn(...a);
         };
-      </script>${head}<script type="module" src="${moduleUrl}"></script></head><body>${body}</body></html>`;
-    await until(
-      () =>
-        (iframe!.contentWindow as Window & typeof globalThis)?.customElements?.get(
-          module.includes('site-header') ? 'site-header' : 'site-page',
-        ) !== undefined,
-      'components defined',
+      </script><script type="module" src="${moduleUrl}"></script></head><body>
+      <site-alerts alerts-src="${FAIL}"></site-alerts><site-alerts no-shadow-dom alerts-src="${FAIL}"></site-alerts>
+      <p id="c">content</p></body></html>`;
+    try {
+      const win = () => iframe.contentWindow as unknown as StubWindow & typeof globalThis;
+      const end = Date.now() + 5000;
+      while (!(win()?.__warnings?.length > 0)) {
+        if (Date.now() > end) throw new Error('timed out waiting for the warning');
+        await new Promise((r) => setTimeout(r, 20));
+      }
+      await new Promise((r) => setTimeout(r, 150));
+      const doc = iframe.contentDocument!;
+      expect(win().__warnings.length).to.equal(1);
+      expect(win().__warnings[0]).to.contain(`${FAIL}v1/uvalib-alerts.js`);
+      for (const a of doc.querySelectorAll('site-alerts'))
+        expect(a.getBoundingClientRect().height).to.equal(0);
+      expect(doc.getElementById('c')!.checkVisibility()).to.equal(true);
+    } finally {
+      iframe.remove();
+    }
+  });
+});
+
+describe('site-alerts accessibility', function () {
+  this.timeout(20000);
+
+  /** A page laid out as site-page lays it out: banner in a header, list band, regional in main. */
+  async function page(light: string): Promise<SiteAlerts[]> {
+    const wrap = await fixture<HTMLElement>(
+      `<div>
+        <header><site-alerts ${light} show="header" alerts-src="${SRC}"></site-alerts><p>Library</p></header>
+        <section aria-label="Library alerts"><site-alerts ${light} show="list" alerts-src="${SRC}"></site-alerts></section>
+        <main><site-alerts ${light} show="regional" alerts-src="${SRC}"></site-alerts><h1>Page</h1><p>Text</p></main>
+      </div>`,
     );
-    const win = iframe.contentWindow as unknown as StubWindow;
-    const doc = iframe.contentDocument!;
-    for (const p of doc.querySelectorAll('site-page')) await (p as Updatable).updateComplete;
-    await new Promise((r) => setTimeout(r, 50));
-    return { win, doc };
+    const els = [...wrap.querySelectorAll<SiteAlerts>('site-alerts')];
+    await setAlerts(ALL, ...els);
+    return els;
   }
 
-  const alertScripts = (doc: Document) =>
-    [...doc.querySelectorAll<HTMLScriptElement>('script[src]')].filter((s) =>
-      s.src.endsWith('/v1/uvalib-alerts.js'),
-    );
-  const defined = (win: Window) =>
-    (win as Window & typeof globalThis).customElements.get('uvalib-alerts') !== undefined;
-
-  it('injects one module script for production into <head>', async () => {
-    const { win, doc } = await page('<site-page><p>x</p></site-page>');
-    const scripts = alertScripts(doc);
-    expect(scripts.map((s) => s.src)).to.deep.equal([SCRIPT(ALERTS_PRODUCTION_SRC)]);
-    expect(scripts[0]!.type).to.equal('module');
-    expect(scripts[0]!.parentElement).to.equal(doc.head);
-    await until(() => defined(win), 'uvalib-alerts defined');
-    expect(win.__uvalibAlertsStub).to.equal(1);
-    expect(win.__warnings).to.deep.equal([]);
-  });
-
-  it('loads the staging script with alerts-env="staging"', async () => {
-    const { doc } = await page('<site-page alerts-env="staging"></site-page>');
-    expect(alertScripts(doc).map((s) => s.src)).to.deep.equal([SCRIPT(ALERTS_STAGING_SRC)]);
-  });
-
-  it('loads from alerts-src when given', async () => {
-    const { win, doc } = await page(`<site-page no-shadow-dom alerts-src="${CUSTOM}"></site-page>`);
-    expect(alertScripts(doc).map((s) => s.src)).to.deep.equal([SCRIPT(CUSTOM)]);
-    await until(() => defined(win), 'uvalib-alerts defined');
-  });
-
-  it('injects exactly once across two site-pages and a reconnect', async () => {
-    const { win, doc } = await page(
-      '<site-page id="a"></site-page><site-page id="b" no-shadow-dom></site-page>',
-    );
-    expect(alertScripts(doc).length).to.equal(1);
-    const a = doc.getElementById('a')!;
-    a.remove();
-    doc.body.append(a);
-    const b = doc.getElementById('b')!;
-    b.remove();
-    doc.body.append(b);
-    await (a as Updatable).updateComplete;
-    await (b as Updatable).updateComplete;
-    // A third page created after the script ran.
-    await until(() => defined(win), 'uvalib-alerts defined');
-    doc.body.append(doc.createElement('site-page'));
-    await new Promise((r) => setTimeout(r, 50));
-    expect(alertScripts(doc).length).to.equal(1);
-    expect(win.__uvalibAlertsStub).to.equal(1);
-    expect(deepAll(doc, 'uvalib-alerts').length).to.equal(9);
-  });
-
-  it('does not inject while the script is still loading for an earlier page', async () => {
-    const { doc } = await page('<site-page></site-page>');
-    const late = doc.createElement('site-page');
-    late.setAttribute('no-shadow-dom', '');
-    doc.body.append(late);
-    await (late as unknown as Updatable).updateComplete;
-    expect(alertScripts(doc).length).to.equal(1);
-  });
-
-  it('skips injection when <uvalib-alerts> is already defined', async () => {
-    const { win, doc } = await page(
-      '<site-page></site-page><site-page no-shadow-dom></site-page>',
-      `<script>customElements.define('uvalib-alerts', class extends HTMLElement {});</script>`,
-    );
-    expect(alertScripts(doc)).to.deep.equal([]);
-    expect(win.__uvalibAlertsStub).to.equal(undefined);
-    expect(deepAll(doc, 'uvalib-alerts').length).to.equal(6);
-  });
-
-  it('skips injection when a script with that src is already present', async () => {
-    const { doc } = await page(
-      '<site-page></site-page>',
-      `<script type="module" src="${SCRIPT(ALERTS_PRODUCTION_SRC)}"></script>`,
-    );
-    expect(alertScripts(doc).length).to.equal(1);
-  });
-
-  it('loads no script and renders no alerts with no-alerts, until it is removed', async () => {
-    const { win, doc } = await page(
-      '<site-page no-alerts></site-page><site-page no-alerts no-shadow-dom></site-page>',
-    );
-    expect(alertScripts(doc)).to.deep.equal([]);
-    expect(deepAll(doc, 'uvalib-alerts')).to.deep.equal([]);
-    await new Promise((r) => setTimeout(r, 100));
-    expect(defined(win)).to.equal(false);
-
-    const first = doc.querySelector('site-page')!;
-    first.removeAttribute('no-alerts');
-    await (first as unknown as Updatable).updateComplete;
-    expect(alertScripts(doc).length).to.equal(1);
-    expect(deepAll(doc, 'uvalib-alerts').length).to.equal(3);
-  });
-
-  it('warns once when the script fails to load and leaves the page working', async () => {
-    const { win, doc } = await page(
-      `<site-page alerts-src="${FAIL}"><p id="c">content</p></site-page>
-       <site-page no-shadow-dom alerts-src="${FAIL}"><p id="d">more</p></site-page>`,
-    );
-    await until(() => win.__warnings.length > 0, 'load-failure warning');
-    await new Promise((r) => setTimeout(r, 100));
-    expect(win.__warnings.length).to.equal(1);
-    expect(win.__warnings[0]).to.contain(SCRIPT(FAIL));
-    // The failed script is removed, so a later load can try again.
-    expect(alertScripts(doc)).to.deep.equal([]);
-    expect(defined(win)).to.equal(false);
-    // Undefined alert elements render nothing; header, main and content are intact.
-    const alerts = deepAll(doc, 'uvalib-alerts');
-    expect(alerts.length).to.equal(6);
-    for (const a of alerts) {
-      expect(a.matches(':defined')).to.equal(false);
-      expect(a.getBoundingClientRect().height).to.equal(0);
+  /** The page behind the alerts: white, or site-page's dark surface (#10172b) in dark. */
+  let page_ = 'rgb(255, 255, 255)';
+  /** The background an element is drawn on: its own, or the nearest ancestor's (flat tree). */
+  function bg(el: Element): string {
+    for (let n: Element | null = el; n;) {
+      const c = getComputedStyle(n).backgroundColor;
+      if (c !== 'rgba(0, 0, 0, 0)') return c;
+      n = n.parentElement ?? ((n.getRootNode() as ShadowRoot).host as Element | undefined) ?? null;
     }
-    expect(deepAll(doc, 'main').length).to.equal(2);
-    expect(deepAll(doc, 'site-header').length).to.equal(2);
-    expect(doc.getElementById('c')!.checkVisibility()).to.equal(true);
-    expect(doc.getElementById('d')!.closest('main')).to.not.equal(null);
-  });
+    return page_;
+  }
 
-  it('does not re-request a failed URL, but loads a corrected one', async () => {
-    const { win, doc } = await page(`<site-page alerts-src="${FAIL}"></site-page>`);
-    await until(() => win.__warnings.length > 0, 'load-failure warning');
-    const el = doc.querySelector('site-page') as unknown as SitePage;
-    // An unrelated re-render does not request the failed URL again.
-    el.rootLinkDomain = 'https://x.edu';
-    await el.updateComplete;
-    expect(alertScripts(doc)).to.deep.equal([]);
-    await new Promise((r) => setTimeout(r, 150));
-    expect(win.__warnings.length).to.equal(1);
-    expect(defined(win)).to.equal(false);
-    // A corrected alerts-src loads the component.
-    el.setAttribute('alerts-src', CUSTOM);
-    await el.updateComplete;
-    await until(() => defined(win), 'uvalib-alerts defined after the retry');
-    expect(alertScripts(doc).map((s) => s.src)).to.deep.equal([SCRIPT(CUSTOM)]);
-    expect(win.__warnings.length).to.equal(1);
-    for (const a of deepAll(doc, 'uvalib-alerts')) expect(a.getAttribute('src')).to.equal(CUSTOM);
-  });
+  /** Every [surface, text, link, icon, border] contrast in the rendered alerts. */
+  function ratios(els: SiteAlerts[]): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const el of els) {
+      const r = root(el);
+      for (const box of r.querySelectorAll<HTMLElement>('.banner, .alert, .regional')) {
+        const name = box.classList.contains('regional')
+          ? `regional${box.classList.contains('info') ? '-info' : ''}`
+          : box.classList.contains('banner')
+            ? 'banner'
+            : [...box.classList].find((c) => /^alert\d$/.test(c))!;
+        const surface = bg(box);
+        const text = box.querySelector('.body p') ?? box;
+        out[`${name} text`] = contrast(getComputedStyle(text).color, surface);
+        const link = box.querySelector('.body a');
+        if (link) out[`${name} link`] = contrast(getComputedStyle(link).color, surface);
+        const icon = box.querySelector(':scope > svg');
+        if (icon) out[`${name} icon`] = contrast(getComputedStyle(icon).color, surface);
+        const cs = getComputedStyle(box);
+        const border = name.startsWith('alert') ? cs.borderLeftColor : cs.borderTopColor;
+        if (name !== 'banner')
+          out[`${name} border/page`] = contrast(border, bg(box.parentElement ?? el));
+      }
+    }
+    return out;
+  }
 
-  it('a page added after a failed load can load the component', async () => {
-    const { win, doc } = await page(`<site-page alerts-src="${FAIL}"></site-page>`);
-    await until(() => win.__warnings.length > 0, 'load-failure warning');
-    const next = doc.createElement('site-page');
-    next.setAttribute('alerts-src', CUSTOM);
-    doc.body.append(next);
-    await until(() => defined(win), 'uvalib-alerts defined');
-    expect(win.__uvalibAlertsStub).to.equal(1);
-  });
-
-  it('normalises alerts-src: absolute, trailing slash, no query or hash', async () => {
-    const { win, doc } = await page(
-      '<site-page alerts-src="https://alerts.test/custom?v=1#top"></site-page>',
-    );
-    expect(alertScripts(doc).map((s) => s.src)).to.deep.equal([SCRIPT(CUSTOM)]);
-    for (const a of deepAll(doc, 'uvalib-alerts')) expect(a.getAttribute('src')).to.equal(CUSTOM);
-    await until(() => defined(win), 'uvalib-alerts defined');
-  });
-
-  it('resolves a relative alerts-src against the document base URL', async () => {
-    const { doc } = await page(
-      '<site-page alerts-src="rel"></site-page><site-page no-shadow-dom alerts-src="./rel/"></site-page>',
-      '<base href="https://alerts.test/base/">',
-    );
-    const expected = 'https://alerts.test/base/rel/';
-    expect(alertScripts(doc).map((s) => s.src)).to.deep.equal([SCRIPT(expected)]);
-    const alerts = deepAll(doc, 'uvalib-alerts');
-    expect(alerts.length).to.equal(6);
-    for (const a of alerts) expect(a.getAttribute('src')).to.equal(expected);
-  });
-
-  it("skips injection when the page has its own build of the component that hasn't run yet", async () => {
-    const pinned = 'https://alerts.test/v1.0.0/uvalib-alerts.iife.js';
-    const { win, doc } = await page(
-      '<site-page></site-page><site-page no-shadow-dom></site-page>',
-      `<script src="${pinned}" defer></script>`,
-    );
-    expect(alertScripts(doc)).to.deep.equal([]);
-    expect(
-      [...doc.scripts].filter((s) => s.src.includes('uvalib-alerts')).map((s) => s.src),
-    ).to.deep.equal([pinned]);
-    await until(() => defined(win), "the page's own build defined the element");
-    expect(win.__uvalibAlertsStub).to.equal(1);
-  });
-
-  it('warns once for an invalid alerts-env, then loads production', async () => {
-    const { win, doc } = await page('<site-page alerts-env="qa"></site-page>');
-    expect(win.__warnings.filter((w) => w.includes('alerts-env')).length).to.equal(1);
-    expect(alertScripts(doc).map((s) => s.src)).to.deep.equal([SCRIPT(ALERTS_PRODUCTION_SRC)]);
-  });
-
-  it('a standalone site-header loads nothing', async () => {
-    const { win, doc } = await page(
-      '<site-header></site-header><site-header no-shadow-dom></site-header>',
-      '',
-      '/src/components/site-header/site-header.ts',
-    );
-    await new Promise((r) => setTimeout(r, 100));
-    expect(alertScripts(doc)).to.deep.equal([]);
-    expect(deepAll(doc, 'uvalib-alerts')).to.deep.equal([]);
-    expect(defined(win)).to.equal(false);
-  });
+  for (const mode of ['shadow', 'light'] as const) {
+    for (const scheme of ['light', 'dark'] as const) {
+      it(`${mode}, ${scheme}: no axe violations at any impact; text AAA`, async () => {
+        installColorSchemeStyles(document);
+        if (scheme === 'dark') document.documentElement.setAttribute(COLOR_SCHEME_ATTR, 'dark');
+        page_ = scheme === 'dark' ? 'rgb(16, 23, 43)' : 'rgb(255, 255, 255)';
+        const els = await page(mode === 'light' ? 'no-shadow-dom' : '');
+        // Links in the banner too.
+        await setAlerts(
+          { ...ALL, headerAlerts: [{ ...BANNER, body: '<p>See <a href="/s">status</a>.</p>' }] },
+          ...els,
+        );
+        await expectNoPageAxeViolations();
+        const r = ratios(els);
+        for (const [k, v] of Object.entries(r)) {
+          if (/text|link/.test(k)) expect(v, `${scheme} ${k}`).to.be.at.least(7);
+          if (/icon/.test(k)) expect(v, `${scheme} ${k}`).to.be.at.least(3);
+        }
+        // Severity borders: 3:1 against the page in dark; in light only red and blue reach it
+        // (library.virginia.edu's yellow and teal borders are decorative: the icon and hidden
+        // label carry severity, and the background marks the alert).
+        if (scheme === 'dark') {
+          for (const [k, v] of Object.entries(r))
+            if (/border/.test(k)) expect(v, `${scheme} ${k}`).to.be.at.least(3);
+        } else {
+          expect(r['alert1 border/page']).to.be.at.least(3);
+          expect(r['alert3 border/page']).to.be.at.least(3);
+        }
+        // Focus ring: the text colour, on the alert's own background.
+        const button = root(els[1]!).querySelector<HTMLElement>('.alert2 .dismiss')!;
+        button.focus();
+        await sendKeys({ press: 'Shift+Tab' });
+        await sendKeys({ press: 'Tab' });
+        const ring = getComputedStyle(button);
+        expect(ring.outlineStyle).to.equal('solid');
+        expect(contrast(ring.outlineColor, bg(button))).to.be.at.least(3);
+      });
+    }
+  }
 });

@@ -14,10 +14,10 @@ import {
   alertsBase,
   isAlertsEnv,
   loadAlerts,
-} from './alerts.js';
+} from '../site-alerts/alerts.js';
 
-export { ALERTS_PRODUCTION_SRC, ALERTS_STAGING_SRC } from './alerts.js';
-export type { AlertsEnv } from './alerts.js';
+export { ALERTS_PRODUCTION_SRC, ALERTS_STAGING_SRC } from '../site-alerts/alerts.js';
+export type { AlertsEnv } from '../site-alerts/alerts.js';
 
 /** The alert elements' `show` values: header banner, alert list, regional alerts. */
 type AlertShow = 'header' | 'list' | 'regional';
