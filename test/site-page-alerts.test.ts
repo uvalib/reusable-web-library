@@ -10,8 +10,8 @@ import { normalizeMarkup } from './helpers/header-snapshot.js';
 
 // The alerts hosts are routed to a stub by the test runner (test/helpers/alerts-intercept.mjs):
 // https://alerts.test/ serves the same stub, https://alerts-fail.test/ fails every request.
-// The stub does not reproduce the real component's markup: it renders one plain row per alert
-// set with __uvalibAlertsStubSet() and dispatches a realistic uvalib-alerts-update.
+// The stub is a fake headless <uvalib-alerts>: alerts set with __uvalibAlertsStubSet() reach
+// the page's <site-alerts> through its properties and uvalib-alerts-update events.
 const CUSTOM = 'https://alerts.test/custom/';
 const FAIL = 'https://alerts-fail.test/';
 const SCRIPT = (base: string) => `${base}v1/uvalib-alerts.js`;
@@ -49,7 +49,9 @@ function deepAll(node: ParentNode, selector: string): Element[] {
   return found;
 }
 
-const alertsOf = (el: Element) => deepAll(root(el), 'uvalib-alerts');
+const alertsOf = (el: Element) => deepAll(root(el), 'site-alerts');
+/** The shared headless elements in a document. */
+const headless = (doc: Document = document) => [...doc.querySelectorAll('uvalib-alerts[headless]')];
 const headerOf = (el: SitePage) => root(el).querySelector('site-header') as SiteHeader;
 const mainOf = (el: SitePage) => root(el).querySelector('main')!;
 /** The list band: a labelled region between the header and <main>. */
@@ -60,6 +62,7 @@ const bandOf = (el: SitePage) =>
 /** Set the stub's alerts for every connected element, then let the page re-render. */
 async function stubAlerts(state: StubState | undefined, ...els: Element[]): Promise<void> {
   await customElements.whenDefined('uvalib-alerts');
+  await customElements.whenDefined('site-alerts');
   (window as unknown as StubWindow).__uvalibAlertsStubSet!(state);
   await settle(...els);
 }
@@ -94,12 +97,16 @@ for (const mode of ['shadow', 'light'] as const) {
     const make = async (attrs = '', children = '<p id="c">content</p>'): Promise<SitePage> => {
       const el = await fixture<SitePage>(`<site-page ${light} ${attrs}>${children}</site-page>`);
       await settle(el, headerOf(el));
+      if (!el.noAlerts) {
+        await customElements.whenDefined('site-alerts');
+        await settle(el, headerOf(el), ...alertsOf(el));
+      }
       return el;
     };
 
-    /** The three alert elements, in document order, as [show, src] pairs. */
+    /** The three alert elements, in document order, as [show, alerts-src] pairs. */
     const shown = (el: SitePage) =>
-      alertsOf(el).map((a) => [a.getAttribute('show'), a.getAttribute('src')]);
+      alertsOf(el).map((a) => [a.getAttribute('show'), a.getAttribute('alerts-src')]);
 
     /** The header alert is in <header> after the skip link and before the logo row. */
     function expectHeaderPlacement(el: SitePage) {
@@ -141,11 +148,11 @@ for (const mode of ['shadow', 'light'] as const) {
       expect(band.nextElementSibling).to.equal(mainOf(el));
       expect(band.getAttribute('aria-label')).to.equal('Library alerts');
       expect([...band.children].map((k) => [k.localName, k.getAttribute('show')])).to.deep.equal([
-        ['uvalib-alerts', 'list'],
+        ['site-alerts', 'list'],
       ]);
       const kids = [...mainOf(el).children];
       expect([kids[0]!.localName, kids[0]!.getAttribute('show')]).to.deep.equal([
-        'uvalib-alerts',
+        'site-alerts',
         'regional',
       ]);
       // Light mode: nothing at all precedes it (shadow mode has Lit's comment markers).
@@ -162,12 +169,16 @@ for (const mode of ['shadow', 'light'] as const) {
         ['list', ALERTS_PRODUCTION_SRC],
         ['regional', ALERTS_PRODUCTION_SRC],
       ]);
-      // The storage key and headless mode stay the component defaults.
+      // The storage key stays the alerts project's default; in light mode the elements are too.
       for (const a of alertsOf(el)) {
         expect(a.hasAttribute('storage-key')).to.equal(false);
-        expect(a.hasAttribute('headless')).to.equal(false);
+        expect(a.hasAttribute('no-shadow-dom')).to.equal(mode === 'light');
       }
       expect(el.hasAttribute('alerts-env')).to.equal(false);
+      // One shared headless element feeds all three.
+      expect(headless().map((h) => h.getAttribute('src'))).to.deep.equal([ALERTS_PRODUCTION_SRC]);
+      expect(headless()[0]!.parentElement).to.equal(document.body);
+      expect((headless()[0] as HTMLElement).hidden).to.equal(true);
     });
 
     it('places the header alert in <header>, the list band before <main>, regional first in <main>', async () => {
@@ -240,6 +251,7 @@ for (const mode of ['shadow', 'light'] as const) {
     it('renders no alert elements with no-alerts', async () => {
       const el = await make('no-alerts');
       expect(alertsOf(el)).to.deep.equal([]);
+      expect(headless()).to.deep.equal([]);
       expect(alertsOf(headerOf(el))).to.deep.equal([]);
       expect(bandOf(el)).to.equal(null);
       expect(deepAll(root(el), 'section').length).to.equal(0);
@@ -254,11 +266,14 @@ for (const mode of ['shadow', 'light'] as const) {
       expect(alertsOf(el)).to.deep.equal([]);
       expect(bandOf(el)).to.equal(null);
       for (const a of before) expect(a.isConnected).to.equal(false);
+      expect(headless(), 'the last user removed the shared element').to.deep.equal([]);
       expect(inMain(el, document.getElementById('c')!)).to.equal(true);
 
       el.removeAttribute('no-alerts');
-      await settle(el, headerOf(el));
+      await settle(el, headerOf(el), ...alertsOf(el));
       expect(shown(el).map((s) => s[0])).to.deep.equal(['header', 'list', 'regional']);
+      await settle(...alertsOf(el));
+      expect(headless().length).to.equal(1);
       expectHeaderPlacement(el);
       expectMainPlacement(el);
       expect(document.getElementById('c')!.textContent).to.equal('content');
@@ -273,9 +288,12 @@ for (const mode of ['shadow', 'light'] as const) {
       expect(shown(el).map((s) => s[1])).to.deep.equal(Array(3).fill(ALERTS_STAGING_SRC));
 
       el.setAttribute('alerts-src', CUSTOM);
-      await settle(el);
+      await settle(el, ...before);
       expect(alertsOf(el)).to.deep.equal(before);
       expect(shown(el).map((s) => s[1])).to.deep.equal(Array(3).fill(CUSTOM));
+      // The shared element follows: the old one goes with its last user.
+      await Promise.resolve();
+      expect(headless().map((h) => h.getAttribute('src'))).to.deep.equal([CUSTOM]);
 
       el.removeAttribute('alerts-src');
       await settle(el);
@@ -296,6 +314,8 @@ for (const mode of ['shadow', 'light'] as const) {
       await settle(el, headerOf(el));
       expect(alertsOf(el)).to.deep.equal(before);
       expect(deepAll(root(el), 'section.alerts-list').length).to.equal(1);
+      await settle(...before);
+      expect(headless().length, 'still one shared element').to.equal(1);
       expectHeaderPlacement(el);
       expectMainPlacement(el);
     });
@@ -337,8 +357,8 @@ for (const mode of ['shadow', 'light'] as const) {
         await stubAlerts({ menuAlerts: [ALERT(1)] }, el);
         const regional = alertsOf(el).find((a) => a.getAttribute('show') === 'regional')!;
         regional.dispatchEvent(
-          new CustomEvent('uvalib-alerts-update', {
-            detail: { menuAlerts: [] },
+          new CustomEvent('site-alerts-change', {
+            detail: { count: 0 },
             bubbles: true,
             composed: true,
           }),
@@ -433,8 +453,8 @@ for (const mode of ['shadow', 'light'] as const) {
         el,
         headerOf(el),
       );
-      // The stub rendered a row in each alert element.
-      for (const a of alertsOf(el)) expect(a.shadowRoot?.textContent).to.contain('Alert');
+      // Each alert element rendered its alert.
+      for (const a of alertsOf(el)) expect(root(a).textContent).to.contain('Body');
       expect(bandOf(el)!.hidden).to.equal(false);
       await expectNoPageAxeViolations();
     });
@@ -450,9 +470,9 @@ for (const mode of ['shadow', 'light'] as const) {
 }
 
 // Script loading runs in fresh documents (same-origin iframes), one per test, so each test
-// starts with <uvalib-alerts> undefined and no alerts script in the page.
+// starts with <uvalib-alerts> and <site-alerts> undefined and no alerts script in the page.
 describe('header snapshot normalizer', () => {
-  const A = '<uvalib-alerts slot="alerts" show="header" src="x"></uvalib-alerts>';
+  const A = '<site-alerts slot="alerts" show="header" alerts-src="x"></site-alerts>';
   it('drops only one empty header alert right after <header>', () => {
     expect(normalizeMarkup(`<header class="">${A}<a class="logo"></a></header>`)).to.equal(
       '<header class=""><a class="logo"></a></header>',
@@ -529,6 +549,9 @@ describe('site-page alerts script loading', function () {
     );
   const defined = (win: Window) =>
     (win as Window & typeof globalThis).customElements.get('uvalib-alerts') !== undefined;
+  const uiDefined = (win: Window) =>
+    (win as Window & typeof globalThis).customElements.get('site-alerts') !== undefined;
+  const shared = (doc: Document) => [...doc.querySelectorAll('uvalib-alerts[headless]')];
 
   it('injects one module script for production into <head>', async () => {
     const { win, doc } = await page('<site-page><p>x</p></site-page>');
@@ -571,7 +594,9 @@ describe('site-page alerts script loading', function () {
     await new Promise((r) => setTimeout(r, 50));
     expect(alertScripts(doc).length).to.equal(1);
     expect(win.__uvalibAlertsStub).to.equal(1);
-    expect(deepAll(doc, 'uvalib-alerts').length).to.equal(9);
+    expect(deepAll(doc, 'site-alerts').length).to.equal(9);
+    // Nine <site-alerts>, one headless element.
+    expect(shared(doc).length).to.equal(1);
   });
 
   it('does not inject while the script is still loading for an earlier page', async () => {
@@ -590,7 +615,12 @@ describe('site-page alerts script loading', function () {
     );
     expect(alertScripts(doc)).to.deep.equal([]);
     expect(win.__uvalibAlertsStub).to.equal(undefined);
-    expect(deepAll(doc, 'uvalib-alerts').length).to.equal(6);
+    expect(deepAll(doc, 'site-alerts').length).to.equal(6);
+    // The page's own element (without the headless API) gives no alerts, and nothing breaks.
+    await until(() => uiDefined(win) && shared(doc).length === 1, 'shared element created');
+    await new Promise((r) => setTimeout(r, 50));
+    for (const a of deepAll(doc, 'site-alerts'))
+      expect(a.hasAttribute('data-empty')).to.equal(true);
   });
 
   it('skips injection when a script with that src is already present', async () => {
@@ -606,15 +636,19 @@ describe('site-page alerts script loading', function () {
       '<site-page no-alerts></site-page><site-page no-alerts no-shadow-dom></site-page>',
     );
     expect(alertScripts(doc)).to.deep.equal([]);
-    expect(deepAll(doc, 'uvalib-alerts')).to.deep.equal([]);
+    expect(deepAll(doc, 'site-alerts')).to.deep.equal([]);
     await new Promise((r) => setTimeout(r, 100));
     expect(defined(win)).to.equal(false);
+    // <site-alerts>' own code is not even loaded.
+    expect(uiDefined(win)).to.equal(false);
+    expect(deepAll(doc, 'uvalib-alerts')).to.deep.equal([]);
 
     const first = doc.querySelector('site-page')!;
     first.removeAttribute('no-alerts');
     await (first as unknown as Updatable).updateComplete;
     expect(alertScripts(doc).length).to.equal(1);
-    expect(deepAll(doc, 'uvalib-alerts').length).to.equal(3);
+    expect(deepAll(doc, 'site-alerts').length).to.equal(3);
+    await until(() => uiDefined(win), 'site-alerts defined');
   });
 
   it('warns once when the script fails to load and leaves the page working', async () => {
@@ -629,13 +663,14 @@ describe('site-page alerts script loading', function () {
     // The failed script is removed, so a later load can try again.
     expect(alertScripts(doc)).to.deep.equal([]);
     expect(defined(win)).to.equal(false);
-    // Undefined alert elements render nothing; header, main and content are intact.
-    const alerts = deepAll(doc, 'uvalib-alerts');
+    // The alert elements render nothing; header, main and content are intact.
+    await until(() => uiDefined(win), 'site-alerts defined');
+    const alerts = deepAll(doc, 'site-alerts');
     expect(alerts.length).to.equal(6);
-    for (const a of alerts) {
-      expect(a.matches(':defined')).to.equal(false);
-      expect(a.getBoundingClientRect().height).to.equal(0);
-    }
+    for (const a of alerts) expect(a.getBoundingClientRect().height).to.equal(0);
+    // The shared element stays undefined.
+    expect(shared(doc).length).to.equal(1);
+    expect(shared(doc)[0]!.matches(':defined')).to.equal(false);
     expect(deepAll(doc, 'main').length).to.equal(2);
     expect(deepAll(doc, 'site-header').length).to.equal(2);
     expect(doc.getElementById('c')!.checkVisibility()).to.equal(true);
@@ -659,7 +694,10 @@ describe('site-page alerts script loading', function () {
     await until(() => defined(win), 'uvalib-alerts defined after the retry');
     expect(alertScripts(doc).map((s) => s.src)).to.deep.equal([SCRIPT(CUSTOM)]);
     expect(win.__warnings.length).to.equal(1);
-    for (const a of deepAll(doc, 'uvalib-alerts')) expect(a.getAttribute('src')).to.equal(CUSTOM);
+    for (const a of deepAll(doc, 'site-alerts'))
+      expect(a.getAttribute('alerts-src')).to.equal(CUSTOM);
+    await until(() => shared(doc).length === 1, 'the old shared element removed');
+    expect(shared(doc)[0]!.getAttribute('src')).to.equal(CUSTOM);
   });
 
   it('a page added after a failed load can load the component', async () => {
@@ -677,7 +715,8 @@ describe('site-page alerts script loading', function () {
       '<site-page alerts-src="https://alerts.test/custom?v=1#top"></site-page>',
     );
     expect(alertScripts(doc).map((s) => s.src)).to.deep.equal([SCRIPT(CUSTOM)]);
-    for (const a of deepAll(doc, 'uvalib-alerts')) expect(a.getAttribute('src')).to.equal(CUSTOM);
+    for (const a of deepAll(doc, 'site-alerts'))
+      expect(a.getAttribute('alerts-src')).to.equal(CUSTOM);
     await until(() => defined(win), 'uvalib-alerts defined');
   });
 
@@ -688,9 +727,9 @@ describe('site-page alerts script loading', function () {
     );
     const expected = 'https://alerts.test/base/rel/';
     expect(alertScripts(doc).map((s) => s.src)).to.deep.equal([SCRIPT(expected)]);
-    const alerts = deepAll(doc, 'uvalib-alerts');
+    const alerts = deepAll(doc, 'site-alerts');
     expect(alerts.length).to.equal(6);
-    for (const a of alerts) expect(a.getAttribute('src')).to.equal(expected);
+    for (const a of alerts) expect(a.getAttribute('alerts-src')).to.equal(expected);
   });
 
   it("skips injection when the page has its own build of the component that hasn't run yet", async () => {
@@ -721,6 +760,7 @@ describe('site-page alerts script loading', function () {
     );
     await new Promise((r) => setTimeout(r, 100));
     expect(alertScripts(doc)).to.deep.equal([]);
+    expect(deepAll(doc, 'site-alerts')).to.deep.equal([]);
     expect(deepAll(doc, 'uvalib-alerts')).to.deep.equal([]);
     expect(defined(win)).to.equal(false);
   });

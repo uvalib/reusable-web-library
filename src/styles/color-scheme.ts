@@ -10,21 +10,11 @@ import { css, unsafeCSS } from 'lit';
 // own `:root { --uva-brand-*: … }` still applies in light mode. They are resolved where they
 // are used, against that element's `color-scheme`, which every component sets from
 // `--uva-color-scheme` (default `light`). Tokens with no single light value (the decorative
-// border, the alerts component's properties) are set in dark only.
+// border) are set in dark only.
 
 /** Dark values for properties that have no one light value: each reader keeps its own. */
 const darkOnly = `
   --uva-color-border: #7a84a0;
-  --uvalib-alerts-text: #e8e8e8;
-  --uvalib-alerts-header-bg: #0e4a57;
-  --uvalib-alerts-alert1-bg: #4a1622;
-  --uvalib-alerts-alert1-border: #ef3f6b;
-  --uvalib-alerts-alert2-bg: #3d3510;
-  --uvalib-alerts-alert2-border: #ecc602;
-  --uvalib-alerts-alert3-bg: #0d3247;
-  --uvalib-alerts-alert3-border: #55c4ec;
-  --uvalib-alerts-regional-bg: #0f3a3d;
-  --uvalib-alerts-regional-border: 0.2em solid #25cad3;
 `;
 
 const dark = unsafeCSS(darkOnly);
@@ -56,6 +46,22 @@ export const colorScheme = css`
       --uva-color-shadow: light-dark(rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.6));
       --uva-color-pre-footer-bg: light-dark(var(--uva-blue-alt-300, #bfe7f7), #005679);
       --uva-color-pre-footer-text: light-dark(var(--uva-grey-darkest, #2b2b2b), #ffffff);
+      /* <site-alerts>: library.virginia.edu's alert colours, and a muted dark palette. Text
+         is 7:1 or more (WCAG AAA) on every alert background in both schemes. */
+      --uva-color-alert-text: light-dark(var(--uva-grey-darkest, #2b2b2b), #e8e8e8);
+      --uva-color-alert-link: light-dark(var(--uva-blue-alt-B, #141e3c), #ffffff);
+      --uva-color-alert-header-bg: light-dark(var(--uva-teal, #25cad3), #0e4a57);
+      --uva-color-alert-header-text: light-dark(#000000, #e8e8e8);
+      --uva-color-alert-critical-bg: light-dark(var(--uva-red-100, #fbcfda), #4a1622);
+      --uva-color-alert-critical-border: light-dark(var(--uva-red-B, #b30000), #ef3f6b);
+      --uva-color-alert-warning-bg: light-dark(var(--uva-yellow-100, #fef6c8), #3d3510);
+      --uva-color-alert-warning-border: light-dark(var(--uva-yellow, #ecc602), #ecc602);
+      --uva-color-alert-info-bg: light-dark(var(--uva-blue-alt-300, #bfe7f7), #0d3247);
+      --uva-color-alert-info-border: light-dark(var(--uva-blue-alt, #007bac), #55c4ec);
+      --uva-color-alert-regional-bg: light-dark(var(--uva-yellow-100, #fef6c8), #3d3510);
+      --uva-color-alert-regional-border: light-dark(var(--uva-yellow, #ecc602), #ecc602);
+      --uva-color-alert-regional-info-bg: light-dark(var(--uva-teal-200, #c8f2f4), #0f3a3d);
+      --uva-color-alert-regional-info-border: light-dark(var(--uva-teal, #25cad3), #25cad3);
     }
     :root[data-uva-color-scheme='system'] {
       color-scheme: light dark;

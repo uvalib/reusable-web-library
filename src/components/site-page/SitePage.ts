@@ -10,7 +10,6 @@ import { ColorSchemeController } from '../../base/color-scheme.js';
 import { bufferAnalytics } from '../../base/analytics.js';
 import {
   ALERTS_PRODUCTION_SRC,
-  ALERTS_TAG,
   alertsBase,
   isAlertsEnv,
   loadAlerts,
@@ -19,8 +18,9 @@ import {
 export { ALERTS_PRODUCTION_SRC, ALERTS_STAGING_SRC } from '../site-alerts/alerts.js';
 export type { AlertsEnv } from '../site-alerts/alerts.js';
 
-/** The alert elements' `show` values: header banner, alert list, regional alerts. */
+/** The `<site-alerts>` elements' `show` values: header banner, alert list, regional alerts. */
 type AlertShow = 'header' | 'list' | 'regional';
+const ALERTS_UI = 'site-alerts';
 /** Accessible name of the list band region. */
 const ALERTS_LIST_LABEL = 'Library alerts';
 
@@ -33,15 +33,15 @@ const slotOf = (n: Node): string | null => (n instanceof Element ? n.getAttribut
  * The header shows the UVA Library main navigation by default (`no-main-nav` turns it off;
  * `header-variant="vendor"` never shows it).
  *
- * Shows live UVA Library alerts by default, placed as Virgo places them: a full-bleed
- * `<uvalib-alerts show="header">` banner at the top of the header landmark (after the skip
- * link), a full-bleed band between the header and `<main>` holding `<uvalib-alerts show="list">`
- * (a `<section aria-label="Library alerts">` region, hidden while the list has nothing to
- * show), and `<uvalib-alerts show="regional">` as the first child of `<main>`, inside its
- * padding. The alerts component is loaded once
- * per document, with a module script, from the alerts CDN (`alerts-env`, or `alerts-src`);
- * if it fails to load, one console warning is logged and the page works as before.
- * `no-alerts` renders no alert elements and loads nothing.
+ * Shows live UVA Library alerts by default with `<site-alerts>` (its code loads only then),
+ * placed as Virgo places them: a full-bleed `<site-alerts show="header">` banner at the top
+ * of the header landmark (after the skip link), a full-bleed band between the header and
+ * `<main>` holding `<site-alerts show="list">` (a `<section aria-label="Library alerts">`
+ * region, hidden while the list has nothing to show), and `<site-alerts show="regional">` as
+ * the first child of `<main>`, inside its padding. Their data comes from one headless
+ * `<uvalib-alerts>`, loaded once per document, with a module script, from the alerts CDN
+ * (`alerts-env`, or `alerts-src`); if it fails to load, one console warning is logged and
+ * the page works as before. `no-alerts` renders no alert elements and loads nothing.
  *
  * A `slot="breadcrumbs"` child (a `<uvalib-breadcrumbs>`) is placed where library.virginia.edu
  * puts the trail: after the header and the alert list band, before `<main>` and outside it (so
@@ -161,7 +161,7 @@ export class SitePage extends UvalibElement {
       .alerts-list[hidden] {
         display: none;
       }
-      .alerts-list > uvalib-alerts {
+      .alerts-list > site-alerts {
         display: block;
       }
       /* The breadcrumb trail lines up with main's content (same max width and side padding). */
@@ -218,6 +218,8 @@ export class SitePage extends UvalibElement {
   };
   /** The `<site-analytics>` this element added for `matomo-id`. */
   private analytics?: HTMLElement;
+  /** Whether this element asked for `<site-alerts>`' code. */
+  private alertsUiRequested = false;
   /** Whether the list alerts have anything to show, from their last update event. */
   @state() private listShown = false;
   /**
@@ -277,11 +279,11 @@ export class SitePage extends UvalibElement {
     }
   }
 
-  /** The list element's `uvalib-alerts-update`: show the band only while it lists alerts. */
-  private onListUpdate(e: Event): void {
+  /** The list element's `site-alerts-change`: show the band only while it lists alerts. */
+  private onListChange(e: Event): void {
     if (e.target !== e.currentTarget) return;
-    const detail = (e as CustomEvent<{ menuAlerts?: unknown[] }>).detail;
-    this.listShown = Array.isArray(detail?.menuAlerts) && detail.menuAlerts.length > 0;
+    const count = (e as CustomEvent<{ count?: unknown }>).detail?.count;
+    this.listShown = typeof count === 'number' && count > 0;
   }
 
   protected override willUpdate(changed: PropertyValues): void {
@@ -306,8 +308,25 @@ export class SitePage extends UvalibElement {
 
   protected override updated(): void {
     if (this.lightDom) this.syncLightAlerts();
-    if (!this.noAlerts) loadAlerts(this.ownerDocument, this.alertsUrl);
+    if (!this.noAlerts) {
+      // The alerts script starts loading at once, alongside <site-alerts>' own code.
+      loadAlerts(this.ownerDocument, this.alertsUrl);
+      this.defineAlerts();
+    }
     this.syncAnalytics();
+  }
+
+  /** Loads `<site-alerts>` (and registers it) on first use of the alerts. */
+  protected loadAlertsUi(): Promise<unknown> {
+    return import('../site-alerts/site-alerts.js');
+  }
+
+  private defineAlerts(): void {
+    if (this.alertsUiRequested || customElements.get(ALERTS_UI)) return;
+    this.alertsUiRequested = true;
+    this.loadAlertsUi().catch((err) =>
+      console.error(`${this.localName}: failed to load site-alerts`, err),
+    );
   }
 
   /** Loads `<site-analytics>` (and registers it) on first use of `matomo-id`. */
@@ -375,15 +394,16 @@ export class SitePage extends UvalibElement {
     if (!this.lightAlerts) {
       const doc = this.ownerDocument;
       const make = (show: AlertShow) => {
-        const a = doc.createElement(ALERTS_TAG);
+        const a = doc.createElement(ALERTS_UI);
         a.setAttribute('show', show);
+        a.setAttribute('no-shadow-dom', '');
         this.chrome.add(a);
         return a;
       };
       const top = make('header');
       top.slot = 'alerts';
       const list = make('list');
-      list.addEventListener('uvalib-alerts-update', (e) => this.onListUpdate(e));
+      list.addEventListener('site-alerts-change', (e) => this.onListChange(e));
       const band = doc.createElement('section');
       band.className = 'alerts-list';
       band.setAttribute('aria-label', ALERTS_LIST_LABEL);
@@ -393,7 +413,9 @@ export class SitePage extends UvalibElement {
     }
     const { top, band, list, regional } = this.lightAlerts;
     for (const a of [top, list, regional]) {
-      if (a.getAttribute('src') !== this.alertsUrl) a.setAttribute('src', this.alertsUrl);
+      if (a.getAttribute('alerts-src') !== this.alertsUrl)
+        a.setAttribute('alerts-src', this.alertsUrl);
+      a.toggleAttribute('no-style', this.noStyle);
     }
     band.hidden = !this.listShown;
     if (!header.contains(top)) header.append(top);
@@ -509,22 +531,24 @@ export class SitePage extends UvalibElement {
     // Light mode: the link stays the first child, where the target resolves.
     const alerts = !this.noAlerts && !light;
     const alert = (show: AlertShow) =>
-      html`<uvalib-alerts
+      html`<site-alerts
         slot=${ifDefined(show === 'header' ? 'alerts' : undefined)}
         show=${show}
-        src=${this.alertsUrl}
-      ></uvalib-alerts>`;
+        alerts-src=${this.alertsUrl}
+        ?no-style=${this.noStyle}
+      ></site-alerts>`;
     // Shadow mode's list band; light mode builds the same in syncLightAlerts().
     const band = html`<section
       class="alerts-list"
       aria-label=${ALERTS_LIST_LABEL}
       ?hidden=${!this.listShown}
     >
-      <uvalib-alerts
+      <site-alerts
         show="list"
-        src=${this.alertsUrl}
-        @uvalib-alerts-update=${this.onListUpdate}
-      ></uvalib-alerts>
+        alerts-src=${this.alertsUrl}
+        ?no-style=${this.noStyle}
+        @site-alerts-change=${this.onListChange}
+      ></site-alerts>
     </section>`;
     return html`
       ${light ? skip : nothing}

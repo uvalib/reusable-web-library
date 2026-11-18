@@ -102,47 +102,57 @@ describe('dark mode colours', function () {
     });
   }
 
-  it('dark alert colours go to the alerts component through its own custom properties', async () => {
+  it('dark alert colours: <site-alerts> reads the --uva-color-alert-* role tokens', async () => {
     localStorage.setItem(COLOR_SCHEME_STORAGE_KEY, 'dark');
-    await mountPage('shadow', 'color-scheme-switch');
-    const cs = getComputedStyle(document.documentElement);
-    const v = (p: string) => cs.getPropertyValue(p).trim();
-    expect(v('--uvalib-alerts-text')).to.equal('#e8e8e8');
-    expect(v('--uvalib-alerts-header-bg')).to.equal('#0e4a57');
-    expect(
-      ['alert1', 'alert2', 'alert3'].map((a) => [
-        v(`--uvalib-alerts-${a}-bg`),
-        v(`--uvalib-alerts-${a}-border`),
-      ]),
-    ).to.deep.equal([
-      ['#4a1622', '#ef3f6b'],
-      ['#3d3510', '#ecc602'],
-      ['#0d3247', '#55c4ec'],
-    ]);
-    expect(v('--uvalib-alerts-regional-bg')).to.equal('#0f3a3d');
-    // Every alert surface the stub draws with them: header, alert1-3, regional.
+    const page = await mountPage('shadow', 'color-scheme-switch');
+    await customElements.whenDefined('site-alerts');
     await customElements.whenDefined('uvalib-alerts');
     (window as StubWindow).__uvalibAlertsStubSet!(ALERTS);
-    await nextFrame();
-    const surfaces = [...document.querySelectorAll('*')]
-      .flatMap((n) => (n.shadowRoot ? [n.shadowRoot] : []))
-      .flatMap((r) => [...r.querySelectorAll('uvalib-alerts')])
-      .concat([...document.querySelectorAll('uvalib-alerts')])
-      .flatMap((a) => [...(a.shadowRoot?.querySelectorAll('.a') ?? [])]);
+    for (let i = 0; i < 2; i++) await nextFrame();
+    // Every alert surface: header banner, alert1-3, regional (warning and information).
+    const els = [...rootOf(page).querySelectorAll('site-alerts')]
+      .concat([
+        ...rootOf(rootOf(page).querySelector('site-header')!).querySelectorAll('site-alerts'),
+      ])
+      .concat([...page.querySelectorAll('site-alerts')]);
+    const surfaces = els.flatMap((a) => [
+      ...rootOf(a).querySelectorAll<HTMLElement>('.banner, .alert, .regional'),
+    ]);
+    const name = (d: HTMLElement) =>
+      d.classList.contains('banner')
+        ? 'header'
+        : d.classList.contains('regional')
+          ? `regional${d.classList.contains('info') ? '-info' : ''}`
+          : [...d.classList].find((k) => /^alert\d$/.test(k))!;
     const bgs = Object.fromEntries(
-      surfaces.map((d) => [d.classList[1], getComputedStyle(d).backgroundColor]),
+      surfaces.map((d) => [name(d), getComputedStyle(d).backgroundColor]),
     );
     expect(bgs).to.deep.equal({
       header: c('#0e4a57'),
       alert1: c('#4a1622'),
       alert2: c('#3d3510'),
       alert3: c('#0d3247'),
-      regional: c('#0f3a3d'),
+      regional: c('#3d3510'),
+      'regional-info': c('#0f3a3d'),
+    });
+    const borders = Object.fromEntries(
+      surfaces
+        .filter((d) => !d.classList.contains('banner'))
+        .map((d) => {
+          const cs = getComputedStyle(d);
+          return [name(d), d.classList.contains('alert') ? cs.borderLeftColor : cs.borderTopColor];
+        }),
+    );
+    expect(borders).to.deep.equal({
+      alert1: c('#ef3f6b'),
+      alert2: c('#ecc602'),
+      alert3: c('#55c4ec'),
+      regional: c('#ecc602'),
+      'regional-info': c('#25cad3'),
     });
     for (const d of surfaces) expect(getComputedStyle(d).color).to.equal(c('#e8e8e8'));
     (window as StubWindow).__uvalibAlertsStubSet!(undefined);
-    // Light (opted in) leaves them to the component's own defaults.
-    document.documentElement.setAttribute(COLOR_SCHEME_ATTR, 'light');
+    // The alerts project's own properties are gone: nothing sets them any more.
     expect(
       getComputedStyle(document.documentElement).getPropertyValue('--uvalib-alerts-text'),
     ).to.equal('');
@@ -159,7 +169,10 @@ const ALERTS = {
     body: 'Wi-Fi is down.',
     severity,
   })),
-  regionalAlerts: [{ uuid: 'r', title: 'Regional alert', body: 'Snow.' }],
+  regionalAlerts: [
+    { uuid: 'r', title: 'Regional alert', body: 'Snow.', severity: 'alert2' },
+    { uuid: 'r3', title: 'Regional notice', body: 'Tours.', severity: 'alert3' },
+  ],
 };
 
 describe('dark mode accessibility (axe, every impact level)', function () {
@@ -177,7 +190,9 @@ describe('dark mode accessibility (axe, every impact level)', function () {
           localStorage.setItem(COLOR_SCHEME_STORAGE_KEY, scheme);
           const page = await mountPage(mode, 'color-scheme-switch');
           await customElements.whenDefined('uvalib-alerts');
+          await customElements.whenDefined('site-alerts');
           (window as StubWindow).__uvalibAlertsStubSet!(ALERTS);
+          await nextFrame();
           await nextFrame();
           const header = rootOf(page).querySelector('site-header')!;
           if (width < 993) {

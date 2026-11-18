@@ -35,5 +35,5 @@ export function normalizeMarkup(html: string): string {
     .replace(/\s+/g, ' ')
     .replace(/>\s+/g, '>')
     .replace(/\s+</g, '<')
-    .replace(/^(<header\b[^>]*>)<uvalib-alerts\b[^>]*\bslot="alerts"[^>]*><\/uvalib-alerts>/, '$1');
+    .replace(/^(<header\b[^>]*>)<site-alerts\b[^>]*\bslot="alerts"[^>]*><\/site-alerts>/, '$1');
 }
