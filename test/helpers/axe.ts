@@ -23,6 +23,19 @@ function loadAxe(win: AxeWindow): Promise<typeof AxeCore> {
   return p;
 }
 
+/**
+ * Rules Lighthouse's accessibility audit turns on that a default axe run leaves off (target
+ * size, identical link purpose, and two table rules). Every run here enables them, so this
+ * suite is at least as strict as Lighthouse (which also runs only the WCAG 2.0 A/AA tags plus
+ * a few rules, where this runs every rule).
+ */
+export const LIGHTHOUSE_EXTRA_RULES = [
+  'target-size',
+  'identical-links-same-purpose',
+  'table-fake-caption',
+  'td-has-header',
+];
+
 /** Every axe impact level: minor and moderate cover most best-practice rules. */
 export const ALL_IMPACTS = ['minor', 'moderate', 'serious', 'critical'];
 
@@ -60,7 +73,9 @@ export async function expectNoAxeViolations(
   const context = exclude ? { include: [el], exclude } : el;
   const results = await axe.run(context as AxeCore.ElementContext, {
     resultTypes: ['violations'],
-    ...(rules && { runOnly: { type: 'rule', values: rules } }),
+    ...(rules
+      ? { runOnly: { type: 'rule', values: rules } }
+      : { rules: Object.fromEntries(LIGHTHOUSE_EXTRA_RULES.map((id) => [id, { enabled: true }])) }),
   });
   const bad = results.violations.filter((v) => v.impact && impacts.includes(v.impact));
   if (bad.length) {

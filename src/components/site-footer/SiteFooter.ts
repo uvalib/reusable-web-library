@@ -99,6 +99,11 @@ export class SiteFooter extends UvalibElement {
         list-style-type: none;
         padding-left: 0;
       }
+      /* Its own line height (as the page's base styles give it), so stacked links stay 24px
+         apart (WCAG 2.2 target size) even on a page with line-height: normal. */
+      .footer--main .block-content {
+        line-height: 1.5;
+      }
       .footer--main address {
         font-style: italic;
       }

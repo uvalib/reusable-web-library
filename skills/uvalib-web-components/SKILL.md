@@ -1,6 +1,6 @@
 ---
 name: uvalib-web-components
-description: Use when building or editing UVA Library web pages or sites, adding the UVA Library header, footer or page wrapper to a page, using the custom elements <site-page>, <site-header>, <site-main-nav>, <site-footer>, <site-analytics>, <uvalib-analytics>, <site-style>, <uvalib-breadcrumbs>, <uvalib-filter>, <uvalib-date-range>, <site-hours-section>, <library-weekly-hours>, <library-hours-setup>, <events-section> or <bento-box>, working with the @uvalib/web-components npm package, or editing script/link URLs on unpkg.internal.lib.virginia.edu (including migrating old /web-components/latest/ or cdn-v URLs). Covers CDN vs npm, version pinning, shadow vs light DOM, theming with --uva-* tokens, and a verification checklist.
+description: Use when building or editing UVA Library web pages or sites, adding the UVA Library header, footer or page wrapper to a page, using the custom elements <site-page>, <site-header>, <site-main-nav>, <site-footer>, <site-analytics>, <uvalib-analytics>, <site-style>, <uvalib-breadcrumbs>, <uvalib-filter>, <uvalib-date-range>, <site-hours-section>, <library-weekly-hours>, <library-hours-setup>, <events-section> or <bento-box>, working with the @uvalib/web-components npm package, or editing script/link URLs on unpkg.internal.lib.virginia.edu (including migrating old /web-components/latest/ or cdn-v URLs). Covers CDN vs npm, version pinning, shadow vs light DOM, theming with --uva-* tokens, WCAG 2.2 AA accessibility testing (axe-core in Playwright matched to Lighthouse, Lighthouse CI, manual checks), and a verification checklist.
 ---
 
 # UVA Library web components
@@ -8,6 +8,8 @@ description: Use when building or editing UVA Library web pages or sites, adding
 `@uvalib/web-components` provides the UVA Library page chrome as custom elements: `<site-page>` (skip link, header with the library main navigation, one `<main>`, footer), `<site-header>`, `<site-main-nav>` (the main navigation, rendered by the header), `<site-footer>`, `<site-analytics>` (Matomo; also registered as `<uvalib-analytics>`) and `<site-style>` (legacy compatibility), plus `<uvalib-breadcrumbs>` (the breadcrumb trail, section 2). It also ships two search-page components, `<uvalib-filter>` and `<uvalib-date-range>` (section 6), and three library-hours elements for library.virginia.edu, `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`, `<events-section>` for upcoming library events and `<bento-box>` for the library's search results page (section 7). Tag names are stable.
 
 Authority rule: https://www.library.virginia.edu and the UVA Library design system are the source of truth for how the chrome looks and what it says. Do not re-create, copy or restyle the header, footer, logo or links by hand. Use the components, and change appearance only through the theming surface below.
+
+Accessibility rule: everything you build with these components must meet **WCAG 2.2 AA at minimum and aim for AAA** (the Library's web standard; alerts and other critical messages meet AAA). The components are built and tested to that bar; your own markup, CSS and scripts around them must keep it. Test every change with axe-core in Playwright configured to be at least as strict as Lighthouse, with Lighthouse CI, and with a short manual keyboard and screen reader pass: see [reference/accessibility-testing.md](reference/accessibility-testing.md) for the ready-to-use setup. Do not finish a task with known accessibility failures; report anything you could not test.
 
 For the full attribute, slot, part, event and custom-property lists see [reference/components.md](reference/components.md). To update an existing project from old URLs or package names see [reference/migration.md](reference/migration.md).
 
@@ -303,10 +305,14 @@ Before finishing, load the page in a browser (or test) and confirm:
 2. Exactly one `<main>` in the page, including inside open shadow roots (shadow mode puts it in `site-page`'s shadow root), and exactly one skip link.
 3. No `<script>`/`<link>` URL contains `/web-components/latest/` or `/cdn-v`; the URL pins `v1` or `vX.Y.Z`.
 4. No console errors and no failed network requests for the component files (including `v1/uvalib-alerts.js` from the alerts CDN, unless `no-alerts` is set).
-5. An axe pass (for example `axe-core` or the axe browser extension) reports no new violations.
+5. Accessibility, as in [reference/accessibility-testing.md](reference/accessibility-testing.md):
+   - axe-core in Playwright, with Lighthouse's rules forced on plus the WCAG 2.1/2.2 AA and best-practice tags, reports **no violations at any impact level** on every page you changed, at desktop and phone widths, after the components upgrade (and in each open state: menus, dialogs, errors);
+   - Lighthouse CI scores accessibility 1 (and layout shift ≤ 0.05) on those pages;
+   - a keyboard-only pass (visible focus, skip link, Escape closes, focus returns) and a screen reader spot check found no problems.
+     If you cannot run one of these, say so explicitly instead of reporting the page as accessible.
 6. `no-shadow-dom` appears only where the host CSS is meant to own the styling.
 7. A full header shows the library main navigation (unless the site deliberately set `no-main-nav`), and the page has no second hand-built copy of it.
-8. `color-scheme-switch` appears only where the user asked for dark mode and the site's own content supports it; if it is set, the page passes axe in both Light and Dark.
+8. `color-scheme-switch` appears only where the user asked for dark mode and the site's own content supports it; if it is set, the page passes the axe test in both Light and Dark.
 
 ## 9. Keeping this skill current
 
