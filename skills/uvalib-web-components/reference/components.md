@@ -203,6 +203,44 @@ One library's opening hours for a week (Sunday to Saturday, in America/New_York)
 | `--uva-color-surface-raised` |  | Dark-mode role token: button background (else #fff). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
+## `<site-alerts>`
+
+Live UVA Library alerts, drawn as library.virginia.edu draws them. The alerts project (github.com/uvalib/uvalib-alerts) keeps the data: a headless `<uvalib-alerts>` loaded at runtime from the alerts CDN (`alerts-env`, or `alerts-src`), one per document, shared by every `<site-alerts>` and created hidden at the end of `<body>`. It keeps the live connection, the dismissals (per site, synced across tabs) and the regional matching (the page URL, followed through single-page-app navigation). If its script fails to load, one console warning is logged and nothing is shown. `show` picks the alerts: `header` (the banner: a polite `role="status"` row on teal), `list` (critical, warning and information alerts, most severe first; only critical ones are an assertive `role="alert"`), `regional` (alerts targeted at this page), `sitewide` (header and list) or `all` (the default). Each list alert has a decorative icon and a visually hidden "Critical:", "Warning:" or "Information:" before its title, a heading (`heading-level`, default 2, as on library.virginia.edu). Warning and information alerts have a dismiss button; after a dismissal focus moves to the next alert's button (or the alert), else to the page's `<main>`, never to `<body>`. Alert bodies are server-sanitized HTML, re-sanitized with the browser's `setHTML()` where it exists. `<site-page>` places three of these itself (banner, list band, regional); use this element directly only on pages without `<site-page>`.
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `show` | `SiteAlertsShow` | `'all'` | Which alerts to show: `header`, `list`, `regional`, `sitewide` (header and list) or `all`. |
+| `alerts-env` | `string` | `'production'` | Alerts environment: `production` (default) or `staging`. Any other value logs one console warning and uses production. Ignored when `alerts-src` is set. |
+| `alerts-src` | `string \| undefined` |  | Alerts base URL (holding `config.json`, `alerts.json` and `v1/uvalib-alerts.js`); overrides `alerts-env`. For a custom domain, local development and tests. |
+| `heading-level` |  | `DEFAULT_LEVEL` | The level of each list alert's title heading, 1 to 6 (default 2). |
+| `storage-key` | `string \| undefined` |  | The localStorage key for dismissed alerts, passed to the headless element (default: the alerts project's, `uvalib-alerts-seen`). Elements with different keys use different headless elements. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### Events
+
+| Event | Description |
+|---|---|
+| `site-alerts-change` | The number of alerts this element shows changed: `detail` is `{ count }`. Bubbles and is composed. The host also has `data-empty` while it shows none. |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-teal` | `#25cad3` | Header banner background. |
+| `--uva-red-100` | `#fbcfda` | Critical alert background (`--uva-red-B` #b30000 border). |
+| `--uva-yellow-100` | `#fef6c8` | Warning alert and regional alert background (`--uva-yellow` #ecc602 border). |
+| `--uva-blue-alt-300` | `#bfe7f7` | Information alert background (`--uva-blue-alt` #007bac border). |
+| `--uva-teal-200` | `#c8f2f4` | Information regional alert background (`--uva-teal` border). |
+| `--uva-grey-darkest` | `#2b2b2b` | Alert text. |
+| `--uva-blue-alt-B` | `#141e3c` | Links in alert text. |
+| `--uva-color-alert-text` |  | Dark-mode role token: alert text, icons and focus ring (else `--uva-grey-darkest`; the banner's is `--uva-color-alert-header-text`, else #000). |
+| `--uva-color-alert-link` |  | Dark-mode role token: links in alert text (else `--uva-blue-alt-B`). |
+| `--uva-color-alert-header-bg` |  | Dark-mode role token: banner background (else `--uva-teal`). |
+| `--uva-color-alert-critical-bg` |  | Dark-mode role token: critical alert background; `-border` for its border. Also `--uva-color-alert-warning-*`, `--uva-color-alert-info-*`, `--uva-color-alert-regional-*` and `--uva-color-alert-regional-info-*`. |
+
 ## `<site-analytics>`
 
 Matomo analytics, with no visual output. Loads matomo.js for the site and records the page view, then forwards the events below, fired anywhere in the page, to Matomo. Every call goes through Matomo's `_paq` queue, so events fired before matomo.js loads are kept. One tracker per page: however many `<site-analytics>` and `<uvalib-analytics>` elements there are (from any copy of this library), matomo.js is loaded and the page view recorded once, and only one element forwards each event; if it is removed, the next takes over. A Matomo snippet already on the page is used as it is (nothing is loaded or recorded again). The same element is registered as `<uvalib-analytics>` by `uvalib-analytics.js`.
@@ -225,9 +263,11 @@ Matomo analytics, with no visual output. Loads matomo.js for the site and record
 | `uvalib-analytics-pageview` | Listened for on `document` (not fired): records a page view; `detail` is `{ customTitle?, referrer? }` (default: the document's title and referrer; a referrer without `http` is taken as a path on this origin). |
 | `uvalib-analytics-search` | Listened for on `document` (not fired): a Matomo site search; `detail` is `{ searchQuery, searchCategory?, resultCount? }`. |
 | `uvalib-analytics-event` | Listened for on `document` (not fired): a Matomo event; `detail` is `{ event: [category, action, name?, value?] }` (`track` is the old name of `event`). |
+| `uvalib-analytics-content` | Listened for on `document` (not fired): a Matomo content impression; `detail` is `{ name, piece, target?, interaction? }` (with `interaction`, a content interaction instead). |
 | `site-analytics-pageview` | Listened for on `document` too: the same as `uvalib-analytics-pageview`. |
 | `site-analytics-search` | Listened for on `document` too: the same as `uvalib-analytics-search`. |
 | `site-analytics-event` | Listened for on `document` too: the same as `uvalib-analytics-event`. |
+| `site-analytics-content` | Listened for on `document` too: the same as `uvalib-analytics-content`. |
 
 ## `<site-footer>`
 
@@ -288,7 +328,7 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 | Slot | Description |
 |---|---|
 | `skip-link` | Shadow mode only: optional skip link, rendered first inside `<header>` (`<site-page>` uses it). |
-| `alerts` | Optional alert banner (`<site-page>` passes its `<uvalib-alerts show="header">`), shown as a full-bleed row at the very top of `<header>` (flush with its top and both edges, outside its padding), after the skip link and before the logo row. In light mode the children are moved to the start of `<header>`. The header never loads alerts itself. |
+| `alerts` | Optional alert banner (`<site-page>` passes its `<site-alerts show="header">`), shown as a full-bleed row at the very top of `<header>` (flush with its top and both edges, outside its padding), after the skip link and before the logo row. In light mode the children are moved to the start of `<header>`. The header never loads alerts itself. |
 | `main-nav` | Optional `<nav>` whose `<ul>` replaces the main navigation's links in both layouts: `<li><a href>` for a direct link, `<li><span>Group</span><ul><li><a href>…</a></li></ul></li>` for a group. Invalid entries are skipped with one console warning. Never shown itself; in light mode it is moved into a hidden holder. Ignored with `no-main-nav` and by the `vendor` variant. |
 | `site-links` | Optional `<a href>` elements with text that replace the library utility links in the inline nav and the Menu popover (ignored by the `vendor` variant). In light mode they are moved into a hidden holder. |
 
@@ -403,7 +443,7 @@ The UVA Library main navigation (About, Using the Library, Research & teaching s
 
 ## `<site-page>`
 
-Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` (and its `<site-main-nav>`) and `<site-footer>`. The header shows the UVA Library main navigation by default (`no-main-nav` turns it off; `header-variant="vendor"` never shows it). Shows live UVA Library alerts by default, placed as Virgo places them: a full-bleed `<uvalib-alerts show="header">` banner at the top of the header landmark (after the skip link), a full-bleed band between the header and `<main>` holding `<uvalib-alerts show="list">` (a `<section aria-label="Library alerts">` region, hidden while the list has nothing to show), and `<uvalib-alerts show="regional">` as the first child of `<main>`, inside its padding. The alerts component is loaded once per document, with a module script, from the alerts CDN (`alerts-env`, or `alerts-src`); if it fails to load, one console warning is logged and the page works as before. `no-alerts` renders no alert elements and loads nothing. A `slot="breadcrumbs"` child (a `<uvalib-breadcrumbs>`) is placed where library.virginia.edu puts the trail: after the header and the alert list band, before `<main>` and outside it (so the skip link lands past it), with the same gutters as `<main>`.
+Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` (and its `<site-main-nav>`) and `<site-footer>`. The header shows the UVA Library main navigation by default (`no-main-nav` turns it off; `header-variant="vendor"` never shows it). Shows live UVA Library alerts by default with `<site-alerts>` (its code loads only then), placed as Virgo places them: a full-bleed `<site-alerts show="header">` banner at the top of the header landmark (after the skip link), a full-bleed band between the header and `<main>` holding `<site-alerts show="list">` (a `<section aria-label="Library alerts">` region, hidden while the list has nothing to show), and `<site-alerts show="regional">` as the first child of `<main>`, inside its padding. Their data comes from one headless `<uvalib-alerts>`, loaded once per document, with a module script, from the alerts CDN (`alerts-env`, or `alerts-src`); if it fails to load, one console warning is logged and the page works as before. `no-alerts` renders no alert elements and loads nothing. A `slot="breadcrumbs"` child (a `<uvalib-breadcrumbs>`) is placed where library.virginia.edu puts the trail: after the header and the alert list band, before `<main>` and outside it (so the skip link lands past it), with the same gutters as `<main>`.
 
 ### Attributes
 
@@ -511,9 +551,11 @@ Compatibility element. Light mode (`no-shadow-dom`) installs the tokens and base
 | `uvalib-analytics-pageview` | Listened for on `document` (not fired): records a page view; `detail` is `{ customTitle?, referrer? }` (default: the document's title and referrer; a referrer without `http` is taken as a path on this origin). |
 | `uvalib-analytics-search` | Listened for on `document` (not fired): a Matomo site search; `detail` is `{ searchQuery, searchCategory?, resultCount? }`. |
 | `uvalib-analytics-event` | Listened for on `document` (not fired): a Matomo event; `detail` is `{ event: [category, action, name?, value?] }` (`track` is the old name of `event`). |
+| `uvalib-analytics-content` | Listened for on `document` (not fired): a Matomo content impression; `detail` is `{ name, piece, target?, interaction? }` (with `interaction`, a content interaction instead). |
 | `site-analytics-pageview` | Listened for on `document` too: the same as `uvalib-analytics-pageview`. |
 | `site-analytics-search` | Listened for on `document` too: the same as `uvalib-analytics-search`. |
 | `site-analytics-event` | Listened for on `document` too: the same as `uvalib-analytics-event`. |
+| `site-analytics-content` | Listened for on `document` too: the same as `uvalib-analytics-content`. |
 
 ## `<uvalib-breadcrumbs>`
 
