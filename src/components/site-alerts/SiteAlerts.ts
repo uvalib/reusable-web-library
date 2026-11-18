@@ -432,8 +432,10 @@ export class SiteAlerts extends UvalibElement {
     const pending = this.pendingFocus;
     if (!pending) return;
     const list = this.list;
-    if (list.some((a) => a.uuid === pending.uuid)) return;
+    // Still listed after the update: the dismissal did nothing (already gone from the data,
+    // or not dismissible), so drop the request rather than let a later update move focus.
     this.pendingFocus = undefined;
+    if (list.some((a) => a.uuid === pending.uuid)) return;
     const doc = this.ownerDocument;
     let active = doc.activeElement;
     while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;

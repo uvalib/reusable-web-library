@@ -135,8 +135,9 @@ export function subscribeAlerts(
       el.removeEventListener(UPDATE, notify);
       el.removeEventListener(STATUS, notify);
       users.delete(me);
-      // A <site-alerts> moved in the page reconnects in the same task: keep the element.
-      queueMicrotask(() => {
+      // A <site-alerts> moved in the page re-subscribes in its next update, which runs in
+      // microtasks after the move: wait a task, so a move keeps the shared element.
+      setTimeout(() => {
         if (!users.size) el.remove();
       });
     },

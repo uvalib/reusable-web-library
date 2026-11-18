@@ -223,6 +223,21 @@ for (const mode of ['shadow', 'light'] as const) {
       expect(el.hasAttribute('data-empty')).to.equal(true);
     });
 
+    it('a <site-alerts> moved in the page keeps the same shared headless element', async () => {
+      const el = await make();
+      const [before] = headless();
+      expect(before).to.exist;
+      const other = document.createElement('div');
+      document.body.append(other);
+      other.append(el);
+      await settle(el);
+      await new Promise((r) => setTimeout(r, 20));
+      expect(headless()).to.deep.equal([before]);
+      other.remove();
+      await new Promise((r) => setTimeout(r, 20));
+      expect(headless()).to.have.length(0);
+    });
+
     it('re-renders on update events and fires site-alerts-change with the count', async () => {
       const el = await make('show="list"', { menuAlerts: [LIST[1]!] });
       const counts: number[] = [];
