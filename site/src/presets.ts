@@ -403,16 +403,18 @@ site-footer footer {
     group: 'Alerts',
     title: 'Library alerts',
     description:
-      'site-page shows live UVA Library alerts by default: a banner in the header and the alert list and regional alerts at the top of main. Staging deployments use alerts-env="staging"; an app that renders alerts itself sets no-alerts.',
+      'site-page shows live UVA Library alerts by default with site-alerts, in library.virginia.edu\'s look: a teal banner in the header, the critical, warning and information alerts in a band under it, and regional alerts at the top of main. Severity is in text as well as colour and icon, warning and information alerts can be dismissed, and the text meets AAA contrast in light and dark. The data comes from the alerts project, loaded headless. Staging deployments use alerts-env="staging"; an app that renders alerts itself sets no-alerts.',
     files: {
       'index.html': {
         content: page({
           title: 'Library alerts',
           body: `    <!-- Production alerts are the default. Staging sites use alerts-env="staging";
-         an app that shows alerts itself uses <site-page no-alerts>. -->
+         an app that shows alerts itself uses <site-page no-alerts>.
+         Without site-page: <site-alerts show="sitewide"> and <site-alerts show="regional">
+         from site-alerts.js. -->
     <site-page alerts-env="staging">
       <h1>Library alerts</h1>
-      <p>Current staging alerts appear in the header and above this heading. Without alerts nothing is shown.</p>
+      <p>Current staging alerts appear in the header, in the band under it and above this heading. Without alerts nothing is shown. Dismissed alerts stay dismissed on this site, in every tab.</p>
     </site-page>`,
         }),
       },

@@ -18,6 +18,7 @@ const TAGS = [
   'uvalib-filter',
   'uvalib-date-range',
   'uvalib-breadcrumbs',
+  'site-alerts',
   'site-hours-section',
   'library-weekly-hours',
   'library-hours-setup',

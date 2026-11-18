@@ -8,6 +8,7 @@ import { SiteAnalyticsMixin } from '../src/components/site-analytics/SiteAnalyti
 import { UvalibAnalytics } from '../src/components/uvalib-analytics/UvalibAnalytics.js';
 import { UvalibAnalyticsMixin } from '../src/components/uvalib-analytics/UvalibAnalyticsMixin.js';
 import { define } from '../src/base/define.js';
+import { trackContent } from '../src/base/analytics.js';
 import { resetAnalytics, paq, matomoScripts, stub, fire } from './helpers/analytics.js';
 
 const MATOMO = 'https://analytics.lib.virginia.edu/';
@@ -100,6 +101,33 @@ describe('<uvalib-analytics> / <site-analytics>', () => {
       ['trackSiteSearch', 'r', 'Virgo catalog', false],
       ['trackSiteSearch', 's', 'x', false],
     ]);
+  });
+
+  it('forwards content impressions and interactions (both families)', async () => {
+    const el = await fixture(html`<site-analytics matomoid="5"><span></span></site-analytics>`);
+    const span = el.querySelector('span')!;
+    trackContent(span, { name: 'Library alert', piece: 'Warning: Wi-Fi down' });
+    trackContent(span, { name: 'Banner', piece: 'Fall', target: '/fall' });
+    trackContent(span, { name: 'Banner', piece: 'Fall', target: '/fall', interaction: 'click' });
+    fire(span, 'site-analytics-content', { name: 'Library alert', piece: 'Critical: Closed' });
+    fire(span, 'uvalib-analytics-content', { name: 'No piece' });
+    expect(paq().filter((c) => String(c[0]).startsWith('trackContent'))).to.deep.equal([
+      ['trackContentImpression', 'Library alert', 'Warning: Wi-Fi down'],
+      ['trackContentImpression', 'Banner', 'Fall', '/fall'],
+      ['trackContentInteraction', 'click', 'Banner', 'Fall', '/fall'],
+      ['trackContentImpression', 'Library alert', 'Critical: Closed'],
+    ]);
+  });
+
+  it('two elements: each content impression is forwarded once', async () => {
+    await fixture(
+      html`<div>
+        <site-analytics matomoid="5"></site-analytics
+        ><uvalib-analytics matomoid="5"></uvalib-analytics>
+      </div>`,
+    );
+    trackContent(document.body, { name: 'Library alert', piece: 'Information: Hours' });
+    expect(paq().filter((c) => c[0] === 'trackContentImpression').length).to.equal(1);
   });
 
   it('queues events fired before matomo.js loads (even before the first render)', async () => {

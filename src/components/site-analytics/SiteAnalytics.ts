@@ -2,7 +2,12 @@ import { css } from 'lit';
 import { property } from 'lit/decorators.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { findMatomoId } from '../../data/sites.js';
-import { analyticsState, ANALYTICS_EVENTS, type AnalyticsTracker } from '../../base/analytics.js';
+import {
+  analyticsState,
+  ANALYTICS_EVENTS,
+  type AnalyticsContent,
+  type AnalyticsTracker,
+} from '../../base/analytics.js';
 
 /** The page's window with Matomo's command queue, which matomo.js replays when it loads. */
 type MatomoWindow = Window & { _paq?: unknown[][] };
@@ -58,9 +63,11 @@ function countOf(n: SearchDetail['resultCount']): number | false {
  * @fires uvalib-analytics-pageview - Listened for on `document` (not fired): records a page view; `detail` is `{ customTitle?, referrer? }` (default: the document's title and referrer; a referrer without `http` is taken as a path on this origin).
  * @fires uvalib-analytics-search - Listened for on `document` (not fired): a Matomo site search; `detail` is `{ searchQuery, searchCategory?, resultCount? }`.
  * @fires uvalib-analytics-event - Listened for on `document` (not fired): a Matomo event; `detail` is `{ event: [category, action, name?, value?] }` (`track` is the old name of `event`).
+ * @fires uvalib-analytics-content - Listened for on `document` (not fired): a Matomo content impression; `detail` is `{ name, piece, target?, interaction? }` (with `interaction`, a content interaction instead).
  * @fires site-analytics-pageview - Listened for on `document` too: the same as `uvalib-analytics-pageview`.
  * @fires site-analytics-search - Listened for on `document` too: the same as `uvalib-analytics-search`.
  * @fires site-analytics-event - Listened for on `document` too: the same as `uvalib-analytics-event`.
+ * @fires site-analytics-content - Listened for on `document` too: the same as `uvalib-analytics-content`.
  */
 export class SiteAnalytics extends UvalibElement {
   static styles = css`
@@ -86,6 +93,7 @@ export class SiteAnalytics extends UvalibElement {
     const detail = (e as CustomEvent).detail ?? {};
     if (type === 'event') this.logEvent(detail as EventDetail);
     else if (type === 'search') this.logSearch(detail as SearchDetail);
+    else if (type === 'content') this.logContent(detail as Partial<AnalyticsContent>);
     else this.logPageView(detail as PageViewDetail);
   };
 
@@ -159,6 +167,17 @@ export class SiteAnalytics extends UvalibElement {
       d.searchCategory || false,
       countOf(d.resultCount),
     ]);
+  }
+
+  private logContent(d: Partial<AnalyticsContent>) {
+    if (!d.name || !d.piece) return;
+    const target = d.target || undefined;
+    const tail = target === undefined ? [] : [target];
+    this.paq.push(
+      d.interaction
+        ? ['trackContentInteraction', d.interaction, d.name, d.piece, ...tail]
+        : ['trackContentImpression', d.name, d.piece, ...tail],
+    );
   }
 
   private logEvent(d: EventDetail) {

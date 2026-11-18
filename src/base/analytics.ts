@@ -32,6 +32,26 @@ export function trackSearch(
   send(el, 'search', { searchQuery: query, searchCategory: category, resultCount: count });
 }
 
+/** A Matomo content impression, or an interaction with that content when `interaction` is set. */
+export interface AnalyticsContent {
+  /** The content's kind, e.g. `Library alert`. */
+  name: string;
+  /** Which one, e.g. `Critical: Building closed`. */
+  piece: string;
+  /** Where it leads, if anywhere (never a personal URL). */
+  target?: string;
+  /** The interaction (`click`, …): sends `trackContentInteraction` instead. */
+  interaction?: string;
+}
+
+/**
+ * A Matomo content impression (`trackContentImpression`), or with `interaction` a
+ * `trackContentInteraction`, e.g. `{ name: 'Library alert', piece: 'Warning: Wi-Fi down' }`.
+ */
+export function trackContent(el: EventTarget, content: AnalyticsContent): void {
+  send(el, 'content', { ...content });
+}
+
 /** One analytics element on the page, as the shared state sees it. */
 export interface AnalyticsTracker {
   /** Has no Matomo site id: it neither loads Matomo nor forwards events. */
@@ -60,7 +80,7 @@ export function analyticsState(): AnalyticsState {
 
 /** Every event type the analytics elements listen for, in both families. */
 export const ANALYTICS_EVENTS = ['uvalib-analytics', 'site-analytics'].flatMap((f) =>
-  ['event', 'search', 'pageview'].map((t) => `${f}-${t}`),
+  ['event', 'search', 'pageview', 'content'].map((t) => `${f}-${t}`),
 );
 
 /**

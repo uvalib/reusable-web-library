@@ -1,5 +1,9 @@
-// Live UVA Library alerts: <site-page> renders <uvalib-alerts> elements and loads that
-// component at runtime from the alerts CDN (released separately, github.com/uvalib/uvalib-alerts).
+import { trackEvent } from '../../base/analytics.js';
+
+// Live UVA Library alerts come from the alerts project (github.com/uvalib/uvalib-alerts): its
+// <uvalib-alerts> element, loaded at runtime from the alerts CDN (it is not on npm), keeps the
+// data, the live connection and the dismissals. <site-alerts> uses it headless and draws the
+// alerts itself; this module finds the CDN and loads the element once per document.
 
 // The CloudFront addresses switch to https://alerts.lib.virginia.edu/ (production) and
 // https://alerts-staging.lib.virginia.edu/ (staging) once DNS for those names exists.
@@ -87,8 +91,10 @@ export function loadAlerts(doc: Document, base: string): void {
       if (!urls) failed.set(doc, (urls = new Set()));
       urls.add(src);
       console.warn(
-        `site-page: could not load the alerts component from ${src}; no alerts are shown.`,
+        `site-alerts: could not load the alerts component from ${src}; no alerts are shown.`,
       );
+      // Reported once per failed URL per document, like the warning.
+      trackEvent(doc, ['site-alerts', 'error', 'alerts-script']);
     },
     { once: true },
   );

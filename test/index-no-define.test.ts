@@ -16,6 +16,7 @@ describe('index', () => {
     expect(lib.EventsSection).to.be.a('function');
     expect(lib.BentoBox).to.be.a('function');
     expect(lib.UvalibBreadcrumbs).to.be.a('function');
+    expect(lib.SiteAlerts).to.be.a('function');
     expect(lib.UvalibAnalytics).to.be.a('function');
     expect(lib.SiteAnalyticsMixin).to.be.a('function');
     expect(lib.UvalibAnalyticsMixin).to.be.a('function');
@@ -39,6 +40,7 @@ describe('index', () => {
       'uvalib-filter',
       'uvalib-date-range',
       'uvalib-breadcrumbs',
+      'site-alerts',
       'site-hours-section',
       'library-weekly-hours',
       'library-hours-setup',

@@ -488,8 +488,8 @@ describe('dark mode (color-scheme-switch)', function () {
       const header = await headerOf(el);
       const alertIn = () =>
         mode === 'light'
-          ? !!rootOf(header).querySelector(':scope > header > uvalib-alerts[slot="alerts"]')
-          : !!header.querySelector(':scope > uvalib-alerts[slot="alerts"]');
+          ? !!rootOf(header).querySelector(':scope > header > site-alerts[slot="alerts"]')
+          : !!header.querySelector(':scope > site-alerts[slot="alerts"]');
       expect(alertIn()).to.equal(true);
       for (const on of [true, false, true]) {
         el.colorSchemeSwitch = on;

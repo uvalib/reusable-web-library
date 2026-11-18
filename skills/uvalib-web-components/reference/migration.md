@@ -72,3 +72,18 @@ Importing `@uvalib/web-components` itself returns classes only and registers not
 - Delete any hand-written `<main>`, `role="main"`, skip link, header or footer: `<site-page>` renders them.
 - `<site-style no-shadow-dom>` still works (it installs tokens and base styles); new pages do not need it.
 - Look for `no-shadow-dom` that was added only as a workaround; keep it only if the host CSS should own the styling.
+
+## Alerts: from the alerts project's UI to `<site-alerts>`
+
+Since 1.2.0 the library draws the alerts itself with `<site-alerts>`; the alerts project's `<uvalib-alerts>` only provides the data (headless). Pages using `<site-page>` need nothing: it switched by itself (its dark-mode `--uvalib-alerts-*` properties are replaced by the `--uva-color-alert-*` role tokens).
+
+Pages that show the alerts project's UI directly switch like this:
+
+| Old                                                                                                                                     | New                                                                                                                                                                     |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<script type="module" src="https://d2q6t6fdv76k7r.cloudfront.net/v1/uvalib-alerts.js">` (or the `.iife.js` build, or a pinned version) | `<script type="module" src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-alerts.js">`; it loads the alerts script itself                              |
+| `<uvalib-alerts show="sitewide">` (or `all`, `header`, `list`, `regional`)                                                              | `<site-alerts show="sitewide">` (same `show` values)                                                                                                                    |
+| `<uvalib-alerts src="https://dzfvxb8mejnv6.cloudfront.net/">`                                                                           | `<site-alerts alerts-env="staging">` (or `alerts-src="…"` for another base)                                                                                             |
+| `storage-key="…"`                                                                                                                       | the same attribute on `<site-alerts>`                                                                                                                                   |
+| `--uvalib-alerts-*` custom properties and `::part(…)`                                                                                   | the `--uva-color-alert-*` role tokens (keep 7:1 text contrast); there are no parts. List titles are `<h2>`: set `heading-level` if the page outline needs another level |
+| a headless `<uvalib-alerts headless>` in an app (Virgo)                                                                                 | unchanged: apps that draw alerts themselves keep using the alerts project directly, and set `no-alerts` on `<site-page>`                                                |

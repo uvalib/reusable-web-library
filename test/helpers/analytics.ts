@@ -35,7 +35,7 @@ export function fire(target: EventTarget, type: string, detail: unknown): void {
 /** Record the `uvalib-analytics-*` and `site-analytics-*` events reaching `document`. */
 export function recordAnalytics() {
   const events: { type: string; detail: Record<string, unknown> }[] = [];
-  const types = ['event', 'search', 'pageview'].flatMap((t) => [
+  const types = ['event', 'search', 'pageview', 'content'].flatMap((t) => [
     `uvalib-analytics-${t}`,
     `site-analytics-${t}`,
   ]);
