@@ -9,6 +9,7 @@ export const GROUPS = [
   'Header',
   'Alerts',
   'Breadcrumbs',
+  'Cards',
   'Search',
   'Hours',
   'Events',
@@ -473,6 +474,109 @@ site-footer footer {
         document.querySelector('h1').textContent = 'First result';
       });
     </script>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'collection-cards',
+    group: 'Cards',
+    title: 'Collection cards',
+    description:
+      'A grid of collection cards. Each uvalib-card with href makes its heading the one link, stretched over the card; the arrow is only a visual aid. The excerpt is the count of texts. The grid is a list (a screen reader announces how many), four columns above 992px, two through 767px, then one, and cards in a row share a height. Do not wrap a card in an <a>, and do not put another link or button inside a clickable card.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Collections',
+          components: ['uvalib-card', 'uvalib-card-grid'],
+          body: `    <site-page>
+      <h1>Collections</h1>
+      <uvalib-card-grid>
+        <uvalib-card href="#early-american-fiction">
+          <span slot="heading">Early American Fiction</span>
+          128 texts
+        </uvalib-card>
+        <uvalib-card href="#african-american-newspapers">
+          <span slot="heading">African American Newspapers</span>
+          42 texts
+        </uvalib-card>
+        <uvalib-card href="#civil-war-newspapers">
+          <span slot="heading">Civil War Newspapers</span>
+          17 texts
+        </uvalib-card>
+      </uvalib-card-grid>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'photo-card',
+    group: 'Cards',
+    title: 'Photo card',
+    description:
+      'A photo card: an image (alt text that is not the heading, or alt="" when the heading already names it), a count badge, a date in <time>, one category chip, the title and an excerpt. href makes the heading the card’s only link. A card with no href may contain its own links.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Rotunda',
+          components: ['uvalib-card'],
+          body: `    <site-page>
+      <h1>Addison collection</h1>
+      <uvalib-card href="#rotunda">
+        <img slot="media" alt="A courtyard arch" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" />
+        <span slot="badge">13 photos</span>
+        <span slot="heading">Rotunda</span>
+        <time slot="meta" datetime="1910">1910</time>
+        <span slot="chip">Architecture</span>
+        The west colonnade after the annex fire.
+      </uvalib-card>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'section-pager',
+    group: 'Cards',
+    title: 'Previous and next',
+    description:
+      'Previous and next section links, as on a reading page. Each side shows a Previous or Next kicker and the section title, with rel="prev" or rel="next". A long title truncates visually; the full text stays in the accessible name. The landmark is named Sections. One pager per page, or give each a different label.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Chapter',
+          components: ['uvalib-pager'],
+          body: `    <site-page>
+      <h1>Chapter two</h1>
+      <p>The reading continues here. The links below move to the previous and next sections.</p>
+      <uvalib-pager
+        prev-href="#the-opening"
+        prev-label="The opening"
+        next-href="#what-follows"
+        next-label="What follows the fire, and the years after it"
+      ></uvalib-pager>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'numbered-pager',
+    group: 'Cards',
+    title: 'Numbered pages',
+    description:
+      'Numbered pages. page is the current page (text with aria-current="page", not a link) and pages is how many there are. href-template builds each other page’s address, and must contain {page}. A long range keeps the first page, a window around the current page, the last page, and an ellipsis where numbers are skipped. The landmark is named Pagination.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Page 10',
+          components: ['uvalib-pager'],
+          body: `    <site-page>
+      <h1>Search results</h1>
+      <p>Page 10 of 20. The current page is not a link.</p>
+      <uvalib-pager page="10" pages="20" href-template="#p-{page}"></uvalib-pager>
+    </site-page>`,
         }),
       },
     },
