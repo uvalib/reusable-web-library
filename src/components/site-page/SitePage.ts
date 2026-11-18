@@ -7,7 +7,8 @@ import { tokens } from '../../styles/tokens.js';
 import { base, TYPEKIT_URL } from '../../styles/base.js';
 import { accessible } from '../../styles/accessible.js';
 import { ColorSchemeController } from '../../base/color-scheme.js';
-import { bufferAnalytics, trackEvent } from '../../base/analytics.js';
+import { trackEvent } from '../../base/analytics.js';
+import { bufferAnalytics } from '../../base/analytics-state.js';
 import {
   ALERTS_PRODUCTION_SRC,
   alertsBase,

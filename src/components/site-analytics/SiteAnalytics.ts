@@ -4,14 +4,16 @@ import { UvalibElement } from '../../base/UvalibElement.js';
 import { findMatomoId } from '../../data/sites.js';
 import {
   analyticsAllowed,
-  analyticsState,
-  ANALYTICS_EVENTS,
   privacySignal,
   trackEvent,
   type AnalyticsContent,
   type AnalyticsEvent,
-  type AnalyticsTracker,
 } from '../../base/analytics.js';
+import {
+  analyticsState,
+  ANALYTICS_EVENTS,
+  type AnalyticsTracker,
+} from '../../base/analytics-state.js';
 
 /** The page's window with Matomo's command queue, which matomo.js replays when it loads. */
 type MatomoWindow = Window & { _paq?: unknown[][] };
