@@ -1,5 +1,6 @@
 import { css, html, nothing, unsafeCSS, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
+import { trackEvent } from '../../base/analytics.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
 import { accessible } from '../../styles/accessible.js';
@@ -66,6 +67,7 @@ const normalize = (s: unknown) =>
  * in place; hash links need nothing.
  *
  * @tagname uvalib-breadcrumbs
+ * @fires uvalib-analytics-event - For `<site-analytics>`: a click on a trail link, `['uvalib-breadcrumbs', 'link-click', 'level <N>', <N>]` (N from 1, the first step); never the label or URL. Bubbles and is composed.
  * @fires uvalib-breadcrumbs-navigate - A plain click on a trail link: `detail` is `{ href, index }` (href as written). Cancel it (`preventDefault()`) to navigate in the app; the click's default is then prevented. Bubbles and is composed.
  * @cssprop [--uva-blue-alt-dark=#005679] - Link colour.
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Current page colour.
@@ -265,6 +267,12 @@ export class UvalibBreadcrumbs extends UvalibElement {
    * that cancels it navigates itself (the click's default is prevented too).
    */
   private onClick(e: MouseEvent): void {
+    // Analytics: the link's level in the trail (1 is the first), never its label or URL.
+    const step = (e.target as Element | null)?.closest?.('a[href]')?.closest('li');
+    if (step && this.renderRoot.contains(step)) {
+      const level = [...step.parentNode!.children].indexOf(step) + 1;
+      trackEvent(this, ['uvalib-breadcrumbs', 'link-click', `level ${level}`, level]);
+    }
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
       return;
     const a = (e.target as Element | null)?.closest?.('a[href]');

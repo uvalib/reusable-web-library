@@ -1,5 +1,6 @@
 import { html, css } from 'lit';
 import { property } from 'lit/decorators.js';
+import { trackEvent } from '../../base/analytics.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { siteLink } from '../link.js';
 import { accessible } from '../../styles/accessible.js';
@@ -28,6 +29,7 @@ const ABOUT: FooterLink[] = [
  *
  * @tagname site-footer
  * @slot pre-footer - Optional content shown in a band above the footer links.
+ * @fires uvalib-analytics-event - For `<site-analytics>`: a click on one of the footer's own links (not the pre-footer's), `['site-footer', 'link-click', '<Column>: <Link>']`, for example `Using the Library: Get help`; the phone and email links are `Contact us: Phone` and `Contact us: Email`, the social links `Social: Facebook` and `Social: Instagram`. Never a URL. Bubbles and is composed.
  * @csspart footer - The `<footer>` element.
  * @cssprop [--uva-brand-blue=#232d4b] - Main footer background (also the skip-link background in the shared accessibility sheet, which the footer does not render).
  * @cssprop [--uva-blue-alt-300=#bfe7f7] - Pre-footer band background.
@@ -176,6 +178,27 @@ export class SiteFooter extends UvalibElement {
     wrapper.append(...moved);
     if (moved.length) wrapper.classList.add('has-content');
   }
+
+  constructor() {
+    super();
+    this.addEventListener('click', this.trackClick);
+  }
+
+  /** Analytics: which of the footer's own links, by column and label (never contact details). */
+  private trackClick = (e: Event): void => {
+    const a = e.composedPath().find((n): n is HTMLAnchorElement => n instanceof HTMLAnchorElement);
+    if (!a || !this.renderRoot.contains(a) || a.closest('.footer--pre')) return;
+    const href = a.getAttribute('href')!;
+    const label = a.getAttribute('aria-label') ?? a.textContent!.trim();
+    const name = href.startsWith('tel:')
+      ? 'Contact us: Phone'
+      : href.startsWith('mailto:')
+        ? 'Contact us: Email'
+        : a.closest('.social-media')
+          ? `Social: ${label.replace('UVA Library on ', '')}`
+          : `${a.closest('.block-content')?.querySelector('h2')?.textContent ?? 'Footer'}: ${label}`;
+    trackEvent(this, ['site-footer', 'link-click', name]);
+  };
 
   private observe(): void {
     this.observer ??= new MutationObserver(() => this.adoptPreFooterChildren());

@@ -7,7 +7,7 @@ import { tokens } from '../../styles/tokens.js';
 import { base, TYPEKIT_URL } from '../../styles/base.js';
 import { accessible } from '../../styles/accessible.js';
 import { ColorSchemeController } from '../../base/color-scheme.js';
-import { bufferAnalytics } from '../../base/analytics.js';
+import { bufferAnalytics, trackEvent } from '../../base/analytics.js';
 import {
   ALERTS_PRODUCTION_SRC,
   alertsBase,
@@ -512,6 +512,8 @@ export class SitePage extends UvalibElement {
 
   private onSkip(e: Event): void {
     e.preventDefault();
+    // Shadow mode: the link is in <site-header>'s skip-link slot, and the header reports it.
+    if (this.lightDom) trackEvent(this, ['site-header', 'skip-link']);
     this.renderRoot.querySelector<HTMLElement>('main')?.focus();
   }
 

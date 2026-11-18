@@ -99,7 +99,7 @@ const hashOf = (href: string, base: string): string => {
  * @tagname site-main-nav
  * @slot main-nav - Optional `<nav>` (or `<ul>`) whose list replaces the menu: `<li><a href>` for a direct link, `<li><span>Group</span><ul><li><a href>…</a></li></ul></li>` for a group. It is never shown itself; in light mode it is moved into a hidden holder.
  * @fires site-main-nav-error - `items-src` could not be loaded: both attempts failed (network error, a 10 s timeout per attempt, or no valid entries), after about 21 s at worst; the nav shows the bundled snapshot. `detail` is `{ src, message }`. Bubbles and is composed.
- * @fires uvalib-analytics-event - For `<site-analytics>`: a group was opened, `['site-main-nav', 'menu-open', <the group's label>]` (not on close). Bubbles and is composed.
+ * @fires uvalib-analytics-event - For `<site-analytics>`: a group was opened, `['site-main-nav', 'menu-open', <the group's label>]` (not on close), and a link was clicked, `['site-main-nav', 'link-click', '<Group> > <Link>']` (a top-level link: its label alone; never the URL). Bubbles and is composed.
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Top-level button colour.
  * @cssprop [--uva-brand-blue=#232d4b] - Bar bottom border, chevrons, panel links, and the hover and expanded button text.
  * @cssprop [--uva-grey-100=#dadada] - Hover and expanded button background, and panel link hover background.
@@ -616,6 +616,17 @@ export class SiteMainNav extends UvalibElement {
    * window) keep it open.
    */
   private onClick(e: MouseEvent): void {
+    const a = e.composedPath().find((n) => n instanceof HTMLAnchorElement);
+    if (a) {
+      // `Group > Link` for a link in a group, the link alone for a top-level one.
+      const group = a.closest('.panel')?.previousElementSibling?.textContent;
+      const label = a.textContent!.trim();
+      trackEvent(this, [
+        'site-main-nav',
+        'link-click',
+        group ? `${group.trim()} > ${label}` : label,
+      ]);
+    }
     if (this.open === null || e.button !== 0) return;
     if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
     if (e.composedPath().some((n) => n instanceof Element && n.localName === 'a')) {

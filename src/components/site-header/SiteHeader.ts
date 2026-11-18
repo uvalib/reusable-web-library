@@ -13,6 +13,8 @@ import {
 } from '../site-main-nav/main-nav-items.js';
 
 const ACCOUNT_URL = 'https://search.lib.virginia.edu/account';
+/** The analytics category. */
+const TAG = 'site-header';
 
 const FULL_LINKS: ReadonlyArray<{ label: string; path: string }> = [
   { label: 'My account', path: ACCOUNT_URL },
@@ -95,7 +97,7 @@ const stopEvent = (e: Event) => e.stopPropagation();
  * @slot site-links - Optional `<a href>` elements with text that replace the library utility links in the inline nav and the Menu popover (ignored by the `vendor` variant). In light mode they are moved into a hidden holder.
  * @csspart header - The `<header>` element.
  * @fires site-main-nav-error - `main-nav-src` could not be loaded; the bundled main navigation is shown. `detail` is `{ src, message }`. Fired once, from the bar's `<site-main-nav>`; bubbles and is composed.
- * @fires uvalib-analytics-event - For `<site-analytics>`: the visitor picked a colour scheme, `['site-header', 'color-scheme', 'light' | 'dark' | 'system']` (not the initial value), and the main navigation's menu opens (see `<site-main-nav>`). Bubbles and is composed.
+ * @fires uvalib-analytics-event - For `<site-analytics>`: the visitor picked a colour scheme, `['site-header', 'color-scheme', 'light' | 'dark' | 'system']` (not the initial value); `['site-header', 'link-click', <label>]` for a utility or site link, `['site-header', 'logo-click']`, `['site-header', 'skip-link']` (a slotted skip link) and `['site-header', 'menu-open']` when the Menu popover opens; and the main navigation's menu opens and link clicks (see `<site-main-nav>`). Never a URL. Bubbles and is composed.
  * @cssprop [--uva-blue-alt-dark=#005679] - Utility link colour.
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Menu button colour.
  * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour (focus-visible outline), and the underline colour of an `aria-current` link (also bold, with a 3px underline).
@@ -409,7 +411,34 @@ export class SiteHeader extends UvalibElement {
   constructor() {
     super();
     this.addEventListener('click', this.onMenuLinkClick);
+    this.addEventListener('click', this.trackClick);
   }
+
+  /**
+   * Analytics for the header's own links (never their URLs): the logo, the utility or site
+   * links by label, and a skip link slotted into `skip-link`. Links inside the main
+   * navigation (it reports its own) and the alerts are left alone.
+   */
+  private trackClick = (e: Event): void => {
+    const path = e.composedPath();
+    const a = path.find((n): n is HTMLAnchorElement => n instanceof HTMLAnchorElement);
+    if (
+      !a ||
+      path.some((n) => n instanceof Element && /^site-(main-nav|alerts)$/.test(n.localName))
+    )
+      return;
+    if (a.slot === 'skip-link' && a.parentNode === this) trackEvent(this, [TAG, 'skip-link']);
+    else if (a.matches('.logo')) trackEvent(this, [TAG, 'logo-click']);
+    else if (a.closest('nav.inline, nav.menu') && this.renderRoot.contains(a))
+      trackEvent(this, [TAG, 'link-click', a.textContent!.replace(/\s+/g, ' ').trim()]);
+  };
+
+  /** The Menu popover opening (not closing). */
+  private trackToggle = (e: Event): void => {
+    const t = e.composedPath()[0];
+    if (t instanceof HTMLElement && t.id === this.menuId && (e as ToggleEvent).newState === 'open')
+      trackEvent(this, [TAG, 'menu-open']);
+  };
 
   /**
    * A plain click on a link in the Menu popover closes it, so a single-page app that handles
@@ -428,6 +457,9 @@ export class SiteHeader extends UvalibElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
+    // `toggle` neither bubbles nor leaves the shadow root: capture it on the render root
+    // (adding the same listener again on a reconnect does nothing).
+    this.renderRoot.addEventListener('toggle', this.trackToggle, true);
     // Reconnect after a disconnect; the first connect reads the links in firstUpdated().
     if (this.hasUpdated) this.syncChildren();
     // The main-nav markup is read before the first render too, so it costs no second update.
@@ -473,7 +505,7 @@ export class SiteHeader extends UvalibElement {
     const input = e.target as HTMLInputElement;
     if (!input.checked) return;
     this.scheme.choose(input.value as ColorSchemePreference);
-    trackEvent(this, ['site-header', 'color-scheme', input.value]);
+    trackEvent(this, [TAG, 'color-scheme', input.value]);
   }
 
   /**
