@@ -50,6 +50,8 @@ Loading rules:
 - Alerts report to analytics on their own (with an analytics element on the page): a content impression per alert shown per page view ('Library alert', '<severity>: <title>'), and `site-alerts` events `dismiss`, `link-click` (never the URL) and `error` (`alerts-script`). Do not add your own tracking for them.
 - If the site sends a Content Security Policy, it must allow the alerts host (production `https://d2q6t6fdv76k7r.cloudfront.net`) in `script-src` and `connect-src`, `wss://*.appsync-realtime-api.us-east-1.amazonaws.com` in `connect-src`, and the hosts of images used in alert bodies in `img-src`. Alert bodies are inserted as HTML, so a page that enforces Trusted Types (`require-trusted-types-for`) cannot show alerts: use `no-alerts` there.
 - In light mode the regional `<site-alerts>` is the first child of `<main>`, the banner the first child of the header's `<header>`, and the `section.alerts-list` band (the alert list) sits between `<site-header>` and `<main>`; do not write host CSS like `main > :first-child` or `site-header + *` that assumes your content comes first, and do not restyle the band's full-bleed layout.
+- A sub-site's name (Electronic Text Collections, an exhibit or project site): `site-name="…"` on `<site-page>` (and `site-name-href` when its home is not `/`). The header shows it after the logo as a link to the site's home; the logo still links to library.virginia.edu. Never add your own banner, title bar or second logo row for it, and never make it the page's `<h1>` (the page keeps its own). Keep it short (two lines at most on wide screens).
+- Buttons, toggles and search boxes in the page's own content: use `base.css`'s classes, never hand-rolled button CSS: `.uvalib-button` (on `<button>` or `<a>`), `--secondary` (outline), `--subtle`, `--small`, `--large`; a toggle is a `.uvalib-button` with `aria-pressed="true|false"` (flip it in script); fields are `.uvalib-input` with a visible `<label>`, and a search box is `<form class="uvalib-search-form" role="search">` holding the label, the field and a `.uvalib-button` submit. They need `base.css` linked (`<site-page>` does not install them).
 - Third-party or vendor sites that are not library.virginia.edu: `<site-page header-variant="vendor">` (logo plus Ask a Librarian only). Links default to `root-link-domain="https://www.library.virginia.edu"`; set it only for a non-production domain.
 - Do not replace a light-mode page's children wholesale (`innerHTML` or `textContent` on `<site-page>`): that destroys the chrome. Append, or update a child container inside it.
 
@@ -133,6 +135,52 @@ A site with its own navigation (links replace the library utility links in the h
       <a slot="site-links" href="/exhibits/past/">Past exhibits</a>
       <h1>Current exhibits</h1>
       <p>Page content goes here.</p>
+    </site-page>
+  </body>
+</html>
+```
+
+A sub-site with its name in the header, its own links, and a search box and a toggle in its content (`base.css` styles the classes):
+
+```html snippet
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Electronic Text Collections</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.internal.lib.virginia.edu/web-components/v1/base.css"
+    />
+    <script
+      type="module"
+      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
+    ></script>
+  </head>
+  <body>
+    <site-page
+      site-name="Electronic Text Collections"
+      site-name-href="/"
+      site-links-label="Collections"
+    >
+      <a slot="site-links" href="/collections/">Collections</a>
+      <a slot="site-links" href="/search/">Search</a>
+      <h1>Electronic Text Collections</h1>
+      <form class="uvalib-search-form" role="search" action="/search/">
+        <label for="q">Search the texts</label>
+        <input class="uvalib-input" id="q" name="q" type="search" />
+        <button class="uvalib-button" type="submit">Search</button>
+      </form>
+      <p>
+        <button class="uvalib-button" type="button" aria-pressed="false">
+          Show original line breaks
+        </button>
+      </p>
+      <p>
+        <a class="uvalib-button uvalib-button--secondary" href="/texts/1/">Previous</a>
+        <a class="uvalib-button uvalib-button--secondary" href="/texts/3/">Next</a>
+      </p>
     </site-page>
   </body>
 </html>
@@ -322,7 +370,8 @@ Before finishing, load the page in a browser (or test) and confirm:
 6. `no-shadow-dom` appears only where the host CSS is meant to own the styling.
 7. A full header shows the library main navigation (unless the site deliberately set `no-main-nav`), and the page has no second hand-built copy of it.
 8. `color-scheme-switch` appears only where the user asked for dark mode and the site's own content supports it; if it is set, the page passes the axe test in both Light and Dark.
-9. With analytics: no hand-written listener duplicates what the components already report, host-page tracking uses `data-uvalib-track`, and no event name holds a title, URL, search text or personal data.
+9. A sub-site's name is `site-name` on `<site-page>`, not a hand-built title bar; buttons and search boxes in the content use the `.uvalib-button` / `.uvalib-input` / `.uvalib-search-form` classes, toggles carry `aria-pressed`, and every field has a label.
+10. With analytics: no hand-written listener duplicates what the components already report, host-page tracking uses `data-uvalib-track`, and no event name holds a title, URL, search text or personal data.
 
 ## 9. Keeping this skill current
 

@@ -140,6 +140,16 @@ A site with its own navigation puts it in the header instead of the library util
 
 The links replace the utility links in both the inline nav on wide screens and the Menu popover on narrow ones, in order. Their `href` is used as written (not joined to `root-link-domain`), and `aria-current`, `target`, `rel` and `hreflang` are kept; mark the current page with `aria-current="page"`, which is shown bold with a thick underline. `site-links-label` names the nav (default `Site`; the popover's nav is "… menu"). Adding, removing or editing the links later updates the header. Children that are not `<a href>` with text (a link with empty or whitespace-only text has no accessible name) are ignored with a console warning. Without site links the header is unchanged. The `vendor` header variant ignores site links and keeps its reduced link set.
 
+### Site name
+
+A sub-site (Electronic Text Collections, a digital exhibit, a project site) names itself in the header with `site-name` on `<site-page>` (or a standalone `<site-header>`):
+
+```html
+<site-page site-name="Electronic Text Collections" site-name-href="/">…page content…</site-page>
+```
+
+The name sits after the library logo, past a thin divider, in the header's text colour, as a link to the site's home: `site-name-href`, default `/`. The logo still links to library.virginia.edu. The links have distinct names, each starting with its visible text (for voice control): "UVA Library home" and "Electronic Text Collections home". The name is not a heading, so the page keeps its own `<h1>`. On wide screens it shares the logo row and wraps to at most two lines without making the header taller, so keep it short (about 30 characters fit on one line from 1200px). At 992px and below it gets its own lines under the logo, so it wraps cleanly on phones with no horizontal scroll. It works in light DOM and with the `vendor` variant (a vendor-hosted site can name itself too). A click reports `['site-header', 'site-name-click']`. Without `site-name` the header is unchanged.
+
 ### Main navigation
 
 Every full header shows the UVA Library main navigation, as on library.virginia.edu: About, Using the Library, Research & teaching support and Get help. It is on by default for `<site-page>` and a standalone `<site-header>`, with or without site links. Above 992px it is a full-width row under the logo row, with the brand-blue rule under it; at 992px and below it leads the Menu popover as accordions, above the utility or site links. The `vendor` header variant never shows it.
@@ -259,6 +269,30 @@ Light-mode component styles live in `@layer uvalib`, scoped to their tag. Unlaye
 **Page-level base styles are unlayered (trade-off).** The base rules that `<site-page>` installs (unless `no-global-styles`) and that `<site-style no-shadow-dom>` installs (`html`, `body`, the `*` box-sizing, and the accessibility rules) are unlayered and adopted after the document's stylesheets. They beat a host's unlayered rules of equal specificity, such as Tailwind's preflight `html { font-family }`, and any layered host CSS, such as Tailwind v4 layers or utilities on `body`. A host overrides them with a more specific selector or `!important`, or opts out with `no-global-styles` on `<site-page>` (or by not using `<site-style>`). The tokens (`:root { --uva-* }`) stay in `@layer uvalib`, so a host's own unlayered `:root { --uva-brand-blue: … }` still wins.
 
 The mode is read once, at first connect; do not toggle it afterwards.
+
+## Buttons and forms
+
+`base.css` also gives host content the library's buttons and fields, so a page's own search box, toggles and links-as-buttons match library.virginia.edu. Link `base.css` (see [Install](#install)) and add the classes:
+
+```html
+<form class="uvalib-search-form" role="search" action="/search">
+  <label for="q">Search the collections</label>
+  <input class="uvalib-input" id="q" name="q" type="search" />
+  <button class="uvalib-button" type="submit">Search</button>
+</form>
+
+<button class="uvalib-button" type="button">Primary</button>
+<button class="uvalib-button uvalib-button--secondary" type="button">Secondary</button>
+<button class="uvalib-button uvalib-button--subtle" type="button">Subtle</button>
+<a class="uvalib-button uvalib-button--secondary" href="/next">Next page</a>
+<button class="uvalib-button" type="button" aria-pressed="false">Show original line breaks</button>
+```
+
+- **`.uvalib-button`** is the library's button: blue-alt (`#007bac`) with white text and a 5px radius, darker on hover. Use it on `<button>` or `<a>`. `--secondary` is the outline, `--subtle` the pale blue one; `--small` and `--large` are the theme's sizes. Every button is at least 44px tall (small: 32px), has the library's orange focus ring, and a grey disabled look (`disabled`, or `aria-disabled="true"` while busy).
+- **Toggles:** a `.uvalib-button` with `aria-pressed` is an outline with an empty box while off, and filled with a ticked box while on, so the state never rests on colour alone. Flip `aria-pressed` in your script; do not use a checkbox look-alike or `role="switch"` for it.
+- **`.uvalib-input`** is a 44px text field; **`.uvalib-search-form`** puts the label, field and button in one row that wraps on phones. Keep a visible `<label>` (or at least an `aria-label`).
+- **Dark mode and forced colors:** they follow the `--uva-color-button-*` role tokens (with `color-scheme-switch`), and keep visible outlines and a highlighted pressed toggle in Windows high-contrast mode.
+- **Cascade:** like the rest of `base.css` the rules are unlayered, so a host reset such as `button { background: none }` does not undo them; restyle with a more specific selector. They are only in `base.css`: `<site-page>` does not install them. The components' own buttons (bento-box, events-section, library-weekly-hours) keep their look, in light DOM too.
 
 ## Tokens and theming
 
