@@ -15,6 +15,7 @@ import {
 } from './alerts-source.js';
 import { setBody } from './body.js';
 import { closeIcon, criticalIcon, infoIcon, warningIcon } from './icons.js';
+import { dismissedKey, dismissedStore, type DismissedStore } from './dismissed.js';
 
 export type { SiteAlert } from './alerts-source.js';
 
@@ -33,7 +34,14 @@ type Severity = keyof typeof SEVERITY;
 const severityOf = (a: SiteAlert): Severity =>
   Object.hasOwn(SEVERITY, a.severity) ? (a.severity as Severity) : 'alert3';
 
-const EMPTY: AlertsSnapshot = { headerAlerts: [], menuAlerts: [], regionalAlerts: [], status: '' };
+const EMPTY: AlertsSnapshot = {
+  alerts: [],
+  seenAlerts: [],
+  headerAlerts: [],
+  menuAlerts: [],
+  regionalAlerts: [],
+  status: '',
+};
 const DEFAULT_LEVEL = 2;
 
 /** Analytics names are capped at 100 characters. */
@@ -258,6 +266,8 @@ export class SiteAlerts extends UvalibElement {
   /** The headless element's last state. */
   @state() private data: AlertsSnapshot = EMPTY;
   private sub?: AlertsSubscription;
+  /** What the reader closed here (Information alerts included), and its unsubscribe. */
+  private closed?: { key: string; store: DismissedStore; off: () => void };
   /** The dismissed alert and its place in the list, until it is gone and focus has moved. */
   private pendingFocus?: { uuid: string; index: number };
   private lastCount = 0;
@@ -336,6 +346,8 @@ export class SiteAlerts extends UvalibElement {
     super.disconnectedCallback();
     this.sub?.release();
     this.sub = undefined;
+    this.closed?.off();
+    this.closed = undefined;
   }
 
   /** The alerts base URL in use, from `alerts-src` or `alerts-env`. */
@@ -362,7 +374,19 @@ export class SiteAlerts extends UvalibElement {
   /** List alerts, most severe first (the headless element's order within a severity). */
   private get list(): SiteAlert[] {
     if (!this.has('list')) return [];
-    return [...this.data.menuAlerts].sort((a, b) => severityOf(a).localeCompare(severityOf(b)));
+    // As library.virginia.edu: every sitewide alert but the header ones, until the reader
+    // closes it here. Information alerts are always "seen" by the headless element (Virgo's
+    // rule), so its seen list hides only Warnings (dismissed on another page using it).
+    const seen = new Set(this.data.seenAlerts);
+    const closed = this.closed?.store;
+    return this.data.alerts
+      .filter(
+        (a) =>
+          a.severity !== 'alert4' &&
+          !closed?.has(a.uuid) &&
+          !(a.severity === 'alert2' && seen.has(a.uuid)),
+      )
+      .sort((a, b) => severityOf(a).localeCompare(severityOf(b)));
   }
 
   private get count(): number {
@@ -375,6 +399,13 @@ export class SiteAlerts extends UvalibElement {
   }
 
   protected override willUpdate(changed: PropertyValues<this>): void {
+    // Before rendering, so the first render already knows what the reader closed.
+    const closedKey = dismissedKey(this.storageKey?.trim());
+    if (this.isConnected && this.closed?.key !== closedKey && this.ownerDocument.defaultView) {
+      this.closed?.off();
+      const store = dismissedStore(this.ownerDocument.defaultView, closedKey);
+      this.closed = { key: closedKey, store, off: store.subscribe(() => this.requestUpdate()) };
+    }
     if (changed.has('alertsEnv') && this.alertsEnv && !isAlertsEnv(this.alertsEnv)) {
       console.warn(
         `${this.localName}: unknown alerts-env "${this.alertsEnv}"; using production. Valid values: production, staging.`,
@@ -400,6 +431,10 @@ export class SiteAlerts extends UvalibElement {
         this.sub?.release();
         this.sub = subscribeAlerts(this.ownerDocument, base, this.storageKey, (s) => {
           this.data = s;
+          // Forget closed alerts that are gone, once there is data to compare with.
+          // An empty list is never trusted (data still loading, or a transient blip).
+          if ((s.status === 'live' || s.status === 'polling') && s.alerts.length)
+            this.closed?.store.keepOnly(s.alerts.map((a) => a.uuid));
         });
       }
     }
@@ -420,7 +455,10 @@ export class SiteAlerts extends UvalibElement {
     this.pendingFocus = { uuid: a.uuid, index };
     const shown = this.shown().find((x) => x.alert.uuid === a.uuid);
     if (shown) trackEvent(this, ['site-alerts', 'dismiss', shown.piece]);
-    this.sub?.dismiss(a.uuid);
+    // Recorded here (Information alerts are already "seen" by the headless element); a
+    // Warning is also dismissed there, so pages that use its seen list agree.
+    this.closed?.store.add(a.uuid);
+    if (severityOf(a) !== 'alert3') this.sub?.dismiss(a.uuid);
   }
 
   /**
@@ -475,9 +513,7 @@ export class SiteAlerts extends UvalibElement {
   /** Insert each shown alert's body HTML into its (keyed, so stable) body element. */
   private fillBodies(): void {
     const d = this.data;
-    const html = new Map(
-      [...d.headerAlerts, ...d.menuAlerts, ...d.regionalAlerts].map((a) => [a.uuid, a.body]),
-    );
+    const html = new Map([...d.alerts, ...d.regionalAlerts].map((a) => [a.uuid, a.body]));
     for (const el of this.renderRoot.querySelectorAll<HTMLElement>('.body[data-uuid]')) {
       const body = html.get(el.dataset.uuid!);
       if (body !== undefined) setBody(el, body);

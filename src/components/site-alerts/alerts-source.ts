@@ -16,6 +16,10 @@ export interface SiteAlert {
 
 /** What a `<site-alerts>` draws: the headless element's lists and status. */
 export interface AlertsSnapshot {
+  /** Every sitewide alert in the data (header ones included), seen or not. */
+  alerts: SiteAlert[];
+  /** The alerts the headless element counts as seen (dismissed, and every Information one). */
+  seenAlerts: string[];
   headerAlerts: SiteAlert[];
   menuAlerts: SiteAlert[];
   regionalAlerts: SiteAlert[];
@@ -42,6 +46,8 @@ const STATUS = 'uvalib-alerts-status';
 
 type Headless = HTMLElement & {
   [USERS]?: Set<unknown>;
+  alerts?: unknown;
+  seenAlerts?: unknown;
   headerAlerts?: unknown;
   menuAlerts?: unknown;
   regionalAlerts?: unknown;
@@ -70,13 +76,24 @@ function alertsOf(v: unknown): SiteAlert[] {
 function snapshot(el: Headless): AlertsSnapshot {
   try {
     return {
+      alerts: alertsOf(el.alerts),
+      seenAlerts: Array.isArray(el.seenAlerts)
+        ? (el.seenAlerts as unknown[]).filter((x): x is string => typeof x === 'string')
+        : [],
       headerAlerts: alertsOf(el.headerAlerts),
       menuAlerts: alertsOf(el.menuAlerts),
       regionalAlerts: alertsOf(el.regionalAlerts),
       status: str(el.status) || 'connecting',
     };
   } catch {
-    return { headerAlerts: [], menuAlerts: [], regionalAlerts: [], status: 'offline' };
+    return {
+      alerts: [],
+      seenAlerts: [],
+      headerAlerts: [],
+      menuAlerts: [],
+      regionalAlerts: [],
+      status: 'offline',
+    };
   }
 }
 

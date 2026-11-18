@@ -51,6 +51,8 @@ if (!customElements.get('uvalib-alerts')) {
     const s = w.__uvalibAlertsStubState ?? {};
     const headerAlerts = norm(s.headerAlerts, 'alert4');
     const listed = norm(s.menuAlerts, 'alert1');
+    // As the real element's applyArrival(): every Information alert is "seen" on arrival.
+    for (const a of listed) if (a.severity === 'alert3') seen.add(a.uuid);
     const menuAlerts = listed.filter((a) => !seen.has(a.uuid));
     return {
       alerts: [...headerAlerts, ...listed],

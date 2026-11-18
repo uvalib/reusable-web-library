@@ -76,9 +76,19 @@ const resetImpressions = () =>
     Symbol.for('uvalib.site-alerts.impressions')
   ];
 
+/** Forget what the reader closed (localStorage and the shared in-page store). */
+const resetClosed = () => {
+  for (const k of Object.keys(localStorage))
+    if (k.endsWith(':site-alerts-closed')) localStorage.removeItem(k);
+  delete (window as unknown as Record<symbol, unknown>)[Symbol.for('uvalib.site-alerts.dismissed')];
+};
+
+beforeEach(resetClosed);
+
 afterEach(async () => {
   stub().__uvalibAlertsStubSet?.(undefined);
   resetImpressions();
+  resetClosed();
   document.documentElement.removeAttribute(COLOR_SCHEME_ATTR);
   await emulateMedia({ forcedColors: 'none', colorScheme: 'light' });
   await setViewport({ width: 800, height: 600 });
@@ -204,7 +214,11 @@ for (const mode of ['shadow', 'light'] as const) {
       await sendKeys({ press: 'Space' });
       await settle(el);
       // The last one was dismissed: the critical alert, which has no button, gets focus.
-      expect(stub().__uvalibAlertsStubDismissed).to.deep.equal(['w1', 'w2', 'i1']);
+      // Information alerts are closed here only (the headless element already counts them seen).
+      expect(stub().__uvalibAlertsStubDismissed).to.deep.equal(['w1', 'w2']);
+      expect(localStorage.getItem('uvalib-alerts-seen:site-alerts-closed')).to.equal(
+        JSON.stringify(['w1', 'w2', 'i1']),
+      );
       expect(active()).to.equal(q(el, '.alert.alert1'));
       expect(document.activeElement).to.not.equal(document.body);
     });
@@ -223,10 +237,55 @@ for (const mode of ['shadow', 'light'] as const) {
       expect(el.hasAttribute('data-empty')).to.equal(true);
     });
 
+    it('shows Information alerts until closed here, though the headless element counts them seen', async () => {
+      const el = await make('show="list"');
+      const h = headless()[0] as HTMLElement & {
+        seenAlerts: string[];
+        menuAlerts: { uuid: string }[];
+      };
+      expect(h.seenAlerts).to.include('i1'); // the real element's applyArrival()
+      expect(h.menuAlerts.map((a) => a.uuid)).to.not.include('i1');
+      expect(titles(el).some((t) => t.includes('New hours'))).to.equal(true);
+      // Closed: gone, remembered for the next page (a new store reads localStorage).
+      q(el, '.alert3 button')!.click();
+      await settle(el);
+      expect(titles(el).some((t) => t.includes('New hours'))).to.equal(false);
+      delete (window as unknown as Record<symbol, unknown>)[
+        Symbol.for('uvalib.site-alerts.dismissed')
+      ];
+      const next = await make('show="list"');
+      expect(titles(next).some((t) => t.includes('New hours'))).to.equal(false);
+    });
+
+    it('hides a Warning the headless element has as seen; keeps Critical alerts', async () => {
+      const el = await make('show="list"');
+      const h = headless()[0] as HTMLElement & { dismiss(uuid: string): void };
+      h.dismiss('w1'); // dismissed on another page that uses the headless seen list
+      await settle(el);
+      expect(titles(el).some((t) => t.includes('Wi-Fi down'))).to.equal(false);
+      expect(titles(el).some((t) => t.includes('Building closed'))).to.equal(true);
+    });
+
+    it('follows a close in another tab (storage event)', async () => {
+      const el = await make('show="list"');
+      const key = 'uvalib-alerts-seen:site-alerts-closed';
+      localStorage.setItem(key, JSON.stringify(['w2']));
+      window.dispatchEvent(new StorageEvent('storage', { key }));
+      await settle(el);
+      expect(titles(el).some((t) => t.includes('Printing slow'))).to.equal(false);
+    });
+
+    it('forgets closed alerts that are no longer in the data', async () => {
+      const key = 'uvalib-alerts-seen:site-alerts-closed';
+      localStorage.setItem(key, JSON.stringify(['gone', 'w2']));
+      await make('show="list"');
+      expect(JSON.parse(localStorage.getItem(key)!)).to.deep.equal(['w2']);
+    });
+
     it('a <site-alerts> moved in the page keeps the same shared headless element', async () => {
       const el = await make();
       const [before] = headless();
-      expect(before).to.exist;
+      expect(before).to.not.equal(undefined);
       const other = document.createElement('div');
       document.body.append(other);
       other.append(el);
@@ -425,7 +484,7 @@ describe('site-alerts script load failure', function () {
       }
       await new Promise((r) => setTimeout(r, 150));
       const doc = iframe.contentDocument!;
-      expect(win().__warnings.length).to.equal(1);
+      expect(win().__warnings, win().__warnings.join(' | ')).to.have.length(1);
       expect(win().__warnings[0]).to.contain(`${FAIL}v1/uvalib-alerts.js`);
       expect(win().__errors).to.deep.equal([['site-alerts', 'error', 'alerts-script']]);
       for (const a of doc.querySelectorAll('site-alerts'))
