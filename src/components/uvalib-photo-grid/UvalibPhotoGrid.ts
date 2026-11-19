@@ -89,6 +89,27 @@ const descendantRules = (tag: string) => `
     text-decoration: underline;
     text-underline-offset: 0.15em;
   }
+  ${tag} > a,
+  ${tag} > button {
+    position: relative;
+  }
+  ${tag} .badge,
+  ${tag} [slot='badge'] {
+    position: absolute;
+    z-index: 1;
+    inset-block-start: 0.5rem;
+    inset-inline-start: 0.5rem;
+    max-width: calc(100% - 1rem);
+    margin: 0;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.25rem;
+    background: var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
+    color: var(--uva-color-on-accent, #fff);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    pointer-events: none;
+  }
   ${tag} > a:focus-visible, ${tag} > button:focus-visible {
     outline: 3px solid var(--uva-color-focus, var(--uva-brand-orange, #e57200));
     outline-offset: 2px;
@@ -98,6 +119,12 @@ const descendantRules = (tag: string) => `
   }
   @media (forced-colors: active) {
     ${tag} > a:focus-visible, ${tag} > button:focus-visible { outline: 3px solid CanvasText; }
+    ${tag} .badge,
+    ${tag} [slot='badge'] {
+      background: Canvas;
+      color: CanvasText;
+      border: 1px solid CanvasText;
+    }
   }
 `;
 
@@ -117,8 +144,14 @@ const LENGTH = /^\d+(\.\d+)?(px|rem|em|vh|vw|vmin|vmax|ch|%)?$/;
  * name: the grid does not add a caption that would disagree with it.
  * Put the grid inside `<uvalib-lightbox>` and a plain click opens the viewer.
  *
+ * A badge sits on the thumbnail: `<span slot="badge">` inside the link or button, or
+ * `data-badge` on that item (for example “seq” or “3 photos”). It is visible text, so it is
+ * part of the item’s accessible name. When the item already has an `aria-label`, the badge
+ * is appended to that label (the author’s words stay in `data-uvalib-label`). A badge does
+ * not replace the alt caption.
+ *
  * @tagname uvalib-photo-grid
- * @slot - The thumbnails: one `<a href>` or `<button>` per photo, each with an `<img>`.
+ * @slot - The thumbnails: one `<a href>` or `<button>` per photo, each with an `<img>`. A `<span slot="badge">` inside an item is drawn over that thumbnail.
  * @cssprop --uva-color-text - Dark-mode role token: caption colour (else `--uva-grey-darkest`).
  * @cssprop --uva-color-focus - Dark-mode role token: focus ring (else `--uva-brand-orange`).
  * @cssprop --uva-color-surface - Dark-mode role token: the box behind an image that has not loaded (else #fff).
@@ -173,7 +206,7 @@ export class UvalibPhotoGrid extends UvalibElement {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['width', 'height', 'alt', 'src'],
+      attributeFilter: ['width', 'height', 'alt', 'src', 'data-badge', 'slot'],
     });
     // `load` does not bubble; capture sees an image finish so a ratio can replace the default.
     this.addEventListener('load', this.onLoad, true);
@@ -239,6 +272,7 @@ export class UvalibPhotoGrid extends UvalibElement {
     if (skipped) this.warn();
     this.items().forEach((item, i) => {
       item.style.setProperty('--ar', this.ratio(item).toFixed(4));
+      this.ensureBadge(item);
       this.ensureCaption(item, i);
     });
   }
@@ -260,6 +294,67 @@ export class UvalibPhotoGrid extends UvalibElement {
     if (w && h) return w / h;
     if (img.naturalWidth > 0 && img.naturalHeight > 0) return img.naturalWidth / img.naturalHeight;
     return 1;
+  }
+
+  /**
+   * An authored `<span slot="badge">` or a `data-badge` value, drawn over the thumbnail.
+   * `data-badge` is copied into a generated `.badge`. The badge is skipped when deciding
+   * whether the item already has a caption, then folded into an existing `aria-label`.
+   */
+  private ensureBadge(item: HTMLElement): void {
+    const slotted = [...item.children].find(
+      (n): n is HTMLElement =>
+        n instanceof HTMLElement &&
+        n.getAttribute('slot') === 'badge' &&
+        !n.hasAttribute('data-uvalib-generated-badge'),
+    );
+    const slottedText = slotted ? normalize(slotted.textContent) : '';
+    let generated = [...item.children].find(
+      (n): n is HTMLElement =>
+        n instanceof HTMLElement && n.hasAttribute('data-uvalib-generated-badge'),
+    );
+    let text = '';
+    if (slotted && slottedText) {
+      generated?.remove();
+      text = slottedText;
+    } else {
+      const data = normalize(item.getAttribute('data-badge'));
+      if (!data) generated?.remove();
+      else {
+        if (!generated) {
+          generated = this.ownerDocument.createElement('span');
+          generated.className = 'badge';
+          generated.setAttribute('data-uvalib-generated-badge', '');
+          item.insertBefore(generated, item.firstChild);
+        }
+        if (generated.textContent !== data) generated.textContent = data;
+        text = data;
+      }
+    }
+    this.syncBadgeName(item, text);
+  }
+
+  /**
+   * A visible badge is already in the name. An `aria-label` replaces the contents, so the
+   * badge is appended and the author’s label is kept in `data-uvalib-label`.
+   */
+  private syncBadgeName(item: HTMLElement, badge: string): void {
+    const key = 'data-uvalib-label';
+    const stored = item.getAttribute(key);
+    const current = item.getAttribute('aria-label');
+    if (!badge) {
+      if (stored !== null) {
+        if (stored) item.setAttribute('aria-label', stored);
+        else item.removeAttribute('aria-label');
+        item.removeAttribute(key);
+      }
+      return;
+    }
+    if (current === null && stored === null) return;
+    const original = stored ?? current ?? '';
+    if (stored === null) item.setAttribute(key, original);
+    const next = original ? `${original}, ${badge}` : badge;
+    if (current !== next) item.setAttribute('aria-label', next);
   }
 
   /**
@@ -332,7 +427,14 @@ function visibleText(el: HTMLElement): string {
   const parts: string[] = [];
   const walk = (n: Node) => {
     if (n instanceof HTMLImageElement) return;
-    if (n instanceof HTMLElement && n.classList.contains('caption')) return;
+    if (
+      n instanceof HTMLElement &&
+      (n.classList.contains('caption') ||
+        n.classList.contains('badge') ||
+        n.getAttribute('slot') === 'badge' ||
+        n.hasAttribute('data-uvalib-generated-badge'))
+    )
+      return;
     if (
       n instanceof HTMLElement &&
       (n.hidden ||
