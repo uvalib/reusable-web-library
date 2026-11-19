@@ -9,6 +9,8 @@ export const GROUPS = [
   'Header',
   'Alerts',
   'Breadcrumbs',
+  'Contents',
+  'Metadata',
   'Search',
   'Hours',
   'Events',
@@ -473,6 +475,138 @@ site-footer footer {
         document.querySelector('h1').textContent = 'First result';
       });
     </script>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'contents-sidebar',
+    group: 'Contents',
+    title: 'Contents sidebar',
+    description:
+      'uvalib-contents is sub-navigation or a table of contents: a nav landmark named and headed "Contents" (label) holding a nested <ol> or <ul> of links, to any depth. It marks the link to this page with aria-current="page" and the link to the section in the URL hash with aria-current="location", following hash changes. In a sidebar, sticky keeps it in view; at 64rem and below it collapses into a disclosure button that starts closed.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Contents sidebar',
+          styles: true,
+          components: ['uvalib-contents'],
+          body: `    <site-page>
+      <h1>The actress of Padua, and other tales</h1>
+      <div class="reader">
+        <uvalib-contents sticky>
+          <ol>
+            <li><a href="#preface">Preface</a></li>
+            <li>
+              <a href="#part-1">The actress of Padua</a>
+              <ol>
+                <li><a href="#part-1">Part I. The Key</a></li>
+                <li><a href="#part-2">Part II. The Crucifix</a></li>
+                <li><a href="#part-3">Part III. The White for the Black</a></li>
+              </ol>
+            </li>
+            <li>
+              Other tales
+              <ul>
+                <li><a href="#tales">The campaigner&#39;s tale</a></li>
+              </ul>
+            </li>
+          </ol>
+        </uvalib-contents>
+        <article>
+          <h2 id="preface">Preface</h2>
+          <p>Select an entry in the contents: the link to the section in the address bar is marked as the current location.</p>
+          <h2 id="part-1">Part I. The Key</h2>
+          <p>The contents stay in view on wide screens (sticky) and scroll by themselves when they are longer than the window.</p>
+          <h2 id="part-2">Part II. The Crucifix</h2>
+          <p>Narrow the preview below 64rem: the contents collapse into a Contents button, closed until opened.</p>
+          <h2 id="part-3">Part III. The White for the Black</h2>
+          <p>Each nested level has a bar beside it; top-level entries are divided by rules.</p>
+          <h2 id="tales">Other tales</h2>
+          <p>A group label without a page of its own is plain text.</p>
+        </article>
+      </div>
+    </site-page>`,
+        }),
+      },
+      'styles.css': {
+        content: `/* The reader's layout is your own CSS: a sidebar on wide screens, stacked below 64rem. */
+.reader {
+  display: grid;
+  gap: 2rem;
+}
+@media (width > 64rem) {
+  .reader {
+    grid-template-columns: 18rem minmax(0, 1fr);
+  }
+}
+article h2 {
+  margin-top: 0;
+  padding-top: 1rem;
+}
+article p {
+  min-height: 20rem;
+}
+`,
+      },
+    },
+  },
+  {
+    id: 'record-metadata',
+    group: 'Metadata',
+    title: 'Record metadata',
+    description:
+      'uvalib-metadata shows a record\'s details from a plain <dl>: label and value side by side when there is room, stacked when narrow. Values can be text, links or lists; a download link with data-size shows its size ("EPUB · 184 KB") and keeps its download attribute. Its attributes add the credit and rights rows Special Collections asks for: creator, organization, rights (a rightsstatements.org or Creative Commons URL, shown by its short name), a link about rights and permissions, and How to cite with a Copy citation button.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Record metadata',
+          components: ['uvalib-metadata'],
+          body: `    <site-page>
+      <h1>The actress of Padua, and other tales</h1>
+      <uvalib-metadata
+        creator="Smith, Richard Penn"
+        organization="Albert and Shirley Small Special Collections Library"
+        rights="http://rightsstatements.org/vocab/NoC-US/1.0/"
+        rights-info="https://www.library.virginia.edu/policies/use-of-materials"
+        citation-title="The actress of Padua, and other tales"
+      >
+        <dl>
+          <div>
+            <dt>Collection</dt>
+            <dd><a href="#collection">Early American Fiction, 1789-1875</a></dd>
+          </div>
+          <div>
+            <dt>Date</dt>
+            <dd>1836</dd>
+          </div>
+          <div>
+            <dt>Subjects</dt>
+            <dd>
+              <ul>
+                <li>Short stories</li>
+                <li>American literature -- 1783-1850</li>
+                <li>American literature -- 19th century</li>
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Download</dt>
+            <dd>
+              <ul>
+                <li><a href="eaf375v1.epub" download data-size="184 KB">EPUB</a></li>
+                <li><a href="eaf375v1.txt" download data-size="369 KB">Plain text</a></li>
+                <li><a href="eaf375v1.xml" download data-size="494 KB">TEI XML (source)</a></li>
+              </ul>
+            </dd>
+          </div>
+          <div>
+            <dt>Page images</dt>
+            <dd>Available: select a page number in the text</dd>
+          </div>
+        </dl>
+      </uvalib-metadata>
+    </site-page>`,
         }),
       },
     },

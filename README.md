@@ -3,7 +3,8 @@
 Reusable web components for UVA Library sites, built with Lit and TypeScript:
 
 - **Page chrome:** `<site-page>` (skip link, header with the library main navigation and live library alerts, one `<main>`, footer), `<site-alerts>` (the alerts, also usable alone), `<site-header>`, `<site-main-nav>`, `<site-footer>`, `<site-analytics>` and `<uvalib-analytics>` (Matomo, one element under two names) and `<site-style>` (legacy compatibility).
-- **Navigation:** `<uvalib-breadcrumbs>` (the breadcrumb trail).
+- **Navigation:** `<uvalib-breadcrumbs>` (the breadcrumb trail) and `<uvalib-contents>` (sub-navigation or a table of contents).
+- **Records:** `<uvalib-metadata>` (a record's details, credit, rights and how to cite).
 - **Search:** `<uvalib-filter>` and `<uvalib-date-range>`.
 - **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
 - **Library events:** `<events-section>`.
@@ -243,6 +244,76 @@ connect-src https://d2q6t6fdv76k7r.cloudfront.net wss://*.appsync-realtime-api.u
 - **Placement.** In `<site-page>` the trail sits where library.virginia.edu puts it: after the header and the alert list band, before `<main>` and outside it, so the skip link lands past it, lined up with `<main>`'s content (same max width and 40px side padding, 16px above). In light mode (`no-shadow-dom`) it is moved there as a real child of `<site-page>`, never into `<main>`. Without a `slot="breadcrumbs"` child the page is unchanged. Elsewhere it is an ordinary block: put it first in the page content, above the `<h1>`.
 - **Styles.** Links `--uva-color-utility-link` (else `--uva-blue-alt-dark`, #005679, as on library.virginia.edu), underlined; a linked current page in the text colour; the slash in `--uva-color-text-muted` (else `--uva-grey-dark`); the current page in the text colour; the library focus ring. Long trails wrap (no horizontal scroll at 320px). It follows dark mode through the role tokens. `no-style` keeps only the structure (an inline list without bullets or indent, the separators' spacing); light DOM styles are scoped to the tag in `@layer uvalib`, so a site's own CSS wins.
 
+## Contents and record metadata
+
+Two components for Library sites with records and long texts, such as the Electronic Text Collections. Entries: `uvalib-contents.js` and `uvalib-metadata.js` on the CDN, `@uvalib/web-components/uvalib-contents.js` and `@uvalib/web-components/uvalib-metadata.js` on npm.
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-contents.js"
+></script>
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-metadata.js"
+></script>
+<uvalib-metadata
+  creator="Smith, Richard Penn"
+  rights="http://rightsstatements.org/vocab/NoC-US/1.0/"
+  rights-info="https://www.library.virginia.edu/policies/use-of-materials"
+  citation-title="The actress of Padua, and other tales"
+>
+  <dl>
+    <dt>Date</dt>
+    <dd>1836</dd>
+    <dt>Subjects</dt>
+    <dd>
+      <ul>
+        <li>Short stories</li>
+        <li>American literature -- 19th century</li>
+      </ul>
+    </dd>
+    <dt>Download</dt>
+    <dd>
+      <ul>
+        <li><a href="eaf375v1.epub" download data-size="184 KB">EPUB</a></li>
+        <li><a href="eaf375v1.txt" download data-size="369 KB">Plain text</a></li>
+      </ul>
+    </dd>
+  </dl>
+</uvalib-metadata>
+<uvalib-contents sticky>
+  <ol>
+    <li><a href="/text/eaf375v1/d3/">Preface</a></li>
+    <li>
+      <a href="/text/eaf375v1/d8/">The actress of Padua</a>
+      <ol>
+        <li><a href="/text/eaf375v1/d9/">Part I. The Key</a></li>
+        <li><a href="/text/eaf375v1/d10/">Part II. The Crucifix</a></li>
+      </ol>
+    </li>
+  </ol>
+</uvalib-contents>
+```
+
+`<uvalib-contents>`, sub-navigation as on library.virginia.edu:
+
+- **Markup.** A `<nav>` landmark named by `label` (default "Contents"), with the label as a visible headline (`<h2>`; `heading-level` 2 to 6), then the nested list: dividers between the top-level entries, a bar beside each nested level, links in `--uva-color-utility-link` (else #005679) and the library focus ring. Every link is at least 24px tall.
+- **The list as a child.** One `<ol>` or `<ul>` of `<li>`, each with an `<a href>` (or plain text, for a group label) and, for sub-entries, a nested `<ol>`/`<ul>`, to any depth. Other children (a heading) are ignored; entries with no text are skipped with one console warning; hrefs other than relative, http(s), `mailto:` and `tel:` become plain text. It follows changes to the children. Apps set the `items` property instead: `[{ label, href?, children? }]`, winning over the children while set.
+- **Current entry.** `aria-current="page"` on the link to this page and `aria-current="location"` on the link to the section in the URL's hash, drawn bold with a bar. It is found from the page URL (path, ignoring a trailing slash or `index.html`, and hash), followed through `hashchange`, `popstate` and the Navigation API, or from `current` (a URL, for apps whose route is not the page URL). With `current` unset, an `aria-current` the author put on a source link is used as given.
+- **Narrow screens.** At and below `collapse-below` (a viewport width, default `64rem`; `0` never collapses) the headline becomes a full-width 44px button with `aria-expanded` and `aria-controls`, and the list is closed until the reader opens it (the `open` attribute starts it open). It is a viewport query, not a container query: a sidebar is always much narrower than 64rem, so its own width cannot tell a phone from a desktop.
+- **Sidebars.** `sticky` keeps it in view on wide screens (`--uvalib-contents-sticky-top`, default 1rem); the list then scrolls within the window's height (`--uvalib-contents-max-height`) and the current entry is scrolled into view inside it, never the page.
+- **Single-page apps.** The list is drawn from copies of the children. A plain click on an entry fires `uvalib-contents-navigate` (`detail: { href, level }`, bubbling, cancelable): cancel it to route in place. Hash links need nothing.
+
+`<uvalib-metadata>`, a record's description list:
+
+- **The rows as a `<dl>` child**, so the page reads the same before the script runs: `<dt>` labels and `<dd>` values, optionally a `<div>` per row; several `<dd>` are several values. Values are copied as written (links, lists such as subjects, `download` attributes). A link with `data-size` is shown as a download, "EPUB · 184 KB", read as "EPUB, 184 KB". Apps set `items` instead: `[{ label, value }]`, a value being text, a link `{ label, href, size?, download? }` or an array of them (a list).
+- **Credit and rights**, as Special Collections asks: `creator` and `organization` rows first; `rights` last, a rightsstatements.org or Creative Commons URL shown as its short name ("In Copyright", "No Copyright – United States", "CC BY 4.0", "CC0 1.0") linked with `rel="license"`, another URL as `rights-label` (else "Rights statement"), or plain text; `rights-info` adds a "More about rights and permissions" link (the library's is `https://www.library.virginia.edu/policies/use-of-materials`).
+- **How to cite.** `citation` (as written), or `citation-title` for the Special Collections formula "<title or collection>, Albert and Shirley Small Special Collections Library, University of Virginia". A Copy citation button copies it and says "Copied" in a polite status; where the clipboard is unavailable it selects the citation and says so.
+- **Layout.** Label and value side by side when the element is 36rem wide or more, stacked below that (a container query: the element's own width). Labels in `--uva-color-text-muted`, rows divided by `--uva-color-border`.
+
+Both follow dark mode through the role tokens and reflow at 320px; `no-style` keeps only the structure, and light DOM styles are scoped to the tag in `@layer uvalib`.
+
 ## Rendering modes
 
 | Attributes               | Rendering                                                                                                                                                   |
@@ -478,6 +549,9 @@ Three elements show opening hours from the library's own data, for library.virgi
   | `site-main-nav`                              | `link-click`                                                                                                         | `Group > Link` (a top-level link: its label)                                                                                              |                               |
   | `site-footer`                                | `link-click` (not the pre-footer's)                                                                                  | `Column: Link`, e.g. `About: Staff directory`; `Contact us: Phone`, `Contact us: Email`; `Social: Facebook`, `Social: Instagram`          |                               |
   | `uvalib-breadcrumbs`                         | `link-click`                                                                                                         | `level N` (never the label)                                                                                                               | N, from 1                     |
+  | `uvalib-contents`                            | `link-click`                                                                                                         | `level N` (never the label or URL)                                                                                                        | N, from 1 (the top level)     |
+  | `uvalib-contents`                            | `toggle` (the narrow-screen disclosure)                                                                              | `open` or `close`                                                                                                                         |                               |
+  | `uvalib-metadata`                            | `copy-citation` (downloads are left to Matomo's own download tracking)                                               |                                                                                                                                           |                               |
   | `site-alerts`                                | a content impression, once per alert per page view: `trackContentImpression('Library alert', '<severity>: <title>')` |                                                                                                                                           |                               |
   | `site-alerts`                                | `dismiss`, `link-click` (a link in an alert's text)                                                                  | `<severity>: <title>`                                                                                                                     |                               |
   | `site-alerts`                                | `error` (the alerts script failed to load)                                                                           | `alerts-script`                                                                                                                           |                               |

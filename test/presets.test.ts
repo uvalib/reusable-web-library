@@ -39,6 +39,8 @@ describe('playground presets', function () {
       'alerts',
       'breadcrumbs',
       'breadcrumbs-standalone',
+      'contents-sidebar',
+      'record-metadata',
       'search-facets',
       'search-results',
       'todays-hours',
@@ -54,6 +56,8 @@ describe('playground presets', function () {
       'Header',
       'Alerts',
       'Breadcrumbs',
+      'Contents',
+      'Metadata',
       'Search',
       'Hours',
       'Events',
@@ -76,6 +80,8 @@ describe('playground presets', function () {
       ],
       Alerts: ['alerts'],
       Breadcrumbs: ['breadcrumbs', 'breadcrumbs-standalone'],
+      Contents: ['contents-sidebar'],
+      Metadata: ['record-metadata'],
       Search: [
         'search-facets',
         'search-results',
@@ -248,6 +254,54 @@ describe('playground presets', function () {
             ['Home', null],
             ['Search', null],
             ['First result', 'page'],
+          ]);
+        }
+        expect(countMain(doc)).to.equal(1);
+        await expectNoPageAxeViolations(doc);
+        expect(errors).to.deep.equal([]);
+      } finally {
+        iframe.remove();
+      }
+    }
+  });
+
+  it('contents-sidebar and record-metadata render, follow the hash and pass axe', async () => {
+    for (const id of ['contents-sidebar', 'record-metadata']) {
+      const p = presets.find((x) => x.id === id)!;
+      const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+      iframe.style.width = '1200px';
+      iframe.style.height = '800px';
+      try {
+        const win = iframe.contentWindow!;
+        const doc = iframe.contentDocument!;
+        const tag = id === 'contents-sidebar' ? 'uvalib-contents' : 'uvalib-metadata';
+        await whenAllDefined(win, ['site-page', tag]);
+        await new Promise((r) => setTimeout(r, 100));
+        const el = doc.querySelector(tag)! as HTMLElement & { updateComplete: Promise<unknown> };
+        if (id === 'contents-sidebar') {
+          const links = [...el.shadowRoot!.querySelectorAll<HTMLAnchorElement>('nav a')];
+          expect(links.map((a) => a.textContent)).to.include('Part II. The Crucifix');
+          win.location.hash = 'part-2';
+          await new Promise((r) => setTimeout(r, 100));
+          await el.updateComplete;
+          expect(
+            [...el.shadowRoot!.querySelectorAll('a[aria-current]')].map((a) => [
+              a.textContent,
+              a.getAttribute('aria-current'),
+            ]),
+          ).to.deep.equal([['Part II. The Crucifix', 'location']]);
+        } else {
+          const labels = [...el.shadowRoot!.querySelectorAll('dt')].map((d) => d.textContent);
+          expect(labels).to.deep.equal([
+            'Creator',
+            'Organization',
+            'Collection',
+            'Date',
+            'Subjects',
+            'Download',
+            'Page images',
+            'Rights',
+            'How to cite',
           ]);
         }
         expect(countMain(doc)).to.equal(1);

@@ -1,6 +1,6 @@
 # Using @uvalib/web-components
 
-Custom elements for UVA Library pages: `<site-page>`, `<site-header>`, `<site-footer>`, `<site-analytics>` (also `<uvalib-analytics>`) and `<site-style>`, the breadcrumb trail `<uvalib-breadcrumbs>`, plus the search components `<uvalib-filter>` and `<uvalib-date-range>`. Full attribute, slot, part, event and custom-property tables are in [the component reference](../skills/uvalib-web-components/reference/components.md) (generated from `custom-elements.json`).
+Custom elements for UVA Library pages: `<site-page>`, `<site-header>`, `<site-footer>`, `<site-analytics>` (also `<uvalib-analytics>`) and `<site-style>`, the breadcrumb trail `<uvalib-breadcrumbs>`, sub-navigation `<uvalib-contents>`, record details `<uvalib-metadata>`, plus the search components `<uvalib-filter>` and `<uvalib-date-range>`. Full attribute, slot, part, event and custom-property tables are in [the component reference](../skills/uvalib-web-components/reference/components.md) (generated from `custom-elements.json`).
 
 ## Two ways to load
 
@@ -31,7 +31,7 @@ npm i @uvalib/web-components
 import '@uvalib/web-components/site-page.js'; // registers the element
 ```
 
-The define entries are `site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-breadcrumbs.js`, `uvalib-filter.js` and `uvalib-date-range.js`. `import '@uvalib/web-components'` exports the classes only and registers nothing; if you use `SitePage` directly, import the header and footer define entries too. CSS: `@uvalib/web-components/tokens.css` and `base.css`.
+The define entries are `site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-breadcrumbs.js`, `uvalib-contents.js`, `uvalib-metadata.js`, `uvalib-filter.js` and `uvalib-date-range.js`. `import '@uvalib/web-components'` exports the classes only and registers nothing; if you use `SitePage` directly, import the header and footer define entries too. CSS: `@uvalib/web-components/tokens.css` and `base.css`.
 
 ## Page structure
 
