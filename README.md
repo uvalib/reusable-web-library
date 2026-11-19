@@ -7,7 +7,7 @@ Reusable web components for UVA Library sites, built with Lit and TypeScript:
 - **Cards:** `<uvalib-card>`, `<uvalib-card-grid>` and `<uvalib-pager>`.
 - **Records:** `<uvalib-metadata>` (a record's details, credit, rights and how to cite).
 - **Images:** `<uvalib-lightbox>` (an image viewer over plain links) and `<uvalib-photo-grid>` (justified rows of thumbnails).
-- **Search:** `<uvalib-filter>` and `<uvalib-date-range>`.
+- **Search:** `<uvalib-filter>`, `<uvalib-date-range>` and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
 - **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
 - **Library events:** `<events-section>`.
 - **Search results:** `<bento-box>` (library.virginia.edu/search), with its `<catalog-section>`, `<articles-section>`, `<libguides-section>` and `<website-section>`.
@@ -25,6 +25,46 @@ npx @uvalib/web-components install-skill   # copies the skill to .claude/skills/
 Then ask, for example:
 
 > Wrap this site's pages in the UVA Library `<site-page>` from the v1 CDN, with our own nav links in the header.
+
+### Example prompts
+
+Name the skill so the agent loads it, say what to keep, and ask it to audit before editing and to check accessibility before finishing. These are starting points; add your site's specifics.
+
+**Brand a new or existing site**
+
+> Use the uvalib-web-components skill to apply UVA Library branding to this site with the v1 CDN. First audit, with no changes: list how the current header, footer, navigation, buttons, forms and colours map to the library components and classes, and show me the list. Then wrap every page in `<site-page site-name="Our site name">` with our own links as site links, link `base.css` in `<head>`, replace hand-built buttons and search forms with the library classes, and move our colours onto the `--uva-*` tokens. Keep every page and URL working. Verify with the skill's accessibility testing guide and commit on a new branch; don't push until I approve.
+
+**Migrate from the old components**
+
+> Use the uvalib-web-components skill to move this project off the old `/web-components/latest/` and `cdn-v…` URLs and `@uvalib/<package>` npm names to `@uvalib/web-components` v1. List every old reference first, then change them following the skill's migration guide, keeping the markup working. Run the site's tests and check each page in a browser.
+
+**Switch one library.virginia.edu page**
+
+> Use the uvalib-web-components skill's "Switching library.virginia.edu" table to update the script URLs on the /hours page to v1. Change only the URLs, keep the markup, and tell me what to check after it's live.
+
+**Add one pattern**
+
+> Use the uvalib-web-components skill to add breadcrumbs to every page under /collections/ (Home › Collections › the collection) with `<uvalib-breadcrumbs>`, placed where `<site-page>` puts them.
+
+> Use the uvalib-web-components skill to turn our collections list into a grid of clickable `<uvalib-card>`s (title and item count), and add `<uvalib-pager>` previous/next links to the reading pages.
+
+> Use the uvalib-web-components skill to show each record's details with `<uvalib-metadata>` (creator, date, subjects, downloads with file sizes, rights and how to cite), and open our IIIF page images in `<uvalib-lightbox>` instead of a new tab.
+
+> Use the uvalib-web-components skill to theme our Pagefind search with `<uvalib-pagefind-search>` and `pagefind.css`, keeping our index shards and filters.
+
+**Dark mode, analytics and search pages**
+
+> Use the uvalib-web-components skill to turn on the library's opt-in dark mode (Light / Dark / System in the header) and make our own CSS follow the `--uva-color-*` role tokens. Check contrast in both schemes.
+
+> Use the uvalib-web-components skill to add Matomo analytics with `<site-page matomo-id="42">`. This is a single-page app, so record a page view per route; tag our own Download and Share buttons with `data-uvalib-track`.
+
+**Check and fix accessibility**
+
+> Use the uvalib-web-components skill's accessibility testing guide to add a Playwright + axe test matched to Lighthouse and a Lighthouse CI config to this project, run them on the home, a list, a detail and the search page in light and dark at phone and desktop widths, and fix what they find. Report anything you couldn't test.
+
+**Keep it current**
+
+> Update the uvalib-web-components skill in this project to the latest release, then check whether anything we use changed and needs updating.
 
 - `npx` fetches the package on the fly, so this works in any repository, including sites that only use script tags (it needs Node, not an npm dependency).
 - Other agents or folders: `npx @uvalib/web-components install-skill --dir .agents/skills`. Add `--force` to update an existing copy.
