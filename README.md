@@ -629,6 +629,139 @@ Dark mode is **off by default**. Without it nothing changes: no control, no dark
 
 Both are controlled: set `value` (and `scopeValue`) from your own state after each event. `min` and `max` are required for the date range; without valid ones it renders nothing and warns once in the console. Both support `no-shadow-dom` and `no-style`. See the [Search facets](https://uvalib.github.io/reusable-web-library/#search-facets) example in the playground and the generated reference below.
 
+## Results, badges and tags
+
+For search pages, Virgo-like result lists and digital collections: badges and labels, a toolbar above the results, a results count that screen readers hear, keyword lists, an empty state and loading placeholders. The classes are in `base.css` (no script); `<uvalib-tag-list>` and `<uvalib-results-count>` are elements with their own entries (`uvalib-tag-list.js`, `uvalib-results-count.js`; npm `@uvalib/web-components/uvalib-tag-list.js`, `…/uvalib-results-count.js`). See the [Results toolbar & badges](https://uvalib.github.io/reusable-web-library/#results-toolbar) example.
+
+### Badges
+
+```html
+<span class="uvalib-badge">Plain</span>
+<span class="uvalib-badge uvalib-badge--category">Faculty &amp; Staff Portraits</span>
+<span class="uvalib-badge uvalib-badge--status uvalib-badge--success">Done</span>
+<span class="uvalib-badge uvalib-badge--status uvalib-badge--warning">Processing</span>
+<span class="uvalib-badge uvalib-badge--status uvalib-badge--danger">Failed</span>
+<span class="uvalib-badge uvalib-badge--status uvalib-badge--info">Largest</span>
+<span class="uvalib-badge uvalib-badge--new">New</span>
+<span class="uvalib-badge uvalib-badge--body">At body size</span>
+
+<!-- A count over an image: the wrapper positions it at the top-left corner. -->
+<div class="uvalib-media">
+  <img src="rotunda.jpg" alt="The Rotunda in snow" width="600" height="400" />
+  <span class="uvalib-badge uvalib-badge--count">13 photos</span>
+</div>
+<!-- Several: wrap them. -->
+<div class="uvalib-media">
+  <img src="lawn.jpg" alt="The Lawn" width="600" height="400" />
+  <div class="uvalib-media__badges">
+    <span class="uvalib-badge uvalib-badge--count">51 events · 10,700 photos</span>
+    <span class="uvalib-badge uvalib-badge--new">New</span>
+  </div>
+</div>
+
+<!-- A decorative icon before the word (the word carries the meaning). -->
+<span class="uvalib-badge uvalib-badge--status uvalib-badge--success">
+  <svg aria-hidden="true" viewBox="0 0 16 16">
+    <path d="M2 8l4 4 8-8" fill="none" stroke="currentColor" stroke-width="2" />
+  </svg>
+  Done
+</span>
+```
+
+- **Sizes:** small text (0.875rem) by default, the card chip's size; `--body` is body size.
+- **`--category`** is the `<uvalib-card>` chip exactly (`--uva-blue-alt-300` with `--uva-blue-alt-dark` text, 6.13:1, in both schemes). **`--count`** is for media: near-black at 82% with white text, at least 11:1 over any picture (AAA). **`--status`** with `--success`, `--warning`, `--danger` or `--info` reads the alert role tokens (and `--uva-color-status-success-*`): text 7:1 or more in light and dark. **`--new`** is the accent (brand blue, AAA). The plain badge is neutral grey (AAA).
+- **Never colour alone:** a status badge always says its state in words; an icon is decorative (`aria-hidden="true"`). In forced colors every badge keeps an outline.
+- **On cards and links:** a badge inside a link is part of its name, so keep it short and meaningful (“13 photos”), or put it outside the link. Inside `<uvalib-card>`, use `slot="badge"` and `slot="chip"` instead.
+
+### Results toolbar
+
+```html
+<div class="uvalib-toolbar">
+  <div class="uvalib-toolbar__field uvalib-toolbar__field--grow">
+    <label for="filter">Filter shoots</label>
+    <input class="uvalib-input" id="filter" type="search" />
+  </div>
+  <div class="uvalib-toolbar__field">
+    <label for="category">Category</label>
+    <select class="uvalib-input" id="category">
+      <option value="">All categories</option>
+      <option>Faculty &amp; Staff Portraits</option>
+    </select>
+  </div>
+  <div class="uvalib-toolbar__group" role="group" aria-label="Decade">
+    <button class="uvalib-button uvalib-button--small" type="button" aria-pressed="false">
+      2000s
+    </button>
+    <button class="uvalib-button uvalib-button--small" type="button" aria-pressed="true">
+      2010s
+    </button>
+  </div>
+  <uvalib-results-count
+    class="uvalib-toolbar__summary"
+    shown="48"
+    total="3694"
+    noun="shoots"
+    singular="shoot"
+  ></uvalib-results-count>
+</div>
+```
+
+- **`.uvalib-toolbar`** is a wrapping row with consistent gaps (0.75rem by 1rem), controls aligned on their bottom edge. **`__field`** stacks a label over its control (keep the visible `<label>`); **`__field--grow`** (or a `.uvalib-search-form` in the toolbar) takes the spare width. **`__group`** holds a chip group (`.uvalib-button` toggles with `aria-pressed`; give the group a name with `role="group"` and `aria-label`). **`__summary`** sits at the end in muted text (AAA). At 30em and narrower every item takes the full width, in source order.
+- **`<uvalib-results-count>`** writes “Showing 48 of 3,694 shoots” (“Showing all 12 shoots”, “Showing 1 shoot”, “No shoots” for a total or a shown of 0) from `shown`, `total`, `noun` and `singular`, and keeps it in sync at once; a missing or blank `shown` / `total` is unset, not 0. A hidden polite live region announces it once the text has not changed for a second (`announce-delay`), then clears itself after five seconds. The first render is never announced, but when it had no count yet (results still loading), the first count that arrives is. A count that comes back after a different one (a new search with as many results) is announced again. Update `shown` / `total` from your script after each filter change, and leave them unset while loading rather than setting 0. `<bento-box>` and `<uvalib-pagefind-search>` announce their own counts, so do not add one beside them.
+
+```js
+const count = document.querySelector('uvalib-results-count');
+filter.addEventListener('input', () => {
+  const hits = shoots.filter((s) => s.title.toLowerCase().includes(filter.value.toLowerCase()));
+  render(hits.slice(0, 48));
+  count.shown = Math.min(hits.length, 48);
+  count.total = hits.length;
+});
+```
+
+### Tag lists
+
+```html
+<uvalib-tag-list label="Subjects" track-label limit="8" href-template="/search?q={tag}">
+  <span>Rotunda</span>
+  <span>Lawn</span>
+  <a href="/collections/snow">Snow</a>
+</uvalib-tag-list>
+<!-- Plain text tags: no href-template and no links. -->
+<uvalib-tag-list label="AI tags" hide-label>
+  <span>building</span>
+  <span>columns</span>
+</uvalib-tag-list>
+```
+
+A labelled list (`label`, shown above it or visually hidden with `hide-label`) that wraps. Each tag is a link (an `<a href>` child, or any tag when `href-template` has `{tag}`, URL-encoded) or plain text; links are outlined pills in the link colour, plain tags the filled chip; every tag and the toggle are at least 2rem (34px) tall and wide and 0.5rem apart (WCAG 2.5.8 with room to spare; not AAA's 44px, which would make the pills button-sized), and at least 24px with `no-style`. A child's `lang` and `dir` are kept, and so is inline markup inside it (`em`, `cite`, `abbr`, `bdi`, a `span lang`…), copied element by element, never parsed as HTML; a blank `href` counts as none. `limit` shows that many and a “Show all N” button (`aria-expanded`, `aria-controls`); the rest appear in place and focus stays on the button, which then reads “Show fewer”. Apps can set `items` (`[{ label, href?, lang?, dir? }]`) instead of children, and route with the cancelable `uvalib-tag-list-navigate` event. Analytics never sends a tag's text, as tags can come from a record, a person or a machine, and by default not the label either, which a template may fill from a record: the name is `list N`, the list's place among the page's tag lists, with the tag's position as the value. Add `track-label` when the label is fixed text you wrote (“Subjects”) to send it instead (see [Analytics](#analytics)).
+
+### Empty and loading states
+
+```html
+<div class="uvalib-empty-state">
+  <svg class="uvalib-empty-state__icon" aria-hidden="true" viewBox="0 0 24 24">
+    <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2" />
+    <path d="M16 16l5 5" stroke="currentColor" stroke-width="2" />
+  </svg>
+  <h2>No photos match “snow”</h2>
+  <p>Try another word, or clear the filters.</p>
+  <button class="uvalib-button uvalib-button--secondary" type="button">Clear filters</button>
+</div>
+
+<div class="results" aria-busy="true">
+  <div aria-hidden="true">
+    <div class="uvalib-skeleton uvalib-skeleton--media"></div>
+    <p><span class="uvalib-skeleton-text"></span><span class="uvalib-skeleton-text"></span></p>
+  </div>
+  <p class="visually-hidden" role="status">Loading results</p>
+</div>
+```
+
+- **`.uvalib-empty-state`**: an optional decorative icon (`__icon`, `aria-hidden`), a heading at the page's next level, a sentence and one action, centred in a dashed box. When it replaces results, the results count already announces “No shoots”; it needs no live region of its own.
+- **`.uvalib-skeleton`** is a box: give it a height, or `--media` for a 3:2 image. **`.uvalib-skeleton-text`** reserves exactly one line of text (the last of several is shorter). Make the placeholders the same size as what replaces them, so nothing shifts. They shimmer, except under `prefers-reduced-motion`, and are outlined in forced colors.
+- **Hide them from assistive technology** (`aria-hidden="true"` on their container), mark the region `aria-busy="true"` while it loads, and say “Loading results” once in a polite status (or rely on the results count when the results arrive). Remove `aria-busy` and the placeholders together.
+
 ## Library hours
 
 Three elements show opening hours from the library's own data, for library.virginia.edu. Each has its own entry (`site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js` on the CDN; `@uvalib/web-components/<tag>.js` on npm); `library-hours-setup.js` also registers `<library-weekly-hours>`.
@@ -783,6 +916,8 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
   | `uvalib-contents`                            | `toggle` (the narrow-screen disclosure)                                                                              | `open` or `close`                                                                                                                         |                                   |
   | `uvalib-metadata`                            | `copy-citation` (downloads are left to Matomo's own download tracking)                                               |                                                                                                                                           |                                   |
   | `uvalib-lightbox`                            | `open`, `next`, `previous`, `full-size`                                                                              | `image N` (never the URL or the caption)                                                                                                  | N, from 1                         |
+  | `uvalib-tag-list`                            | `tag-click`                                                                                                          | `list N` (the list's place on the page), or with `track-label` the list's own fixed `label`; never the tag's text or URL                  | the tag's place, from 1           |
+  | `uvalib-tag-list`                            | `show-all`, `show-fewer`                                                                                             | `list N`, or with `track-label` the `label`                                                                                               |                                   |
   | `site-alerts`                                | a content impression, once per alert per page view: `trackContentImpression('Library alert', '<severity>: <title>')` |                                                                                                                                           |                                   |
   | `site-alerts`                                | `dismiss`, `link-click` (a link in an alert's text)                                                                  | `<severity>: <title>`                                                                                                                     |                                   |
   | `site-alerts`                                | `error` (the alerts script failed to load)                                                                           | `alerts-script`                                                                                                                           |                                   |
@@ -801,7 +936,7 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
   | `bento-box`                                  | `see-all-click`, `retry`                                                                                             | the section                                                                                                                               |                                   |
   | `bento-box`                                  | `error`                                                                                                              | `section-load: <section>`                                                                                                                 |                                   |
 
-  `<bento-box>` also sends a Matomo site search per section once its results are in (not on an error, not again on a re-render): the query, the section as category, and the section's total (0 when nothing was found). A new query, also by Back or Forward, is a new search. The `<library-weekly-hours>` elements `<library-hours-setup>` creates report as `library-weekly-hours`. Alert severities are `Critical`, `Warning`, `Information`, `Header` or `Regional warning` / `Regional information`. Names are capped at 100 characters. `<uvalib-photo-grid>` reports nothing.
+  `<bento-box>` also sends a Matomo site search per section once its results are in (not on an error, not again on a re-render): the query, the section as category, and the section's total (0 when nothing was found). A new query, also by Back or Forward, is a new search. The `<library-weekly-hours>` elements `<library-hours-setup>` creates report as `library-weekly-hours`. Alert severities are `Critical`, `Warning`, `Information`, `Header` or `Regional warning` / `Regional information`. Names are capped at 100 characters. `<uvalib-photo-grid>` and `<uvalib-results-count>` report nothing.
 
 - **Privacy.** The components never send URLs, paths, record titles, ids, email addresses or phone numbers, or anything a visitor typed: only the fixed names above, positions and counts, labels of the library's own links, and the titles of library alerts (written by the library for everyone). The one exception is search: bento-box's queries are what visitors typed, and are sent as Matomo site searches.
 - **Opting out.** Nothing is sent from a component, a `data-uvalib-track` element or an event fired by hand when:
@@ -1851,6 +1986,68 @@ Justified rows of thumbnails. Each direct child that is a link or a button is on
 | `--uva-color-surface` |  | Dark-mode role token: the box behind an image that has not loaded (else #fff). |
 | `--uva-grey-darkest` | `#2b2b2b` | Caption colour when `--uva-color-text` is unset. |
 | `--uva-brand-orange` | `#e57200` | Focus ring when `--uva-color-focus` is unset. |
+
+### `<uvalib-results-count>`
+
+The results summary of a search or listing page, such as “Showing 48 of 3,694 shoots”, and a polite live region that tells screen reader users when it changes. Set `total` (how many match), `shown` (how many are on the page) and `noun` (plural, default “results”; `singular` for a total of one). The visible text follows at once: “Showing 48 of 3,694 shoots”, “Showing all 12 shoots” (shown is the total, or unset), “Showing 1 shoot” or “No shoots” (a total of 0, or 0 shown); with only `shown`, “Showing 48 shoots”. Numbers use thousands separators. A missing or blank `shown` or `total` is unset, not 0. The announcement waits until the text has not changed for `announce-delay` milliseconds (default 1000, as `<bento-box>` and `<uvalib-pagefind-search>` settle), so typing in a filter box is announced once. The first render is never announced; when it has no count yet (the data still loading), the first count that arrives is. A count is announced again when it comes back after a different one (a new search with the same number of results), but not when nothing was shown in between. The announcement is cleared from the hidden region five seconds later, so reading the page finds the count once. `<bento-box>` and `<uvalib-pagefind-search>` announce their own counts: use this element for your own listings, not beside them.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `shown` | `number \| undefined` |  | How many results are shown on the page. |
+| `total` | `number \| undefined` |  | How many results match in all. |
+| `noun` | `string` | `'results'` | What is counted, plural: “results” by default. |
+| `singular` | `string` | `''` | What is counted, singular, for a total of one. Default: “result” when `noun` is unset, else `noun`. |
+| `announce-delay` | `number` | `1000` | Milliseconds the text must stay the same before it is announced. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### CSS parts
+
+| Part | Description |
+|---|---|
+| `text` | The visible summary. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-text-muted` |  | Dark-mode role token: text colour (else `--uva-grey-A`, #4f4f4f). |
+
+### `<uvalib-tag-list>`
+
+A labelled list of keywords or subjects that wraps: each tag a link (for example a search for that term) or plain text. Link tags are outlined pills in the link colour; plain tags are filled chips (the card chip's colours), so a link never looks like a label. Every tag and the toggle are at least 2rem (34px) tall and wide, 0.5rem apart. Give the tags as children: `<a href>` for a link, any other element (`<span>`) for plain text. A child's `lang` and `dir` are kept, and so is inline markup inside it (`em`, `cite`, `abbr`, `bdi`, a `span lang`…), copied element by element (never parsed as HTML). Or set `href-template` (with `{tag}`, replaced by the URL-encoded text) to make every tag without its own href a link; a blank href counts as none. Apps can set the `items` property (`{ label, href?, lang?, dir? }`) instead; it wins over the children. Children with no text are skipped with one warning. `label` names the list (shown above it, or visually hidden with `hide-label`); without one a console warning is logged. `limit` shows that many tags and a “Show all N” button (`aria-expanded`, `aria-controls`), which reveals the rest in place and keeps focus. Analytics never sends a tag's text (record tags can be user-submitted or machine-made), and by default not the label either, which a template may fill from a record: the name is the list's place among the tag lists on the page, `list N`. Add `track-label` when the label is fixed text the page author wrote (“Subjects”), to send it instead.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `label` | `string` | `''` | The list's name: shown above the tags (and, with `track-label`, the analytics name). |
+| `hide-label` | `boolean` | `false` | Hide the label visually; it still names the list. |
+| `track-label` | `boolean` | `false` | Send the label as the analytics name. Only for fixed text the page author wrote, never a label filled from a record. Without it the name is `list N`. |
+| `limit` | `number \| undefined` |  | Show this many tags and a “Show all N” button. Zero or empty shows every tag. |
+| `href-template` | `string` | `''` | Href for tags without their own, with `{tag}` where the URL-encoded text goes, for example `/search?q={tag}`. Empty: such tags are plain text. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-analytics-event` | For `<site-analytics>`: a primary-button click on a tag link, `['uvalib-tag-list', 'tag-click', '<name>', <n>]` (n from 1, the tag's place in the list), and the toggle, `['uvalib-tag-list', 'show-all'\|'show-fewer', '<name>']`. The name is `list N` (N from 1, the list's place among the tag lists in its document or shadow root), or with `track-label` the list's `label`; never the tag text or URL. Bubbles and is composed. |
+| `uvalib-tag-list-navigate` | A plain click on a tag link: `detail` is `{ href, tag, index }` (index from 0). Cancel it (`preventDefault()`) to route in the app; the click's default is then prevented. Bubbles and is composed. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-blue-alt-300` | `#BFE7F7` | Plain tag background (the card chip's). |
+| `--uva-blue-alt-dark` | `#005679` | Plain tag text. |
+| `--uva-color-link` |  | Dark-mode role token: link tag text (else `--uva-brand-blue`). |
+| `--uva-color-control-border` |  | Dark-mode role token: link tag outline (else `--uva-grey`). |
+| `--uva-color-text` |  | Dark-mode role token: the label (else `--uva-grey-darkest`). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ### `<website-section>`
 

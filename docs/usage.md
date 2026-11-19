@@ -31,7 +31,7 @@ npm i @uvalib/web-components
 import '@uvalib/web-components/site-page.js'; // registers the element
 ```
 
-The define entries are `site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-breadcrumbs.js`, `uvalib-card.js`, `uvalib-card-grid.js`, `uvalib-pager.js`, `uvalib-contents.js`, `uvalib-metadata.js`, `uvalib-lightbox.js`, `uvalib-photo-grid.js`, `uvalib-filter.js` and `uvalib-date-range.js`. `import '@uvalib/web-components'` exports the classes only and registers nothing; if you use `SitePage` directly, import the header and footer define entries too. CSS: `@uvalib/web-components/tokens.css` and `base.css`.
+The define entries are `site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-breadcrumbs.js`, `uvalib-card.js`, `uvalib-card-grid.js`, `uvalib-pager.js`, `uvalib-contents.js`, `uvalib-metadata.js`, `uvalib-lightbox.js`, `uvalib-photo-grid.js`, `uvalib-tag-list.js`, `uvalib-results-count.js`, `uvalib-filter.js` and `uvalib-date-range.js`. `import '@uvalib/web-components'` exports the classes only and registers nothing; if you use `SitePage` directly, import the header and footer define entries too. CSS: `@uvalib/web-components/tokens.css` and `base.css`.
 
 ## Page structure
 

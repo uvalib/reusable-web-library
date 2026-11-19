@@ -20,6 +20,8 @@ const tags = [
   'uvalib-lightbox',
   'uvalib-photo-grid',
   'uvalib-chip-group',
+  'uvalib-tag-list',
+  'uvalib-results-count',
   'site-alerts',
   'site-hours-section',
   'library-weekly-hours',

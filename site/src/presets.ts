@@ -170,6 +170,63 @@ const PHOTOS = [
 const pageLink = (id: string, n: number) =>
   `        <a class="page" href="${iiif(id, '!1600,1600')}" data-caption="Page ${n}" data-id="${n}">p. ${n}</a>`;
 
+/** One shoot in the results example: a photo with its count badge, a title and badges. */
+const shoot = (
+  id: string,
+  title: string,
+  photos: number,
+  category: string,
+  decade: string,
+  status = '',
+) =>
+  `          <li data-category="${category}" data-decade="${decade}">
+            <div class="uvalib-media">
+              <img src="${iiif(id, '!480,320')}" alt="" width="480" height="320" loading="lazy" />
+              <span class="uvalib-badge uvalib-badge--count">${photos} photos</span>
+            </div>
+            <h2>${title}</h2>
+            <p class="shoot-badges">
+              <span class="uvalib-badge uvalib-badge--category">${category}</span>${status}
+            </p>
+          </li>`;
+const SHOOTS = [
+  shoot(
+    '1042806',
+    'Rotunda in snow',
+    13,
+    'Architecture',
+    '1910',
+    '\n              <span class="uvalib-badge uvalib-badge--status uvalib-badge--info">Largest</span>',
+  ),
+  shoot('1049095', 'The Lawn', 8, 'Architecture', '1910'),
+  shoot(
+    '1043731',
+    'Rotunda and Lawn',
+    21,
+    'Architecture',
+    '1920',
+    '\n              <span class="uvalib-badge uvalib-badge--new">New</span>',
+  ),
+  shoot('1040162', 'Lawn games', 5, 'Student life', '1920'),
+  shoot(
+    '1039613',
+    'Rotunda from the south',
+    3,
+    'Architecture',
+    '1920',
+    '\n              <span class="uvalib-badge uvalib-badge--status uvalib-badge--warning">Processing</span>',
+  ),
+  shoot('1049095', 'Students on the Lawn', 9, 'Student life', '1910'),
+].join('\n');
+/** Placeholders the size of a shoot: a 3:2 image and two lines. */
+const SKELETONS = Array.from(
+  { length: 3 },
+  () => `          <div>
+            <div class="uvalib-skeleton uvalib-skeleton--media"></div>
+            <p><span class="uvalib-skeleton-text"></span><span class="uvalib-skeleton-text"></span></p>
+          </div>`,
+).join('\n');
+
 export const presets: Preset[] = [
   {
     id: 'full-page',
@@ -1058,6 +1115,160 @@ pre {
       ></uvalib-pagefind-search>
     </site-page>`,
         }),
+      },
+    },
+  },
+  {
+    id: 'results-toolbar',
+    group: 'Search',
+    title: 'Results toolbar & badges',
+    description:
+      "A results page from base.css's classes and two small elements: .uvalib-toolbar (a filter box, a category select and a decade chip group), <uvalib-results-count> (“Showing 3 of 6 shoots”, announced politely once it settles, never on load), count badges over images (.uvalib-media, .uvalib-badge--count), category and status badges (never colour alone), <uvalib-tag-list> with Show all, .uvalib-empty-state when nothing matches, and .uvalib-skeleton placeholders while loading (no shimmer with reduced motion). Type snow, pick a category or a decade, or Reload.",
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Shoots',
+          styles: true,
+          components: ['uvalib-tag-list', 'uvalib-results-count'],
+          body: `    <site-page>
+      <h1>Shoots</h1>
+      <div class="uvalib-toolbar">
+        <div class="uvalib-toolbar__field uvalib-toolbar__field--grow">
+          <label for="filter">Filter shoots</label>
+          <input class="uvalib-input" id="filter" type="search" />
+        </div>
+        <div class="uvalib-toolbar__field">
+          <label for="category">Category</label>
+          <select class="uvalib-input" id="category">
+            <option value="">All categories</option>
+            <option>Architecture</option>
+            <option>Student life</option>
+          </select>
+        </div>
+        <div class="uvalib-toolbar__group" role="group" aria-label="Decade">
+          <button class="uvalib-button uvalib-button--small" type="button" aria-pressed="false" data-decade="1910">1910s</button>
+          <button class="uvalib-button uvalib-button--small" type="button" aria-pressed="false" data-decade="1920">1920s</button>
+        </div>
+        <uvalib-results-count class="uvalib-toolbar__summary" shown="6" total="6" noun="shoots" singular="shoot"></uvalib-results-count>
+      </div>
+      <div class="results" id="results">
+        <ul class="shoots" id="shoots">
+${SHOOTS}
+        </ul>
+        <div class="shoots" id="loading" aria-hidden="true" hidden>
+${SKELETONS}
+        </div>
+        <p class="visually-hidden" role="status" id="loading-status"></p>
+        <div class="uvalib-empty-state" id="empty" hidden>
+          <svg class="uvalib-empty-state__icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2" /><path d="M16 16l5 5" stroke="currentColor" stroke-width="2" /></svg>
+          <h2>No shoots match</h2>
+          <p>Try another word, or clear the filters.</p>
+          <button class="uvalib-button uvalib-button--secondary" type="button" id="clear">Clear filters</button>
+        </div>
+      </div>
+      <p><button class="uvalib-button uvalib-button--subtle" type="button" id="reload">Reload</button></p>
+      <h2>Subjects</h2>
+      <uvalib-tag-list label="Subjects in these shoots" hide-label track-label limit="5" href-template="#subject={tag}">
+        <span>Rotunda</span>
+        <span>Lawn</span>
+        <span>Snow</span>
+        <span>Holsinger Studio</span>
+        <span>Students</span>
+        <span>Pavilions</span>
+        <span>Games</span>
+        <span>Architecture</span>
+      </uvalib-tag-list>
+      <h2>Badges</h2>
+      <p class="badges">
+        <span class="uvalib-badge">Plain</span>
+        <span class="uvalib-badge uvalib-badge--category">Faculty &amp; Staff Portraits</span>
+        <span class="uvalib-badge uvalib-badge--status uvalib-badge--success">Done</span>
+        <span class="uvalib-badge uvalib-badge--status uvalib-badge--warning">Processing</span>
+        <span class="uvalib-badge uvalib-badge--status uvalib-badge--danger">Failed</span>
+        <span class="uvalib-badge uvalib-badge--status uvalib-badge--info">Largest</span>
+        <span class="uvalib-badge uvalib-badge--new">New</span>
+        <span class="uvalib-badge uvalib-badge--body">Body size</span>
+      </p>
+      <script type="module">
+        const filter = document.querySelector('#filter');
+        const category = document.querySelector('#category');
+        const decades = [...document.querySelectorAll('button[data-decade]')];
+        const count = document.querySelector('uvalib-results-count');
+        const shoots = [...document.querySelectorAll('#shoots > li')];
+        const empty = document.querySelector('#empty');
+        function apply() {
+          const q = filter.value.trim().toLowerCase();
+          const on = decades.filter((b) => b.getAttribute('aria-pressed') === 'true');
+          let shown = 0;
+          for (const li of shoots) {
+            const match =
+              li.textContent.toLowerCase().includes(q) &&
+              (!category.value || li.dataset.category === category.value) &&
+              (!on.length || on.some((b) => b.dataset.decade === li.dataset.decade));
+            li.hidden = !match;
+            if (match) shown++;
+          }
+          count.shown = shown;
+          count.total = shoots.length;
+          empty.hidden = shown > 0;
+        }
+        filter.addEventListener('input', apply);
+        category.addEventListener('change', apply);
+        for (const b of decades)
+          b.addEventListener('click', () => {
+            b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
+            apply();
+          });
+        document.querySelector('#clear').addEventListener('click', () => {
+          filter.value = '';
+          category.value = '';
+          for (const b of decades) b.setAttribute('aria-pressed', 'false');
+          apply();
+          filter.focus();
+        });
+        document.querySelector('#reload').addEventListener('click', () => {
+          const results = document.querySelector('#results');
+          const list = document.querySelector('#shoots');
+          const loading = document.querySelector('#loading');
+          const status = document.querySelector('#loading-status');
+          results.setAttribute('aria-busy', 'true');
+          list.hidden = true;
+          loading.hidden = false;
+          status.textContent = 'Loading shoots';
+          setTimeout(() => {
+            loading.hidden = true;
+            list.hidden = false;
+            results.removeAttribute('aria-busy');
+            status.textContent = '';
+          }, 1500);
+        });
+      </script>
+    </site-page>`,
+        }),
+      },
+      'styles.css': {
+        content: `.shoots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: 1rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+.shoots [hidden] {
+  display: none;
+}
+.shoots h2 {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 1.15rem;
+}
+.shoot-badges,
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+`,
       },
     },
   },

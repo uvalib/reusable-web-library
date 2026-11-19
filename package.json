@@ -111,6 +111,14 @@
       "types": "./dist/components/uvalib-chip-group/uvalib-chip-group.d.ts",
       "default": "./dist/components/uvalib-chip-group/uvalib-chip-group.js"
     },
+    "./uvalib-tag-list.js": {
+      "types": "./dist/components/uvalib-tag-list/uvalib-tag-list.d.ts",
+      "default": "./dist/components/uvalib-tag-list/uvalib-tag-list.js"
+    },
+    "./uvalib-results-count.js": {
+      "types": "./dist/components/uvalib-results-count/uvalib-results-count.d.ts",
+      "default": "./dist/components/uvalib-results-count/uvalib-results-count.js"
+    },
     "./site-alerts.js": {
       "types": "./dist/components/site-alerts/site-alerts.d.ts",
       "default": "./dist/components/site-alerts/site-alerts.js"

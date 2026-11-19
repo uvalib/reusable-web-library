@@ -39,7 +39,8 @@ export const base = css`
   uvalib-card-grid:not(:defined),
   uvalib-pager:not(:defined),
   uvalib-contents:not(:defined),
-  uvalib-metadata:not(:defined) {
+  uvalib-metadata:not(:defined),
+  uvalib-tag-list:not(:defined) {
     display: block;
     line-height: 1.5;
     visibility: hidden;
@@ -58,6 +59,15 @@ export const base = css`
   }
   uvalib-chip-group[scroll]:not(:defined) {
     min-height: calc(44px + 0.75rem);
+  }
+  /* Its text is drawn from attributes: hold one line until it upgrades. */
+  uvalib-results-count:not(:defined) {
+    display: block;
+    min-block-size: 1.5em;
+  }
+  uvalib-tag-list:not(:defined)[hidden],
+  uvalib-results-count:not(:defined)[hidden] {
+    display: none;
   }
   @keyframes uvalib-site-page-reveal {
     to {
