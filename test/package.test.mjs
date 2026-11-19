@@ -23,6 +23,7 @@ const TAGS = [
   'uvalib-pager',
   'uvalib-contents',
   'uvalib-metadata',
+  'uvalib-pagefind-search',
   'site-alerts',
   'site-hours-section',
   'library-weekly-hours',
@@ -68,6 +69,7 @@ test('npm pack lists the css and the manifest', () => {
   const paths = JSON.parse(out)[0].files.map((f) => f.path);
   assert.ok(paths.includes('dist/tokens.css'));
   assert.ok(paths.includes('dist/base.css'));
+  assert.ok(paths.includes('dist/pagefind.css'));
   assert.ok(paths.includes('dist/custom-elements.json'));
   assert.ok(paths.includes('dist-cdn/manifest.json'));
 });

@@ -21,6 +21,7 @@ describe('index', () => {
     expect(lib.UvalibPager).to.be.a('function');
     expect(lib.UvalibContents).to.be.a('function');
     expect(lib.UvalibMetadata).to.be.a('function');
+    expect(lib.UvalibPagefindSearch).to.be.a('function');
     expect(lib.SiteAlerts).to.be.a('function');
     expect(lib.UvalibAnalytics).to.be.a('function');
     expect(lib.SiteAnalyticsMixin).to.be.a('function');
@@ -50,6 +51,7 @@ describe('index', () => {
       'uvalib-pager',
       'uvalib-contents',
       'uvalib-metadata',
+      'uvalib-pagefind-search',
       'site-alerts',
       'site-hours-section',
       'library-weekly-hours',

@@ -885,6 +885,32 @@ pre {
     },
   },
   {
+    id: 'pagefind-search',
+    group: 'Search',
+    title: 'Static-site search (Pagefind)',
+    description:
+      "Pagefind's own search UI with the library theme: pagefind.css in place of Pagefind's pagefind-ui.css, and <uvalib-pagefind-search>, which loads the site's Pagefind bundle (bundle-path) and adds a visible label, a polite result count, focus that stays put after Clear, Escape and Load more, a shareable ?q= and analytics. This one searches a tiny demo index of seven texts: try virginia, rivers or Blue Ridge, then a filter.",
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Search the texts',
+          components: ['uvalib-pagefind-search'],
+          head: `\n    <link rel="stylesheet" href="${CDN_TOKEN}pagefind.css" />`,
+          body: `    <site-page>
+      <h1>Search the texts</h1>
+      <!-- On a real site bundle-path is where Pagefind wrote its bundle, such as /pagefind/. -->
+      <uvalib-pagefind-search
+        bundle-path="${CDN_TOKEN}../pagefind-demo/"
+        placeholder="Search all texts"
+        page-size="3"
+        show-sub-results
+      ></uvalib-pagefind-search>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'todays-hours',
     group: 'Hours',
     title: "Today's hours",
