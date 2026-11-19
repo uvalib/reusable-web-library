@@ -450,6 +450,24 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       expect(getComputedStyle(plain.querySelector('img')!).aspectRatio).to.equal('3 / 2');
     });
 
+    it('centers a circle avatar so the count badge sits on the picture', async () => {
+      const el = await make(
+        `<img slot="media" alt="Ada Lovelace" src="${IMG}"><span slot="badge">3</span><span slot="heading">Ada Lovelace</span>`,
+        'media-shape="circle" style="width: 24rem"',
+      );
+      const media = root(el).querySelector<HTMLElement>('.media')!;
+      const badge = root(el).querySelector<HTMLElement>('.badge')!;
+      const rem = parseFloat(getComputedStyle(el).fontSize);
+      const mediaBox = media.getBoundingClientRect();
+      const badgeBox = badge.getBoundingClientRect();
+      const hostBox = el.getBoundingClientRect();
+      expect(Math.abs(mediaBox.width - 8 * rem) < 1.5).to.equal(true);
+      expect(mediaBox.left > hostBox.left + rem).to.equal(true);
+      expect(badgeBox.left + 1 >= mediaBox.left && badgeBox.right - 1 <= mediaBox.right).to.equal(
+        true,
+      );
+    });
+
     it('warns once for an unknown media-shape and leaves the picture rectangular', async () => {
       const warns = await warnings(async () => {
         const el = await make(

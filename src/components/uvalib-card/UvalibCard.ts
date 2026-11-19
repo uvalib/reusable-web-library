@@ -64,13 +64,13 @@ const structuralRules = (host: string) => `
     object-fit: cover;
   }
   ${host} .badge { position: absolute; z-index: 0; }
-  ${host}[media-shape='circle' i] .media {
+  ${hostFn(host, "[media-shape='circle' i]")} .media {
     width: 8rem;
     max-width: 100%;
     margin-inline: auto;
   }
-  ${host}[media-shape='circle' i] .media img,
-  ${host}[media-shape='circle' i] .media video {
+  ${hostFn(host, "[media-shape='circle' i]")} .media img,
+  ${hostFn(host, "[media-shape='circle' i]")} .media video {
     width: 100%;
     aspect-ratio: 1;
     border-radius: 50%;
@@ -93,8 +93,8 @@ const structuralRules = (host: string) => `
   ${host} .card-source { display: none !important; }
   ${host}[hidden], ${host} [hidden] { display: none !important; }
   @media (forced-colors: active) {
-    ${host}[media-shape='circle' i] .media img,
-    ${host}[media-shape='circle' i] .media video {
+    ${hostFn(host, "[media-shape='circle' i]")} .media img,
+    ${hostFn(host, "[media-shape='circle' i]")} .media video {
       border: 1px solid CanvasText;
     }
   }
@@ -108,6 +108,7 @@ const shadowSlotted = css`
     display: block;
     width: 8rem;
     max-width: 100%;
+    margin-inline: auto;
     aspect-ratio: 1;
     border-radius: 50%;
     object-fit: cover;
@@ -314,6 +315,7 @@ export class UvalibCard extends UvalibElement {
       ::slotted(video.uvalib-circle) {
         width: 8rem;
         max-width: 100%;
+        margin-inline: auto;
         aspect-ratio: 1;
         border-radius: 50%;
         object-fit: cover;
