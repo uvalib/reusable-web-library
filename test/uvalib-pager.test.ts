@@ -1,5 +1,5 @@
 import { expect, fixture, nextFrame } from '@open-wc/testing';
-import { sendKeys, setViewport } from '@web/test-runner-commands';
+import { emulateMedia, sendKeys, setViewport } from '@web/test-runner-commands';
 import '../src/components/uvalib-card/uvalib-card.js';
 import '../src/components/uvalib-card-grid/uvalib-card-grid.js';
 import '../src/components/uvalib-pager/uvalib-pager.js';
@@ -7,6 +7,7 @@ import type { UvalibCard } from '../src/components/uvalib-card/UvalibCard.js';
 import type { UvalibPager } from '../src/components/uvalib-pager/UvalibPager.js';
 import { expectNoAxeViolations, expectNoPageAxeViolations } from './helpers/axe.js';
 import { recordAnalytics } from './helpers/analytics.js';
+import { inDarkMode } from './helpers/dark.js';
 
 const root = (el: Element): ParentNode => el.shadowRoot ?? el;
 const navOf = (el: Element) => root(el).querySelector('nav');
@@ -336,6 +337,148 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         '.visually-hidden',
       )!;
       expect(getComputedStyle(prefix).position).to.equal('absolute');
+    });
+
+    it('shows Load more, a polite count, and the next page', async () => {
+      const rec = recordAnalytics();
+      try {
+        const el = await make('mode="load-more" shown="2" total="9" label="Stories"');
+        await el.updateComplete;
+        expect(rec.events).to.deep.equal([]);
+        expect(root(el).querySelector('nav') === null).to.equal(true);
+        const group = root(el).querySelector('.more')!;
+        expect(group.getAttribute('role')).to.equal('group');
+        expect(group.getAttribute('aria-label')).to.equal('Stories');
+        const status = root(el).querySelector('.status')!;
+        expect(status.getAttribute('role')).to.equal('status');
+        expect(status.hasAttribute('aria-live')).to.equal(false);
+        expect(status.textContent).to.equal('Showing 2 of 9');
+        const button = root(el).querySelector('button')!;
+        expect(button.classList.contains('uvalib-button')).to.equal(true);
+        expect(button.textContent?.trim()).to.equal('Load more');
+        expect(button.getBoundingClientRect().height).to.be.at.least(44);
+        const pages: number[] = [];
+        el.addEventListener('load-more', (e: Event) => {
+          pages.push((e as CustomEvent<{ page: number }>).detail.page);
+        });
+        button.click();
+        expect(pages).to.deep.equal([2]);
+        expect(rec.of('uvalib-analytics-event').map((d) => d.event)).to.deep.equal([
+          ['uvalib-pager', 'load-more', '', 2],
+        ]);
+        el.page = 4;
+        await el.updateComplete;
+        expect(rec.events).to.have.length(1);
+        button.click();
+        expect(pages).to.deep.equal([2, 5]);
+        const quiet = await make('mode="Load-More" no-analytics shown="1" total="3" page="2"');
+        root(quiet).querySelector('button')!.click();
+        expect(rec.events).to.have.length(2);
+        expect(JSON.stringify(rec.events)).to.not.include('Stories');
+      } finally {
+        rec.restore();
+      }
+    });
+
+    it('hides Load more when everything is shown and warns once when other modes are set', async () => {
+      const el = await make('mode="load-more" shown="9" total="9"');
+      expect(root(el).querySelector('.status')!.textContent).to.equal('Showing 9 of 9');
+      expect(root(el).querySelector('button') === null).to.equal(true);
+      el.shown = 3;
+      await el.updateComplete;
+      expect(root(el).querySelector('button') === null).to.equal(false);
+      const unnamed = await make('mode="load-more"');
+      expect(root(unnamed).querySelector('.more')!.getAttribute('aria-label')).to.equal(
+        'More results',
+      );
+      expect(root(unnamed).querySelector('.status')!.textContent).to.equal('Showing 0 of 0');
+      const warns = await warnings(async () => {
+        const both = await make('mode="load-more" pages="4" prev-href="#p"');
+        expect(root(both).querySelector('nav') === null).to.equal(true);
+        expect(root(both).querySelector('button') === null).to.equal(false);
+        both.mode = 'LOAD-MORE';
+        await both.updateComplete;
+      });
+      expect(warns.filter((line) => line.includes('load-more')).length).to.equal(1);
+    });
+
+    it('moves focus to the first new item, from the list or from the host', async () => {
+      const list = await fixture<HTMLUListElement>(
+        `<ul id="results-${mode}"><li id="old-${mode}"><a href="#old">Old</a></li></ul>`,
+      );
+      const el = await make(`mode="load-more" for="results-${mode}" shown="1" total="4" page="1"`);
+      const button = root(el).querySelector('button')!;
+      let clicks = 0;
+      el.addEventListener('load-more', () => clicks++);
+      const aux = new MouseEvent('click', { bubbles: true, button: 2 });
+      button.dispatchEvent(aux);
+      expect(aux.button).to.equal(2);
+      expect(clicks).to.equal(0);
+      const stop = (e: Event) => e.preventDefault();
+      // An ancestor capture listener runs before the button's own listener.
+      button.parentElement!.addEventListener('click', stop, { capture: true });
+      const canceled = new MouseEvent('click', { bubbles: true, button: 0, cancelable: true });
+      button.dispatchEvent(canceled);
+      expect(canceled.defaultPrevented).to.equal(true);
+      expect(clicks).to.equal(0);
+      button.parentElement!.removeEventListener('click', stop, { capture: true });
+      button.click();
+      expect(clicks).to.equal(1);
+      const item = document.createElement('li');
+      item.id = `new-${mode}`;
+      item.textContent = 'New';
+      list.append(item);
+      el.loaded();
+      expect(document.activeElement?.id).to.equal(`new-${mode}`);
+      expect(item.getAttribute('tabindex')).to.equal('-1');
+      const link = document.createElement('a');
+      link.href = '#given';
+      link.id = `given-${mode}`;
+      link.textContent = 'Given';
+      list.append(link);
+      el.loaded(link);
+      expect(document.activeElement?.id).to.equal(`given-${mode}`);
+      expect(link.hasAttribute('tabindex')).to.equal(false);
+    });
+
+    it('keeps Load more usable in dark mode, forced colors, at 320px, and with no-style', async () => {
+      await inDarkMode(async () => {
+        const el = await make('mode="load-more" shown="1" total="4" label="More stories"');
+        const button = root(el).querySelector('button')!;
+        expect(getComputedStyle(button).color).to.equal('rgb(16, 23, 43)');
+        await expectNoAxeViolations(el);
+        (document.activeElement as HTMLElement | null)?.blur();
+        await sendKeys({ press: 'Tab' });
+        expect(button.matches(':focus-visible')).to.equal(true);
+        expect(getComputedStyle(button).outlineWidth).to.equal('3px');
+        button.blur();
+      });
+      await emulateMedia({ forcedColors: 'active' });
+      try {
+        const el = await make('mode="load-more" shown="1" total="4"');
+        const button = root(el).querySelector('button')!;
+        expect(getComputedStyle(button).borderTopStyle).to.equal('solid');
+        expect(parseFloat(getComputedStyle(button).borderTopWidth)).to.be.at.least(1);
+        await expectNoAxeViolations(el);
+      } finally {
+        await emulateMedia({ forcedColors: 'none' });
+      }
+      await setViewport({ width: 320, height: 640 });
+      try {
+        const el = await make('mode="load-more" shown="12" total="340" label="Results"');
+        expect(document.documentElement.scrollWidth).to.be.at.most(320);
+        expect(root(el).querySelector('.more')!.getBoundingClientRect().right).to.be.at.most(320);
+      } finally {
+        await setViewport({ width: 800, height: 600 });
+      }
+      const bare = await make('no-style mode="load-more" shown="1" total="4"');
+      const bareButton = root(bare).querySelector('button')!;
+      expect(bareButton.getBoundingClientRect().height).to.be.at.least(44);
+      expect(root(bare).querySelector('.status')!.textContent).to.equal('Showing 1 of 4');
+      if (mode === 'shadow') {
+        expect(getComputedStyle(bareButton).backgroundColor).to.not.equal('rgb(0, 123, 172)');
+      }
+      await expectNoAxeViolations(bare);
     });
   });
 }
