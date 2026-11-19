@@ -952,9 +952,7 @@ export class UvalibDateHistogram extends UvalibElement {
       const years = [...new Set(model.bars.map((b) => b.year))];
       return html`
         <table part="table">
-          <caption>
-            ${caption}
-          </caption>
+          <caption>${caption}</caption>
           <thead>
             <tr>
               <th scope="col">Year</th>
@@ -980,9 +978,7 @@ export class UvalibDateHistogram extends UvalibElement {
     }
     return html`
       <table part="table">
-        <caption>
-          ${caption}
-        </caption>
+        <caption>${caption}</caption>
         <thead>
           <tr>
             <th scope="col">${this.grain === 'year' ? 'Year' : 'Date'}</th>
