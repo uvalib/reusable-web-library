@@ -328,6 +328,52 @@ site-footer footer {
     },
   },
   {
+    id: 'buttons-forms',
+    group: 'Page',
+    title: 'Buttons and forms',
+    description:
+      "base.css's classes give your own content the library's buttons, toggles and search box: .uvalib-button (with --secondary, --subtle, --small and --large), a toggle with aria-pressed, .uvalib-input and .uvalib-search-form.",
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Buttons and forms',
+          body: `    <site-page>
+      <h1>Buttons and forms</h1>
+      <form class="uvalib-search-form" role="search" action="#results">
+        <label for="q">Search the texts</label>
+        <input class="uvalib-input" id="q" name="q" type="search" />
+        <button class="uvalib-button" type="submit">Search</button>
+      </form>
+      <h2>Buttons</h2>
+      <p>
+        <button class="uvalib-button" type="button">Primary</button>
+        <button class="uvalib-button uvalib-button--secondary" type="button">Secondary</button>
+        <button class="uvalib-button uvalib-button--subtle" type="button">Subtle</button>
+        <button class="uvalib-button" type="button" disabled>Disabled</button>
+      </p>
+      <p>
+        <button class="uvalib-button uvalib-button--small" type="button">Small</button>
+        <button class="uvalib-button uvalib-button--large" type="button">Large</button>
+        <a class="uvalib-button uvalib-button--secondary" href="#next">Next page</a>
+      </p>
+      <h2>Toggle</h2>
+      <p>
+        <button class="uvalib-button" type="button" aria-pressed="false" id="breaks">
+          Show original line breaks
+        </button>
+      </p>
+      <script>
+        document.querySelector('#breaks').addEventListener('click', (e) => {
+          const b = e.currentTarget;
+          b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
+        });
+      </script>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'vendor-header',
     group: 'Header',
     title: 'Vendor header',
@@ -362,6 +408,26 @@ site-footer footer {
       <a slot="site-links" href="#visit">Visit</a>
       <h1>Current exhibits</h1>
       <p>The header shows this site's links instead of the library utility links. Narrow the preview to see them in the Menu popover.</p>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'site-name',
+    group: 'Header',
+    title: 'Site name',
+    description:
+      "A sub-site names itself with site-name: shown after the library logo as a link to the site's home (site-name-href, default /). The logo still links to library.virginia.edu; the page keeps its own h1.",
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Electronic Text Collections',
+          body: `    <site-page site-name="Electronic Text Collections" site-name-href="./" site-links-label="Collections">
+      <a slot="site-links" href="#collections">Collections</a>
+      <a slot="site-links" href="#search">Search</a>
+      <h1>Electronic Text Collections</h1>
+      <p>The site's name sits in the header next to the library logo. Narrow the preview: it moves under the logo.</p>
     </site-page>`,
         }),
       },

@@ -142,6 +142,16 @@ A site with its own navigation puts it in the header instead of the library util
 
 The links replace the utility links in both the inline nav on wide screens and the Menu popover on narrow ones, in order. Their `href` is used as written (not joined to `root-link-domain`), and `aria-current`, `target`, `rel` and `hreflang` are kept; mark the current page with `aria-current="page"`, which is shown bold with a thick underline. `site-links-label` names the nav (default `Site`; the popover's nav is "… menu"). Adding, removing or editing the links later updates the header. Children that are not `<a href>` with text (a link with empty or whitespace-only text has no accessible name) are ignored with a console warning. Without site links the header is unchanged. The `vendor` header variant ignores site links and keeps its reduced link set.
 
+### Site name
+
+A sub-site (Electronic Text Collections, a digital exhibit, a project site) names itself in the header with `site-name` on `<site-page>` (or a standalone `<site-header>`):
+
+```html
+<site-page site-name="Electronic Text Collections" site-name-href="/">…page content…</site-page>
+```
+
+The name sits after the library logo, past a thin divider, in the header's text colour, as a link to the site's home: `site-name-href`, default `/`. The logo still links to library.virginia.edu. The links have distinct names, each starting with its visible text (for voice control): "UVA Library home" and "Electronic Text Collections home". The name is not a heading, so the page keeps its own `<h1>`. On wide screens it shares the logo row and wraps to at most two lines without making the header taller, so keep it short (about 30 characters fit on one line from 1200px). When the links would not fit beside it on one line (with `color-scheme-switch`, or many site links, mostly between 993px and 1199px), the name moves under the logo, as on phones, so the links are laid out exactly as without a name and never overflow; the header is then taller by the name's lines. At 992px and below it gets its own lines under the logo, so it wraps cleanly on phones with no horizontal scroll. It works in light DOM and with the `vendor` variant (a vendor-hosted site can name itself too). A click reports `['site-header', 'site-name-click']`. Without `site-name` the header is unchanged.
+
 ### Main navigation
 
 Every full header shows the UVA Library main navigation, as on library.virginia.edu: About, Using the Library, Research & teaching support and Get help. It is on by default for `<site-page>` and a standalone `<site-header>`, with or without site links. Above 992px it is a full-width row under the logo row, with the brand-blue rule under it; at 992px and below it leads the Menu popover as accordions, above the utility or site links. The `vendor` header variant never shows it.
@@ -375,6 +385,30 @@ Light-mode component styles live in `@layer uvalib`, scoped to their tag. Unlaye
 **Page-level base styles are unlayered (trade-off).** The base rules that `<site-page>` installs (unless `no-global-styles`) and that `<site-style no-shadow-dom>` installs (`html`, `body`, the `*` box-sizing, and the accessibility rules) are unlayered and adopted after the document's stylesheets. They beat a host's unlayered rules of equal specificity, such as Tailwind's preflight `html { font-family }`, and any layered host CSS, such as Tailwind v4 layers or utilities on `body`. A host overrides them with a more specific selector or `!important`, or opts out with `no-global-styles` on `<site-page>` (or by not using `<site-style>`). The tokens (`:root { --uva-* }`) stay in `@layer uvalib`, so a host's own unlayered `:root { --uva-brand-blue: … }` still wins.
 
 The mode is read once, at first connect; do not toggle it afterwards.
+
+## Buttons and forms
+
+`base.css` also gives host content the library's buttons and fields, so a page's own search box, toggles and links-as-buttons match library.virginia.edu. Link `base.css` (see [Install](#install)) and add the classes:
+
+```html
+<form class="uvalib-search-form" role="search" action="/search">
+  <label for="q">Search the collections</label>
+  <input class="uvalib-input" id="q" name="q" type="search" />
+  <button class="uvalib-button" type="submit">Search</button>
+</form>
+
+<button class="uvalib-button" type="button">Primary</button>
+<button class="uvalib-button uvalib-button--secondary" type="button">Secondary</button>
+<button class="uvalib-button uvalib-button--subtle" type="button">Subtle</button>
+<a class="uvalib-button uvalib-button--secondary" href="/next">Next page</a>
+<button class="uvalib-button" type="button" aria-pressed="false">Show original line breaks</button>
+```
+
+- **`.uvalib-button`** is the library's button: blue-alt (`#007bac`) with white text and a 5px radius, darker on hover. Use it on `<button>` or `<a>`. `--secondary` is the outline, `--subtle` the pale blue one; `--small` and `--large` are the theme's sizes. Every button is at least 44px tall (small: 32px), has the library's orange focus ring, and a grey disabled look (`disabled`, or `aria-disabled="true"` while busy) that ignores the pointer (`pointer-events: none`: no hover, no click; an `aria-disabled` link still needs your script to ignore keyboard activation).
+- **Toggles:** a `.uvalib-button` with `aria-pressed` is an outline with an empty box while off, and filled with a ticked box while on, so the state never rests on colour alone. A pressed toggle is filled whatever its variant (`--secondary` or `--subtle` style only the off state). Flip `aria-pressed` in your script; do not use a checkbox look-alike or `role="switch"` for it.
+- **`.uvalib-input`** is a 44px text field; **`.uvalib-search-form`** puts the label, field and button in one row that wraps on phones. Keep a visible `<label>` (or at least an `aria-label`).
+- **Dark mode and forced colors:** they follow the `--uva-color-button-*` role tokens. `base.css` carries every role token it reads itself (the same values as `tokens.css`), so a page that links only `base.css` stays readable under `data-uva-color-scheme`; link `tokens.css` too for your own content's other `--uva-color-*` tokens. Turn dark mode on with `color-scheme-switch` (see [Dark mode](#dark-mode)). In Windows high-contrast mode they keep visible outlines, show hover and press as a Highlight outline (dashed while pressed), a highlighted pressed toggle, and GrayText when disabled.
+- **Cascade:** like the rest of `base.css` the rules are unlayered, so a host reset such as `button { background: none }` does not undo them; restyle with a more specific selector. They are only in `base.css`: `<site-page>` does not install them. The components' own buttons (bento-box, events-section, library-weekly-hours) keep their look, in light DOM too.
 
 ## Tokens and theming
 
@@ -953,7 +987,7 @@ UVA Library site footer: link columns, contact details and copyright.
 
 ### `<site-header>`
 
-UVA Library site header: logo, utility navigation, and a popover menu on narrow screens. A site can replace the library utility links (My account, Ask a Librarian, Hours, Give, Alerts, Search) with its own: give the header `<a slot="site-links" href="…">` children. They are shown, in order, in the inline nav and the Menu popover, with `href` as written (not joined to `root-link-domain`) and their `aria-current`, `target`, `rel` and `hreflang`. The source anchors themselves stay hidden. Children that are not `<a href>` with text (empty or whitespace-only text counts as none) are ignored with one console warning. The `vendor` variant ignores site links and keeps its own reduced link set. The full header also shows the UVA Library main navigation (`<site-main-nav>`): a row under the logo row on wide screens, and an accordion at the top of the Menu popover on narrow ones (992px and below), above the utility or site links. `no-main-nav` turns it off, leaving the header exactly as it was without it; the `vendor` variant never shows it. A `<nav slot="main-nav">` child replaces its links (see `<site-main-nav>`), and `main-nav-src` loads them from JSON; `main-nav-current` sets the URL marked current. `color-scheme-switch` opts in to dark mode (off by default; see the README's "Dark mode"): a Light / Dark / System radio group ("Theme") at the end of the utility-links row on wide screens and at the bottom of the Menu popover on narrow ones. The `vendor` variant, which has no Menu, shows it after its inline link, on a row of its own under the logo row on narrow screens. In dark mode the logo is the reversed (white) one.
+UVA Library site header: logo, utility navigation, and a popover menu on narrow screens. A site can replace the library utility links (My account, Ask a Librarian, Hours, Give, Alerts, Search) with its own: give the header `<a slot="site-links" href="…">` children. They are shown, in order, in the inline nav and the Menu popover, with `href` as written (not joined to `root-link-domain`) and their `aria-current`, `target`, `rel` and `hreflang`. The source anchors themselves stay hidden. Children that are not `<a href>` with text (empty or whitespace-only text counts as none) are ignored with one console warning. The `vendor` variant ignores site links and keeps its own reduced link set. The full header also shows the UVA Library main navigation (`<site-main-nav>`): a row under the logo row on wide screens, and an accordion at the top of the Menu popover on narrow ones (992px and below), above the utility or site links. `no-main-nav` turns it off, leaving the header exactly as it was without it; the `vendor` variant never shows it. A `<nav slot="main-nav">` child replaces its links (see `<site-main-nav>`), and `main-nav-src` loads them from JSON; `main-nav-current` sets the URL marked current. `color-scheme-switch` opts in to dark mode (off by default; see the README's "Dark mode"): a Light / Dark / System radio group ("Theme") at the end of the utility-links row on wide screens and at the bottom of the Menu popover on narrow ones. The `vendor` variant, which has no Menu, shows it after its inline link, on a row of its own under the logo row on narrow screens. In dark mode the logo is the reversed (white) one. `site-name` shows a sub-site's name after the logo, past a thin divider, as a link to the site's home (`site-name-href`, default `/`); the logo still links to library.virginia.edu. The name is not a heading (the page keeps its own `<h1>`) and its link is named "<name> home". On wide screens it sits in the logo row, wrapping to at most two lines (keep it short), so the header is no taller, while the links (and theme control) fit beside it on one line; when they would not, and at 992px and below, it gets its own lines under the logo, so the links are laid out exactly as without it. The `vendor` variant shows it too.
 
 #### Attributes
 
@@ -962,6 +996,8 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 | `root-link-domain` | `string` | `'https://www.library.virginia.edu'` |  |
 | `variant` | `'full' \| 'vendor'` | `'full'` |  |
 | `site-links-label` | `string \| undefined` |  | Accessible name of the nav when site links replace the utility links (default "Site"; the popover nav's name adds " menu"). |
+| `site-name` | `string \| undefined` |  | The sub-site's name, shown after the library logo as a link to the site's home (`site-name-href`). The logo still links to library.virginia.edu. Not a heading. |
+| `site-name-href` | `string \| undefined` |  | Where the site name links (default `/`, the site's own home). |
 | `no-main-nav` | `boolean` | `false` | Hide the UVA Library main navigation (the row under the logo and the popover accordion). |
 | `main-nav-label` | `string \| undefined` |  | Accessible name of the main navigation (default "Main"). |
 | `main-nav-src` | `string \| undefined` |  | URL of JSON main navigation items (`MainNavItem[]`, needs CORS), passed to `<site-main-nav items-src>`. |
@@ -990,7 +1026,7 @@ UVA Library site header: logo, utility navigation, and a popover menu on narrow 
 | Event | Description |
 |---|---|
 | `site-main-nav-error` | `main-nav-src` could not be loaded; the bundled main navigation is shown. `detail` is `{ src, message }`. Fired once, from the bar's `<site-main-nav>`; bubbles and is composed. |
-| `uvalib-analytics-event` | For `<site-analytics>`: the visitor picked a colour scheme, `['site-header', 'color-scheme', 'light' \| 'dark' \| 'system']` (not the initial value); `['site-header', 'link-click', <label>]` for a utility or site link, `['site-header', 'logo-click']`, `['site-header', 'skip-link']` (a slotted skip link) and `['site-header', 'menu-open']` when the Menu popover opens; and the main navigation's menu opens and link clicks (see `<site-main-nav>`). Never a URL. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: the visitor picked a colour scheme, `['site-header', 'color-scheme', 'light' \| 'dark' \| 'system']` (not the initial value); `['site-header', 'link-click', <label>]` for a utility or site link, `['site-header', 'logo-click']`, `['site-header', 'site-name-click']` (the `site-name` link), `['site-header', 'skip-link']` (a slotted skip link) and `['site-header', 'menu-open']` when the Menu popover opens; and the main navigation's menu opens and link clicks (see `<site-main-nav>`). Never a URL. Bubbles and is composed. |
 
 #### CSS custom properties
 
@@ -1102,6 +1138,8 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 | `no-global-styles` | `boolean` | `false` |  |
 | `no-footer` | `boolean` | `false` | Hide the footer (and any pre-footer band), for tools and app-like pages where the site footer does not belong. The footer is kept hidden rather than removed, so toggling the attribute keeps pre-footer content. |
 | `site-links-label` | `string \| undefined` |  | Accessible name of the header navigation when site links are given (default "Site"). |
+| `site-name` | `string \| undefined` |  | The sub-site's name, forwarded to `<site-header site-name>`: shown after the logo as a link to the site's home. |
+| `site-name-href` | `string \| undefined` |  | Where the site name links, forwarded to `<site-header site-name-href>` (default `/`). |
 | `no-main-nav` | `boolean` | `false` | Hide the UVA Library main navigation in the header. |
 | `main-nav-label` | `string \| undefined` |  | Accessible name of the header's main navigation (default "Main"). |
 | `main-nav-src` | `string \| undefined` |  | URL of JSON main navigation items, forwarded to `<site-header main-nav-src>`. |

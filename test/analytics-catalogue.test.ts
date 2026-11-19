@@ -116,6 +116,15 @@ describe('analytics catalogue', () => {
         link(root(header).querySelector('nav.inline')!, 'Our page').click();
         expect(events()).to.deep.equal([['site-header', 'link-click', 'Our page']]);
       });
+
+      it('the site name, as site-name-click', async () => {
+        const header = await fixture<SiteHeader>(
+          `<site-header ${attr(mode)} site-name="Electronic Text Collections"></site-header>`,
+        );
+        await quietRender(header);
+        root(header).querySelector<HTMLAnchorElement>('a.site-name')!.click();
+        expect(events()).to.deep.equal([['site-header', 'site-name-click']]);
+      });
     });
 
     describe(`site-page skip link (${mode})`, () => {
