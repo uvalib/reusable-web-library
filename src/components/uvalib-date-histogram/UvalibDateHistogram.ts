@@ -106,14 +106,29 @@ function splitSelection(raw: string): string[] {
     .filter(Boolean);
 }
 
-/** The inclusive span `selected` covers. An odd token that is not a date yields that token. */
+/**
+ * The inclusive span `selected` covers. A range is split only when every part is a
+ * year, month or day. An odd phrase that itself contains `/`, `..` or a dash stays one token.
+ */
 function parseSelected(raw: string): { from: string; to: string } | null {
-  const parts = splitSelection(raw);
-  if (!parts.length) return null;
-  const spans = parts.map((p) => keyToSpan(p) ?? { from: p, to: p });
-  const from = spans.reduce((a, s) => (s.from < a ? s.from : a), spans[0]!.from);
-  const to = spans.reduce((a, s) => (s.to > a ? s.to : a), spans[0]!.to);
-  return { from, to };
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const parts = splitSelection(trimmed);
+  if (parts.length >= 2 && parts.every((p) => keyToSpan(p) !== null)) {
+    const spans = parts.map((p) => keyToSpan(p)!);
+    const from = spans.reduce((a, s) => (s.from < a ? s.from : a), spans[0]!.from);
+    const to = spans.reduce((a, s) => (s.to > a ? s.to : a), spans[0]!.to);
+    return { from, to };
+  }
+  return keyToSpan(trimmed) ?? { from: trimmed, to: trimmed };
+}
+
+/** Years touched by two ISO dates, inclusive. */
+function yearCount(min: string, max: string): number | null {
+  const a = /^(\d{4})/.exec(min.trim());
+  const b = /^(\d{4})/.exec(max.trim());
+  if (!a || !b) return null;
+  return Math.abs(Number(b[1]) - Number(a[1])) + 1;
 }
 
 function isoToSelected(from: string, to: string, grain: 'year' | 'month'): string {
@@ -220,9 +235,19 @@ function barPercent(count: number, max: number, log: boolean): number {
 function parseCount(text: string | null | undefined): number | null {
   if (text == null) return null;
   const t = text.replace(/,/g, '').trim();
-  if (!t || t === '—' || t === '-' || t === '\u2013') return null;
+  if (!t) return null;
+  // A dash in a count cell is zero, so a boundary year of dashes is still drawn.
+  if (t === '\u2014' || t === '-' || t === '\u2013') return 0;
   const n = Number(t);
   return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+/** A header row has `<th>`, sits in `<thead>`, or its count cell is not a number (a dash is zero, so data). */
+function isHeaderRow(row: HTMLTableRowElement, countCol: number): boolean {
+  const cells = [...row.cells];
+  if (cells.some((c) => c.tagName === 'TH')) return true;
+  if (row.parentElement?.tagName === 'THEAD') return true;
+  return parseCount(cells[countCol]?.textContent) == null;
 }
 
 /** A child `<table>`: two columns (date, count) or a year-by-month grid. */
@@ -251,9 +276,10 @@ function parseTable(table: HTMLTableElement): HistogramItem[] {
   const lower = header.map((h) => h.toLowerCase());
   let dateCol = lower.findIndex((h) => /date|month|year/.test(h));
   let countCol = lower.findIndex((h) => /count|photo|total|number|item/.test(h));
-  const body = dateCol >= 0 || countCol >= 0 ? rows.slice(1) : rows;
   if (dateCol < 0) dateCol = 0;
   if (countCol < 0) countCol = dateCol === 0 ? 1 : 0;
+  // "undated" matches /date/, so a header is a `<th>` row or a count cell that is not a number.
+  const body = isHeaderRow(rows[0]!, countCol) ? rows.slice(1) : rows;
   for (const row of body) {
     const cells = [...row.cells];
     const date = (cells[dateCol]?.textContent ?? '').replace(/\s+/g, ' ').trim();
@@ -282,6 +308,7 @@ const structuralRules = (host: string) => {
   return `
   ${host} { display: block; max-width: 100%; min-width: 0; box-sizing: border-box; }
   ${host} .scroller { overflow-x: auto; max-width: 100%; overscroll-behavior-x: contain; }
+  ${host} .by-month .scroller { scroll-padding-inline-start: 4rem; }
   ${host} .year {
     display: grid;
     grid-template-columns: 3.5rem minmax(0, 1fr);
@@ -307,6 +334,7 @@ const structuralRules = (host: string) => {
     min-inline-size: calc(12 * 1.5rem + 11 * 2px);
   }
   ${host} .bar {
+    position: relative;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -323,6 +351,13 @@ const structuralRules = (host: string) => {
     color: inherit;
     cursor: pointer;
   }
+  ${host} .bar::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
   ${host} .fill {
     display: block;
     width: 100%;
@@ -332,10 +367,8 @@ const structuralRules = (host: string) => {
     box-sizing: border-box;
   }
   ${host} .bar.is-empty .fill { background: transparent; border-color: transparent; }
-  ${host} .bar[aria-pressed='true'] {
+  ${host} .bar[aria-pressed='true']::after {
     box-shadow: inset 0 0 0 3px var(--uva-color-text, #2b2b2b);
-  }
-  ${host} .bar[aria-pressed='true'] .fill {
     background-image: repeating-linear-gradient(
       -45deg,
       transparent,
@@ -407,6 +440,8 @@ const structuralRules = (host: string) => {
     font-size: 0.875rem;
     color: var(--uva-color-text-muted, #4b5563);
   }
+  ${host} .plot { min-block-size: var(--uvalib-date-histogram-bar-size, 8rem); }
+  ${host} .empty { margin: 0; color: var(--uva-color-text-muted, #4b5563); }
   ${host} .table-wrap { overflow-x: auto; max-width: 100%; }
   ${host} table { border-collapse: collapse; }
   ${host} th, ${host} td {
@@ -421,7 +456,10 @@ const structuralRules = (host: string) => {
     position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
     overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
   }
-  ${host} button:focus-visible { outline: 3px solid #e57200; outline-offset: 2px; }
+  ${host} :is(button, summary, [tabindex]):focus-visible {
+    outline: 3px solid var(--uva-color-focus, var(--uva-brand-orange, #e57200));
+    outline-offset: 2px;
+  }
   ${host}[hidden], ${host} [hidden] { display: none !important; }
   ${attr("[variant='strip']")} .chart { min-block-size: var(--uvalib-date-histogram-strip-size, 1.5rem); }
   @media (forced-colors: active) {
@@ -437,10 +475,20 @@ const structuralRules = (host: string) => {
       outline: 3px solid Highlight;
       outline-offset: -4px;
     }
+    ${host} :is(.bar, .chip, summary, [tabindex]):focus-visible {
+      outline: 3px solid Highlight;
+      outline-offset: 2px;
+    }
   }
 `;
 };
 const shadowStructure = unsafeCSS(structuralRules(':host'));
+
+/** The tag stays on one line so the caption text is the label, not the template's indentation. */
+function tableCaption(text: string): TemplateResult {
+  // prettier-ignore
+  return html`<caption>${text}</caption>`;
+}
 
 /**
  * Monthly or yearly counts as bars: a date distribution for a search page, an archive
@@ -457,29 +505,32 @@ const shadowStructure = unsafeCSS(structuralRules(':host'));
  * again clears it (`from` and `to` are empty strings).
  *
  * `range-for` is the id of a `<uvalib-date-range>`. A bar click sets that element's
- * `value`. Its `date-range-change` (and its `value` when this element connects) highlights
- * the buckets that overlap the range. Setting `selected` here updates the date range;
- * setting the date range's `value` in script does not, unless this element connects
- * afterwards or the range fires `date-range-change`.
+ * `value`. Its `date-range-change` (and its `value` when this element connects, reconnects,
+ * or the range is added later) highlights the buckets that overlap the range. A value
+ * that is exactly the range's own `min` and `max` is no selection. Setting `selected`
+ * here updates the date range; setting the date range's `value` in script does not,
+ * unless this element connects afterwards or the range fires `date-range-change`.
  *
  * `variant="strip"` is the small per-year row for a card: not interactive, `role="img"`,
  * one bar per year whatever `granularity` is.
  *
- * The bars sit in a track of fixed height (`--uvalib-date-histogram-bar-size`, 8rem), so
- * filling them in does not move the page. On a narrow screen a month row scrolls inside
- * the component; "Scroll sideways to see more." shows while it overflows. Years wrap.
+ * The chart reserves its height before the counts arrive: one bar track, or one track
+ * per year when those years are already known from the data, a linked date range or the
+ * table (`--uvalib-date-histogram-bar-size`, 8rem, plus the year-row gap). Filling the
+ * bars in does not move the page. On a narrow screen a month row scrolls inside the
+ * component; "Scroll sideways to see more." shows while it overflows. Years wrap.
  *
  * @tagname uvalib-date-histogram
- * @slot - A `<table>` of dates and counts: two columns (date, count) or a year-by-month grid. Without JavaScript it is the fallback. With JavaScript it supplies the counts when `items` is empty, and it is shown in Show as table (shadow DOM uses the same element; light DOM shows a table built from the same counts).
+ * @slot - A `<table>` of dates and counts: two columns (date, count) or a year-by-month grid. Without JavaScript it is the fallback. With JavaScript it supplies the counts when `items` is empty. Show as table lists those counts, including odd dates; once `items` is set it lists `items` instead.
  * @fires select - A bar or an odd-date chip was chosen, or the current one chosen again to clear it. `detail` is `{ from, to }` (ISO dates, or the odd token). Empty strings clear the selection. Not fired when `selected` is set in script or when a linked date range changes. Bubbles and is composed.
- * @fires uvalib-analytics-event - For `<site-analytics>`: `['uvalib-date-histogram', 'select', '<from>–<to>']` when a bar or chip is chosen (not when the selection is cleared, set in script, or restored from a date range). Bubbles and is composed.
+ * @fires uvalib-analytics-event - For `<site-analytics>`: `['uvalib-date-histogram', 'select', '<from>–<to>']` when both ends are ISO dates, or `'other'` for any other choice. Not fired when the selection is cleared, set in script, or restored from a date range. Bubbles and is composed.
  * @csspart chart - The bar chart (shadow mode).
  * @csspart bar - A bar button, or a strip segment (shadow mode).
  * @csspart table - The generated table in Show as table (shadow mode).
- * @cssprop [--uvalib-date-histogram-bar-size=8rem] - Height of each bar track. The bars never change it, so the page does not move as counts arrive.
+ * @cssprop [--uvalib-date-histogram-bar-size=8rem] - Height of each bar track. The chart reserves one track, or one per known year, before the counts arrive.
  * @cssprop [--uvalib-date-histogram-strip-size=1.5rem] - Height of `variant="strip"`.
  * @cssprop [--uva-brand-blue=#232d4b] - Bar fill.
- * @cssprop [--uva-brand-orange=#e57200] - Focus ring.
+ * @cssprop [--uva-brand-orange=#e57200] - Focus ring when `--uva-color-focus` is unset.
  * @cssprop [--uva-font-family=inherit] - Font family.
  * @cssprop --uva-color-accent-bg - Dark-mode role token: bar fill (else `--uva-brand-blue`).
  * @cssprop --uva-color-on-accent - Dark-mode role token: the selection stripe (else #fff).
@@ -507,8 +558,8 @@ export class UvalibDateHistogram extends UvalibElement {
         border-color: var(--uva-color-text, #2b2b2b);
         transition: height 0.2s ease;
       }
-      .bar[aria-pressed='true'] { box-shadow: inset 0 0 0 3px var(--uva-color-text, #2b2b2b); }
-      .bar[aria-pressed='true'] .fill {
+      .bar[aria-pressed='true']::after {
+        box-shadow: inset 0 0 0 3px var(--uva-color-text, #2b2b2b);
         background-image: repeating-linear-gradient(
           -45deg,
           transparent,
@@ -585,8 +636,11 @@ export class UvalibDateHistogram extends UvalibElement {
   /** The next update came from the linked date range, so it must not write back. */
   private echo = false;
   private seen = false;
+  /** True while `choose()` assigns `selected`, so that click keeps the roving tab stop. */
+  private choosing = false;
   private ro?: ResizeObserver;
   private observed?: Element;
+  private partnerObserver?: MutationObserver;
 
   constructor() {
     super();
@@ -619,6 +673,8 @@ export class UvalibDateHistogram extends UvalibElement {
         },
       );
     }
+    this.bindPartner();
+    this.measureOverflow();
     if (!customElements.get('uvalib-date-range')) {
       void customElements.whenDefined('uvalib-date-range').then(() => {
         if (!this.isConnected || this.selected) return;
@@ -635,6 +691,9 @@ export class UvalibDateHistogram extends UvalibElement {
     this.ro?.disconnect();
     this.ro = undefined;
     this.observed = undefined;
+    this.partnerObserver?.disconnect();
+    this.partnerObserver = undefined;
+    this.seen = false;
   }
 
   protected override willUpdate(changed: PropertyValues<this>): void {
@@ -647,19 +706,24 @@ export class UvalibDateHistogram extends UvalibElement {
       this.warnedGrain = true;
       console.warn(`<${TAG}>: granularity must be "year" or "month"; using "month".`);
     }
+    if (changed.has('selected') && !this.choosing) this.activeKey = '';
+    this.choosing = false;
   }
 
   protected override updated(changed: PropertyValues<this>): void {
     const echoing = this.echo;
     this.echo = false;
+    const before = this.partner;
     this.bindPartner();
-    if (!this.seen || changed.has('rangeFor')) {
+    const appeared = this.partner != null && this.partner !== before;
+    if (!this.seen || changed.has('rangeFor') || appeared) {
       this.seen = true;
       if (this.selected) this.pushPartner();
-      else this.pullPartner();
+      else if (!echoing) this.pullPartner();
     } else if (changed.has('selected') && !echoing) {
       this.pushPartner();
     }
+    this.watchForPartner();
     this.measureOverflow();
   }
 
@@ -714,22 +778,68 @@ export class UvalibDateHistogram extends UvalibElement {
     el?.addEventListener('date-range-change', this.onPartner);
   }
 
-  private onPartner = (e: Event): void => {
-    const value = (e as CustomEvent<{ value?: string[] }>).detail?.value;
-    if (!value) return;
-    const next = isoToSelected(value[0] ?? '', value[1] ?? '', this.grain);
+  /** While the named date range is not in the tree yet, take its value when it appears. */
+  private watchForPartner(): void {
+    if (!this.isConnected || !this.rangeFor.trim() || this.partner) {
+      this.partnerObserver?.disconnect();
+      this.partnerObserver = undefined;
+      return;
+    }
+    if (this.partnerObserver) return;
+    const root = this.getRootNode();
+    if (!(root instanceof Document) && !(root instanceof ShadowRoot)) return;
+    this.partnerObserver = new MutationObserver(() => {
+      if (!this.isConnected || this.partner) return;
+      this.bindPartner();
+      if (!this.partner) return;
+      this.partnerObserver?.disconnect();
+      this.partnerObserver = undefined;
+      if (this.selected) this.pushPartner();
+      else this.pullPartner();
+      this.requestUpdate();
+    });
+    this.partnerObserver.observe(root, { childList: true, subtree: true });
+  }
+
+  private partnerEnds(): { min: string; max: string } | null {
+    const el = this.partner;
+    if (!el) return null;
+    return {
+      min: el.min || el.getAttribute('min') || '',
+      max: el.max || el.getAttribute('max') || '',
+    };
+  }
+
+  /** `[min, max]` is the date range's empty state (a cleared selection, or the host's initial value). */
+  private isFullSpan(from: string, to: string): boolean {
+    const ends = this.partnerEnds();
+    if (!ends?.min || !ends.max) return false;
+    return from === ends.min && to === ends.max;
+  }
+
+  private applyPartnerValue(value: string[] | undefined): void {
+    if (!Array.isArray(value) || value.length < 2) return;
+    const from = value[0] ?? '';
+    const to = value[1] ?? '';
+    if (this.isFullSpan(from, to)) {
+      if (this.selected) {
+        this.echo = true;
+        this.selected = '';
+      }
+      return;
+    }
+    const next = isoToSelected(from, to, this.grain);
     if (!next || next === this.selected) return;
     this.echo = true;
     this.selected = next;
+  }
+
+  private onPartner = (e: Event): void => {
+    this.applyPartnerValue((e as CustomEvent<{ value?: string[] }>).detail?.value);
   };
 
   private pullPartner(): void {
-    const value = this.partner?.value;
-    if (!Array.isArray(value)) return;
-    const next = isoToSelected(value[0] ?? '', value[1] ?? '', this.grain);
-    if (!next || next === this.selected) return;
-    this.echo = true;
-    this.selected = next;
+    this.applyPartnerValue(this.partner?.value);
   }
 
   private pushPartner(): void {
@@ -749,28 +859,39 @@ export class UvalibDateHistogram extends UvalibElement {
     this.dispatchEvent(
       new CustomEvent('select', { detail: { from, to }, bubbles: true, composed: true }),
     );
-    if (from && to) trackEvent(this, [TAG, 'select', `${from}\u2013${to}`]);
+    if (from && to) {
+      const name = isIsoDate(from) && isIsoDate(to) ? `${from}\u2013${to}` : 'other';
+      trackEvent(this, [TAG, 'select', name]);
+    }
   }
 
   private choose(key: string): void {
     this.activeKey = key;
-    const span = parseSelected(key);
-    const current = this.selected ? parseSelected(this.selected) : null;
-    const same =
-      !!span &&
-      !!current &&
-      current.from === span.from &&
-      current.to === span.to &&
-      !this.selected.includes('/');
-    // A range is not the same as its first bucket: only a second click on the single
-    // selected bucket clears it. Comparing spans would also clear a one-day chip whose
-    // span equals a stored ISO range, so a single token is required too.
-    if (same && splitSelection(this.selected).length === 1) {
+    const token = this.selected.trim();
+    const bucket = keyToSpan(key);
+    // A second click on the same token clears it. A stored month that only names part
+    // of the linked range (October 5–20 shown as 2015-10) expands to the whole bucket
+    // instead: assigning the same `selected` string would not run `pushPartner()`.
+    if (token === key) {
+      const value = this.partner?.value;
+      const partial =
+        !!bucket &&
+        Array.isArray(value) &&
+        value.length >= 2 &&
+        (value[0] !== bucket.from || value[1] !== bucket.to);
+      if (partial && bucket) {
+        this.pushPartner();
+        this.emit(bucket.from, bucket.to);
+        return;
+      }
+      this.choosing = true;
       this.selected = '';
       this.emit('', '');
       return;
     }
+    this.choosing = true;
     this.selected = key;
+    const span = parseSelected(key);
     this.emit(span?.from ?? key, span?.to ?? key);
   }
 
@@ -827,8 +948,14 @@ export class UvalibDateHistogram extends UvalibElement {
     if (!scroller) return;
     const bar = btn.getBoundingClientRect();
     const box = scroller.getBoundingClientRect();
+    const labelRight = btn
+      .closest('.year')
+      ?.querySelector('.year-label')
+      ?.getBoundingClientRect().right;
+    // 5px keeps the 3px outline and its 2px offset clear of the sticky year label.
+    const leftEdge = labelRight == null ? box.left : labelRight + 5;
     if (bar.right > box.right) scroller.scrollLeft += bar.right - box.right;
-    else if (bar.left < box.left) scroller.scrollLeft -= box.left - bar.left;
+    else if (bar.left < leftEdge) scroller.scrollLeft -= leftEdge - bar.left;
   }
 
   private measureOverflow(): void {
@@ -849,11 +976,39 @@ export class UvalibDateHistogram extends UvalibElement {
     if (on !== this.overflowing) this.overflowing = on;
   }
 
-  private pressed(key: string, span: { from: string; to: string } | null): boolean {
-    if (!span) return false;
+  /**
+   * A lone odd token (a year chip on a month chart, a day, "undated", "c. 1910–1920")
+   * highlights only itself. A bucket at this grain, or a range of dates, highlights overlaps.
+   */
+  private selectionHighlights(): boolean {
+    const trimmed = this.selected.trim();
+    if (!trimmed) return false;
+    const parts = splitSelection(trimmed);
+    if (parts.length >= 2 && parts.every((p) => keyToSpan(p) !== null)) return true;
+    if (parts.length !== 1) return false;
+    return this.grain === 'year' ? /^\d{4}$/.test(trimmed) : /^\d{4}-\d{2}$/.test(trimmed);
+  }
+
+  private overlaps(key: string, span: { from: string; to: string } | null): boolean {
+    if (!span || !isIsoDate(span.from) || !isIsoDate(span.to)) return false;
     const own = keyToSpan(key);
-    if (!own) return this.selected.trim() === key;
+    if (!own) return false;
     return own.from <= span.to && own.to >= span.from;
+  }
+
+  private pressed(key: string, span: { from: string; to: string } | null): boolean {
+    if (this.selected.trim() === key) return true;
+    if (!this.selectionHighlights()) return false;
+    return this.overlaps(key, span);
+  }
+
+  /** An odd chip matches its own key, or an ISO day inside a multi-bucket range. */
+  private chipOn(key: string, span: { from: string; to: string } | null): boolean {
+    if (this.selected.trim() === key) return true;
+    if (!isIsoDate(key)) return false;
+    const parts = splitSelection(this.selected.trim());
+    if (parts.length < 2 || parts.some((p) => keyToSpan(p) === null)) return false;
+    return this.overlaps(key, span);
   }
 
   private focusKey(bars: Bar[]): string {
@@ -906,7 +1061,7 @@ export class UvalibDateHistogram extends UvalibElement {
           (year) => html`
             <div class="year">
               <span class="year-label" id=${`${this.uid}-${year}`}>${year}</span>
-              <div class="bars" aria-labelledby=${`${this.uid}-${year}`}>
+              <div class="bars" role="group" aria-labelledby=${`${this.uid}-${year}`}>
                 ${repeat(
                   model.bars.filter((b) => b.year === year),
                   (b) => b.key,
@@ -929,7 +1084,7 @@ export class UvalibDateHistogram extends UvalibElement {
       <div class="outliers" role="group" aria-label="Other dates">
         ${odds.map((odd) => {
           const name = bucketName(odd.key, odd.count, this.unit);
-          const on = this.selected.trim() === odd.key || this.pressed(odd.key, span);
+          const on = this.chipOn(odd.key, span);
           return html`
             <button
               type="button"
@@ -952,7 +1107,7 @@ export class UvalibDateHistogram extends UvalibElement {
       const years = [...new Set(model.bars.map((b) => b.year))];
       return html`
         <table part="table">
-          <caption>${caption}</caption>
+          ${tableCaption(caption)}
           <thead>
             <tr>
               <th scope="col">Year</th>
@@ -974,11 +1129,12 @@ export class UvalibDateHistogram extends UvalibElement {
             })}
           </tbody>
         </table>
+        ${this.oddsTable(model)}
       `;
     }
     return html`
       <table part="table">
-        <caption>${caption}</caption>
+        ${tableCaption(caption)}
         <thead>
           <tr>
             <th scope="col">${this.grain === 'year' ? 'Year' : 'Date'}</th>
@@ -1007,18 +1163,67 @@ export class UvalibDateHistogram extends UvalibElement {
     `;
   }
 
+  private oddsTable(model: Model): TemplateResult | typeof nothing {
+    if (!model.odds.length) return nothing;
+    return html`
+      <table part="table">
+        ${tableCaption('Other dates')}
+        <thead>
+          <tr>
+            <th scope="col">Date</th>
+            <th scope="col">Count</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${model.odds.map(
+            (o) => html`
+              <tr>
+                <th scope="row">${o.key}</th>
+                <td>${o.count.toLocaleString('en-US')}</td>
+              </tr>
+            `,
+          )}
+        </tbody>
+      </table>
+    `;
+  }
+
   private renderDisclosure(model: Model): TemplateResult | typeof nothing {
     if (!this.authorTable && !model.bars.length && !model.odds.length) return nothing;
-    const generated = this.lightDom || !this.authorTable;
+    const generated = this.lightDom || !this.authorTable || this.items.length > 0;
     return html`
       <details class="as-table">
         <summary>Show as table</summary>
-        <div class="table-wrap" tabindex="0" aria-label="${this.labelText} as a table">
+        <div
+          class="table-wrap"
+          role="region"
+          tabindex="0"
+          aria-label="${this.labelText} as a table"
+        >
           ${generated ? this.generatedTable(model) : nothing}
-          ${this.lightDom ? nothing : html`<slot></slot>`}
+          ${generated || this.lightDom ? nothing : html`<slot></slot>`}
         </div>
       </details>
     `;
+  }
+
+  /** One bar track, or one per year when the span is already known, so late `items` do not shift the page. */
+  private reserveStyle(): string {
+    const size = 'var(--uvalib-date-histogram-bar-size, 8rem)';
+    if (this.grain === 'year') return `min-block-size: ${size}`;
+    return `min-block-size: calc(${this.reservedYears()} * (${size} + 0.5rem))`;
+  }
+
+  private reservedYears(): number {
+    const model = buildModel(this.data, this.grain);
+    if (model.bars.length) return new Set(model.bars.map((b) => b.year)).size;
+    const partner = this.partner ?? this.findPartner();
+    if (!partner) return 1;
+    const span = yearCount(
+      partner.min || partner.getAttribute('min') || '',
+      partner.max || partner.getAttribute('max') || '',
+    );
+    return span && span > 0 ? span : 1;
   }
 
   private renderStrip(model: Model): TemplateResult {
@@ -1063,11 +1268,13 @@ export class UvalibDateHistogram extends UvalibElement {
     return html`
       <div class="chart ${chartClass}" part="chart">
         <p class="scroll-hint" ?hidden=${!this.overflowing}>Scroll sideways to see more.</p>
-        ${
-          model.bars.length
-            ? this.renderBars(model, span)
-            : html`<p class="empty">No dates to show.</p>`
-        }
+        <div class="plot" style=${this.reserveStyle()}>
+          ${
+            model.bars.length
+              ? this.renderBars(model, span)
+              : html`<p class="empty">No dates to show.</p>`
+          }
+        </div>
       </div>
       ${this.renderOdds(model.odds, span)} ${this.renderDisclosure(model)}
     `;

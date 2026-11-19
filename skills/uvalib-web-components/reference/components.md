@@ -729,7 +729,7 @@ Sub-navigation or a table of contents, as library.virginia.edu's sub-navigation:
 
 ## `<uvalib-date-histogram>`
 
-Monthly or yearly counts as bars: a date distribution for a search page, an archive timeline or a card. Give `items` (`{ date, count }`, `date` a `YYYY` or `YYYY-MM`) or a child `<table>` (the no-JS fallback). `granularity="month"` draws twelve bars for every year from the first date to the last, including months with a count of zero. A year-only count in a month chart, a day, or any other date is a chip beside the chart. Each bar is a button named like "October 2015: 5,311 photos". Arrow keys move between bars; Enter or Space selects. `selected` is one bucket (`2015-10`, `2015`) or a range (`2015-03/2016-01`, also `..` or an en dash). The selection is `aria-pressed`, an inset ring and a stripe, not colour alone. Choosing a bar fires `select` with `{ from, to }` as ISO dates (a month runs from its first day to its last). Choosing the selected bar again clears it (`from` and `to` are empty strings). `range-for` is the id of a `<uvalib-date-range>`. A bar click sets that element's `value`. Its `date-range-change` (and its `value` when this element connects) highlights the buckets that overlap the range. Setting `selected` here updates the date range; setting the date range's `value` in script does not, unless this element connects afterwards or the range fires `date-range-change`. `variant="strip"` is the small per-year row for a card: not interactive, `role="img"`, one bar per year whatever `granularity` is. The bars sit in a track of fixed height (`--uvalib-date-histogram-bar-size`, 8rem), so filling them in does not move the page. On a narrow screen a month row scrolls inside the component; "Scroll sideways to see more." shows while it overflows. Years wrap.
+Monthly or yearly counts as bars: a date distribution for a search page, an archive timeline or a card. Give `items` (`{ date, count }`, `date` a `YYYY` or `YYYY-MM`) or a child `<table>` (the no-JS fallback). `granularity="month"` draws twelve bars for every year from the first date to the last, including months with a count of zero. A year-only count in a month chart, a day, or any other date is a chip beside the chart. Each bar is a button named like "October 2015: 5,311 photos". Arrow keys move between bars; Enter or Space selects. `selected` is one bucket (`2015-10`, `2015`) or a range (`2015-03/2016-01`, also `..` or an en dash). The selection is `aria-pressed`, an inset ring and a stripe, not colour alone. Choosing a bar fires `select` with `{ from, to }` as ISO dates (a month runs from its first day to its last). Choosing the selected bar again clears it (`from` and `to` are empty strings). `range-for` is the id of a `<uvalib-date-range>`. A bar click sets that element's `value`. Its `date-range-change` (and its `value` when this element connects, reconnects, or the range is added later) highlights the buckets that overlap the range. A value that is exactly the range's own `min` and `max` is no selection. Setting `selected` here updates the date range; setting the date range's `value` in script does not, unless this element connects afterwards or the range fires `date-range-change`. `variant="strip"` is the small per-year row for a card: not interactive, `role="img"`, one bar per year whatever `granularity` is. The chart reserves its height before the counts arrive: one bar track, or one track per year when those years are already known from the data, a linked date range or the table (`--uvalib-date-histogram-bar-size`, 8rem, plus the year-row gap). Filling the bars in does not move the page. On a narrow screen a month row scrolls inside the component; "Scroll sideways to see more." shows while it overflows. Years wrap.
 
 ### Attributes
 
@@ -750,7 +750,7 @@ Monthly or yearly counts as bars: a date distribution for a search page, an arch
 
 | Slot | Description |
 |---|---|
-| (default) | A `<table>` of dates and counts: two columns (date, count) or a year-by-month grid. Without JavaScript it is the fallback. With JavaScript it supplies the counts when `items` is empty, and it is shown in Show as table (shadow DOM uses the same element; light DOM shows a table built from the same counts). |
+| (default) | A `<table>` of dates and counts: two columns (date, count) or a year-by-month grid. Without JavaScript it is the fallback. With JavaScript it supplies the counts when `items` is empty. Show as table lists those counts, including odd dates; once `items` is set it lists `items` instead. |
 
 ### CSS parts
 
@@ -765,16 +765,16 @@ Monthly or yearly counts as bars: a date distribution for a search page, an arch
 | Event | Description |
 |---|---|
 | `select` | A bar or an odd-date chip was chosen, or the current one chosen again to clear it. `detail` is `{ from, to }` (ISO dates, or the odd token). Empty strings clear the selection. Not fired when `selected` is set in script or when a linked date range changes. Bubbles and is composed. |
-| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-date-histogram', 'select', '<from>–<to>']` when a bar or chip is chosen (not when the selection is cleared, set in script, or restored from a date range). Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-date-histogram', 'select', '<from>–<to>']` when both ends are ISO dates, or `'other'` for any other choice. Not fired when the selection is cleared, set in script, or restored from a date range. Bubbles and is composed. |
 
 ### CSS custom properties
 
 | Property | Default | Description |
 |---|---|---|
-| `--uvalib-date-histogram-bar-size` | `8rem` | Height of each bar track. The bars never change it, so the page does not move as counts arrive. |
+| `--uvalib-date-histogram-bar-size` | `8rem` | Height of each bar track. The chart reserves one track, or one per known year, before the counts arrive. |
 | `--uvalib-date-histogram-strip-size` | `1.5rem` | Height of `variant="strip"`. |
 | `--uva-brand-blue` | `#232d4b` | Bar fill. |
-| `--uva-brand-orange` | `#e57200` | Focus ring. |
+| `--uva-brand-orange` | `#e57200` | Focus ring when `--uva-color-focus` is unset. |
 | `--uva-font-family` | `inherit` | Font family. |
 | `--uva-color-accent-bg` |  | Dark-mode role token: bar fill (else `--uva-brand-blue`). |
 | `--uva-color-on-accent` |  | Dark-mode role token: the selection stripe (else #fff). |

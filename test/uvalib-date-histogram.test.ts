@@ -158,10 +158,9 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         expect(bars(el)[9]!.getAttribute('aria-pressed')).to.equal('true');
         expect(bars(el)[8]!.getAttribute('aria-pressed')).to.equal('false');
         const pressed = bars(el)[9]!;
-        expect(getComputedStyle(pressed).boxShadow).to.not.equal('none');
-        expect(getComputedStyle(pressed.querySelector('.fill')!).backgroundImage).to.contain(
-          'linear-gradient',
-        );
+        const mark = getComputedStyle(pressed, '::after');
+        expect(mark.boxShadow).to.not.equal('none');
+        expect(mark.backgroundImage).to.contain('linear-gradient');
         expect(rec.of('uvalib-analytics-event').map((d) => d.event)).to.deep.equal([
           ['uvalib-date-histogram', 'select', '2015-10-01\u20132015-10-31'],
         ]);
@@ -210,7 +209,7 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         chips(el)[0]!.click();
         expect(detail).to.deep.equal({ from: 'undated', to: 'undated' });
         expect(rec.of('uvalib-analytics-event').map((d) => d.event)).to.deep.equal([
-          ['uvalib-date-histogram', 'select', 'undated\u2013undated'],
+          ['uvalib-date-histogram', 'select', 'other'],
         ]);
       } finally {
         rec.restore();
@@ -437,6 +436,235 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       }
     });
 
+    it('does not press an overlapping chip for one bucket, and toggles an odd phrase', async () => {
+      const el = await withItems([
+        { date: '2015-10', count: 4 },
+        { date: '2015', count: 9 },
+        { date: '2015-10-03', count: 2 },
+        { date: 'c. 1910\u20131920', count: 3 },
+        { date: 'undated / unknown', count: 1 },
+        { date: '2015-02-30', count: 1 },
+        { date: '2015-02-01?', count: 1 },
+      ]);
+      const oct = bars(el).find((b) => b.dataset.date === '2015-10')!;
+      const feb = bars(el).find((b) => b.dataset.date === '2015-02')!;
+      oct.click();
+      await el.updateComplete;
+      expect(oct.getAttribute('aria-pressed')).to.equal('true');
+      expect(chips(el).every((c) => c.getAttribute('aria-pressed') === 'false')).to.equal(true);
+      const year = chips(el).find((c) => c.dataset.date === '2015')!;
+      year.click();
+      await el.updateComplete;
+      expect(year.getAttribute('aria-pressed')).to.equal('true');
+      expect(oct.getAttribute('aria-pressed')).to.equal('false');
+      const bogus = chips(el).find((c) => c.dataset.date === '2015-02-30')!;
+      bogus.click();
+      await el.updateComplete;
+      expect(feb.getAttribute('aria-pressed')).to.equal('false');
+      expect(
+        bars(el)
+          .find((b) => b.dataset.date === '2015-01')!
+          .getAttribute('aria-pressed'),
+      ).to.equal('false');
+      const phrase = chips(el).find((c) => c.dataset.date === 'c. 1910\u20131920')!;
+      phrase.click();
+      await el.updateComplete;
+      expect(el.selected).to.equal('c. 1910\u20131920');
+      phrase.click();
+      await el.updateComplete;
+      expect(el.selected).to.equal('');
+      const slash = chips(el).find((c) => c.dataset.date === 'undated / unknown')!;
+      slash.click();
+      await el.updateComplete;
+      expect(el.selected).to.equal('undated / unknown');
+      slash.click();
+      await el.updateComplete;
+      expect(el.selected).to.equal('');
+      el.selected = '2015-10/2016-03';
+      await el.updateComplete;
+      const day = chips(el).find((c) => c.dataset.date === '2015-10-03')!;
+      expect(day.getAttribute('aria-pressed')).to.equal('true');
+      expect(year.getAttribute('aria-pressed')).to.equal('false');
+      expect(phrase.getAttribute('aria-pressed')).to.equal('false');
+    });
+
+    it('paints the selection above an empty bar and names the month group and the table', async () => {
+      const el = await withItems();
+      el.selected = '2015-03';
+      await el.updateComplete;
+      const march = bars(el).find((b) => b.dataset.date === '2015-03')!;
+      const mark = getComputedStyle(march, '::after');
+      expect(mark.boxShadow).to.not.equal('none');
+      expect(mark.backgroundImage).to.contain('linear-gradient');
+      const monthBars = root(el).querySelector('.year .bars')!;
+      expect(monthBars.getAttribute('role')).to.equal('group');
+      expect(monthBars.getAttribute('aria-labelledby')).to.equal(
+        root(el).querySelector('.year-label')!.id,
+      );
+      const details = root(el).querySelector('details') as HTMLDetailsElement;
+      details.open = true;
+      const wrap = root(el).querySelector('.table-wrap')!;
+      expect(wrap.getAttribute('role')).to.equal('region');
+      expect(wrap.getAttribute('aria-label')).to.equal('Photos by date as a table');
+      el.granularity = 'year';
+      await el.updateComplete;
+      expect(root(el).querySelector('.bars')!.getAttribute('role')).to.equal(null);
+    });
+
+    it('uses the focus token on a bar and on Show as table', async () => {
+      const el = await withItems();
+      el.style.setProperty('--uva-color-focus', 'rgb(1, 2, 3)');
+      bars(el)[0]!.focus();
+      await sendKeys({ press: 'Tab' });
+      const summary = focused(el)!;
+      expect(summary.tagName).to.equal('SUMMARY');
+      const cs = getComputedStyle(summary);
+      expect(cs.outlineStyle).to.equal('solid');
+      expect(cs.outlineColor).to.equal('rgb(1, 2, 3)');
+      summary.focus();
+      await sendKeys({ press: 'Shift+Tab' });
+      expect(getComputedStyle(focused(el)!).outlineColor).to.equal('rgb(1, 2, 3)');
+    });
+
+    it('lists odd dates in Show as table, and lists items when they replace the child table', async () => {
+      const el = await withItems([
+        { date: '2015-10', count: 4 },
+        { date: 'undated', count: 7 },
+        { date: '2015-10-03', count: 2 },
+      ]);
+      const details = root(el).querySelector('details') as HTMLDetailsElement;
+      details.open = true;
+      const text = root(el).querySelector('.table-wrap')!.textContent ?? '';
+      expect(text.includes('undated')).to.equal(true);
+      expect(text.includes('2015-10-03')).to.equal(true);
+      const replaced =
+        await fixture<UvalibDateHistogram>(`<uvalib-date-histogram ${attr} unit="photos">
+        <table><tr><td>2015-10</td><td>4</td></tr></table>
+      </uvalib-date-histogram>`);
+      await replaced.updateComplete;
+      replaced.items = [{ date: '2016-03', count: 9 }];
+      await replaced.updateComplete;
+      (root(replaced).querySelector('details') as HTMLDetailsElement).open = true;
+      const counts = [...root(replaced).querySelector('.table-wrap')!.querySelectorAll('td')].map(
+        (td) => td.textContent,
+      );
+      expect(counts.includes('9')).to.equal(true);
+      expect(counts.includes('4')).to.equal(false);
+    });
+
+    it('keeps a headerless undated row and a year whose cells are dashes', async () => {
+      const el = await fixture<UvalibDateHistogram>(`<uvalib-date-histogram ${attr} unit="photos">
+        <table>
+          <tr><td>undated</td><td>4</td></tr>
+          <tr><td>2015-10</td><td>2</td></tr>
+        </table>
+      </uvalib-date-histogram>`);
+      await el.updateComplete;
+      expect(chips(el).map((c) => c.textContent!.trim())).to.deep.equal(['undated: 4 photos']);
+      expect(
+        bars(el)
+          .find((b) => b.dataset.date === '2015-10')!
+          .getAttribute('aria-label'),
+      ).to.equal('October 2015: 2 photos');
+      const grid = await fixture<UvalibDateHistogram>(`<uvalib-date-histogram ${attr} unit="photos">
+        <table>
+          <tr><th>Year</th><th>Jan</th><th>Oct</th></tr>
+          <tr><td>2014</td><td>-</td><td>\u2014</td></tr>
+          <tr><td>2015</td><td></td><td>5</td></tr>
+        </table>
+      </uvalib-date-histogram>`);
+      await grid.updateComplete;
+      expect(
+        bars(grid)
+          .find((b) => b.dataset.date === '2014-01')!
+          .getAttribute('aria-label'),
+      ).to.equal('January 2014: 0 photos');
+      expect(
+        bars(grid)
+          .find((b) => b.dataset.date === '2015-10')!
+          .getAttribute('aria-label'),
+      ).to.equal('October 2015: 5 photos');
+    });
+
+    it('moves the roving tab stop when selected is set in script', async () => {
+      const el = await withItems();
+      bars(el)[0]!.focus();
+      await sendKeys({ press: 'ArrowRight' });
+      expect(
+        bars(el)
+          .filter((b) => b.tabIndex === 0)
+          .map((b) => b.dataset.date),
+      ).to.deep.equal(['2015-02']);
+      el.selected = '2015-10';
+      await el.updateComplete;
+      expect(
+        bars(el)
+          .filter((b) => b.tabIndex === 0)
+          .map((b) => b.dataset.date),
+      ).to.deep.equal(['2015-10']);
+      expect(bars(el)[1]!.tabIndex).to.equal(-1);
+    });
+
+    it('keeps a focused January clear of the sticky year label at 320px', async () => {
+      await setViewport({ width: 320, height: 640 });
+      try {
+        const el = await withItems([
+          { date: '2015-01', count: 1 },
+          { date: '2015-12', count: 1 },
+        ]);
+        bars(el)[0]!.focus();
+        await sendKeys({ press: 'End' });
+        await el.updateComplete;
+        const scroller = root(el).querySelector('.scroller') as HTMLElement;
+        expect(scroller.scrollLeft).to.be.greaterThan(0);
+        await sendKeys({ press: 'Home' });
+        await el.updateComplete;
+        const jan = bars(el)[0]!.getBoundingClientRect().left;
+        const label = root(el).querySelector('.year-label')!.getBoundingClientRect().right;
+        expect(jan).to.be.at.least(label);
+      } finally {
+        await setViewport({ width: 800, height: 600 });
+      }
+    });
+
+    it('reserves the chart height before items arrive', async () => {
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+      const el = await make();
+      await el.updateComplete;
+      const plot = root(el).querySelector('.plot') as HTMLElement;
+      expect(plot.getBoundingClientRect().height).to.be.at.least(8 * rem - 1);
+      const partner = document.createElement('uvalib-date-range') as UvalibDateRange;
+      partner.id = 'hist-reserve';
+      partner.min = '2015-01-01';
+      partner.max = '2017-12-31';
+      document.body.append(partner);
+      try {
+        await partner.updateComplete;
+        el.rangeFor = 'hist-reserve';
+        await el.updateComplete;
+        const before = plot.getBoundingClientRect().height;
+        expect(before).to.be.at.least(3 * (8 * rem + 0.5 * rem) - 1);
+        el.items = [
+          { date: '2015-01', count: 1 },
+          { date: '2017-06', count: 2 },
+        ];
+        await el.updateComplete;
+        await el.updateComplete;
+        expect(plot.getBoundingClientRect().height).to.be.closeTo(before, 2);
+        el.granularity = 'year';
+        await el.updateComplete;
+        expect(plot.getBoundingClientRect().height).to.be.closeTo(8 * rem, 2);
+      } finally {
+        partner.remove();
+      }
+      const strip = await withItems(PHOTOS, 'variant="strip" unit="photos"');
+      expect(root(strip).querySelector('.plot') === null).to.equal(true);
+      expect(root(strip).querySelector('.strip')!.getBoundingClientRect().height).to.be.closeTo(
+        1.5 * rem,
+        1,
+      );
+    });
+
     it('passes axe for the strip and for an empty chart', async () => {
       await expectNoAxeViolations(
         await withItems(PHOTOS, 'variant="strip" unit="photos" label="Photos"'),
@@ -547,6 +775,67 @@ describe('uvalib-date-histogram range-for', () => {
     }
   });
 
+  it('does not highlight every bar when the date range is its full span', async () => {
+    await range(['2000-01-01', '2020-12-31']);
+    const el = await fixture<UvalibDateHistogram>(
+      `<uvalib-date-histogram range-for="hist-range" unit="photos"></uvalib-date-histogram>`,
+    );
+    el.items = PHOTOS;
+    await el.updateComplete;
+    expect(el.selected).to.equal('');
+    expect(bars(el).some((b) => b.getAttribute('aria-pressed') === 'true')).to.equal(false);
+  });
+
+  it('expands a partial month instead of clearing it', async () => {
+    const partner = await range(['2015-10-05', '2015-10-20']);
+    const el = await fixture<UvalibDateHistogram>(
+      `<uvalib-date-histogram range-for="hist-range" unit="photos"></uvalib-date-histogram>`,
+    );
+    el.items = PHOTOS;
+    await el.updateComplete;
+    expect(el.selected).to.equal('2015-10');
+    bars(el)[9]!.click();
+    await el.updateComplete;
+    expect(el.selected).to.equal('2015-10');
+    expect(partner.value).to.deep.equal(['2015-10-01', '2015-10-31']);
+    expect(bars(el)[9]!.getAttribute('aria-pressed')).to.equal('true');
+  });
+
+  it('pulls a date range mounted after the histogram', async () => {
+    const el = await fixture<UvalibDateHistogram>(
+      `<uvalib-date-histogram range-for="hist-range" unit="photos"></uvalib-date-histogram>`,
+    );
+    el.items = PHOTOS;
+    await el.updateComplete;
+    expect(el.selected).to.equal('');
+    await range(['2015-10-01', '2015-10-31']);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await el.updateComplete;
+    expect(el.selected).to.equal('2015-10');
+    expect(bars(el)[9]!.getAttribute('aria-pressed')).to.equal('true');
+  });
+
+  it('keeps range-for in step after the histogram is moved', async () => {
+    const partner = await range(['2016-02-01', '2016-02-28']);
+    const el = await fixture<UvalibDateHistogram>(
+      `<uvalib-date-histogram range-for="hist-range" unit="photos"></uvalib-date-histogram>`,
+    );
+    el.items = PHOTOS;
+    await el.updateComplete;
+    expect(el.selected).to.equal('2016-02');
+    const parent = el.parentElement!;
+    el.remove();
+    parent.append(el);
+    await el.updateComplete;
+    const input = (partner.shadowRoot ?? partner).querySelectorAll(
+      'input[type="date"]',
+    )[1] as HTMLInputElement;
+    input.value = '2016-06-30';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await el.updateComplete;
+    expect(el.selected).to.equal('2016-02/2016-06');
+  });
+
   it('leaves a February selection on the 29th in a leap year', async () => {
     const partner = await range();
     const el = await fixture<UvalibDateHistogram>(
@@ -587,6 +876,13 @@ describe('uvalib-date-histogram forced colors and reduced motion', () => {
     const outline = getComputedStyle(pressed);
     expect(outline.outlineStyle).to.equal('solid');
     expect(parseFloat(outline.outlineWidth)).to.be.at.least(3);
+    bars(el)[10]!.focus();
+    await sendKeys({ press: 'ArrowLeft' });
+    const focusedBar = focused(el)!;
+    expect(focusedBar.dataset.date).to.equal('2015-10');
+    const focusedOutline = getComputedStyle(focusedBar);
+    expect(focusedOutline.outlineStyle).to.equal('solid');
+    expect(parseFloat(focusedOutline.outlineOffset)).to.be.at.least(2);
     await expectNoAxeViolations(el);
   });
 
