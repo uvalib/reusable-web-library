@@ -52,6 +52,7 @@ describe('playground presets', function () {
       'search-facets',
       'search-results',
       'pagefind-search',
+      'results-toolbar',
       'todays-hours',
       'weekly-hours',
       'events',
@@ -107,6 +108,7 @@ describe('playground presets', function () {
         'search-facets',
         'search-results',
         'pagefind-search',
+        'results-toolbar',
         'uvalib-filter-shadow',
         'uvalib-filter-light',
         'uvalib-date-range-shadow',
@@ -557,6 +559,47 @@ describe('playground presets', function () {
       });
     });
   }
+
+  it('results-toolbar filters, counts, shows the empty state and loading, and passes axe', async () => {
+    const p = presets.find((x) => x.id === 'results-toolbar')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    iframe.style.width = '1000px';
+    iframe.style.height = '900px';
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-page', 'uvalib-tag-list', 'uvalib-results-count']);
+      await new Promise((r) => setTimeout(r, 100));
+      const count = doc.querySelector('uvalib-results-count')!;
+      const text = () => count.shadowRoot!.querySelector('.text')!.textContent;
+      expect(text()).to.equal('Showing all 6 shoots');
+      const filter = doc.querySelector<HTMLInputElement>('#filter')!;
+      filter.value = 'snow';
+      filter.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 50));
+      expect(text()).to.equal('Showing 1 of 6 shoots');
+      expect(doc.querySelector<HTMLElement>('#empty')!.hidden).to.equal(true);
+      filter.value = 'nothing like this';
+      filter.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 50));
+      expect(doc.querySelector<HTMLElement>('#empty')!.hidden).to.equal(false);
+      await expectNoPageAxeViolations(doc);
+      doc.querySelector<HTMLButtonElement>('#clear')!.click();
+      await new Promise((r) => setTimeout(r, 50));
+      expect(text()).to.equal('Showing all 6 shoots');
+      expect(doc.activeElement === filter).to.equal(true);
+      doc.querySelector<HTMLButtonElement>('#reload')!.click();
+      expect(doc.querySelector('#results')!.getAttribute('aria-busy')).to.equal('true');
+      expect(doc.querySelector<HTMLElement>('#loading')!.hidden).to.equal(false);
+      await expectNoPageAxeViolations(doc);
+      const tags = doc.querySelector('uvalib-tag-list')!;
+      expect(tags.shadowRoot!.querySelector('button.toggle')!.textContent).to.include('Show all 8');
+      expect(countMain(doc)).to.equal(1);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  }).timeout(15000);
 
   it('pagefind-search searches the demo index and passes axe', async () => {
     const p = presets.find((x) => x.id === 'pagefind-search')!;
