@@ -1,5 +1,5 @@
 import { expect, fixture, nextFrame } from '@open-wc/testing';
-import { sendKeys, setViewport } from '@web/test-runner-commands';
+import { emulateMedia, sendKeys, setViewport } from '@web/test-runner-commands';
 import '../src/components/uvalib-card/uvalib-card.js';
 import '../src/components/uvalib-card-grid/uvalib-card-grid.js';
 import type { UvalibCard } from '../src/components/uvalib-card/UvalibCard.js';
@@ -430,6 +430,95 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       } finally {
         await setViewport({ width: 800, height: 600 });
       }
+    });
+
+    it('draws a circle avatar, keeps the alt, and still overlays the badge', async () => {
+      const el = await make(
+        `<img slot="media" alt="Ada Lovelace" src="${IMG}"><span slot="badge">3</span><span slot="heading">Ada Lovelace</span>`,
+        'media-shape="circle"',
+      );
+      const img = el.querySelector('img')!;
+      expect(img.getAttribute('alt')).to.equal('Ada Lovelace');
+      const cs = getComputedStyle(img);
+      expect(cs.aspectRatio === '1 / 1' || cs.aspectRatio === '1').to.equal(true);
+      expect(cs.borderRadius).to.not.equal('0px');
+      expect(regionText(el, 'badge')).to.contain('3');
+      expect(getComputedStyle(root(el).querySelector('.badge')!).position).to.equal('absolute');
+      const plain = await make(
+        `<img slot="media" alt="A book" src="${IMG}"><span slot="heading">Book</span>`,
+      );
+      expect(getComputedStyle(plain.querySelector('img')!).aspectRatio).to.equal('3 / 2');
+    });
+
+    it('warns once for an unknown media-shape and leaves the picture rectangular', async () => {
+      const warns = await warnings(async () => {
+        const el = await make(
+          `<img slot="media" alt="A book" src="${IMG}"><span slot="heading">Book</span>`,
+          'media-shape="square"',
+        );
+        expect(getComputedStyle(el.querySelector('img')!).aspectRatio).to.equal('3 / 2');
+        el.mediaShape = 'round';
+        await el.updateComplete;
+      });
+      expect(warns.filter((line) => line.includes('media-shape')).length).to.equal(1);
+    });
+
+    it('keeps the circle in forced colors and with no-style', async () => {
+      await emulateMedia({ forcedColors: 'active' });
+      try {
+        const el = await make(
+          `<img slot="media" alt="Ada Lovelace" src="${IMG}"><span slot="heading">Ada</span>`,
+          'media-shape="circle"',
+        );
+        const cs = getComputedStyle(el.querySelector('img')!);
+        expect(cs.borderTopStyle).to.equal('solid');
+        expect(parseFloat(cs.borderTopWidth)).to.be.at.least(1);
+      } finally {
+        await emulateMedia({ forcedColors: 'none' });
+      }
+      const bare = await make(
+        `<img slot="media" alt="Ada Lovelace" src="${IMG}"><span slot="heading">Ada</span>`,
+        'no-style media-shape="circle"',
+      );
+      const bareCs = getComputedStyle(bare.querySelector('img')!);
+      expect(bareCs.aspectRatio === '1 / 1' || bareCs.aspectRatio === '1').to.equal(true);
+      expect(bareCs.borderRadius).to.not.equal('0px');
+    });
+
+    it('shows an actions row on a static card and hides it when empty', async () => {
+      const el = await make(
+        `<span slot="heading">The story</span>
+         <a slot="actions" href="#story">Read the story</a>
+         <a slot="actions" href="#photos">Photos (132)</a>`,
+      );
+      expect(linkOf(el)).to.equal(null);
+      const actions = root(el).querySelector<HTMLElement>('[data-region="actions"]')!;
+      expect(actions.hidden).to.equal(false);
+      expect(getComputedStyle(actions).display).to.equal('flex');
+      const link = el.querySelector<HTMLAnchorElement>('a[href="#story"]')!;
+      expect(link.tabIndex).to.equal(0);
+      link.focus();
+      expect(document.activeElement?.getAttribute('href')).to.equal('#story');
+      const rect = link.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      const href = hit instanceof Element ? hit.closest('a')?.getAttribute('href') : '';
+      expect(href).to.equal('#story');
+      expect(link.getBoundingClientRect().height).to.be.at.least(44);
+      const empty = await make(`<span slot="heading">Plain</span>`);
+      expect(root(empty).querySelector('[data-region="actions"]')!.hasAttribute('hidden')).to.equal(
+        true,
+      );
+    });
+
+    it('warns when a clickable card also has actions', async () => {
+      const warns = await warnings(async () => {
+        await make(
+          `<span slot="heading">The story</span><a slot="actions" href="#story">Read the story</a>`,
+          'href="#card"',
+        );
+        await nextFrame();
+      });
+      expect(warns.filter((line) => line.includes('must not contain')).length).to.equal(1);
     });
 
     it('keeps the stretch with no-style and drops the link colour', async () => {

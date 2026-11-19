@@ -64,10 +64,67 @@ const structuralRules = (host: string) => `
     object-fit: cover;
   }
   ${host} .badge { position: absolute; z-index: 0; }
+  ${host}[media-shape='circle' i] .media {
+    width: 8rem;
+    max-width: 100%;
+    margin-inline: auto;
+  }
+  ${host}[media-shape='circle' i] .media img,
+  ${host}[media-shape='circle' i] .media video {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  ${host} .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  ${host} .actions a,
+  ${host} .actions button {
+    display: inline-flex;
+    align-items: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
   ${host} .card-source { display: none !important; }
   ${host}[hidden], ${host} [hidden] { display: none !important; }
+  @media (forced-colors: active) {
+    ${host}[media-shape='circle' i] .media img,
+    ${host}[media-shape='circle' i] .media video {
+      border: 1px solid CanvasText;
+    }
+  }
 `;
 const shadowStructure = unsafeCSS(structuralRules(':host'));
+
+/** Shadow only. `::slotted` must be the subject; a :host descendant combinator does not match. */
+const shadowSlotted = css`
+  slot::slotted(img.uvalib-circle),
+  slot::slotted(video.uvalib-circle) {
+    display: block;
+    width: 8rem;
+    max-width: 100%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  slot::slotted([slot='actions']) {
+    display: inline-flex;
+    align-items: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  @media (forced-colors: active) {
+    slot::slotted(img.uvalib-circle),
+    slot::slotted(video.uvalib-circle) {
+      border: 1px solid CanvasText;
+    }
+  }
+`;
 
 /**
  * Light DOM only, unlayered. The Drupal theme gives `h3` a large top margin; this keeps the
@@ -110,13 +167,17 @@ const arrow = html`<svg
  *
  * A clickable card must not contain another link, button or other control: the stretched
  * link covers it. A static card (no `href`, or an empty or unsafe one) has no stretch, so
- * its excerpt may contain links. With `href`, the heading needs an accessible name (text,
- * or an image `alt` or `aria-label`); otherwise the link is hidden.
+ * its excerpt and `actions` slot may contain links. With `href`, the heading needs an
+ * accessible name (text, or an image `alt` or `aria-label`); otherwise the link is hidden.
+ *
+ * `media-shape="circle"` draws the media as a centered circle, for a person or avatar.
+ * The image keeps its alt, and the count badge still sits on it. Any other shape is ignored.
  *
  * Regions are light-DOM children. Give `slot="media"`, `slot="badge"`, `slot="heading"`,
- * `slot="meta"` or `slot="chip"`; anything else (including text) is the excerpt. An image
- * needs a real alt, or `alt=""` when the heading already names it. A date belongs in
- * `<time>` in the meta slot. One element per chip.
+ * `slot="meta"`, `slot="chip"` or `slot="actions"`; anything else (including text) is the
+ * excerpt. An image needs a real alt, or `alt=""` when the heading already names it. A date
+ * belongs in `<time>` in the meta slot. One element per chip. `actions` is a row of links
+ * or buttons on a static card (“Read the story”, “Photos (132)”).
  *
  * The heading level defaults like `<events-section>`: one below the nearest heading before
  * the card, or 3 when there is none. `heading-level` (1–6) wins. An invalid value is
@@ -128,6 +189,7 @@ const arrow = html`<svg
  * @slot heading - The card title. With `href`, this heading’s link is the card, so it needs an accessible name.
  * @slot meta - Date (`<time>`) or byline, under the title.
  * @slot chip - Category. One element per chip.
+ * @slot actions - Links or buttons on a static card. A clickable card must not contain them; the card link covers them.
  * @slot - Excerpt. A static card may put links here; a clickable card must not contain other controls.
  * @fires uvalib-analytics-event - For `<site-analytics>`: a primary-button click on the card link that was not already canceled, including a modified click, `['uvalib-card', 'card-click', 'single']` or, inside `<uvalib-card-grid>`, `['uvalib-card', 'card-click', '<n>', <n>]` (n from 1, the card’s place in that grid). Never the title or URL. Bubbles and is composed.
  * @fires uvalib-card-navigate - A plain click on the card link: `detail` is `{ href, position }` (`position` is `'single'` or `'1'`, `'2'`, …). Cancel it (`preventDefault()`) to route in the app; the click’s default is then prevented. Bubbles and is composed.
@@ -149,6 +211,7 @@ export class UvalibCard extends UvalibElement {
   static styles = [
     accessible,
     shadowStructure,
+    shadowSlotted,
     css`
       :host {
         color: var(--uva-color-text, var(--uva-grey-darkest, #2b2b2b));
@@ -247,6 +310,14 @@ export class UvalibCard extends UvalibElement {
         aspect-ratio: 3 / 2;
         object-fit: cover;
       }
+      ::slotted(img.uvalib-circle),
+      ::slotted(video.uvalib-circle) {
+        width: 8rem;
+        max-width: 100%;
+        aspect-ratio: 1;
+        border-radius: 50%;
+        object-fit: cover;
+      }
       ::slotted([slot='chip']) {
         background: var(--uva-blue-alt-300, #bfe7f7);
         color: var(--uva-blue-alt-dark, #005679);
@@ -272,6 +343,12 @@ export class UvalibCard extends UvalibElement {
   @property({ type: String }) href?: string;
 
   /**
+   * `circle` crops the media to a centered circle and keeps the image alt. Anything else
+   * is ignored, with one console warning.
+   */
+  @property({ attribute: 'media-shape' }) mediaShape = '';
+
+  /**
    * Heading level of the title, 1–6. Unset, it is one below the nearest heading before
    * this card, or 3 when there is none. Any other value is ignored.
    */
@@ -282,6 +359,7 @@ export class UvalibCard extends UvalibElement {
   private warnedHref = false;
   private warnedNested = false;
   private warnedHeading = false;
+  private warnedShape = false;
   private observer?: MutationObserver;
   /** Author nodes captured before the first light-DOM render. */
   private saved: Node[] = [];
@@ -294,8 +372,10 @@ export class UvalibCard extends UvalibElement {
   protected override createRenderRoot(): HTMLElement | DocumentFragment {
     const root = super.createRenderRoot();
     if (root instanceof ShadowRoot && this.noStyle) {
-      const sheet = shadowStructure.styleSheet;
-      if (sheet) root.adoptedStyleSheets = [sheet];
+      const sheets = [shadowStructure.styleSheet, shadowSlotted.styleSheet].filter(
+        (sheet): sheet is CSSStyleSheet => !!sheet,
+      );
+      root.adoptedStyleSheets = sheets;
     }
     return root;
   }
@@ -385,9 +465,20 @@ export class UvalibCard extends UvalibElement {
   }
 
   private onSlotChange = (): void => {
+    this.syncShape();
     this.syncHidden();
     this.warnNested();
   };
+
+  /** `::slotted` cannot see a host attribute, so the circle image carries a class. */
+  private syncShape(): void {
+    const circle = this.mediaShape.trim().toLowerCase() === 'circle';
+    for (const el of this.querySelectorAll('img, video')) {
+      if (!(el instanceof HTMLElement)) continue;
+      const inMedia = el.getAttribute('slot') === 'media' || !!el.closest('[data-region="media"]');
+      el.classList.toggle('uvalib-circle', circle && inMedia);
+    }
+  }
 
   /** Place among the cards of the nearest grid, from 1, or `'single'` when there is none. */
   private position(): { name: string; value?: number } {
@@ -549,6 +640,15 @@ export class UvalibCard extends UvalibElement {
     }
   }
 
+  private warnShape(): void {
+    const value = this.mediaShape.trim().toLowerCase();
+    if (!value || value === 'circle' || this.warnedShape) return;
+    this.warnedShape = true;
+    console.warn(
+      `${this.localName}: media-shape "${this.mediaShape.trim()}" is not supported. Use "circle".`,
+    );
+  }
+
   private warnNested(): void {
     if (!this.linkHref || this.warnedNested) return;
     const nested = [
@@ -559,7 +659,7 @@ export class UvalibCard extends UvalibElement {
     if (!nested.length) return;
     this.warnedNested = true;
     console.warn(
-      `${this.localName}: a clickable card (one with href) must not contain other links, buttons or controls; the card link covers them.`,
+      `${this.localName}: a clickable card (one with href) must not contain other links, buttons or controls; the card link covers them. Use a static card for an actions row.`,
     );
   }
 
@@ -581,6 +681,7 @@ export class UvalibCard extends UvalibElement {
       this.ingest();
       this.reclaim();
       this.distribute();
+      this.syncShape();
       this.syncHidden();
       this.warnNested();
     } finally {
@@ -591,6 +692,7 @@ export class UvalibCard extends UvalibElement {
 
   protected override willUpdate(): void {
     this.infer();
+    this.warnShape();
     if (this.lightDom && this.hasUpdated && !this.placing) {
       this.observer?.disconnect();
       this.reclaim();
@@ -602,6 +704,7 @@ export class UvalibCard extends UvalibElement {
   }
 
   protected override updated(): void {
+    this.syncShape();
     if (!this.lightDom) {
       this.syncHidden();
       this.warnNested();
@@ -618,6 +721,7 @@ export class UvalibCard extends UvalibElement {
       }
       this.ingest();
       this.distribute();
+      this.syncShape();
       this.syncHidden();
       this.warnNested();
     } finally {
@@ -649,6 +753,7 @@ export class UvalibCard extends UvalibElement {
           <div class="meta" data-region="meta">${this.renderSlot('meta')}</div>
           <div class="chips" data-region="chip">${this.renderSlot('chip')}</div>
           <div class="excerpt" data-region="excerpt">${this.renderSlot()}</div>
+          <div class="actions" data-region="actions">${this.renderSlot('actions')}</div>
         </div>
       </div>`;
   }
