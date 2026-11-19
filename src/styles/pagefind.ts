@@ -353,13 +353,20 @@ export const pagefind = css`
   }
 
   /* <uvalib-pagefind-search>: the field's label above it. */
+  /* Before Pagefind's script has drawn the field, hold its height (the label's line and the
+     field), so what follows does not jump. */
   uvalib-pagefind-search {
     display: block;
+    min-block-size: calc(1.5em + 0.35rem + ${FIELD}px);
+  }
+  uvalib-pagefind-search[label-hidden] {
+    min-block-size: ${FIELD}px;
   }
   .uvalib-pagefind-search__label {
     display: block;
     margin: 0 0 0.35rem;
     font-weight: 700;
+    line-height: 1.5;
   }
 
   ${p} :is(a, button, input, summary):focus-visible {
@@ -374,6 +381,15 @@ export const pagefind = css`
     }
     ${p} :is(.pagefind-ui__search-clear, .pagefind-ui__button) {
       border-color: ButtonText;
+    }
+    /* Forced colors drop the fills: tags keep a visible outline, and a loading result a
+       grey outlined bar with its dots in GrayText. */
+    ${p} .pagefind-ui__result-tag {
+      border-color: CanvasText;
+    }
+    ${p} .pagefind-ui__loading {
+      border: 1px solid GrayText;
+      color: GrayText;
     }
     ${p} :is(.pagefind-ui__search-clear, .pagefind-ui__button):hover {
       border-color: Highlight;
