@@ -23,6 +23,8 @@ export type {
   FilterScopeOption,
 } from './components/uvalib-filter/UvalibFilter.js';
 export { UvalibDateRange } from './components/uvalib-date-range/UvalibDateRange.js';
+export { UvalibDateHistogram } from './components/uvalib-date-histogram/UvalibDateHistogram.js';
+export type { HistogramItem } from './components/uvalib-date-histogram/UvalibDateHistogram.js';
 export { UvalibBreadcrumbs } from './components/uvalib-breadcrumbs/UvalibBreadcrumbs.js';
 export type { BreadcrumbItem } from './components/uvalib-breadcrumbs/UvalibBreadcrumbs.js';
 export { UvalibCard } from './components/uvalib-card/UvalibCard.js';

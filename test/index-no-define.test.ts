@@ -10,6 +10,7 @@ describe('index', () => {
     await new Promise((r) => setTimeout(r, 50)); // let any dynamic import settle
     expect(lib.UvalibFilter).to.be.a('function');
     expect(lib.UvalibDateRange).to.be.a('function');
+    expect(lib.UvalibDateHistogram).to.be.a('function');
     expect(lib.SiteHoursSection).to.be.a('function');
     expect(lib.LibraryWeeklyHours).to.be.a('function');
     expect(lib.LibraryHoursSetup).to.be.a('function');
@@ -47,6 +48,7 @@ describe('index', () => {
       'site-style',
       'uvalib-filter',
       'uvalib-date-range',
+      'uvalib-date-histogram',
       'uvalib-breadcrumbs',
       'uvalib-card',
       'uvalib-card-grid',
