@@ -1,5 +1,77 @@
 # Changelog
 
+## v1.1.0 — 2026-11-19
+
+### Features
+
+- a Pagefind search example on a demo index
+- pagefind.css, a library theme for Pagefind's search UI, and <uvalib-pagefind-search>
+- Images examples for the photo grid and page images
+- justified rows of real thumbnail links
+- an accessible dialog image viewer over plain links
+- add uvalib-contents and uvalib-metadata
+- library buttons, toggles and search forms for host content
+- site-name and site-name-href, also on site-page
+- add uvalib-card, uvalib-card-grid and uvalib-pager
+- events, hours, filter, date range and bento report actions and failures
+- the page chrome reports its links, the Menu and the skip link
+- privacy signals, data-uvalib-track, spa="auto", download types
+- one opt-out helper for every track* helper, names capped, trackError
+- Information alerts stay listed until closed, as on library.virginia.edu
+- the alerts example describes <site-alerts>
+- report impressions, dismissals, link clicks and load errors
+- trackContent and content impressions in <site-analytics>
+- show alerts with <site-alerts>; dark alert role tokens
+- the library's alerts UI on a shared headless <uvalib-alerts>
+- test at least as strictly as Lighthouse; accessibility-first skill
+- Breadcrumbs examples, in site-page and from JavaScript
+- a breadcrumbs slot between the header and <main>
+- a breadcrumb trail at body size
+
+### Fixes
+
+- the Analytics example's log appends entries, so it never shifts the page
+- review round — details restore, history, images, and names
+- review fixes
+- forced-colors outlines for tags and loading results; hold the field's height
+- audit and serve the Pagefind example outside the built site
+- keep searching where the URL cannot change
+- real component tags, disabled, pressed and forced-colors states, dark tokens
+- the site name moves under the logo when the links would not fit
+- query-aware matching, valid author marks, lang, dir and inline markup
+- unsafe links as text, one size, fresh copies, lang and dir
+- never adopt an element's own later output
+- match hash-only links against the page URL
+- keep grid children, name card links, and honor color tokens
+- review round — replaceState is never a page view; live privacy checks
+- the page's off switch stops page views too
+- a moved element keeps the shared headless source; no stale focus move
+- review round — safe hrefs, SPA navigate event, list semantics
+- library.virginia.edu's link colour; no flash before upgrade
+
+### Performance
+
+- the shared state in its own module; budgets for the reporting components
+
+### Other
+
+- Merge branch 'feat/lightbox' into integrate/etext
+- Merge branch 'feat/pagefind-theme'
+- Pagefind theme and element against a real index built at test start
+- add pagefind 1.5.2 as a devDependency for the search theme's test index
+- register the lightbox and the photo grid
+- Merge branch 'feat/site-name-buttons'
+- Merge branch 'feat/contents-metadata' into integrate/etext
+- Merge branch 'feat/cards-pager'
+- Merge branch 'feat/analytics-v2'
+- alerts follow the opt-outs (no-analytics, the page's off switch)
+- Merge branch 'feat/site-alerts'
+- register site-alerts.js, budgets, reference
+- cancel the modified-click check so CI's page never navigates
+- Merge branch 'feat/a11y-testing'
+- Merge branch 'feat/breadcrumbs'
+- register uvalib-breadcrumbs.js, budget, reference
+
 ## v1.0.1 — 2026-11-17
 
 ### Fixes
