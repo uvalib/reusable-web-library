@@ -10,6 +10,7 @@ export const GROUPS = [
   'Alerts',
   'Breadcrumbs',
   'Cards',
+  'Chips',
   'Contents',
   'Metadata',
   'Images',
@@ -672,6 +673,65 @@ site-footer footer {
       <p>Page 10 of 20. The current page is not a link.</p>
       <uvalib-pager page="10" pages="20" href-template="#p-{page}"></uvalib-pager>
     </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'chip-groups',
+    group: 'Chips',
+    title: 'Year rail, sort and suggestions',
+    description:
+      'Three uvalib-chip-group modes. A year rail (mode="single", the default): radios drawn as chips in a radio group named by label, one row that scrolls sideways (scroll), each count read as part of the name ("2005, 461 shoots", from count-label). Tab enters at the selected year and the arrow keys move and select. A sort toggle (segmented): the same radios joined into one bar. Category filters (mode="multi"): toggle buttons with aria-pressed and an array value. Suggestions (mode="links"): plain links that fire a cancelable select. A selected chip is filled and ticked, never colour alone. Each fires change with { value }; the line under the rail shows it. url-param="year" would keep the year in the address.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Browse the archive',
+          components: ['uvalib-chip-group'],
+          body: `    <site-page>
+      <h1>Browse the archive</h1>
+      <h2>Year</h2>
+      <uvalib-chip-group id="years" label="Year" count-label="shoots" value="" scroll>
+        <button value="" data-count="3694">All Years</button>
+        <button value="2004" data-count="213">2004</button>
+        <button value="2005" data-count="461">2005</button>
+        <button value="2006" data-count="388">2006</button>
+        <button value="2007" data-count="520">2007</button>
+        <button value="2008" data-count="297">2008</button>
+        <button value="2009" data-count="344">2009</button>
+        <button value="2010" data-count="412">2010</button>
+        <button value="2011" data-count="276">2011</button>
+        <button value="2012" data-count="301">2012</button>
+        <button value="2013" data-count="482">2013</button>
+      </uvalib-chip-group>
+      <p id="status" role="status">Showing all years.</p>
+      <h2>Sort</h2>
+      <uvalib-chip-group label="Sort by" segmented value="photos">
+        <button value="photos">Most photos</button>
+        <button value="date">Date</button>
+        <button value="title">Title A–Z</button>
+      </uvalib-chip-group>
+      <h2>Category</h2>
+      <uvalib-chip-group mode="multi" label="Category" count-label="series" value="traditions">
+        <button value="traditions" data-count="9">Traditions</button>
+        <button value="architecture" data-count="14">Architecture</button>
+        <button value="sports" data-count="21">Sports</button>
+        <button value="people" data-count="6">People</button>
+      </uvalib-chip-group>
+      <h2>Try a search</h2>
+      <uvalib-chip-group mode="links" label="Suggested searches">
+        <a href="#q=snow-on-the-lawn">snow on the Lawn</a>
+        <a href="#q=rotunda-fire">Rotunda fire</a>
+        <a href="#q=graduation">graduation</a>
+      </uvalib-chip-group>
+    </site-page>
+    <script>
+      document.querySelector('#years').addEventListener('change', (e) => {
+        document.querySelector('#status').textContent = e.detail.value
+          ? \`Showing \${e.detail.value}.\`
+          : 'Showing all years.';
+      });
+    </script>`,
         }),
       },
     },
