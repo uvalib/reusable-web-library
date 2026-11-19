@@ -51,3 +51,75 @@ describe('base.css before <site-page> is defined', function () {
     }
   });
 });
+
+/**
+ * base.css before <uvalib-chip-group> is defined: invisible, as tall as the upgraded row (so
+ * nothing below it moves), and shown after two seconds if the script never loads.
+ */
+describe('base.css before <uvalib-chip-group> is defined', function () {
+  this.timeout(8000);
+  const chips =
+    '<button value="">All Years</button><button value="2004">2004</button><button value="2005">2005</button>';
+  const rows = [
+    `<uvalib-chip-group id="wrap" label="Year">${chips}</uvalib-chip-group>`,
+    `<uvalib-chip-group id="seg" label="Sort" segmented>${chips}</uvalib-chip-group>`,
+    `<uvalib-chip-group id="multi" label="Category" mode="multi">${chips}</uvalib-chip-group>`,
+    `<uvalib-chip-group id="links" label="Try" mode="links"><a href="#a">snow</a><a href="#b">Lawn</a></uvalib-chip-group>`,
+    `<uvalib-chip-group id="scroll" label="Year" scroll>${chips.repeat(6)}</uvalib-chip-group>`,
+  ];
+
+  async function chipFrame(): Promise<HTMLIFrameElement> {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'width: 400px; height: 600px';
+    iframe.srcdoc = `<!doctype html><html lang="en"><head>
+      <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+      </head><body>${rows.join('')}<p id="after">After</p></body></html>`;
+    document.body.append(iframe);
+    await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+    return iframe;
+  }
+
+  it('is hidden, keeps each row its upgraded height, and shows after two seconds', async () => {
+    const iframe = await chipFrame();
+    try {
+      const doc = iframe.contentDocument!;
+      const win = iframe.contentWindow!;
+      const ids = ['wrap', 'seg', 'multi', 'links', 'scroll'];
+      const heights = () => ids.map((id) => doc.getElementById(id)!.getBoundingClientRect().height);
+      const after = () => doc.getElementById('after')!.getBoundingClientRect().top;
+      expect(win.getComputedStyle(doc.getElementById('wrap')!).visibility).to.equal('hidden');
+      const before = heights();
+      const top = after();
+      const script = doc.createElement('script');
+      script.type = 'module';
+      script.src = `${location.origin}/dist-cdn/uvalib-chip-group.js`;
+      doc.head.append(script);
+      await new Promise((r) => script.addEventListener('load', r, { once: true }));
+      await Promise.all(
+        ids.map(
+          (id) =>
+            (doc.getElementById(id) as unknown as { updateComplete: Promise<unknown> })
+              .updateComplete,
+        ),
+      );
+      await new Promise((r) => setTimeout(r, 50));
+      expect(heights().map(Math.round)).to.deep.equal(before.map(Math.round));
+      expect(Math.round(after())).to.equal(Math.round(top));
+      expect(win.getComputedStyle(doc.getElementById('wrap')!).visibility).to.equal('visible');
+    } finally {
+      iframe.remove();
+    }
+  });
+
+  it('shows the raw children after two seconds when the script never loads', async () => {
+    const iframe = await chipFrame();
+    try {
+      const doc = iframe.contentDocument!;
+      const win = iframe.contentWindow!;
+      await new Promise((r) => setTimeout(r, 2300));
+      expect(win.getComputedStyle(doc.querySelector('#links a')!).visibility).to.equal('visible');
+    } finally {
+      iframe.remove();
+    }
+  });
+});

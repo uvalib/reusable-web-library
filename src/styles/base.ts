@@ -45,6 +45,20 @@ export const base = css`
     visibility: hidden;
     animation: uvalib-site-page-reveal 0s 2s forwards;
   }
+  /* A chip row: hidden, one 44px row tall (with the scrolling row's padding), the raw
+     children kept on one line so they cannot make it taller. */
+  uvalib-chip-group:not(:defined) {
+    display: block;
+    min-height: 44px;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    visibility: hidden;
+    animation: uvalib-site-page-reveal 0s 2s forwards;
+  }
+  uvalib-chip-group[scroll]:not(:defined) {
+    min-height: calc(44px + 0.75rem);
+  }
   @keyframes uvalib-site-page-reveal {
     to {
       visibility: visible;
