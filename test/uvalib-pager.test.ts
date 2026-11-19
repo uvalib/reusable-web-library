@@ -480,6 +480,99 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       }
       await expectNoAxeViolations(bare);
     });
+
+    it('shows a focus ring on the new item and does not focus a disabled field', async () => {
+      const list = await fixture<HTMLUListElement>(`<ul id="ring-${mode}"><li>Old</li></ul>`);
+      const el = await make(`mode="load-more" for="ring-${mode}" shown="1" total="4"`);
+      root(el).querySelector('button')!.click();
+      const item = document.createElement('li');
+      item.id = `ring-new-${mode}`;
+      item.textContent = 'New';
+      list.append(item);
+      el.loaded();
+      expect(document.activeElement?.id).to.equal(`ring-new-${mode}`);
+      expect(item.matches(':focus-visible')).to.equal(true);
+      expect(getComputedStyle(item).outlineStyle === 'none').to.equal(false);
+      (document.activeElement as HTMLElement | null)?.blur();
+      el.loaded();
+      expect(document.activeElement?.id === `ring-new-${mode}`).to.equal(false);
+      const input = document.createElement('input');
+      input.id = `off-${mode}`;
+      input.disabled = true;
+      document.body.append(input);
+      el.loaded(input);
+      expect(input.getAttribute('tabindex')).to.equal('-1');
+      expect(document.activeElement?.id === `off-${mode}`).to.equal(false);
+      input.remove();
+    });
+
+    it('finds the list inside a shadow root and the new card in a light-DOM grid', async () => {
+      const host = document.createElement('div');
+      document.body.append(host);
+      const shadow = host.attachShadow({ mode: 'open' });
+      const list = document.createElement('ul');
+      list.id = `shadow-list-${mode}`;
+      const old = document.createElement('li');
+      old.textContent = 'Old';
+      list.append(old);
+      const pager = document.createElement('uvalib-pager') as UvalibPager;
+      pager.setAttribute('mode', 'load-more');
+      pager.setAttribute('for', list.id);
+      pager.setAttribute('shown', '1');
+      pager.setAttribute('total', '4');
+      if (mode === 'no-shadow-dom') pager.setAttribute('no-shadow-dom', '');
+      shadow.append(list, pager);
+      await pager.updateComplete;
+      (pager.shadowRoot ?? pager).querySelector('button')!.click();
+      const item = document.createElement('li');
+      item.id = `shadow-new-${mode}`;
+      item.textContent = 'New';
+      list.append(item);
+      pager.loaded();
+      expect(shadow.activeElement?.id).to.equal(`shadow-new-${mode}`);
+      host.remove();
+
+      const grid = await fixture<HTMLElement>(
+        `<uvalib-card-grid no-shadow-dom id="more-grid-${mode}">
+          <uvalib-card><span slot="heading">Old</span><a href="#old">Old story</a></uvalib-card>
+        </uvalib-card-grid>`,
+      );
+      const more = await make(`mode="load-more" for="more-grid-${mode}" shown="1" total="4"`);
+      root(more).querySelector('button')!.click();
+      const card = document.createElement('uvalib-card');
+      const link = document.createElement('a');
+      link.href = '#new';
+      link.id = `new-card-${mode}`;
+      link.textContent = 'New story';
+      card.append(link);
+      grid.append(card);
+      await (grid as HTMLElement & { updateComplete: Promise<unknown> }).updateComplete;
+      await nextFrame();
+      more.loaded();
+      expect(document.activeElement?.id).to.equal(`new-card-${mode}`);
+
+      const shadowGrid = document.createElement('uvalib-card-grid');
+      shadowGrid.id = `sgrid-${mode}`;
+      const oldCard = document.createElement('uvalib-card');
+      oldCard.innerHTML = '<span slot="heading">Old</span>';
+      shadowGrid.append(oldCard);
+      document.body.append(shadowGrid);
+      await (shadowGrid as HTMLElement & { updateComplete: Promise<unknown> }).updateComplete;
+      const shadowPager = await make(`mode="load-more" for="sgrid-${mode}" shown="1" total="4"`);
+      root(shadowPager).querySelector('button')!.click();
+      const newCard = document.createElement('uvalib-card');
+      const newLink = document.createElement('a');
+      newLink.href = '#snew';
+      newLink.id = `snew-${mode}`;
+      newLink.textContent = 'New';
+      newCard.append(newLink);
+      shadowGrid.append(newCard);
+      await (shadowGrid as HTMLElement & { updateComplete: Promise<unknown> }).updateComplete;
+      await nextFrame();
+      shadowPager.loaded();
+      expect(document.activeElement?.id).to.equal(`snew-${mode}`);
+      shadowGrid.remove();
+    });
   });
 }
 

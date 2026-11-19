@@ -532,21 +532,42 @@ export class UvalibPager extends UvalibElement {
   private listEl(): HTMLElement | null {
     const id = (this.listFor ?? '').trim();
     if (!id) return null;
-    const node = this.ownerDocument.getElementById(id);
-    return node instanceof HTMLElement ? node : null;
+    const node = this.getRootNode();
+    const root = node instanceof Document || node instanceof ShadowRoot ? node : null;
+    const found = root?.getElementById(id) ?? this.ownerDocument.getElementById(id);
+    return found instanceof HTMLElement ? found : null;
+  }
+
+  /** Cards in a grid live in its `<ul>`, not as host children once light DOM has placed them. */
+  private entries(list: HTMLElement): HTMLElement[] {
+    if (list.localName === 'uvalib-card-grid') {
+      const ul = (list.shadowRoot ?? list).querySelector('ul');
+      if (ul) return [...ul.children].filter((n): n is HTMLElement => n instanceof HTMLElement);
+    }
+    return [...list.children].filter((n): n is HTMLElement => n instanceof HTMLElement);
   }
 
   private firstNew(): HTMLElement | null {
     const list = this.listEl();
     if (!list || this.pendingCount < 0) return null;
-    const child = list.children.item(this.pendingCount);
-    return child instanceof HTMLElement ? child : null;
+    return this.entries(list)[this.pendingCount] ?? null;
+  }
+
+  private isDisabled(el: HTMLElement): boolean {
+    return (
+      (el instanceof HTMLButtonElement ||
+        el instanceof HTMLInputElement ||
+        el instanceof HTMLSelectElement ||
+        el instanceof HTMLTextAreaElement) &&
+      el.disabled
+    );
   }
 
   private canFocus(el: HTMLElement): boolean {
+    if (this.isDisabled(el)) return false;
     if (el.hasAttribute('tabindex')) return true;
     if (el instanceof HTMLAnchorElement) return el.hasAttribute('href');
-    if (el instanceof HTMLButtonElement) return !el.disabled;
+    if (el instanceof HTMLButtonElement) return true;
     return (
       el.localName === 'summary' ||
       el instanceof HTMLInputElement ||
@@ -555,23 +576,50 @@ export class UvalibPager extends UvalibElement {
     );
   }
 
+  /** A link or control inside a new list item, including one slotted into a card grid. */
+  private focusIn(el: HTMLElement): HTMLElement | null {
+    const roots: Element[] = [];
+    const slot = el.querySelector('slot');
+    if (slot) roots.push(...slot.assignedElements({ flatten: true }));
+    else roots.push(el);
+    for (const root of roots) {
+      if (!(root instanceof HTMLElement)) continue;
+      if (root !== el && this.canFocus(root)) return root;
+      const inner = root.querySelector<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary',
+      );
+      if (inner && this.canFocus(inner)) return inner;
+    }
+    return null;
+  }
+
   /**
-   * Move focus to `firstNew`, or to the first child added to the `for` list since the
-   * click. An element that cannot take focus gets `tabindex="-1"`.
+   * Move focus to `firstNew`, or to the first item added to the `for` list since the
+   * click. A card grid counts the items in its list. An element that cannot take focus
+   * gets `tabindex="-1"`. A disabled field is not treated as focusable. The target is
+   * focused so its ring shows.
    */
   loaded(firstNew?: HTMLElement): void {
-    const target =
-      firstNew instanceof HTMLElement && firstNew.isConnected ? firstNew : this.firstNew();
+    const given = firstNew instanceof HTMLElement && firstNew.isConnected ? firstNew : null;
+    let target = given ?? this.firstNew();
     if (!(target instanceof HTMLElement)) return;
+    if (!given) target = this.focusIn(target) ?? target;
+    if (this.isDisabled(target)) {
+      target.tabIndex = -1;
+      this.pendingCount = -1;
+      return;
+    }
     if (!this.canFocus(target)) target.tabIndex = -1;
-    target.focus();
+    // lib.dom in this project has no focusVisible; the option is what draws the ring.
+    target.focus({ focusVisible: true } as FocusOptions);
+    this.pendingCount = -1;
   }
 
   private onLoadMore(e: MouseEvent): void {
     if (e.defaultPrevented || e.button !== 0) return;
     const page = this.nextPage();
     const list = this.listEl();
-    this.pendingCount = list ? list.children.length : -1;
+    this.pendingCount = list ? this.entries(list).length : -1;
     trackEvent(this, ['uvalib-pager', 'load-more', '', page]);
     this.dispatchEvent(
       new CustomEvent('load-more', { detail: { page }, bubbles: true, composed: true }),
