@@ -41,6 +41,9 @@ export { UvalibPagefindSearch } from './components/uvalib-pagefind-search/Uvalib
 export type { PagefindUIInstance } from './components/uvalib-pagefind-search/UvalibPagefindSearch.js';
 export { UvalibLightbox } from './components/uvalib-lightbox/UvalibLightbox.js';
 export { UvalibPhotoGrid } from './components/uvalib-photo-grid/UvalibPhotoGrid.js';
+export { UvalibTagList } from './components/uvalib-tag-list/UvalibTagList.js';
+export type { TagItem } from './components/uvalib-tag-list/UvalibTagList.js';
+export { UvalibResultsCount } from './components/uvalib-results-count/UvalibResultsCount.js';
 export { SiteAlerts } from './components/site-alerts/SiteAlerts.js';
 export type { SiteAlert, SiteAlertsShow } from './components/site-alerts/SiteAlerts.js';
 export { SiteHoursSection } from './components/site-hours-section/SiteHoursSection.js';

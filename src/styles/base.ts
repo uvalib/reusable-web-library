@@ -39,11 +39,17 @@ export const base = css`
   uvalib-card-grid:not(:defined),
   uvalib-pager:not(:defined),
   uvalib-contents:not(:defined),
-  uvalib-metadata:not(:defined) {
+  uvalib-metadata:not(:defined),
+  uvalib-tag-list:not(:defined) {
     display: block;
     line-height: 1.5;
     visibility: hidden;
     animation: uvalib-site-page-reveal 0s 2s forwards;
+  }
+  /* Its text is drawn from attributes: hold one line until it upgrades. */
+  uvalib-results-count:not(:defined) {
+    display: block;
+    min-block-size: 1.5em;
   }
   @keyframes uvalib-site-page-reveal {
     to {

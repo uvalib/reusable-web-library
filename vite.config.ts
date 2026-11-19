@@ -19,6 +19,8 @@ const tags = [
   'uvalib-pagefind-search',
   'uvalib-lightbox',
   'uvalib-photo-grid',
+  'uvalib-tag-list',
+  'uvalib-results-count',
   'site-alerts',
   'site-hours-section',
   'library-weekly-hours',

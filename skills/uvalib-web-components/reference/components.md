@@ -998,6 +998,67 @@ Justified rows of thumbnails. Each direct child that is a link or a button is on
 | `--uva-grey-darkest` | `#2b2b2b` | Caption colour when `--uva-color-text` is unset. |
 | `--uva-brand-orange` | `#e57200` | Focus ring when `--uva-color-focus` is unset. |
 
+## `<uvalib-results-count>`
+
+The results summary of a search or listing page, such as “Showing 48 of 3,694 shoots”, and a polite live region that tells screen reader users when it changes. Set `total` (how many match), `shown` (how many are on the page) and `noun` (plural, default “results”; `singular` for a total of one). The visible text follows at once: “Showing 48 of 3,694 shoots”, “Showing all 12 shoots” (shown is the total, or unset), “Showing 1 shoot” or “No shoots”; with only `shown`, “Showing 48 shoots”. Numbers use thousands separators. The announcement waits until the text has not changed for `announce-delay` milliseconds (default 1000, as `<bento-box>` and `<uvalib-pagefind-search>` settle), so typing in a filter box is announced once. Nothing is announced for the first render, nor when the text comes back to what was last announced. The announcement is cleared from the hidden region five seconds later, so reading the page finds the count once. `<bento-box>` and `<uvalib-pagefind-search>` announce their own counts: use this element for your own listings, not beside them.
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `shown` | `number \| undefined` |  | How many results are shown on the page. |
+| `total` | `number \| undefined` |  | How many results match in all. |
+| `noun` | `string` | `'results'` | What is counted, plural: “results” by default. |
+| `singular` | `string` | `''` | What is counted, singular, for a total of one. Default: “result” when `noun` is unset, else `noun`. |
+| `announce-delay` | `number` | `1000` | Milliseconds the text must stay the same before it is announced. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### CSS parts
+
+| Part | Description |
+|---|---|
+| `text` | The visible summary. |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-text-muted` |  | Dark-mode role token: text colour (else `--uva-grey-A`, #4f4f4f). |
+
+## `<uvalib-tag-list>`
+
+A labelled list of keywords or subjects that wraps: each tag a link (for example a search for that term) or plain text. Link tags are outlined pills in the link colour; plain tags are filled chips (the card chip's colours), so a link never looks like a label. Give the tags as children: `<a href>` for a link, any other element (`<span>`) for plain text. Or set `href-template` (with `{tag}`, replaced by the URL-encoded text) to make every tag without its own href a link. Apps can set the `items` property (`{ label, href? }`) instead; it wins over the children. Children with no text are skipped with one warning. `label` names the list (shown above it, or visually hidden with `hide-label`); without one a console warning is logged. `limit` shows that many tags and a “Show all N” button (`aria-expanded`, `aria-controls`), which reveals the rest in place and keeps focus. Analytics never sends a tag's text (record tags can be user-submitted or machine-made): only the list's label, which the page author writes.
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `label` | `string` | `''` | The list's name: shown above the tags, and the analytics name. |
+| `hide-label` | `boolean` | `false` | Hide the label visually; it still names the list. |
+| `limit` | `number \| undefined` |  | Show this many tags and a “Show all N” button. Zero or empty shows every tag. |
+| `href-template` | `string` | `''` | Href for tags without their own, with `{tag}` where the URL-encoded text goes, for example `/search?q={tag}`. Empty: such tags are plain text. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-analytics-event` | For `<site-analytics>`: a primary-button click on a tag link, `['uvalib-tag-list', 'tag-click', '<label>', <n>]` (n from 1, the tag's place in the list), and the toggle, `['uvalib-tag-list', 'show-all'\|'show-fewer', '<label>']`. The name is the list's `label` (else `tags`), never the tag text or URL. Bubbles and is composed. |
+| `uvalib-tag-list-navigate` | A plain click on a tag link: `detail` is `{ href, tag, index }` (index from 0). Cancel it (`preventDefault()`) to route in the app; the click's default is then prevented. Bubbles and is composed. |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-blue-alt-300` | `#BFE7F7` | Plain tag background (the card chip's). |
+| `--uva-blue-alt-dark` | `#005679` | Plain tag text. |
+| `--uva-color-link` |  | Dark-mode role token: link tag text (else `--uva-brand-blue`). |
+| `--uva-color-control-border` |  | Dark-mode role token: link tag outline (else `--uva-grey`). |
+| `--uva-color-text` |  | Dark-mode role token: the label (else `--uva-grey-darkest`). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+
 ## `<website-section>`
 
 The library website's first pages (pages, people, libraries, news) matching `query`, from Drupal's search index, with its excerpt (the matched words marked). The index sends no CORS headers, so this section works on library.virginia.edu (or wherever `BentoBox.endpoints.website` points to a same-origin copy) only.
