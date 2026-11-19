@@ -292,6 +292,10 @@ export class UvalibPagefindSearch extends HTMLElement {
     if ((url.searchParams.get(param) ?? '') === query) return;
     if (query) url.searchParams.set(param, query);
     else url.searchParams.delete(param);
-    history.replaceState(history.state, '', url);
+    try {
+      history.replaceState(history.state, '', url);
+    } catch {
+      // A document whose URL cannot change (about:srcdoc): keep the search, skip the URL.
+    }
   }
 }
