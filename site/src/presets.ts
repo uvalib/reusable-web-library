@@ -84,7 +84,7 @@ const ANALYTICS_CSS = `${RESULTS_CSS}.event-log {
 /**
  * The analytics example's log: a classic script at the end of <body>, so its listeners are
  * there before any component (module scripts run later) fires. It shows each event's type
- * and detail as text, newest first, and sends nothing.
+ * and detail as text, newest last (the log scrolls to it), and sends nothing.
  */
 const ANALYTICS_LOG = `    <script>
       // No analytics element on this page: nothing is loaded or sent. The components only fire
@@ -95,7 +95,10 @@ const ANALYTICS_LOG = `    <script>
           document.addEventListener(\`\${family}-\${kind}\`, (e) => {
             const li = document.createElement('li');
             li.textContent = \`\${e.type} \${JSON.stringify(e.detail)}\`;
-            log.prepend(li);
+            // Appended (newest last) and scrolled into view: prepending would move every
+            // earlier entry, which counts as layout shift; scrolling does not.
+            log.append(li);
+            log.scrollTop = log.scrollHeight;
           });
     </script>`;
 
