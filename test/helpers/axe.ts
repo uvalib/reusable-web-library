@@ -63,11 +63,16 @@ export async function expectNoPageAxeViolations(
  * (by default, any impact).
  * `exclude` lists selectors of subtrees to leave out, such as third-party widgets.
  * `rules` restricts the run to those axe rule ids (this also enables rules that are off by default).
+ * `disable` turns rules off, for a known gap in third-party markup the test asserts on its own.
  */
 export async function expectNoAxeViolations(
   el: Element,
   impacts: string[] = ALL_IMPACTS,
-  { exclude, rules }: { exclude?: string[][]; rules?: string[] } = {},
+  {
+    exclude,
+    rules,
+    disable = [],
+  }: { exclude?: string[][]; rules?: string[]; disable?: string[] } = {},
 ): Promise<void> {
   const axe = await loadAxe(el.ownerDocument.defaultView as AxeWindow);
   const context = exclude ? { include: [el], exclude } : el;
@@ -75,7 +80,12 @@ export async function expectNoAxeViolations(
     resultTypes: ['violations'],
     ...(rules
       ? { runOnly: { type: 'rule', values: rules } }
-      : { rules: Object.fromEntries(LIGHTHOUSE_EXTRA_RULES.map((id) => [id, { enabled: true }])) }),
+      : {
+          rules: Object.fromEntries([
+            ...LIGHTHOUSE_EXTRA_RULES.map((id) => [id, { enabled: true }]),
+            ...disable.map((id) => [id, { enabled: false }]),
+          ]),
+        }),
   });
   const bad = results.violations.filter((v) => v.impact && impacts.includes(v.impact));
   if (bad.length) {

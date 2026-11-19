@@ -7,6 +7,7 @@ import { interceptEvents } from './test/helpers/events-intercept.mjs';
 import { hoursClockPlugin, interceptHours } from './test/helpers/hours-intercept.mjs';
 import { interceptMainNav } from './test/helpers/main-nav-intercept.mjs';
 import { interceptStatic } from './test/helpers/static-intercept.mjs';
+import { pagefindFixturePlugin } from './test/helpers/pagefind-fixture.mjs';
 
 const TZ_FILES = 'test/**/*-tz.test.ts';
 const NEW_YORK_TZ_FILES = [
@@ -48,7 +49,12 @@ export default {
   nodeResolve: true,
   filterBrowserLogs: (log) =>
     !log.args.some((a) => typeof a === 'string' && a.includes('Lit is in dev mode')),
-  plugins: [esbuildPlugin({ ts: true, tsconfig: './tsconfig.json' }), hoursClockPlugin()],
+  plugins: [
+    esbuildPlugin({ ts: true, tsconfig: './tsconfig.json' }),
+    hoursClockPlugin(),
+    // A tiny Pagefind index, built locally at start-up and served at /pagefind-fixture/.
+    pagefindFixturePlugin(),
+  ],
   // Full-page axe runs take close to mocha's 2s default when the whole suite runs in
   // parallel, which made them flaky; suites that mount whole pages still set more.
   testFramework: { config: { timeout: 5000 } },
