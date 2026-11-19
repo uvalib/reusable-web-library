@@ -106,6 +106,87 @@ for (const mode of MODES) {
       });
     }
 
+    const SIX = [
+      'Collections',
+      'Browse by author',
+      'Search the texts',
+      'About the project',
+      'Contributors',
+      'Contact us',
+    ]
+      .map((t, i) => `<a slot="site-links" href="/p${i}">${t}</a>`)
+      .join('');
+    for (const [what, attrs, kids] of [
+      ['color-scheme-switch', 'color-scheme-switch', ''],
+      ['6 site links', '', SIX],
+    ] as const) {
+      for (const width of [993, 1100, 1199]) {
+        it(`never overflows or wraps the links at ${width}px with ${what}`, async () => {
+          document.body.style.cssText = 'margin: 0; font: 17px Arial, sans-serif';
+          try {
+            await setViewport({ width, height: 800 });
+            const el = await fixture<SiteHeader>(
+              `<site-header ${attr(mode)} ${attrs} site-name="${NAME}">${kids}</site-header>`,
+            );
+            await el.updateComplete;
+            await nextFrame();
+            const plain = await fixture<SiteHeader>(
+              `<site-header ${attr(mode)} ${attrs}>${kids}</site-header>`,
+            );
+            await plain.updateComplete;
+            await nextFrame();
+            const r = root(el);
+            const hdr = r.querySelector('header')!;
+            const edge = box(hdr).right - parseFloat(getComputedStyle(hdr).paddingRight);
+            const row = r.querySelector('header > .utility-row, header > nav.inline')!;
+            expect(box(row).right).to.be.at.most(edge + 0.5);
+            // The links (and theme control) are laid out exactly as without a name.
+            const layout = (h: Element) => {
+              const top = box(root(h).querySelector('header')).top;
+              return [
+                ...root(h).querySelectorAll(
+                  'header > .utility-row, header > nav.inline, nav.inline li, .color-scheme.inline',
+                ),
+              ].map((n) => {
+                const b = box(n);
+                return [b.left, b.top - top, b.width, b.height].map(Math.round);
+              });
+            };
+            expect(layout(el)).to.deep.equal(layout(plain));
+            expect(document.documentElement.scrollWidth).to.be.at.most(width);
+            // Crowded: the name moved under the logo; the logo row itself is unchanged.
+            const name = box(r.querySelector('.site-name'));
+            const logo = box(r.querySelector('.logo img'));
+            if (r.querySelector('.brand.stacked')) expect(name.top).to.be.at.least(logo.bottom);
+            else expect(name.right).to.be.at.most(box(row).left);
+          } finally {
+            document.body.style.cssText = '';
+            localStorage.removeItem(COLOR_SCHEME_STORAGE_KEY);
+            document.documentElement.removeAttribute('data-uva-color-scheme');
+          }
+        });
+      }
+    }
+
+    it('stacks only while crowded, following the width', async () => {
+      document.body.style.cssText = 'margin: 0; font: 17px Arial, sans-serif';
+      try {
+        await setViewport({ width: 993, height: 800 });
+        const el = await fixture<SiteHeader>(
+          `<site-header ${attr(mode)} site-name="${NAME}">${SIX}</site-header>`,
+        );
+        await el.updateComplete;
+        await nextFrame();
+        expect(root(el).querySelector('.brand.stacked')).to.not.equal(null);
+        await setViewport({ width: 1800, height: 800 });
+        await nextFrame();
+        await nextFrame();
+        expect(root(el).querySelector('.brand.stacked')).to.equal(null);
+      } finally {
+        document.body.style.cssText = '';
+      }
+    });
+
     for (const variant of ['full', 'vendor']) {
       it(`wraps under the logo at 320px with no horizontal scroll (${variant})`, async () => {
         document.body.style.margin = '0'; // as base.css does

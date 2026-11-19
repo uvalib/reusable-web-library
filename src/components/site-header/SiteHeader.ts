@@ -94,8 +94,9 @@ const stopEvent = (e: Event) => e.stopPropagation();
  * site's home (`site-name-href`, default `/`); the logo still links to library.virginia.edu.
  * The name is not a heading (the page keeps its own `<h1>`) and its link is named
  * "<name> home". On wide screens it sits in the logo row, wrapping to at most two lines (keep
- * it short), so the header is no taller; at 992px and below it gets its own line under the
- * logo. The `vendor` variant shows it too.
+ * it short), so the header is no taller, while the links (and theme control) fit beside it on
+ * one line; when they would not, and at 992px and below, it gets its own lines under the
+ * logo, so the links are laid out exactly as without it. The `vendor` variant shows it too.
  *
  * @tagname site-header
  * @slot skip-link - Shadow mode only: optional skip link, rendered first inside `<header>` (`<site-page>` uses it).
@@ -398,6 +399,15 @@ export class SiteHeader extends UvalibElement {
           border: 0;
         }
       }
+      .brand.stacked {
+        max-inline-size: 225px;
+      }
+      .stacked > .site-name {
+        flex-basis: 100%;
+        max-inline-size: none;
+        padding: 0;
+        border: 0;
+      }
       @media screen and (min-width: 993px) {
         .menu-toggle,
         [popover] {
@@ -513,6 +523,15 @@ export class SiteHeader extends UvalibElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
+    // Fitted on the next frame, outside the observer's callback: the fit changes the height.
+    this.resizeObserver ??= new ResizeObserver(() =>
+      requestAnimationFrame(() => {
+        if (this.getBoundingClientRect().width !== this.fittedWidth) this.fitName();
+      }),
+    );
+    this.resizeObserver.observe(this);
+    // The web font is narrower than its fallback: fit again once it has loaded.
+    void this.ownerDocument.fonts?.ready.then(() => this.fitName());
     // `toggle` neither bubbles nor leaves the shadow root: capture it on the render root
     // (adding the same listener again on a reconnect does nothing).
     this.renderRoot.addEventListener('toggle', this.trackToggle, true);
@@ -524,6 +543,7 @@ export class SiteHeader extends UvalibElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    this.resizeObserver?.disconnect();
     this.observer?.disconnect();
   }
 
@@ -552,10 +572,45 @@ export class SiteHeader extends UvalibElement {
   private templateSwapped = false;
 
   protected override updated(): void {
+    this.fitName();
     if (!this.templateSwapped) return;
     this.templateSwapped = false;
     this.adoptAlerts();
   }
+
+  /** Watches the host's width, so the site name is re-fitted when it changes. */
+  private resizeObserver?: ResizeObserver;
+  private fittedWidth = -1;
+
+  /**
+   * Wide screens: the site name shares the logo row only while the links (and the theme
+   * control) still fit on one line beside it; otherwise it goes under the logo, as on narrow
+   * screens, so nothing overflows or wraps. Always measured with the name in the row, so the
+   * result depends on the width alone and never flips back and forth.
+   */
+  private fitName = (): void => {
+    const brand = this.renderRoot.querySelector<HTMLElement>('.brand');
+    if (!brand) return;
+    this.fittedWidth = this.getBoundingClientRect().width;
+    brand.classList.remove('stacked');
+    if (!matchMedia('screen and (min-width: 993px)').matches) return;
+    const header = brand.parentElement!;
+    const row = header.querySelector<HTMLElement>(':scope > .utility-row, :scope > nav.inline');
+    if (!row) return;
+    const edge =
+      header.getBoundingClientRect().right - parseFloat(getComputedStyle(header).paddingRight);
+    const items = [...row.querySelectorAll('nav.inline li')];
+    const top = items[0]?.getBoundingClientRect().top;
+    const crowded =
+      row.getBoundingClientRect().right > edge + 0.5 ||
+      row.scrollWidth > row.clientWidth + 0.5 ||
+      items.some(
+        (li) =>
+          Math.abs(li.getBoundingClientRect().top - top!) > 0.5 ||
+          li.querySelector('a')!.getClientRects().length > 1,
+      );
+    brand.classList.toggle('stacked', crowded);
+  };
 
   protected override firstUpdated(): void {
     this.syncChildren();
