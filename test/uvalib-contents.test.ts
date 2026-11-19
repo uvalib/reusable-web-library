@@ -445,6 +445,90 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       });
     });
 
+    it('matches an entry with a query by its query, and one without whatever the query', async () => {
+      const el = await make(
+        '<ol><li><a href="/t?part=1">One</a></li><li><a href="/t?part=2">Two</a></li><li><a href="/a">A</a></li></ol>',
+        'current="/t?part=2"',
+      );
+      const marked = () =>
+        shown(el)
+          .filter((x) => x[3])
+          .map((x) => [x[1], x[3]]);
+      expect(marked()).to.deep.equal([['Two', 'page']]);
+      el.current = '/a?utm_source=newsletter';
+      await settle(el);
+      expect(marked()).to.deep.equal([['A', 'page']]);
+      el.current = '/t?part=3';
+      await settle(el);
+      expect(marked()).to.deep.equal([]);
+    });
+
+    it('resolves hash-only entries against current when it is set', async () => {
+      const el = await make(
+        '<ol><li><a href="https://example.edu/other">Other</a><ol><li><a href="#s2">Section 2</a></li></ol></li></ol>',
+        'current="https://example.edu/other#s2"',
+      );
+      expect(shown(el).map((x) => x[3])).to.deep.equal(['page', 'location']);
+    });
+
+    it('accepts only valid author aria-current values, one page and one location', async () => {
+      const el = await make(
+        '<ol><li><a href="/a" aria-current="step">A</a></li><li><a href="/b" aria-current="page">B</a></li><li><a href="/c" aria-current="page">C</a></li><li><a href="/d" aria-current="location">D</a></li><li><a href="/e" aria-current="location">E</a></li></ol>',
+      );
+      expect(shown(el).map((x) => x[3])).to.deep.equal([null, 'page', null, 'location', null]);
+      const t = await make('<ol><li><a href="/x" aria-current="true">X</a></li></ol>');
+      expect(shown(t).map((x) => x[3])).to.deep.equal(['page']);
+    });
+
+    it('a mark on an unsafe link does not turn off matching the page URL', async () => {
+      let el!: UvalibContents;
+      await warnings(async () => {
+        el = await make(
+          `<ol><li><a href="javascript:void(0)" aria-current="page">Bad</a></li><li><a href="${location.pathname}">Here</a></li><li><a href="/x" aria-current="step">X</a></li></ol>`,
+        );
+      });
+      expect(shown(el).map((x) => [x[1], x[3]])).to.deep.equal([
+        ['Bad', null],
+        ['Here', 'page'],
+        ['X', null],
+      ]);
+    });
+
+    it('keeps lang and dir, and inline semantics, copied element by element', async () => {
+      const el = await make(
+        `<ol>
+          <li lang="fr" dir="ltr"><a href="/a" lang="la" dir="bogus"><em>Ars</em> <cite>amatoria</cite> <code onclick="x()">v1</code> <abbr title="Volume">Vol.</abbr><b class="x" style="color:red" onmouseover="x()">!</b><div>flat</div></a></li>
+          <li dir="rtl"><span lang="ar">مقدمة</span><ol><li><a href="/b">B</a></li></ol></li>
+        </ol>`,
+      );
+      const [li1, li2] = panel(el).querySelectorAll<HTMLElement>(':scope > ol > li');
+      expect(li1!.getAttribute('lang')).to.equal('fr');
+      expect(li1!.getAttribute('dir')).to.equal('ltr');
+      const a = li1!.querySelector('a')!;
+      expect(a.getAttribute('lang')).to.equal('la');
+      expect(a.hasAttribute('dir')).to.equal(false);
+      expect([...a.children].map((c) => c.localName)).to.deep.equal([
+        'em',
+        'cite',
+        'code',
+        'abbr',
+        'b',
+      ]);
+      expect(a.querySelector('abbr')!.getAttribute('title')).to.equal('Volume');
+      for (const c of a.querySelectorAll('*'))
+        expect(c.getAttributeNames().filter((n) => !['title'].includes(n))).to.deep.equal([]);
+      expect(a.textContent).to.equal('Ars amatoria v1 Vol.!flat');
+      // A group label: the item's dir on the <li>, the text's lang inside it.
+      expect(li2!.getAttribute('dir')).to.equal('rtl');
+      const group = li2!.querySelector(':scope > .group')!;
+      expect(group.querySelector('span')!.getAttribute('lang')).to.equal('ar');
+      // Re-rendering draws fresh copies: the label is not lost.
+      el.current = '/a';
+      await settle(el);
+      expect(li1!.querySelector('a em')!.textContent).to.equal('Ars');
+      expect(a.getAttribute('aria-current')).to.equal('page');
+    });
+
     it('keeps only the structural rules with no-style', async () => {
       const el = await make(LIST, 'no-style');
       const ol = panel(el).querySelector('ol')!;

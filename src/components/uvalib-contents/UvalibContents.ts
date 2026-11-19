@@ -4,6 +4,7 @@ import { property, state } from 'lit/decorators.js';
 import { trackEvent } from '../../base/analytics.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
+import { inlineCopy, langDir } from '../../base/inline-copy.js';
 import { normalize, safeHref, SourceChildren } from '../../base/source-children.js';
 import { accessible } from '../../styles/accessible.js';
 
@@ -14,13 +15,33 @@ export interface ContentsItem {
   children?: ContentsItem[];
 }
 
-/** An entry as drawn: `mark` is an `aria-current` the author gave its source link. */
+/**
+ * An entry as drawn: `mark` is a valid `aria-current` the author gave its source link;
+ * `lang`/`dir` come from the link and `itemLang`/`itemDir` from the `<li>`. `nodes` is a safe inline copy of the label (`em`, `cite`, `code`, `abbr`…),
+ * cloned for each render; `rich` describes it, so two reads can be compared.
+ */
 interface Entry {
   label: string;
   href?: string;
   children: Entry[];
-  mark?: string;
+  mark?: Current;
+  lang?: string;
+  dir?: string;
+  itemLang?: string;
+  itemDir?: string;
+  rich?: string;
+  nodes?: Node[];
 }
+
+/** An `aria-current` value an author may give: `page`, `location`, or `true` (a page). */
+const markOf = (v: string | null | undefined): Current | undefined => {
+  const t = v?.trim().toLowerCase();
+  return t === 'page' || t === 'true' ? 'page' : t === 'location' ? 'location' : undefined;
+};
+
+/** Compare two reads, leaving out the copied nodes (their `rich` key stands for them). */
+const entriesKey = (items: Entry[]) =>
+  JSON.stringify(items, (k, v: unknown) => (k === 'nodes' ? undefined : v));
 
 type Current = 'page' | 'location';
 
@@ -45,6 +66,13 @@ const shadowStructure = unsafeCSS(structuralRules(':host'));
 const pageKey = (u: URL) =>
   u.origin + (u.pathname.replace(/\/index\.html?$/i, '/').replace(/(.)\/$/, '$1') || '/');
 
+/** The query string as a sorted, comparable form (`?b=2&a=1` is `?a=1&b=2`). */
+const queryKey = (u: URL) => {
+  const q = new URLSearchParams(u.search);
+  q.sort();
+  return q.toString();
+};
+
 /**
  * Sub-navigation or a table of contents, as library.virginia.edu's sub-navigation: a
  * `<nav>` landmark (named by `label`, "Contents" by default) with the label as a visible
@@ -61,11 +89,20 @@ const pageKey = (u: URL) =>
  * link to the section of it in the URL's hash. It is found from the page URL (path, and hash
  * for in-page sections), followed through same-document navigations (`hashchange`,
  * `popstate` and the Navigation API), or from the `current` attribute (a URL, resolved like
- * the links). An `aria-current` on a source link is used as given when `current` is unset.
+ * the links). An entry whose href has a query string matches only that query (`?part=2`); one
+ * without matches the page whatever its query. Hash-only hrefs are places on that page. With
+ * `current` unset, a valid `aria-current` on a source link (`page`, `location` or `true`) is
+ * used instead, the first of each kind. `lang` and `dir` on the source links and items, and
+ * inline markup in their text (`em`, `cite`, `code`, `abbr`…, copied element by element,
+ * never as HTML), are kept.
  *
- * On narrow screens (viewport `collapse-below`, 64rem by default) the list collapses into a
- * disclosure: the headline becomes a button with `aria-expanded`, closed until opened (or
- * while the `open` attribute is set). `sticky` keeps it in view in a sidebar on wide
+ * On narrow screens the list collapses into a disclosure: the headline becomes a button with
+ * `aria-expanded`, and the list starts closed (as the Electronic Text Collections' Contents
+ * does on phones, so the text comes first) until the reader opens it, or while the `open`
+ * attribute is set; opening it shows the current entry. Narrow means the viewport
+ * (`collapse-below`, 64rem by default), not the element's own width: a contents sidebar is
+ * always far narrower than 64rem, so a container query could not tell a phone from a
+ * desktop. `sticky` keeps it in view in a sidebar on wide
  * screens; a list longer than the window then scrolls, and the current entry is scrolled
  * into view inside it (never the page).
  *
@@ -356,7 +393,7 @@ export class UvalibContents extends UvalibElement {
     const ordered = list?.localName === 'ol';
     if (ordered !== this.ordered) this.ordered = ordered;
     // Only a real change re-renders.
-    if (JSON.stringify(items) !== JSON.stringify(this.childItems)) this.childItems = items;
+    if (entriesKey(items) !== entriesKey(this.childItems)) this.childItems = items;
   }
 
   private parse(list: Element): Entry[] {
@@ -381,8 +418,22 @@ export class UvalibContents extends UvalibElement {
       }
       const entry: Entry = { label, children };
       if (a) entry.href = a.getAttribute('href')!;
-      const mark = a?.getAttribute('aria-current');
-      if (mark && mark !== 'false') entry.mark = mark;
+      const mark = markOf(a?.getAttribute('aria-current'));
+      if (mark) entry.mark = mark;
+      const own = langDir(a);
+      if (own.lang !== undefined) entry.lang = own.lang;
+      if (own.dir) entry.dir = own.dir;
+      const item = langDir(li);
+      if (item.lang !== undefined) entry.itemLang = item.lang;
+      if (item.dir) entry.itemDir = item.dir;
+      const copy = inlineCopy(
+        a ? a.childNodes : [...li.childNodes].filter((c) => c !== sub),
+        this.ownerDocument,
+      );
+      if (copy.rich) {
+        entry.rich = copy.key;
+        entry.nodes = copy.nodes;
+      }
       out.push(entry);
     }
     return out;
@@ -414,7 +465,10 @@ export class UvalibContents extends UvalibElement {
           'href',
           'showing an entry as text: its href is not http(s), mailto, tel or relative.',
         );
-        return { label: e.label, children };
+        const rest: Entry = { ...e, children };
+        delete rest.href;
+        delete rest.mark;
+        return rest;
       });
     return clean(this.items ? this.fromItems(this.items) : this.childItems);
   }
@@ -425,27 +479,38 @@ export class UvalibContents extends UvalibElement {
     const walk = (l: Entry[]) => l.forEach((e) => (flat.push(e), walk(e.children)));
     walk(entries);
     const found = new Map<Entry, Current>();
-    if (!this.current && flat.some((e) => e.mark)) {
-      for (const e of flat)
-        if (e.mark && e.href !== undefined)
-          found.set(e, e.mark === 'location' ? 'location' : 'page');
+    // The author's marks, on links only (a group or an unsafe link has none): the first
+    // `page` and the first `location`.
+    const marked = flat.filter((e) => e.mark && e.href !== undefined);
+    if (!this.current && marked.length) {
+      for (const kind of ['page', 'location'] as const) {
+        const e = marked.find((m) => m.mark === kind);
+        if (e) found.set(e, kind);
+      }
       return found;
     }
     const base = this.ownerDocument.baseURI;
-    // A hash-only href is a place on this page, whatever the base URL (about:srcdoc frames).
-    const resolve = (h: string) => new URL(h, h.startsWith('#') ? this.here || base : base);
+    const here = this.here || base;
     let target: URL;
     try {
-      target = resolve(this.current || this.here || base);
+      // A hash-only href is a place on this page, whatever the base URL (about:srcdoc frames).
+      const c = this.current || here;
+      target = new URL(c, c.startsWith('#') ? here : base);
     } catch {
       return found;
     }
+    // Entries' hash-only hrefs are places on the target page (the current URL, or `current`).
+    const resolve = (h: string) => new URL(h, h.startsWith('#') ? target.href : base);
     const key = pageKey(target);
+    const query = queryKey(target);
     const same = flat.flatMap((e) => {
       if (e.href === undefined) return [];
       try {
         const u = resolve(e.href);
-        return pageKey(u) === key ? [{ e, hash: u.hash }] : [];
+        // An entry with a query names that query (?part=2); one without matches the page
+        // whatever its query (tracking parameters).
+        if (pageKey(u) !== key || (u.search && queryKey(u) !== query)) return [];
+        return [{ e, hash: u.hash }];
       } catch {
         return [];
       }
@@ -522,13 +587,22 @@ export class UvalibContents extends UvalibElement {
   ): TemplateResult {
     const items = entries.map((e) => {
       const mark = current.get(e);
+      // Fresh copies of the label's inline markup each render (a node can be in one place).
+      const text = e.nodes ? e.nodes.map((n) => n.cloneNode(true)) : e.label;
       const own =
         e.href !== undefined
-          ? html`<a href=${e.href} data-level=${level} aria-current=${mark ?? nothing}
-              >${e.label}</a
+          ? html`<a
+              href=${e.href}
+              data-level=${level}
+              aria-current=${mark ?? nothing}
+              lang=${e.lang ?? nothing}
+              dir=${e.dir ?? nothing}
+              >${text}</a
             >`
-          : html`<span class="group">${e.label}</span>`;
-      return html`<li role="listitem">
+          : html`<span class="group" lang=${e.lang ?? nothing} dir=${e.dir ?? nothing}
+              >${text}</span
+            >`;
+      return html`<li role="listitem" lang=${e.itemLang ?? nothing} dir=${e.itemDir ?? nothing}>
         ${own}${e.children.length ? this.renderList(e.children, current, level + 1) : nothing}
       </li>`;
     });
