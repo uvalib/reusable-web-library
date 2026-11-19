@@ -1108,7 +1108,7 @@ ${SKELETONS}
       </div>
       <p><button class="uvalib-button uvalib-button--subtle" type="button" id="reload">Reload</button></p>
       <h2>Subjects</h2>
-      <uvalib-tag-list label="Subjects in these shoots" hide-label limit="5" href-template="#subject={tag}">
+      <uvalib-tag-list label="Subjects in these shoots" hide-label track-label limit="5" href-template="#subject={tag}">
         <span>Rotunda</span>
         <span>Lawn</span>
         <span>Snow</span>

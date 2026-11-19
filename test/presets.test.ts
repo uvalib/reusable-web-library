@@ -579,10 +579,13 @@ describe('playground presets', function () {
       await new Promise((r) => setTimeout(r, 50));
       expect(text()).to.equal('Showing 1 of 6 shoots');
       expect(doc.querySelector<HTMLElement>('#empty')!.hidden).to.equal(true);
+      expect(win.getComputedStyle(doc.querySelector('#empty')!).display).to.equal('none');
       filter.value = 'nothing like this';
       filter.dispatchEvent(new Event('input', { bubbles: true }));
       await new Promise((r) => setTimeout(r, 50));
       expect(doc.querySelector<HTMLElement>('#empty')!.hidden).to.equal(false);
+      expect(win.getComputedStyle(doc.querySelector('#empty')!).display).to.equal('flex');
+      expect(text()).to.equal('No shoots');
       await expectNoPageAxeViolations(doc);
       doc.querySelector<HTMLButtonElement>('#clear')!.click();
       await new Promise((r) => setTimeout(r, 50));
