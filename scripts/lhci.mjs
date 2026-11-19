@@ -203,8 +203,10 @@ const server = createServer((req, res) => {
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
 const base = `http://localhost:${server.address().port}`;
 
-cpSync(join(site, 'cdn'), join(dir, 'cdn'), { recursive: true });
-cpSync(join(site, 'data'), join(dir, 'data'), { recursive: true });
+// The built site's folders the examples read: the CDN copy, the hours snapshot and the
+// Pagefind example's demo index (test/dev-site.test.mjs checks every one an example uses).
+const SITE_DIRS = ['cdn', 'data', 'pagefind-demo'];
+for (const d of SITE_DIRS) cpSync(join(site, d), join(dir, d), { recursive: true });
 
 const DARK_LOGO =
   'https://static.lib.virginia.edu/files/downloads/LibraryLogos/UVALIB_primary_color_white_web.png';
