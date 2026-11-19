@@ -693,7 +693,7 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 
 ## `<uvalib-lightbox>`
 
-An accessible image viewer over a set of plain links. With JavaScript a primary click opens a modal dialog; without it (or with a modified click) the link opens the image as before. Wrap the links, or point at them with `selector` (for example `a.pb-image` on a reading page). There is no autoplay and no carousel. The dialog is labelled by the caption (`data-caption`, else the image alt, else the link text). Focus moves to Close on open and back to the trigger on close. Escape and a click on the backdrop close it. With more than one image, Previous and Next and the arrow keys move through the set (wrapping), and a polite “3 of 13” counter is shown. Full size opens the original image in a new tab. A IIIF Image API URL is requested at `/full/!W,H/` for the viewport. `url-param` (for example `photo`) keeps `?photo=<id>` in sync, including on a hash route (`#/text?photo=<id>`): opening pushes a history entry, stepping replaces it, and Back closes. Optional details: children with `slot="details"` (and `data-for` equal to the item's id or its position from 1; without `data-for` they show for every image), or `data-details-id` on a link pointing at an element elsewhere on the page. Either is shown inside the dialog and put back when the viewer moves on or closes.
+An accessible image viewer over a set of plain links. With JavaScript a primary click opens a modal dialog; without it (or with a modified click) the link opens the image as before. Wrap the links, or point at them with `selector` (for example `a.pb-image` on a reading page). There is no autoplay and no carousel. The dialog is labelled by the caption (`data-caption`, else the image alt, else the link text). Focus moves to Close on open and back to the trigger on close. Escape and a click on the backdrop close it. With more than one image, Previous and Next and the arrow keys move through the set (wrapping), and a polite “3 of 13” counter is shown. Full size opens the original image in a new tab. A IIIF Image API URL keeps its region; only the size becomes `!W,H` for the viewport. TIFF and JPEG2000 URLs are left as written. `url-param` (for example `photo`) keeps `?photo=<id>` in sync, including on a hash route (`#/text?photo=<id>`): opening pushes a history entry, stepping replaces it, and Back closes. Optional details: children with `slot="details"` (and `data-for` equal to the item's id or its position from 1; without `data-for` they show for every image), or `data-details-id` on a link pointing at an element elsewhere on the page. Either is shown inside the dialog and put back when the viewer moves on or closes.
 
 ### Attributes
 
@@ -734,7 +734,8 @@ An accessible image viewer over a set of plain links. With JavaScript a primary 
 |---|---|---|
 | `--uva-color-surface-raised` |  | Dark-mode role token: dialog surface (else `--uva-color-surface`, else #fff). |
 | `--uva-color-surface` |  | Dark-mode role token: the figure behind the image (else #fff). |
-| `--uva-color-text` |  | Dark-mode role token: text, and (mixed) the backdrop (else `--uva-grey-darkest`). |
+| `--uva-color-text` |  | Dark-mode role token: text (else `--uva-grey-darkest`). |
+| `--uva-color-shadow` |  | Dark-mode role token: the backdrop scrim (else rgba(16, 23, 43, 0.72)). |
 | `--uva-color-border` |  | Dark-mode role token: dialog border (else `--uva-grey-100`). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 | `--uva-color-link` |  | Dark-mode role token: Full size text when it is not the filled control (else `--uva-brand-blue`). |
@@ -747,7 +748,7 @@ An accessible image viewer over a set of plain links. With JavaScript a primary 
 
 ## `<uvalib-photo-grid>`
 
-Justified rows of thumbnails. Each direct child that is a link or a button is one photo; its image keeps its shape from the `width` and `height` attributes, or from the loaded image, so the row does not jump when the picture arrives. The row is about 220px tall and shorter on a phone; `row-height` sets that height. Every item stays a real link or button. An image with no visible text gets a visible caption from its alt (the caption is then the accessible name, and a repeated alt is cleared). An item with no name at all is captioned “Photo N” and warned about once. Put the grid inside `<uvalib-lightbox>` and a plain click opens the viewer.
+Justified rows of thumbnails. Each direct child that is a link or a button is one photo; its image keeps its shape from the `width` and `height` attributes, or from the loaded image, so the row does not jump when the picture arrives. The row is about 220px tall and shorter on a phone; `row-height` sets that height. Every item stays a real link or button. An image with no visible text gets a visible caption from its alt (the caption is then the accessible name, and a repeated alt is cleared). The original alt is kept in `data-uvalib-alt` so a lightbox still describes the picture. An item with no name at all is captioned “Photo N” and warned about once; that caption is renumbered when the photos change order. An `aria-label` is left as the name: the grid does not add a caption that would disagree with it. Put the grid inside `<uvalib-lightbox>` and a plain click opens the viewer.
 
 ### Attributes
 

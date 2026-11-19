@@ -88,13 +88,61 @@ function stubNetworkImages(): { assigned: (img: HTMLImageElement) => string; res
 describe('lightbox URLs', () => {
   const base = 'https://library.example/text/d9/';
 
-  it('rewrites a IIIF Image API URL to /full/!w,h/ and keeps the query', () => {
+  it('rewrites a IIIF size to !w,h and keeps the region and the query', () => {
     expect(iiifIdentifier(IIIF, base)).to.equal('uva-lib:286686');
     const sized = sizedIiifUrl(IIIF, base, 640.4, 480.6)!;
     const url = new URL(sized);
     expect(url.pathname).to.equal('/iiif/uva-lib:286686/full/!640,481/0/default.jpg');
     expect(url.search).to.equal('?page=2');
     expect(sized).to.not.include('!1600,1600');
+    const cropped =
+      'https://iiif.lib.virginia.edu/iiif/uva-lib:286686/100,200,300,400/800,/90/default.jpg';
+    expect(new URL(sizedIiifUrl(cropped, base, 640, 480)!).pathname).to.equal(
+      '/iiif/uva-lib:286686/100,200,300,400/!640,480/90/default.jpg',
+    );
+    const square = 'https://iiif.example/iiif/id/square/full/0/default.png';
+    expect(new URL(sizedIiifUrl(square, base, 100, 80)!).pathname).to.equal(
+      '/iiif/id/square/!100,80/0/default.png',
+    );
+  });
+
+  it('leaves TIFF and JPEG2000 IIIF URLs unchanged', () => {
+    const tif = 'https://iiif.example/iiif/id/full/full/0/default.tif';
+    const tiff = 'https://iiif.example/iiif/id/full/full/0/default.tiff';
+    const jp2 = 'https://iiif.example/iiif/id/square/200,/0/default.jp2';
+    expect(sizedIiifUrl(tif, base, 100, 100)).to.equal(null);
+    expect(sizedIiifUrl(tiff, base, 100, 100)).to.equal(null);
+    expect(sizedIiifUrl(jp2, base, 100, 100)).to.equal(null);
+    expect(iiifIdentifier(tif, base)).to.equal('id');
+    expect(iiifIdentifier(jp2, base)).to.equal('id');
+  });
+
+  it('offers full size only for http(s) and PNG, JPEG, GIF or WebP data images', () => {
+    expect(usableImageUrl('data:image/png;base64,aa', base)).to.equal(true);
+    expect(usableImageUrl('data:IMAGE/JPEG;base64,aa', base)).to.equal(true);
+    expect(usableImageUrl('data:image/gif,xx', base)).to.equal(true);
+    expect(usableImageUrl('data:image/webp;base64,aa', base)).to.equal(true);
+    expect(
+      usableImageUrl('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"></svg>', base),
+    ).to.equal(false);
+    expect(usableImageUrl('data:image/svg+xml;base64,PHN2Zz4=', base)).to.equal(false);
+    expect(usableImageUrl('data:image/jpg;base64,aa', base)).to.equal(false);
+    expect(usableImageUrl('data:image/avif;base64,aa', base)).to.equal(false);
+    expect(usableImageUrl('data:image/bmp;base64,aa', base)).to.equal(false);
+    expect(usableImageUrl('https://images.example/page.svg', base)).to.equal(true);
+  });
+
+  it('keeps a hash query in the hash after the parameter is removed and written again', () => {
+    const start = { pathname: '/t', search: '', hash: '#chapter?photo=1' };
+    const stripped = hrefWithParam(start, 'photo', null);
+    expect(stripped).to.equal('/t#chapter');
+    const again = { pathname: '/t', search: '', hash: '#chapter' };
+    expect(hrefWithParam(again, 'photo', '1', true)).to.equal('/t#chapter?photo=1');
+    const bare = { pathname: '/t', search: '', hash: '#?photo=1' };
+    expect(hrefWithParam(bare, 'photo', null)).to.equal('/t#');
+    expect(hrefWithParam({ pathname: '/t', search: '', hash: '#' }, 'photo', '1', true)).to.equal(
+      '/t#?photo=1',
+    );
   });
 
   it('leaves an ordinary image, including one under a /full/ folder, alone', () => {
@@ -161,7 +209,9 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       const caption = view(el).querySelector('.caption')!;
       expect(caption.textContent).to.equal('Page 2');
       expect(dialog.getAttribute('aria-labelledby')).to.equal(caption.id);
-      expect(focused(el)).to.equal(view(el).querySelector('button.close'));
+      expect(focused(el) === view(el).querySelector('button.close'), 'Close is focused').to.equal(
+        true,
+      );
       expect(dialogImg(el)!.getAttribute('alt')).to.equal('Page 2');
       expect(view(el).querySelector('.count')!.textContent).to.equal('1 of 2');
       expect(view(el).querySelector('.count')!.getAttribute('aria-live')).to.equal('polite');
@@ -277,7 +327,7 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       dialogOf(el).dispatchEvent(new MouseEvent('click', { bubbles: true }));
       await el.updateComplete;
       expect(dialogOf(el).open).to.equal(false);
-      expect(document.activeElement).to.equal(trigger);
+      expect(document.activeElement === trigger, 'backdrop returns focus').to.equal(true);
 
       trigger.click();
       await el.updateComplete;
@@ -287,7 +337,7 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       await sendKeys({ press: 'Escape' });
       await el.updateComplete;
       expect(dialogOf(el).open).to.equal(false);
-      expect(document.activeElement).to.equal(trigger);
+      expect(document.activeElement === trigger, 'Escape returns focus').to.equal(true);
     });
 
     it('ignores a modified click and does not open the same image twice', async () => {
@@ -589,6 +639,258 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       await el.updateComplete;
       await nextFrame();
       await expectNoAxeViolations(el);
+    });
+
+    it('restores adjacent details on close and can open again', async () => {
+      const el = await make(
+        `${shot('One', 'data-id="a"')}${shot('Two', 'data-id="b"')}` +
+          '<div slot="details">Shared</div><div slot="details" data-for="a">Only A</div>',
+      );
+      el.querySelector('a')!.click();
+      await el.updateComplete;
+      await nextFrame();
+      ui(view(el), 'button.next').click();
+      await el.updateComplete;
+      ui(view(el), 'button.close').click();
+      await el.updateComplete;
+      expect(dialogOf(el).open, 'closed').to.equal(false);
+      const details = [...el.querySelectorAll('[slot="details"]')].map((n) => n.textContent);
+      expect(details).to.deep.equal(['Shared', 'Only A']);
+      el.querySelectorAll('a')[1]!.click();
+      await el.updateComplete;
+      await nextFrame();
+      expect(dialogOf(el).open, 'opened again').to.equal(true);
+    });
+
+    it('opens again after a DOM move, and Escape still closes it', async () => {
+      history.replaceState(null, '', `${location.pathname}?photo=1`);
+      const el = await make(
+        `${shot('Page', 'data-id="1"')}<div slot="details">Note</div>`,
+        'url-param="photo"',
+      );
+      await el.updateComplete;
+      await nextFrame();
+      expect(dialogOf(el).open, 'opened from the URL').to.equal(true);
+      const parent = document.createElement('div');
+      document.body.append(parent);
+      const trigger = el.querySelector('a')!;
+      parent.append(el);
+      await el.updateComplete;
+      await nextFrame();
+      expect(dialogOf(el).open, 'opened again after the move').to.equal(true);
+      const back = nextPop();
+      await sendKeys({ press: 'Escape' });
+      await el.updateComplete;
+      expect(dialogOf(el).open, 'Escape closed it').to.equal(false);
+      expect(el.querySelector('[slot="details"]')!.parentElement, 'details restored').to.equal(el);
+      expect(focused(el) === trigger, 'focus returns to the trigger').to.equal(true);
+      await back;
+      parent.remove();
+    });
+
+    it('does not restyle thumbnails, buttons, or closed details', async () => {
+      const el = await make(
+        `<a href="${PNG}"><img alt="Thumb" src="${PNG}" width="80" height="48"></a>` +
+          '<button type="button">Label</button><p slot="details">On the page</p>',
+      );
+      const img = el.querySelector('img')!;
+      const button = el.querySelector('button')!;
+      const details = el.querySelector('[slot="details"]')!;
+      expect(img.getBoundingClientRect().width, 'thumbnail width').to.be.closeTo(80, 1);
+      expect(getComputedStyle(button).backgroundColor).to.not.equal('rgb(35, 45, 75)');
+      if (mode === 'no-shadow-dom') {
+        expect(getComputedStyle(details).display).to.equal('none');
+      } else {
+        expect(view(el).querySelector('slot[name="details"]')!.hasAttribute('hidden')).to.equal(
+          true,
+        );
+      }
+    });
+
+    it('paints the backdrop from the shadow token and details links from the link token', async () => {
+      const el = await make(`${shot('One')}<div slot="details"><a href="${PNG}">Rights</a></div>`);
+      el.style.setProperty('--uva-color-text', '#e8e8e8');
+      el.style.setProperty('--uva-color-shadow', 'rgba(0, 0, 0, 0.6)');
+      el.style.setProperty('--uva-color-link', 'rgb(135, 185, 217)');
+      el.style.setProperty('--uva-color-surface-raised', '#232d4b');
+      el.querySelector('a')!.click();
+      await el.updateComplete;
+      await nextFrame();
+      expect(getComputedStyle(dialogOf(el), '::backdrop').backgroundColor).to.equal(
+        'rgba(0, 0, 0, 0.6)',
+      );
+      const link = view(el).querySelector('.details a')!;
+      expect(getComputedStyle(link).color).to.equal('rgb(135, 185, 217)');
+    });
+
+    it('keeps a hash query in the hash when opening from the URL', async () => {
+      history.replaceState(null, '', `${location.pathname}#chapter?photo=1`);
+      const el = await make(shot('Page', 'data-id="1"'), 'url-param="photo"');
+      await el.updateComplete;
+      await nextFrame();
+      expect(dialogOf(el).open).to.equal(true);
+      expect(location.search).to.equal('');
+      expect(location.hash).to.equal('#chapter?photo=1');
+    });
+
+    it('stays open when another image is chosen before Back finishes', async () => {
+      history.pushState(null, '', location.pathname);
+      const el = await make(
+        `${shot('One', 'data-id="1"')}${shot('Two', 'data-id="2"')}`,
+        'url-param="photo"',
+      );
+      const links = el.querySelectorAll('a');
+      links[0]!.click();
+      await el.updateComplete;
+      const back = nextPop();
+      ui(view(el), 'button.close').click();
+      links[1]!.click();
+      await back;
+      await el.updateComplete;
+      await nextFrame();
+      expect(dialogOf(el).open, 'still open').to.equal(true);
+      expect(view(el).querySelector('.caption')!.textContent).to.equal('Two');
+      expect(location.search).to.equal('?photo=2');
+    });
+
+    it('Escape closes a viewer that was reopened before the next frame', async () => {
+      const el = await make(`${shot('One')}<div slot="details">Note</div>`);
+      const trigger = el.querySelector('a')!;
+      trigger.click();
+      await el.updateComplete;
+      await nextFrame();
+      ui(view(el), 'button.close').click();
+      trigger.click();
+      await el.updateComplete;
+      dialogOf(el).close();
+      await el.updateComplete;
+      expect(dialogOf(el).open).to.equal(false);
+      expect(el.querySelector('[slot="details"]')!.parentElement).to.equal(el);
+      expect(focused(el) === trigger, 'focus returns to the trigger').to.equal(true);
+    });
+
+    it('does not pull focus back to Close on the frame after open', async () => {
+      const el = await make(shot('One'));
+      el.querySelector('a')!.click();
+      await el.updateComplete;
+      // The open dialog is modal, so a control outside it cannot take focus. Full size can.
+      const full = ui(view(el), 'a.full');
+      full.focus();
+      await nextFrame();
+      expect(focused(el) === full, 'focus stays where it was moved').to.equal(true);
+    });
+
+    it('drops the deep link when the last image is removed and does not reopen', async () => {
+      history.replaceState(null, '', `${location.pathname}?photo=1`);
+      const el = await make(shot('One', 'data-id="1"'), 'url-param="photo"');
+      await el.updateComplete;
+      await nextFrame();
+      expect(dialogOf(el).open).to.equal(true);
+      el.querySelector('a')!.remove();
+      await nextFrame();
+      await el.updateComplete;
+      expect(dialogOf(el).open, 'closed').to.equal(false);
+      expect(location.search, 'param cleared').to.equal('');
+      const again = document.createElement('a');
+      again.href = PNG;
+      again.dataset.id = '1';
+      again.dataset.caption = 'Again';
+      again.innerHTML = '<img alt="Again" width="2" height="1">';
+      el.append(again);
+      await nextFrame();
+      await el.updateComplete;
+      expect(dialogOf(el).open, 'stays closed').to.equal(false);
+    });
+
+    it('does not show an SVG data URL or rewrite a TIFF IIIF image', async () => {
+      const svg = await make(
+        '<a href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3C%2Fsvg%3E" data-caption="Mark"><img alt="Mark" width="2" height="1"></a>',
+      );
+      svg.querySelector('a')!.click();
+      await svg.updateComplete;
+      expect(dialogImg(svg)).to.equal(null);
+      expect(view(svg).querySelector('a.full')).to.equal(null);
+
+      const net = stubNetworkImages();
+      try {
+        const tif = 'https://iiif.example/iiif/id/100,0,50,50/full/0/default.tif';
+        const el = await make(shot('Scan', 'data-id="scan"', tif));
+        el.querySelector('a')!.click();
+        await el.updateComplete;
+        await nextFrame();
+        expect(net.assigned(dialogImg(el)!)).to.equal(tif);
+        expect(ui(view(el), 'a.full').getAttribute('href')).to.equal(tif);
+      } finally {
+        net.restore();
+      }
+    });
+
+    it('ignores hidden links and links inside a details element', async () => {
+      const root = await fixture<HTMLDivElement>(`<div>
+        <uvalib-lightbox ${attr}>
+          <div id="more"><a href="${PNG}" data-caption="Inside">Details link</a><p>Note</p></div>
+          ${shot('One', 'data-id="a"')}
+          <a href="${PNG}" hidden data-caption="Hidden"><img alt="Hidden" width="2" height="1"></a>
+          ${shot('Two', 'data-id="b" data-details-id="more"')}
+        </uvalib-lightbox>
+      </div>`);
+      const el = root.querySelector('uvalib-lightbox') as UvalibLightbox;
+      await el.updateComplete;
+      // The details link is first in the document. Counting it would make this open "image 2".
+      (el.querySelector('a[data-id="a"]') as HTMLAnchorElement).click();
+      await el.updateComplete;
+      await nextFrame();
+      expect(view(el).querySelector('.count')!.textContent).to.equal('1 of 2');
+      ui(view(el), 'a.full')?.click();
+      const names = rec.of('uvalib-analytics-event').map((d) => (d.event as string[])[2]);
+      expect(names).to.deep.equal(['image 1', 'image 1']);
+    });
+
+    it('removes its click listener from an enclosing shadow root', async () => {
+      const host = document.createElement('div');
+      const root = host.attachShadow({ mode: 'open' });
+      document.body.append(host);
+      const added: EventListenerOrEventListenerObject[] = [];
+      const removed: EventListenerOrEventListenerObject[] = [];
+      const origAdd = root.addEventListener.bind(root);
+      const origRemove = root.removeEventListener.bind(root);
+      root.addEventListener = ((
+        type: string,
+        listener: EventListenerOrEventListenerObject | null,
+        options?: boolean | AddEventListenerOptions,
+      ) => {
+        if (!listener) return;
+        if (type === 'click') added.push(listener);
+        origAdd(type, listener, options);
+      }) as typeof root.addEventListener;
+      root.removeEventListener = ((
+        type: string,
+        listener: EventListenerOrEventListenerObject | null,
+        options?: boolean | EventListenerOptions,
+      ) => {
+        if (!listener) return;
+        if (type === 'click') removed.push(listener);
+        origRemove(type, listener, options);
+      }) as typeof root.removeEventListener;
+      root.innerHTML = `<uvalib-lightbox><a href="${PNG}" data-caption="In"><img alt="In" width="2" height="1"></a></uvalib-lightbox>`;
+      const el = root.querySelector('uvalib-lightbox') as UvalibLightbox;
+      await el.updateComplete;
+      expect(added, 'listens on the shadow root').to.have.length(1);
+      el.remove();
+      expect(removed, 'the same listener is removed').to.deep.equal(added);
+      host.remove();
+    });
+
+    it('hides the new-tab text and keeps a focus outline with no-style', async () => {
+      const el = await make(shot('One'), 'no-style');
+      el.querySelector('a')!.click();
+      await el.updateComplete;
+      await nextFrame();
+      const hidden = view(el).querySelector('.visually-hidden')!;
+      expect(parseFloat(getComputedStyle(hidden).width), 'visually hidden').to.be.at.most(1);
+      const full = ui(view(el), 'a.full');
+      full.focus();
+      expect(parseFloat(getComputedStyle(full).outlineWidth)).to.be.at.least(3);
     });
 
     it('keeps 44px controls with no-style', async () => {

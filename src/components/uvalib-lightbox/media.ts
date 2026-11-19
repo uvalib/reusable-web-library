@@ -8,6 +8,10 @@ export interface PageLocation {
 const REGION = /^(full|square|max|pct:[^/]+|\d+,\d+,\d+,\d+)$/i;
 const ROTATION = /^!?\d+(\.\d+)?$/;
 const QUALITY = /^(default|color|gray|grey|bitonal|native)\.(jpe?g|png|gif|webp|tiff?|jp2)$/i;
+/** Formats a browser can paint. TIFF and JPEG2000 are left unchanged. */
+const BROWSER_IMAGE = /\.(jpe?g|png|gif|webp)$/i;
+/** Full size may offer these `data:` images. SVG is never one: it can carry a script. */
+const DATA_IMAGE = /^image\/(png|jpeg|gif|webp)($|[;,])/i;
 
 export interface IiifRequest {
   url: URL;
@@ -41,15 +45,18 @@ export function parseIiif(href: string, base: string): IiifRequest | null {
 }
 
 /**
- * The same image requested at `/full/!w,h/` so the server sends a size that fits `w` by `h`
- * device pixels and does not scale the original up. Returns null when `href` is not IIIF.
+ * The same image with only the size segment rewritten to `!w,h`, so the server sends a size
+ * that fits `w` by `h` device pixels and does not scale the original up. The region stays
+ * (a crop or `square` is kept). Returns null when `href` is not IIIF, and for a TIFF or
+ * JPEG2000 request, which is left exactly as written.
  */
 export function sizedIiifUrl(href: string, base: string, w: number, h: number): string | null {
   const parsed = parseIiif(href, base);
   if (!parsed) return null;
+  const file = parsed.parts[parsed.parts.length - 1] ?? '';
+  if (!BROWSER_IMAGE.test(file)) return null;
   const width = Math.max(1, Math.round(w));
   const height = Math.max(1, Math.round(h));
-  parsed.parts[parsed.regionIndex] = 'full';
   parsed.parts[parsed.sizeIndex] = `!${width},${height}`;
   parsed.url.pathname = parsed.parts.join('/');
   return parsed.url.toString();
@@ -77,14 +84,14 @@ export function viewportIiifSize(
 }
 
 /**
- * Whether `href` may be shown or offered as the full image: http(s), a relative URL, or a
- * `data:image/…` URL. `javascript:` and other schemes are refused.
+ * Whether `href` may be offered as Full size: an http(s) URL (including a relative one), or
+ * a `data:` image of type PNG, JPEG, GIF or WebP. SVG and every other scheme are refused.
  */
 export function usableImageUrl(href: string, base: string): boolean {
   try {
     const url = new URL(href, base);
     if (url.protocol === 'http:' || url.protocol === 'https:') return true;
-    if (url.protocol === 'data:') return url.pathname.startsWith('image/');
+    if (url.protocol === 'data:') return DATA_IMAGE.test(url.pathname);
     return false;
   } catch {
     return false;
@@ -92,14 +99,14 @@ export function usableImageUrl(href: string, base: string): boolean {
 }
 
 /** A hash used as a route (`#/…`, `#!/…`) or that already carries a query string. */
-function hashRoute(hash: string): boolean {
+export function usesHashParam(hash: string): boolean {
   return hash.startsWith('#/') || hash.startsWith('#!/') || hash.includes('?');
 }
 
 /** The deep-link id in `loc`, from the hash query on a hash route and the search string otherwise. */
 export function paramFromLocation(loc: PageLocation, name: string): string | null {
   if (!name) return null;
-  if (hashRoute(loc.hash)) {
+  if (usesHashParam(loc.hash)) {
     const q = loc.hash.indexOf('?');
     const params = new URLSearchParams(q >= 0 ? loc.hash.slice(q + 1) : '');
     return params.get(name);
@@ -111,9 +118,16 @@ export function paramFromLocation(loc: PageLocation, name: string): string | nul
  * `loc` with `name` set to `id`, or removed when `id` is null. Hash routes keep the param in
  * the hash (`#/text/d9?photo=2`) and leave `search` alone; every other URL uses `search` and
  * keeps the hash. The hash is written as text so a `?` in it is not percent-encoded.
+ * `hashMode` forces the hash (or the search) when the caller is mid-rewrite and the hash no
+ * longer shows that it was a route, as when `?photo=` was just removed from `#chapter?photo=1`.
  */
-export function hrefWithParam(loc: PageLocation, name: string, id: string | null): string {
-  if (hashRoute(loc.hash)) {
+export function hrefWithParam(
+  loc: PageLocation,
+  name: string,
+  id: string | null,
+  hashMode?: boolean,
+): string {
+  if (hashMode ?? usesHashParam(loc.hash)) {
     const q = loc.hash.indexOf('?');
     const path = q >= 0 ? loc.hash.slice(0, q) : loc.hash;
     const params = new URLSearchParams(q >= 0 ? loc.hash.slice(q + 1) : '');

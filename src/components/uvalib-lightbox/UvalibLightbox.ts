@@ -10,6 +10,7 @@ import {
   paramFromLocation,
   sizedIiifUrl,
   usableImageUrl,
+  usesHashParam,
   viewportIiifSize,
   type PageLocation,
 } from './media.js';
@@ -67,9 +68,9 @@ const structuralRules = (host: string) => `
   ${host} .head { justify-content: space-between; }
   ${host} .caption { margin: 0; min-width: 0; overflow-wrap: anywhere; }
   ${host} .figure { margin: 0; }
-  ${host} img { display: block; max-width: 100%; max-height: 70dvh; width: auto; height: auto; margin: auto; }
+  ${host} dialog img { display: block; max-width: 100%; max-height: 70dvh; width: auto; height: auto; margin: auto; }
   ${host} .count, ${host} .status { margin: 0; }
-  ${host} button, ${host} .full {
+  ${host} dialog button, ${host} dialog .full {
     box-sizing: border-box;
     min-width: 44px;
     min-height: 44px;
@@ -77,6 +78,7 @@ const structuralRules = (host: string) => `
     font: inherit;
   }
   ${host} .details:empty { display: none; }
+  ${host} > [slot="details"] { display: none; }
   ${host}[hidden], ${host} [hidden] { display: none !important; }
 `;
 const shadowStructure = unsafeCSS(structuralRules(':host'));
@@ -93,9 +95,10 @@ let nextCaption = 0;
  * text). Focus moves to Close on open and back to the trigger on close. Escape and a click on
  * the backdrop close it. With more than one image, Previous and Next and the arrow keys move
  * through the set (wrapping), and a polite “3 of 13” counter is shown. Full size opens the
- * original image in a new tab. A IIIF Image API URL is requested at `/full/!W,H/` for the
- * viewport. `url-param` (for example `photo`) keeps `?photo=<id>` in sync, including on a
- * hash route (`#/text?photo=<id>`): opening pushes a history entry, stepping replaces it, and
+ * original image in a new tab. A IIIF Image API URL keeps its region; only the size becomes
+ * `!W,H` for the viewport. TIFF and JPEG2000 URLs are left as written. `url-param` (for
+ * example `photo`) keeps `?photo=<id>` in sync, including on a hash route
+ * (`#/text?photo=<id>`): opening pushes a history entry, stepping replaces it, and
  * Back closes.
  *
  * Optional details: children with `slot="details"` (and `data-for` equal to the item's id or
@@ -115,7 +118,8 @@ let nextCaption = 0;
  * @fires uvalib-analytics-event - For `<site-analytics>`: `['uvalib-lightbox', 'open'|'next'|'previous'|'full-size', 'image N', N]` (N from 1, the image's place in the set). Never the URL or the caption. Not fired for a viewer restored from the URL or from Back and Forward. Bubbles and is composed.
  * @cssprop --uva-color-surface-raised - Dark-mode role token: dialog surface (else `--uva-color-surface`, else #fff).
  * @cssprop --uva-color-surface - Dark-mode role token: the figure behind the image (else #fff).
- * @cssprop --uva-color-text - Dark-mode role token: text, and (mixed) the backdrop (else `--uva-grey-darkest`).
+ * @cssprop --uva-color-text - Dark-mode role token: text (else `--uva-grey-darkest`).
+ * @cssprop --uva-color-shadow - Dark-mode role token: the backdrop scrim (else rgba(16, 23, 43, 0.72)).
  * @cssprop --uva-color-border - Dark-mode role token: dialog border (else `--uva-grey-100`).
  * @cssprop --uva-color-focus - Dark-mode role token: focus ring (else `--uva-brand-orange`).
  * @cssprop --uva-color-link - Dark-mode role token: Full size text when it is not the filled control (else `--uva-brand-blue`).
@@ -137,7 +141,10 @@ export class UvalibLightbox extends UvalibElement {
         border: 1px solid var(--uva-color-border, var(--uva-grey-100, #dadada));
       }
       dialog::backdrop {
-        background: color-mix(in srgb, var(--uva-color-text, #10172b) 72%, transparent);
+        background: var(--uva-color-shadow, rgba(16, 23, 43, 0.72));
+      }
+      .details a {
+        color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
       }
       .figure {
         background: var(--uva-color-surface, #fff);
@@ -150,8 +157,8 @@ export class UvalibLightbox extends UvalibElement {
       .count {
         font-variant-numeric: tabular-nums;
       }
-      button,
-      .full {
+      dialog button,
+      dialog .full {
         padding: 0.5rem 0.75rem;
         border: 2px solid transparent;
         text-decoration: none;
@@ -159,13 +166,13 @@ export class UvalibLightbox extends UvalibElement {
         color: var(--uva-color-on-accent, #fff);
         background: var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
       }
-      button:focus-visible,
-      .full:focus-visible {
+      dialog button:focus-visible,
+      dialog .full:focus-visible {
         outline: 3px solid var(--uva-color-focus, var(--uva-brand-orange, #e57200));
         outline-offset: 2px;
       }
-      button.prev,
-      button.next {
+      dialog button.prev,
+      dialog button.next {
         color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
         background: var(--uva-color-surface, #fff);
         border-color: var(--uva-color-border, var(--uva-grey-100, #dadada));
@@ -188,8 +195,8 @@ export class UvalibLightbox extends UvalibElement {
       }
       @media (forced-colors: active) {
         .panel,
-        button,
-        .full {
+        dialog button,
+        dialog .full {
           border: 1px solid CanvasText;
         }
       }
@@ -243,7 +250,27 @@ export class UvalibLightbox extends UvalibElement {
   private ignoreClose = false;
   private dismissing = false;
   private revealTries = 0;
+  private revealFrame = 0;
   private listened = false;
+  /** The root `listen` bound, so disconnect can remove the listener after leaving a shadow root. */
+  private listenRoot?: Document | ShadowRoot;
+  /**
+   * `dialog.close()` removes `open` now and fires `close` on a later task. The attribute
+   * observer runs as a microtask, which is what a caller sees after `await updateComplete`.
+   */
+  private dialogObserver?: MutationObserver;
+  private observedDialog?: HTMLDialogElement;
+  /** `history.back()` from Close has not fired `popstate` yet. */
+  private pendingBack = false;
+  /** Whether that entry kept the parameter in the hash. The pop leaves a hash that may not say so. */
+  private backInHash = false;
+  /** An image chosen while that Back is still in flight, opened once the popstate arrives. */
+  private queuedOpen: { i: number; slides: Slide[] } | null = null;
+  /**
+   * Set while a history traversal is opening the dialog. The traversal can close the
+   * dialog it just showed; that close is not the visitor, so show it again.
+   */
+  private reopenGuard = false;
   /** Details elements moved into the dialog, and where they go back to. */
   private parked: { el: HTMLElement; parent: Node; next: ChildNode | null; hidden: boolean }[] = [];
   private parkedKey = '';
@@ -257,8 +284,10 @@ export class UvalibLightbox extends UvalibElement {
     if (!this.isLight) {
       const root = super.createRenderRoot();
       if (this.noStyle && root instanceof ShadowRoot) {
-        const sheet = shadowStructure.styleSheet;
-        if (sheet) root.adoptedStyleSheets = [sheet];
+        const sheets = [accessible.styleSheet, shadowStructure.styleSheet].filter(
+          (sheet): sheet is CSSStyleSheet => sheet != null,
+        );
+        root.adoptedStyleSheets = sheets;
       }
       return root;
     }
@@ -272,6 +301,9 @@ export class UvalibLightbox extends UvalibElement {
   override connectedCallback(): void {
     const light = this.isLight;
     super.connectedCallback();
+    // A move in the DOM disconnects and reconnects. The disconnect guard must not stick,
+    // or Escape would close the dialog and leave the viewer thinking it is still open.
+    this.suppressClose = false;
     if (light) this.installLight(light);
     this.listen();
     this.slides = this.collect();
@@ -283,13 +315,24 @@ export class UvalibLightbox extends UvalibElement {
     super.disconnectedCallback();
     this.unlisten();
     this.observer?.disconnect();
+    this.dialogObserver?.disconnect();
+    this.dialogObserver = undefined;
+    this.observedDialog = undefined;
     window.clearTimeout(this.resizeTimer);
+    this.cancelReveal();
     this.restoreDetails();
+    this.pendingBack = false;
+    this.queuedOpen = null;
+    this.reopenGuard = false;
     // Closing the dialog here fires `close` synchronously. That is not the visitor dismissing
-    // it: do not run history.back(), which could leave the page.
+    // it: do not run history.back(), which could leave the page. `open` goes false so a later
+    // connect can open again from the URL.
     this.suppressClose = true;
+    this.open = false;
     const dialog = this.dialogEl;
     if (dialog?.open) dialog.close();
+    this.suppressClose = false;
+    this.ignoreClose = false;
   }
 
   protected override willUpdate(): void {
@@ -316,6 +359,7 @@ export class UvalibLightbox extends UvalibElement {
       return;
     }
     if (changed.has('open') || changed.has('index') || changed.has('slides')) this.placeDetails();
+    this.bindDialogObserver();
     if (changed.has('open')) this.reveal();
     // Reading the image and writing `status` from inside `updated` makes Lit warn and schedule
     // a nested update. A microtask is still before the next paint.
@@ -334,6 +378,7 @@ export class UvalibLightbox extends UvalibElement {
         unsafeCSS(structuralRules(this.localName)),
         { root, scope: false },
       );
+      installLightDomStyles(`${this.localName}::a11y`, accessible, { root });
       return;
     }
     installLightDomStyles(
@@ -361,7 +406,8 @@ export class UvalibLightbox extends UvalibElement {
   private listen(): void {
     if (this.listened) return;
     this.listened = true;
-    this.scope.addEventListener('click', this.onClick, true);
+    this.listenRoot = this.scope;
+    this.listenRoot.addEventListener('click', this.onClick, true);
     window.addEventListener('popstate', this.onPop);
     window.addEventListener('resize', this.onResize);
   }
@@ -369,7 +415,8 @@ export class UvalibLightbox extends UvalibElement {
   private unlisten(): void {
     if (!this.listened) return;
     this.listened = false;
-    this.scope.removeEventListener('click', this.onClick, true);
+    this.listenRoot?.removeEventListener('click', this.onClick, true);
+    this.listenRoot = undefined;
     window.removeEventListener('popstate', this.onPop);
     window.removeEventListener('resize', this.onResize);
   }
@@ -419,7 +466,7 @@ export class UvalibLightbox extends UvalibElement {
         if (this.open) {
           const at = current ? next.findIndex((s) => s.el === current) : -1;
           if (at >= 0) this.index = at;
-          else if (!next.length) this.dismiss('pop');
+          else if (!next.length) this.dismiss('empty');
           else this.index = Math.min(this.index, next.length - 1);
         }
       }
@@ -429,18 +476,18 @@ export class UvalibLightbox extends UvalibElement {
 
   private collect(): Slide[] {
     const found: HTMLAnchorElement[] = [];
-    const push = (a: Element) => {
-      if (!(a instanceof HTMLAnchorElement) || !a.hasAttribute('href')) return;
-      if (this.mount?.contains(a) || a.closest('dialog')) return;
-      if (a.closest('[slot="details"]')) return;
-      const owner = a.closest('uvalib-lightbox');
-      if (owner && owner !== this) return;
-      found.push(a);
+    const detailRoots = new Set<Element>();
+    const noteDetails = (a: Element) => {
+      if (!(a instanceof HTMLAnchorElement)) return;
+      const id = a.getAttribute('data-details-id');
+      if (!id) return;
+      const el = this.scope.getElementById(id);
+      if (el) detailRoots.add(el);
     };
-    for (const a of this.querySelectorAll('a[href]')) push(a);
+    const candidates: Element[] = [...this.querySelectorAll('a[href]')];
     if (this.selector) {
       try {
-        for (const a of this.scope.querySelectorAll(this.selector)) push(a);
+        candidates.push(...this.scope.querySelectorAll(this.selector));
       } catch {
         if (!this.warnedSelector) {
           this.warnedSelector = true;
@@ -450,6 +497,20 @@ export class UvalibLightbox extends UvalibElement {
         }
       }
     }
+    for (const a of candidates) noteDetails(a);
+    const push = (a: Element) => {
+      if (!(a instanceof HTMLAnchorElement) || !a.hasAttribute('href')) return;
+      if (a.closest('[hidden]')) return;
+      if (this.mount?.contains(a) || a.closest('dialog')) return;
+      if (a.closest('[slot="details"]')) return;
+      for (const root of detailRoots) {
+        if (root.contains(a)) return;
+      }
+      const owner = a.closest('uvalib-lightbox');
+      if (owner && owner !== this) return;
+      found.push(a);
+    };
+    for (const a of candidates) push(a);
     const unique = [...new Set(found)];
     unique.sort((a, b) => {
       if (a === b) return 0;
@@ -464,7 +525,7 @@ export class UvalibLightbox extends UvalibElement {
   private slide(el: HTMLAnchorElement, index: number): Slide {
     const href = el.getAttribute('href') ?? '';
     const img = el.querySelector('img');
-    const alt = normalize(img?.getAttribute('alt'));
+    const alt = normalize(img?.getAttribute('data-uvalib-alt') || img?.getAttribute('alt'));
     const text = this.linkText(el);
     const caption =
       normalize(el.dataset.caption) ||
@@ -568,14 +629,22 @@ export class UvalibLightbox extends UvalibElement {
     this.userClosed = false;
     this.measure();
     this.open = true;
-    if (this.urlParam) {
+    if (this.pendingBack) {
+      // Close already asked for history.back(). Writing now would push on the entry that
+      // popstate is about to remove, and that pop would shut the viewer again.
+      this.queuedOpen = { i, slides };
+    } else if (this.urlParam) {
       const id = slides[i]?.id ?? null;
-      if (already) this.writeParam(id, 'replace');
+      const hashMode = usesHashParam(location.hash);
+      if (already) this.writeParam(id, 'replace', hashMode);
       else {
         // The address can already carry this param (a leftover entry). Replace it away
-        // on the current entry, then push, so Back still closes onto this page.
-        if (paramFromLocation(this.loc(), this.urlParam)) this.writeParam(null, 'replace');
-        this.historyPushed = this.writeParam(id, 'push');
+        // on the current entry, then push, so Back still closes onto this page. Both
+        // writes share hashMode: stripping `?photo` from `#chapter?photo=1` leaves
+        // `#chapter`, which would otherwise fall out of the hash.
+        if (paramFromLocation(this.loc(), this.urlParam))
+          this.writeParam(null, 'replace', hashMode);
+        this.historyPushed = this.writeParam(id, 'push', hashMode);
       }
     }
     trackEvent(this, ['uvalib-lightbox', 'open', `image ${i + 1}`, i + 1]);
@@ -593,9 +662,11 @@ export class UvalibLightbox extends UvalibElement {
     this.index = i;
     this.trigger = slides[i]?.el ?? null;
     this.measure();
-    // Make Back close the viewer onto this page instead of leaving it.
-    this.writeParam(null, 'replace');
-    this.historyPushed = this.writeParam(id, 'push');
+    // Make Back close the viewer onto this page instead of leaving it. Remember the hash
+    // route before the first write removes the `?` that marked it.
+    const hashMode = usesHashParam(location.hash);
+    this.writeParam(null, 'replace', hashMode);
+    this.historyPushed = this.writeParam(id, 'push', hashMode);
     this.open = true;
   }
 
@@ -612,32 +683,49 @@ export class UvalibLightbox extends UvalibElement {
 
   /**
    * Close. `ui` is Close, Escape or the backdrop (Back when this viewer pushed, else drop the
-   * param). `pop` is the browser already moving: the URL is already right.
+   * param). `pop` is the browser already moving: the URL is already right. `empty` is the
+   * last image leaving the page: drop the param and do not reopen from it.
    */
-  private dismiss(source: 'ui' | 'pop'): void {
+  private dismiss(source: 'ui' | 'pop' | 'empty'): void {
     if (this.dismissing) return;
     const dialog = this.dialogEl;
     if (!this.open && !dialog?.open) return;
     this.dismissing = true;
-    const pushed = this.historyPushed;
-    this.historyPushed = false;
-    this.ignoreClose = true;
-    this.open = false;
-    if (source === 'ui') this.userClosed = true;
-    this.restoreDetails();
-    if (dialog?.open) dialog.close();
-    this.focusTrigger();
-    this.dismissing = false;
-    if (source === 'ui' && this.urlParam) {
-      if (pushed) history.back();
-      else this.writeParam(null, 'replace');
+    try {
+      const pushed = this.historyPushed;
+      this.historyPushed = false;
+      this.ignoreClose = true;
+      this.cancelReveal();
+      this.open = false;
+      if (source === 'ui' || source === 'empty') this.userClosed = true;
+      this.restoreDetails();
+      if (dialog?.open) dialog.close();
+      this.focusTrigger();
+      if (source === 'ui' && this.urlParam) {
+        if (pushed) {
+          this.backInHash = usesHashParam(location.hash);
+          this.pendingBack = true;
+          history.back();
+        } else this.writeParam(null, 'replace', usesHashParam(location.hash));
+      } else if (source === 'empty' && this.urlParam) {
+        this.pendingBack = false;
+        this.queuedOpen = null;
+        this.writeParam(null, 'replace', usesHashParam(location.hash));
+      }
+    } finally {
+      // Leave `ignoreClose` set. `dialog.close()` can queue a second close event for the
+      // next task; clearing the guard here lets that event dismiss a viewer that has
+      // already been opened again. `reveal` clears it once `showModal` has succeeded, which
+      // is still before a later Escape. A throw while restoring details must not leave the
+      // viewer stuck dismissing.
+      this.dismissing = false;
     }
   }
 
   /** Returns false when this document cannot change the address (for example an iframe srcdoc). */
-  private writeParam(id: string | null, mode: 'push' | 'replace'): boolean {
+  private writeParam(id: string | null, mode: 'push' | 'replace', hashMode?: boolean): boolean {
     if (!this.urlParam) return false;
-    const next = hrefWithParam(this.loc(), this.urlParam, id);
+    const next = hrefWithParam(this.loc(), this.urlParam, id, hashMode);
     const now = location.pathname + location.search + location.hash;
     if (next === now) return false;
     const prev = history.state && typeof history.state === 'object' ? history.state : {};
@@ -657,6 +745,21 @@ export class UvalibLightbox extends UvalibElement {
 
   private readonly onPop = (): void => {
     if (!this.urlParam) return;
+    if (this.pendingBack) {
+      this.pendingBack = false;
+      const queued = this.queuedOpen;
+      this.queuedOpen = null;
+      if (!this.isConnected || !queued) return;
+      this.slides = queued.slides;
+      this.index = queued.i;
+      this.trigger = queued.slides[queued.i]?.el ?? null;
+      this.userClosed = false;
+      this.measure();
+      const id = queued.slides[queued.i]?.id ?? null;
+      this.historyPushed = this.writeParam(id, 'push', this.backInHash);
+      if (!this.open) this.open = true;
+      return;
+    }
     const id = paramFromLocation(this.loc(), this.urlParam);
     if (!id) {
       this.historyPushed = false;
@@ -675,8 +778,19 @@ export class UvalibLightbox extends UvalibElement {
     this.trigger = slides[i]?.el ?? null;
     this.historyPushed = true;
     this.measure();
+    this.armReopenGuard();
     if (!this.open) this.open = true;
   };
+
+  /** Ignore the close event a history traversal fires on the dialog it just opened. */
+  private armReopenGuard(): void {
+    this.reopenGuard = true;
+    const view = this.ownerDocument.defaultView;
+    if (!view) return;
+    view.requestAnimationFrame(() => {
+      this.reopenGuard = false;
+    });
+  }
 
   private readonly onKey = (e: KeyboardEvent): void => {
     if (!this.multiple || this.typing(e)) return;
@@ -700,12 +814,39 @@ export class UvalibLightbox extends UvalibElement {
     if (e.target === this.dialogEl) this.dismiss('ui');
   };
 
+  /** The dialog element is stable across renders. Watch `open` on whichever node is current. */
+  private bindDialogObserver(): void {
+    const dialog = this.dialogEl;
+    if (!dialog || dialog === this.observedDialog) return;
+    this.dialogObserver?.disconnect();
+    this.observedDialog = dialog;
+    const observer = new MutationObserver(() => this.onNativeClose());
+    observer.observe(dialog, { attributes: true, attributeFilter: ['open'] });
+    this.dialogObserver = observer;
+  }
+
   private readonly onDialogClose = (): void => {
-    // Escape (and any native close) sets `open` false through the same path as Close.
-    // Disconnect closes the dialog too, and that must not navigate.
-    if (this.ignoreClose || this.suppressClose || !this.open) return;
-    this.dismiss('ui');
+    this.onNativeClose();
   };
+
+  /**
+   * Escape, the backdrop's close, and a direct `dialog.close()` all clear `open`. The
+   * event itself is a later task; the attribute change is observable on the microtask
+   * that `await updateComplete` flushes. A close that leaves the dialog open (a queued
+   * event after `showModal`, or a history traversal) is not the visitor dismissing it.
+   */
+  private onNativeClose(): void {
+    if (this.ignoreClose || this.suppressClose || !this.open) return;
+    if (this.dialogEl?.open) return;
+    if (this.reopenGuard) {
+      const view = this.ownerDocument.defaultView;
+      view?.queueMicrotask(() => {
+        if (this.open && this.isConnected && !this.dialogEl?.open) this.reveal();
+      });
+      return;
+    }
+    this.dismiss('ui');
+  }
 
   private readonly onFullSize = (): void => {
     const i = this.index;
@@ -745,13 +886,25 @@ export class UvalibLightbox extends UvalibElement {
     }
   }
 
+  private cancelReveal(): void {
+    const view = this.ownerDocument.defaultView;
+    if (this.revealFrame && view) view.cancelAnimationFrame(this.revealFrame);
+    this.revealFrame = 0;
+  }
+
   private reveal(): void {
     this.ensureRoot();
     const dialog = this.dialogEl;
     if (!this.open || !dialog) return;
     const again = () => {
-      if (this.revealTries++ > 8) return;
-      this.ownerDocument.defaultView?.requestAnimationFrame(() => {
+      if (this.revealTries++ > 8) {
+        this.ignoreClose = false;
+        return;
+      }
+      const view = this.ownerDocument.defaultView;
+      if (!view) return;
+      this.revealFrame = view.requestAnimationFrame(() => {
+        this.revealFrame = 0;
         if (this.open) this.reveal();
       });
     };
@@ -768,12 +921,14 @@ export class UvalibLightbox extends UvalibElement {
       }
     }
     this.revealTries = 0;
-    this.closeBtn?.focus();
-    // A close event queued by the dialog we just shut must not dismiss this open.
-    this.ownerDocument.defaultView?.requestAnimationFrame(() => {
-      this.ignoreClose = false;
-      if (this.open && this.dialogEl?.open) this.closeBtn?.focus();
-    });
+    this.cancelReveal();
+    // A close event already queued by the dialog we shut must not dismiss this open.
+    // Clearing the guard here is synchronous, so Escape after this update still closes.
+    this.ignoreClose = false;
+    // A later reveal (a retry, or the history traversal showing the dialog again) must
+    // not pull focus back to Close after the visitor has moved it inside the dialog.
+    const active = this.shadowRoot?.activeElement ?? this.ownerDocument.activeElement;
+    if (!active || !dialog.contains(active)) this.closeBtn?.focus();
   }
 
   /** A cached image may already be complete before the load listener runs. */
@@ -837,10 +992,7 @@ export class UvalibLightbox extends UvalibElement {
     const still: typeof this.parked = [];
     for (const item of this.parked) {
       if (keep.has(item.el) && this.detailsBox?.contains(item.el)) still.push(item);
-      else {
-        item.el.hidden = item.hidden;
-        item.parent.insertBefore(item.el, item.next);
-      }
+      else this.putBack(item);
     }
     this.parked = still;
     const box = this.detailsBox;
@@ -857,11 +1009,18 @@ export class UvalibLightbox extends UvalibElement {
     this.parkedKey = key;
   }
 
+  /**
+   * Put a parked element back. Restoring later siblings first keeps `next` inside `parent`;
+   * if it is not (it was parked too), insert at the end instead of throwing NotFoundError.
+   */
+  private putBack(item: (typeof this.parked)[number]): void {
+    item.el.hidden = item.hidden;
+    const next = item.next?.parentNode === item.parent ? item.next : null;
+    item.parent.insertBefore(item.el, next);
+  }
+
   private restoreDetails(): void {
-    for (const item of this.parked) {
-      item.el.hidden = item.hidden;
-      item.parent.insertBefore(item.el, item.next);
-    }
+    for (let i = this.parked.length - 1; i >= 0; i--) this.putBack(this.parked[i]!);
     this.parked = [];
     this.parkedKey = '';
   }

@@ -138,6 +138,68 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       expect(warns.filter((w) => w.includes('not a link or a button'))).to.have.length(1);
     });
 
+    it('skips an anchor that has no href, and warns once', async () => {
+      const warns = await warnings(async () => {
+        const el = await make(
+          `<a><img alt="Nowhere" width="80" height="40"></a><a href="${PNG}"><img alt="Kept" width="80" height="40"></a>`,
+        );
+        const [bare, kept] = [...el.querySelectorAll('a')];
+        expect(bare!.style.getPropertyValue('--ar')).to.equal('');
+        expect(bare!.querySelector('.caption')).to.equal(null);
+        expect(kept!.style.getPropertyValue('--ar')).to.equal('2.0000');
+      });
+      expect(warns.filter((w) => w.includes('not a link or a button'))).to.have.length(1);
+    });
+
+    it('keeps a cleared alt for the lightbox and does not caption an aria-label', async () => {
+      const host = await fixture<HTMLElement>(
+        `<uvalib-lightbox ${attr}><uvalib-photo-grid ${attr}>
+          <a href="${PNG}" data-caption="Short title"><img alt="Detailed description" width="80" height="40"></a>
+          <a href="${PNG}" aria-label="Named photo"><img alt="Named photo" width="40" height="40"></a>
+          <a href="${PNG}" aria-label="Short name"><img alt="Longer than the name" width="40" height="40"></a>
+        </uvalib-photo-grid></uvalib-lightbox>`,
+      );
+      const grid = host.querySelector('uvalib-photo-grid')!;
+      const [described, named, longer] = [...grid.querySelectorAll('a')];
+      const describedImg = described!.querySelector('img')!;
+      expect(describedImg.getAttribute('data-uvalib-alt')).to.equal('Detailed description');
+      expect(describedImg.getAttribute('alt')).to.equal('');
+      expect(described!.querySelector('.caption')!.textContent).to.equal('Detailed description');
+      expect(named!.querySelector('.caption')).to.equal(null);
+      expect(named!.querySelector('img')!.getAttribute('alt')).to.equal('');
+      expect(named!.querySelector('img')!.getAttribute('data-uvalib-alt')).to.equal('Named photo');
+      expect(longer!.querySelector('.caption')).to.equal(null);
+      expect(longer!.querySelector('img')!.getAttribute('alt')).to.equal('Longer than the name');
+      await expectNoAxeViolations(grid);
+
+      described!.click();
+      await (host as HTMLElement & { updateComplete: Promise<unknown> }).updateComplete;
+      await nextFrame();
+      const dialog = (host.shadowRoot ?? host).querySelector('dialog')!;
+      expect(dialog.querySelector('.caption')!.textContent).to.equal('Short title');
+      expect(dialog.querySelector('img')!.getAttribute('alt')).to.equal('Detailed description');
+    });
+
+    it('renumbers a generated Photo N caption when a photo is inserted before it', async () => {
+      const warns = await warnings(async () => {
+        const el = await make(`<a href="${PNG}"><img width="80" height="40"></a>`);
+        const first = el.querySelector('.caption')!;
+        expect(first.textContent).to.equal('Photo 1');
+        expect(first.hasAttribute('data-uvalib-generated')).to.equal(true);
+        const extra = document.createElement('a');
+        extra.href = PNG;
+        extra.innerHTML = '<img width="40" height="40">';
+        el.insertBefore(extra, el.querySelector('a'));
+        await nextFrame();
+        const captions = [...el.querySelectorAll('a .caption')].map((n) => n.textContent);
+        expect(captions).to.deep.equal(['Photo 1', 'Photo 2']);
+        expect(extra.querySelector('.caption')!.hasAttribute('data-uvalib-generated')).to.equal(
+          true,
+        );
+      });
+      expect(warns.filter((w) => w.includes('no accessible name'))).to.have.length(1);
+    });
+
     it('keeps the ratio, the 44px target and the focus ring with no-style', async () => {
       const el = await make(
         `<a href="${PNG}"><img alt="Lawn" width="80" height="40"></a>`,

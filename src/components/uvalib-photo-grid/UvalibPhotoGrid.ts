@@ -111,7 +111,10 @@ const LENGTH = /^\d+(\.\d+)?(px|rem|em|vh|vw|vmin|vmax|ch|%)?$/;
  *
  * Every item stays a real link or button. An image with no visible text gets a visible
  * caption from its alt (the caption is then the accessible name, and a repeated alt is
- * cleared). An item with no name at all is captioned “Photo N” and warned about once.
+ * cleared). The original alt is kept in `data-uvalib-alt` so a lightbox still describes
+ * the picture. An item with no name at all is captioned “Photo N” and warned about once;
+ * that caption is renumbered when the photos change order. An `aria-label` is left as the
+ * name: the grid does not add a caption that would disagree with it.
  * Put the grid inside `<uvalib-lightbox>` and a plain click opens the viewer.
  *
  * @tagname uvalib-photo-grid
@@ -222,7 +225,7 @@ export class UvalibPhotoGrid extends UvalibElement {
   private items(): HTMLElement[] {
     return [...this.children].filter((n): n is HTMLElement => {
       if (!(n instanceof HTMLElement) || n === this.mount) return false;
-      return n.localName === 'a' || n.localName === 'button';
+      return isPhoto(n);
     });
   }
 
@@ -231,7 +234,7 @@ export class UvalibPhotoGrid extends UvalibElement {
     for (const n of this.children) {
       if (n === this.mount || n.nodeType !== Node.ELEMENT_NODE) continue;
       const el = n as HTMLElement;
-      if (el.localName !== 'a' && el.localName !== 'button') skipped = true;
+      if (!isPhoto(el)) skipped = true;
     }
     if (skipped) this.warn();
     this.items().forEach((item, i) => {
@@ -266,17 +269,19 @@ export class UvalibPhotoGrid extends UvalibElement {
    */
   private ensureCaption(item: HTMLElement, index: number): void {
     const img = item.querySelector('img');
+    rememberAlt(img);
     const visible = visibleText(item);
+    const aria = normalize(item.getAttribute('aria-label'));
     const caption = [...item.children].find((n) => n.classList.contains('caption'));
-    if (visible) {
+    // An aria-label is already the name. A caption with different text fails
+    // label-content-name-mismatch, so do not add one.
+    const name = visible || aria;
+    if (name) {
       caption?.remove();
-      if (img && normalize(img.getAttribute('alt')) === visible) img.setAttribute('alt', '');
+      if (img && normalize(img.getAttribute('alt')) === name) img.setAttribute('alt', '');
       return;
     }
-    const alt = normalize(img?.getAttribute('alt'));
-    // A caption we already added is the name. Clearing a duplicate alt must not replace it
-    // with "Photo N" on the mutation that follows.
-    if (!alt && caption instanceof HTMLElement && normalize(caption.textContent)) return;
+    const alt = normalize(img?.getAttribute('data-uvalib-alt'));
     const text = alt || `Photo ${index + 1}`;
     let node = caption instanceof HTMLElement ? caption : null;
     if (!node) {
@@ -284,6 +289,8 @@ export class UvalibPhotoGrid extends UvalibElement {
       node.className = 'caption';
       item.append(node);
     }
+    if (alt) node.removeAttribute('data-uvalib-generated');
+    else node.setAttribute('data-uvalib-generated', '');
     if (node.textContent !== text) node.textContent = text;
     if (img && normalize(img.getAttribute('alt')) === text) img.setAttribute('alt', '');
     else if (img && !img.hasAttribute('alt')) img.setAttribute('alt', '');
@@ -301,6 +308,18 @@ export class UvalibPhotoGrid extends UvalibElement {
   protected override render() {
     return this.isLight ? html`` : html`<slot></slot>`;
   }
+}
+
+/** A photo is a button or a link that can actually be followed. */
+function isPhoto(el: HTMLElement): boolean {
+  return el.localName === 'button' || (el.localName === 'a' && el.hasAttribute('href'));
+}
+
+/** Keep the author's alt before a duplicate is cleared, so a lightbox can still read it. */
+function rememberAlt(img: HTMLImageElement | null): void {
+  if (!img) return;
+  const current = img.getAttribute('alt');
+  if (current && normalize(current)) img.setAttribute('data-uvalib-alt', current);
 }
 
 function positive(raw: string | null): number {
