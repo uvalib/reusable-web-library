@@ -93,6 +93,17 @@ const descendantRules = (tag: string) => `
   ${tag} > button {
     position: relative;
   }
+  ${tag} .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
   ${tag} .badge,
   ${tag} [slot='badge'] {
     position: absolute;
@@ -145,10 +156,10 @@ const LENGTH = /^\d+(\.\d+)?(px|rem|em|vh|vw|vmin|vmax|ch|%)?$/;
  * Put the grid inside `<uvalib-lightbox>` and a plain click opens the viewer.
  *
  * A badge sits on the thumbnail: `<span slot="badge">` inside the link or button, or
- * `data-badge` on that item (for example “seq” or “3 photos”). It is visible text, so it is
- * part of the item’s accessible name. When the item already has an `aria-label`, the badge
- * is appended to that label (the author’s words stay in `data-uvalib-label`). A badge does
- * not replace the alt caption.
+ * `data-badge` on that item (for example “seq” or “3 photos”). It is read after the
+ * caption (“The Lawn, 3 photos”). When the item already has an `aria-label`, the badge
+ * is appended to that label (the author’s words stay in `data-uvalib-label`) and an alt
+ * that repeats those words is cleared. A badge does not replace the alt caption.
  *
  * @tagname uvalib-photo-grid
  * @slot - The thumbnails: one `<a href>` or `<button>` per photo, each with an `<img>`. A `<span slot="badge">` inside an item is drawn over that thumbnail.
@@ -200,14 +211,6 @@ export class UvalibPhotoGrid extends UvalibElement {
     this.install(light);
     this.applyRow();
     this.layout();
-    this.observer ??= new MutationObserver(() => this.layout());
-    this.observer.disconnect();
-    this.observer.observe(this, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['width', 'height', 'alt', 'src', 'data-badge', 'slot'],
-    });
     // `load` does not bubble; capture sees an image finish so a ratio can replace the default.
     this.addEventListener('load', this.onLoad, true);
   }
@@ -262,19 +265,35 @@ export class UvalibPhotoGrid extends UvalibElement {
     });
   }
 
-  private layout(): void {
-    let skipped = false;
-    for (const n of this.children) {
-      if (n === this.mount || n.nodeType !== Node.ELEMENT_NODE) continue;
-      const el = n as HTMLElement;
-      if (!isPhoto(el)) skipped = true;
-    }
-    if (skipped) this.warn();
-    this.items().forEach((item, i) => {
-      item.style.setProperty('--ar', this.ratio(item).toFixed(4));
-      this.ensureBadge(item);
-      this.ensureCaption(item, i);
+  private arm(): void {
+    this.observer ??= new MutationObserver(() => this.layout());
+    this.observer.observe(this, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['width', 'height', 'alt', 'src', 'data-badge', 'slot'],
     });
+  }
+
+  private layout(): void {
+    this.observer?.disconnect();
+    try {
+      let skipped = false;
+      for (const n of this.children) {
+        if (n === this.mount || n.nodeType !== Node.ELEMENT_NODE) continue;
+        const el = n as HTMLElement;
+        if (!isPhoto(el)) skipped = true;
+      }
+      if (skipped) this.warn();
+      this.items().forEach((item, i) => {
+        item.style.setProperty('--ar', this.ratio(item).toFixed(4));
+        this.ensureBadge(item);
+        this.ensureCaption(item, i);
+        this.orderBadge(item);
+      });
+    } finally {
+      if (this.isConnected) this.arm();
+    }
   }
 
   private warn(): void {
@@ -325,7 +344,7 @@ export class UvalibPhotoGrid extends UvalibElement {
           generated = this.ownerDocument.createElement('span');
           generated.className = 'badge';
           generated.setAttribute('data-uvalib-generated-badge', '');
-          item.insertBefore(generated, item.firstChild);
+          item.append(generated);
         }
         if (generated.textContent !== data) generated.textContent = data;
         text = data;
@@ -373,7 +392,7 @@ export class UvalibPhotoGrid extends UvalibElement {
     const name = visible || aria;
     if (name) {
       caption?.remove();
-      if (img && normalize(img.getAttribute('alt')) === name) img.setAttribute('alt', '');
+      if (img) this.clearRepeatedAlt(item, img, name);
       return;
     }
     const alt = normalize(img?.getAttribute('data-uvalib-alt'));
@@ -382,7 +401,9 @@ export class UvalibPhotoGrid extends UvalibElement {
     if (!node) {
       node = this.ownerDocument.createElement('span');
       node.className = 'caption';
-      item.append(node);
+      const badge = this.badgeEl(item);
+      if (badge) item.insertBefore(node, badge);
+      else item.append(node);
     }
     if (alt) node.removeAttribute('data-uvalib-generated');
     else node.setAttribute('data-uvalib-generated', '');
@@ -390,6 +411,55 @@ export class UvalibPhotoGrid extends UvalibElement {
     if (img && normalize(img.getAttribute('alt')) === text) img.setAttribute('alt', '');
     else if (img && !img.hasAttribute('alt')) img.setAttribute('alt', '');
     if (!alt) this.warnNameless();
+  }
+
+  /** An alt that repeats the accessible name, or the label before the badge was appended. */
+  private clearRepeatedAlt(item: HTMLElement, img: HTMLImageElement, name: string): void {
+    const alt = normalize(img.getAttribute('alt'));
+    const stored = normalize(item.getAttribute('data-uvalib-label'));
+    if (alt && (alt === name || alt === stored)) img.setAttribute('alt', '');
+  }
+
+  /**
+   * Caption, then a hidden comma, then the badge, so the name is “The Lawn, 3 photos”
+   * and not “3 photos The Lawn”. Only a generated badge is moved; an authored one stays.
+   */
+  private orderBadge(item: HTMLElement): void {
+    const badge = this.badgeEl(item);
+    const sep = [...item.children].find(
+      (n): n is HTMLElement => n instanceof HTMLElement && n.hasAttribute('data-uvalib-badge-sep'),
+    );
+    if (!badge) {
+      sep?.remove();
+      return;
+    }
+    const caption = [...item.children].find((n) => n.classList.contains('caption'));
+    if (badge.hasAttribute('data-uvalib-generated-badge') && caption instanceof HTMLElement) {
+      const anchor = sep && sep.nextSibling === badge ? sep : badge;
+      if (caption.nextSibling !== anchor) item.insertBefore(anchor, caption.nextSibling);
+    }
+    if (!(caption instanceof HTMLElement)) {
+      sep?.remove();
+      return;
+    }
+    const comma =
+      sep ??
+      (() => {
+        const node = this.ownerDocument.createElement('span');
+        node.className = 'visually-hidden';
+        node.setAttribute('data-uvalib-badge-sep', '');
+        node.textContent = ', ';
+        return node;
+      })();
+    if (comma.nextSibling !== badge) badge.before(comma);
+  }
+
+  private badgeEl(item: HTMLElement): HTMLElement | undefined {
+    return [...item.children].find(
+      (n): n is HTMLElement =>
+        n instanceof HTMLElement &&
+        (n.hasAttribute('data-uvalib-generated-badge') || n.getAttribute('slot') === 'badge'),
+    );
   }
 
   private warnNameless(): void {

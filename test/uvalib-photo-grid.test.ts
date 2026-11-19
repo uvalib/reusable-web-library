@@ -334,5 +334,34 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       expect(bare.querySelector('.caption')!.textContent).to.equal('The Lawn');
       await expectNoAxeViolations(bare);
     });
+
+    it('reads the caption before the badge and clears an alt that repeats the label', async () => {
+      const el = await make(
+        `<a id="lawn" href="#lawn" data-badge="3 photos"><img alt="The Lawn" width="80" height="40"></a>
+         <a id="seq" href="#seq" aria-label="Rotunda sequence"><img alt="Rotunda sequence" width="40" height="40"><span slot="badge">seq</span></a>`,
+      );
+      const lawn = el.querySelector<HTMLAnchorElement>('#lawn')!;
+      const text = lawn.innerText.replace(/\s+/g, ' ').trim();
+      expect(text.indexOf('The Lawn') < text.indexOf('3 photos')).to.equal(true);
+      expect(text.includes(',')).to.equal(true);
+      const seq = el.querySelector<HTMLAnchorElement>('#seq')!;
+      expect(seq.querySelector('img')!.getAttribute('alt')).to.equal('');
+      expect(seq.querySelector('img')!.getAttribute('data-uvalib-alt')).to.equal(
+        'Rotunda sequence',
+      );
+      const host = await fixture<HTMLElement>(
+        `<uvalib-lightbox ${attr}><uvalib-photo-grid ${attr}>
+          <a id="plain" href="${PNG}" data-badge="3 photos"><img width="40" height="40"></a>
+        </uvalib-photo-grid></uvalib-lightbox>`,
+      );
+      host.querySelector<HTMLAnchorElement>('#plain')!.click();
+      await (host as HTMLElement & { updateComplete: Promise<unknown> }).updateComplete;
+      await nextFrame();
+      const dialog = (host.shadowRoot ?? host).querySelector('dialog')!;
+      expect(dialog.open).to.equal(true);
+      const caption = dialog.querySelector('.caption')!.textContent ?? '';
+      expect(caption.includes('3 photos')).to.equal(false);
+      expect(caption).to.equal('Photo 1');
+    });
   });
 }
