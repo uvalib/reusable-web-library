@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.1.1 — 2026-11-19
+
+### Features
+
+- request components, features and fixes through GitHub issues
+
+### Other
+
+- Merge branch 'feat/skill-issue-requests'
+- Merge branch 'docs/skill-prompts'
+
 ## v1.1.0 — 2026-11-19
 
 ### Features
