@@ -17,8 +17,36 @@ const load = (name) => import(pathToFileURL(join(root, 'dist/styles', `${name}.j
 const { tokens } = await load('tokens');
 const { colorScheme } = await load('color-scheme');
 writeFileSync(join(outDir, 'tokens.css'), `${tokens.cssText}\n${colorScheme.cssText}`);
-// base.css: the page-level base rules (which <site-page> also installs), then the button,
-// toggle and form classes for host content (base.css only).
+// base.css: the page-level base rules (which <site-page> also installs), the dark-mode role
+// tokens those rules and the controls read (so a page that links base.css alone, without
+// tokens.css, is still readable under data-uva-color-scheme), then the button, toggle and
+// form classes for host content (base.css only). The tokens are copied from tokens.css's
+// own opt-in block, with the same values; each one base.css reads must exist there.
 const { base } = await load('base');
 const { controls } = await load('controls');
-writeFileSync(join(outDir, 'base.css'), `${base.cssText}\n${controls.cssText}`);
+const roles = [
+  ...new Set(
+    [...`${base.cssText}${controls.cssText}`.matchAll(/var\((--uva-color-[a-z-]+)/g)].map(
+      (m) => m[1],
+    ),
+  ),
+];
+const decls = roles.map((name) => {
+  const m = colorScheme.cssText.match(new RegExp(`${name}:\\s*([^;]+);`));
+  if (!m) throw new Error(`emit-css: ${name} is not a role token in color-scheme.ts`);
+  return `    ${name}: ${m[1]};`;
+});
+const schemes = [
+  ['system', 'light dark'],
+  ['light', 'light'],
+  ['dark', 'dark'],
+]
+  .map(([k, v]) => `  :root[data-uva-color-scheme='${k}'] {\n    color-scheme: ${v};\n  }`)
+  .join('\n');
+const pageRoles = `@supports (color: light-dark(#000, #fff)) {
+  :root[data-uva-color-scheme] {
+${decls.join('\n')}
+  }
+${schemes}
+}`;
+writeFileSync(join(outDir, 'base.css'), `${base.cssText}\n${pageRoles}\n${controls.cssText}`);

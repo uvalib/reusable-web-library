@@ -12,10 +12,21 @@ import { css, unsafeCSS } from 'lit';
 // 44px minimum target (small: 32px), the library focus ring, readable disabled text, and
 // no full-width buttons on phones (the theme's) or outer margins.
 //
-// The components that render their own `.uvalib-button` (bento-box's sections,
-// events-section, library-weekly-hours) keep their compact outline look in light DOM too:
-// these rules skip their descendants.
-const BUTTON = '.uvalib-button:not(bento-section *, events-section *, library-weekly-hours *)';
+// The components that render their own `.uvalib-button` (bento-box, its four section
+// elements, events-section, library-weekly-hours) keep their compact outline look in light
+// DOM too: these rules skip their descendants. Keep this list in step with them.
+export const OWN_BUTTON_TAGS = [
+  'bento-box',
+  'catalog-section',
+  'articles-section',
+  'libguides-section',
+  'website-section',
+  'events-section',
+  'library-weekly-hours',
+];
+const BUTTON = `.uvalib-button:not(${OWN_BUTTON_TAGS.map((t) => `${t} *`).join(', ')})`;
+/** Not disabled: hover and active never change a disabled button. */
+const ON = ":not(:disabled, [aria-disabled='true'])";
 const B = unsafeCSS(BUTTON);
 
 /**
@@ -25,6 +36,9 @@ const B = unsafeCSS(BUTTON);
 const S = unsafeCSS(
   `${BUTTON}:where(.uvalib-button--secondary:not([aria-pressed='true']), [aria-pressed]:not([aria-pressed='true']))`,
 );
+
+/** The subtle variant; a pressed toggle is filled whatever its variant. */
+const SUB = unsafeCSS(`${BUTTON}:where(.uvalib-button--subtle:not([aria-pressed='true']))`);
 
 // Every state rule is as specific as :hover (one pseudo-class past the base rule), so the
 // later rule wins: disabled comes last and beats hover and active.
@@ -53,11 +67,11 @@ export const controls = css`
   ${B}:visited {
     color: var(--uva-color-button-text, #ffffff);
   }
-  ${B}:hover {
+  ${B}${unsafeCSS(ON)}:hover {
     border-color: var(--uva-color-button-hover-bg, var(--uva-blue-alt-A, #005679));
     background: var(--uva-color-button-hover-bg, var(--uva-blue-alt-A, #005679));
   }
-  ${B}:active {
+  ${B}${unsafeCSS(ON)}:active {
     border-color: var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
     background: var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
   }
@@ -66,20 +80,20 @@ export const controls = css`
     background: transparent;
     color: var(--uva-color-button-bg, var(--uva-blue-alt, #007bac));
   }
-  ${S}:hover {
+  ${S}${unsafeCSS(ON)}:hover {
     background: transparent;
     color: var(--uva-color-button-hover-bg, var(--uva-blue-alt-A, #005679));
   }
-  ${S}:active {
+  ${S}${unsafeCSS(ON)}:active {
     background: transparent;
     color: var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
   }
-  ${B}:where(.uvalib-button--subtle),
-  ${B}:where(.uvalib-button--subtle):visited {
+  ${SUB},
+  ${SUB}:visited {
     background: var(--uva-color-button-subtle-bg, var(--uva-blue-alt-300, #bfe7f7));
     color: var(--uva-color-text, var(--uva-grey-darkest, #2b2b2b));
   }
-  ${B}:where(.uvalib-button--subtle):is(:hover, :active) {
+  ${SUB}${unsafeCSS(ON)}:is(:hover, :active) {
     border-color: var(--uva-color-button-bg, var(--uva-blue-alt, #007bac));
     background: var(--uva-color-button-subtle-hover-bg, var(--uva-blue-alt-200, #91d8f2));
   }
@@ -125,6 +139,7 @@ export const controls = css`
     background: var(--uva-color-track, var(--uva-grey-100, #dadada));
     color: var(--uva-color-text-muted, var(--uva-grey-A, #4f4f4f));
     cursor: not-allowed;
+    pointer-events: none;
   }
   .uvalib-input {
     box-sizing: border-box;
@@ -169,7 +184,20 @@ export const controls = css`
       background: Highlight;
       color: HighlightText;
     }
-    ${B}:is(:disabled, [aria-disabled='true']) {
+    /* Hover and active: a Highlight outline and text, as forced colors drop the fills. */
+    ${B}${unsafeCSS(ON)}:is(:hover, :active) {
+      border-color: Highlight;
+      color: Highlight;
+    }
+    ${B}[aria-pressed='true']${unsafeCSS(ON)}:is(:hover, :active) {
+      border-color: CanvasText;
+      color: HighlightText;
+    }
+    ${B}${unsafeCSS(ON)}:active {
+      border-style: dashed;
+    }
+    ${B}:is(:disabled, [aria-disabled='true']),
+    a${B}:is(:disabled, [aria-disabled='true']) {
       border-color: GrayText;
       color: GrayText;
     }

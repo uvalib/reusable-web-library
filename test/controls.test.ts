@@ -1,7 +1,7 @@
 // base.css's button, toggle and form classes for host content, checked in an iframe that
 // links only the built stylesheets (dist-cdn), as a host page would.
 import { expect } from '@open-wc/testing';
-import { emulateMedia } from '@web/test-runner-commands';
+import { emulateMedia, resetMouse, sendMouse } from '@web/test-runner-commands';
 import { expectNoAxeViolations } from './helpers/axe.js';
 
 const SAMPLE = `
@@ -30,11 +30,22 @@ const SAMPLE = `
       <button class="uvalib-button" id="off" type="button" aria-pressed="false">Show original line breaks</button>
       <button class="uvalib-button" id="on" type="button" aria-pressed="true">Show original line breaks</button>
     </p>
+    <p>
+      <button class="uvalib-button uvalib-button--subtle" id="subtle-off" type="button" aria-pressed="false">Subtle toggle</button>
+      <button class="uvalib-button uvalib-button--subtle" id="subtle-on" type="button" aria-pressed="true">Subtle toggle</button>
+      <button class="uvalib-button uvalib-button--secondary" id="sec-on" type="button" aria-pressed="true">Secondary toggle</button>
+      <button class="uvalib-button uvalib-button--subtle" id="dsubtle" type="button" aria-disabled="true">Busy</button>
+      <a class="uvalib-button" id="dlink" href="#top" aria-disabled="true">Unavailable</a>
+    </p>
     <events-section><button class="uvalib-button" id="own" type="button">Retry</button></events-section>
   </main>`;
 
 async function frame(
-  { dark = false, width = 800 }: { dark?: boolean; width?: number } = {},
+  {
+    dark = false,
+    width = 800,
+    tokens = true,
+  }: { dark?: boolean; width?: number; tokens?: boolean } = {},
   body = SAMPLE,
 ): Promise<HTMLIFrameElement> {
   const iframe = document.createElement('iframe');
@@ -42,11 +53,14 @@ async function frame(
   const cdn = `${location.origin}/dist-cdn/`;
   iframe.srcdoc = `<!doctype html><html lang="en" ${dark ? 'data-uva-color-scheme="dark"' : ''}>
     <head><title>Controls</title>
-    <link rel="stylesheet" href="${cdn}tokens.css" />
+    ${tokens ? `<link rel="stylesheet" href="${cdn}tokens.css" />` : ''}
     <link rel="stylesheet" href="${cdn}base.css" /></head>
     <body>${body}</body></html>`;
   document.body.append(iframe);
   await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+  // Pressing a link or submit button must never navigate: cancel every click and submit.
+  for (const type of ['click', 'submit'])
+    iframe.contentDocument!.addEventListener(type, (e) => e.preventDefault(), true);
   return iframe;
 }
 
@@ -74,7 +88,25 @@ describe('base.css buttons and forms', function () {
   const $ = (id: string) => doc.getElementById(id)!;
   const cs = (id: string, pseudo?: string) => win.getComputedStyle($(id), pseudo);
 
+  /** Move the real mouse over an element of the frame (and press it with `down`). */
+  async function hover(id: string, down = false) {
+    const f = iframe.getBoundingClientRect();
+    const r = $(id).getBoundingClientRect();
+    const position: [number, number] = [
+      Math.round(f.left + r.left + r.width / 2),
+      Math.round(f.top + r.top + r.height / 2),
+    ];
+    await sendMouse({ type: 'move', position });
+    if (down) await sendMouse({ type: 'down' });
+  }
+  const look = (id: string) => {
+    const c = cs(id);
+    return [c.backgroundColor, c.color, c.borderTopColor, c.borderTopStyle].join(' ');
+  };
+
   afterEach(async () => {
+    await sendMouse({ type: 'up' }).catch(() => {});
+    await resetMouse();
     iframe?.remove();
     await emulateMedia({ forcedColors: 'none', colorScheme: 'light' });
   });
@@ -177,6 +209,41 @@ describe('base.css buttons and forms', function () {
       expect(input!.height).to.be.at.least(44);
     });
 
+    it('hover and active change every enabled variant', async () => {
+      for (const id of ['primary', 'secondary', 'subtle', 'off', 'link']) {
+        await resetMouse();
+        const rest = look(id);
+        await hover(id);
+        const hovered = look(id);
+        expect(hovered, `${id} hover`).to.not.equal(rest);
+        await hover(id, true);
+        expect(look(id), `${id} active`).to.not.equal(rest);
+        await sendMouse({ type: 'up' });
+      }
+    });
+
+    it('a pressed toggle is filled with a tick, whatever its variant', () => {
+      const filled = cs('on').backgroundColor;
+      for (const id of ['subtle-on', 'sec-on']) {
+        expect(cs(id).backgroundColor, id).to.equal(filled);
+        expect(cs(id).color, id).to.equal('rgb(255, 255, 255)');
+        expect(cs(id, '::before').content, id).to.match(/^"✓"/);
+      }
+      expect(cs('subtle-off').backgroundColor).to.not.equal(filled);
+      expect(cs('subtle-off', '::before').content).to.equal('""');
+    });
+
+    it('disabled buttons and links ignore the pointer: no hover or active change', async () => {
+      for (const id of ['disabled', 'adisabled', 'dsubtle', 'dlink']) {
+        await resetMouse();
+        const rest = look(id);
+        expect(cs(id).pointerEvents, id).to.equal('none');
+        await hover(id, true);
+        expect(look(id), id).to.equal(rest);
+        await sendMouse({ type: 'up' });
+      }
+    });
+
     it('has no axe violations', async () => {
       await expectNoAxeViolations(doc.documentElement);
     });
@@ -220,6 +287,32 @@ describe('base.css buttons and forms', function () {
     });
   });
 
+  describe('dark with base.css alone (no tokens.css)', () => {
+    beforeEach(async () => {
+      iframe = await frame({ dark: true, tokens: false });
+      doc = iframe.contentDocument!;
+      win = iframe.contentWindow!;
+    });
+
+    it('carries the role tokens it needs, so text and controls stay readable', () => {
+      const page = win.getComputedStyle(doc.body);
+      expect(page.backgroundColor).to.equal('rgb(16, 23, 43)');
+      expect(contrast(page.color, page.backgroundColor)).to.be.at.least(7);
+      const s = cs('primary');
+      expect(s.backgroundColor).to.equal('rgb(85, 196, 236)');
+      expect(contrast(s.color, s.backgroundColor)).to.be.at.least(7);
+      expect(contrast(cs('secondary').color, page.backgroundColor)).to.be.at.least(4.5);
+      const input = cs('q');
+      expect(contrast(input.color, input.backgroundColor)).to.be.at.least(7);
+      const label = win.getComputedStyle(doc.querySelector('label')!);
+      expect(contrast(label.color, page.backgroundColor)).to.be.at.least(7);
+    });
+
+    it('has no axe violations', async () => {
+      await expectNoAxeViolations(doc.documentElement);
+    });
+  });
+
   describe('forced colors', () => {
     beforeEach(async () => {
       await emulateMedia({ forcedColors: 'active' });
@@ -236,6 +329,28 @@ describe('base.css buttons and forms', function () {
       }
       expect(cs('on').backgroundColor).to.not.equal(cs('off').backgroundColor);
       expect(cs('on', '::before').content).to.match(/^"✓"/);
+    });
+
+    it('hover and active stay visible for every variant', async () => {
+      for (const id of ['primary', 'secondary', 'subtle', 'off', 'on', 'link']) {
+        await resetMouse();
+        const rest = look(id);
+        await hover(id);
+        expect(look(id), `${id} hover`).to.not.equal(rest);
+        await hover(id, true);
+        const active = look(id);
+        expect(active, `${id} active`).to.not.equal(rest);
+        await sendMouse({ type: 'up' });
+      }
+    });
+
+    it('disabled buttons and links are GrayText', () => {
+      const gray = cs('disabled').color;
+      for (const id of ['adisabled', 'dsubtle', 'dlink']) {
+        expect(cs(id).color, id).to.equal(gray);
+        expect(cs(id).borderTopColor, id).to.equal(gray);
+      }
+      expect(cs('link').color).to.not.equal(gray);
     });
   });
 });
