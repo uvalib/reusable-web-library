@@ -840,12 +840,12 @@ site-footer footer {
       <h1>People</h1>
       <uvalib-card-grid>
         <uvalib-card media-shape="circle" href="#ada">
-          <img slot="media" alt="Ada Lovelace" src="${iiif('1043731', ',440')}" width="5820" height="4668">
+          <img slot="media" alt="Portrait of Ada Lovelace" src="${iiif('1043731', ',440')}" width="5820" height="4668">
           <span slot="badge">3</span>
           <span slot="heading">Ada Lovelace</span>
         </uvalib-card>
         <uvalib-card media-shape="circle" href="#alan">
-          <img slot="media" alt="Alan Turing" src="${iiif('1039613', ',440')}" width="5882" height="4307">
+          <img slot="media" alt="Portrait of Alan Turing" src="${iiif('1039613', ',440')}" width="5882" height="4307">
           <span slot="heading">Alan Turing</span>
         </uvalib-card>
       </uvalib-card-grid>
