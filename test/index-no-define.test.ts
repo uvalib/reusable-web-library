@@ -24,6 +24,7 @@ describe('index', () => {
     expect(lib.UvalibPagefindSearch).to.be.a('function');
     expect(lib.UvalibLightbox).to.be.a('function');
     expect(lib.UvalibPhotoGrid).to.be.a('function');
+    expect(lib.UvalibChipGroup).to.be.a('function');
     expect(lib.SiteAlerts).to.be.a('function');
     expect(lib.UvalibAnalytics).to.be.a('function');
     expect(lib.SiteAnalyticsMixin).to.be.a('function');
@@ -56,6 +57,7 @@ describe('index', () => {
       'uvalib-pagefind-search',
       'uvalib-lightbox',
       'uvalib-photo-grid',
+      'uvalib-chip-group',
       'site-alerts',
       'site-hours-section',
       'library-weekly-hours',

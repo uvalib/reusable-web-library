@@ -107,6 +107,10 @@
       "types": "./dist/components/uvalib-photo-grid/uvalib-photo-grid.d.ts",
       "default": "./dist/components/uvalib-photo-grid/uvalib-photo-grid.js"
     },
+    "./uvalib-chip-group.js": {
+      "types": "./dist/components/uvalib-chip-group/uvalib-chip-group.d.ts",
+      "default": "./dist/components/uvalib-chip-group/uvalib-chip-group.js"
+    },
     "./site-alerts.js": {
       "types": "./dist/components/site-alerts/site-alerts.d.ts",
       "default": "./dist/components/site-alerts/site-alerts.js"

@@ -25,6 +25,7 @@ const TAGS = [
   'uvalib-pagefind-search',
   'uvalib-lightbox',
   'uvalib-photo-grid',
+  'uvalib-chip-group',
   'site-alerts',
   'site-hours-section',
   'library-weekly-hours',
