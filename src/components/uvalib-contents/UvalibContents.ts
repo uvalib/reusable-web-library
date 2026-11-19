@@ -432,9 +432,11 @@ export class UvalibContents extends UvalibElement {
       return found;
     }
     const base = this.ownerDocument.baseURI;
+    // A hash-only href is a place on this page, whatever the base URL (about:srcdoc frames).
+    const resolve = (h: string) => new URL(h, h.startsWith('#') ? this.here || base : base);
     let target: URL;
     try {
-      target = new URL(this.current || this.here || base, base);
+      target = resolve(this.current || this.here || base);
     } catch {
       return found;
     }
@@ -442,7 +444,7 @@ export class UvalibContents extends UvalibElement {
     const same = flat.flatMap((e) => {
       if (e.href === undefined) return [];
       try {
-        const u = new URL(e.href, base);
+        const u = resolve(e.href);
         return pageKey(u) === key ? [{ e, hash: u.hash }] : [];
       } catch {
         return [];
