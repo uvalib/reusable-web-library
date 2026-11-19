@@ -51,6 +51,10 @@ export const base = css`
     display: block;
     min-block-size: 1.5em;
   }
+  uvalib-tag-list:not(:defined)[hidden],
+  uvalib-results-count:not(:defined)[hidden] {
+    display: none;
+  }
   @keyframes uvalib-site-page-reveal {
     to {
       visibility: visible;

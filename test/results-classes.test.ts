@@ -53,7 +53,11 @@ const SAMPLE = `
   </main>`;
 
 async function frame(
-  { dark = false, width = 800 }: { dark?: boolean; width?: number } = {},
+  {
+    dark = false,
+    width = 800,
+    tokens = true,
+  }: { dark?: boolean; width?: number; tokens?: boolean } = {},
   body = SAMPLE,
 ): Promise<HTMLIFrameElement> {
   const iframe = document.createElement('iframe');
@@ -61,7 +65,7 @@ async function frame(
   const cdn = `${location.origin}/dist-cdn/`;
   iframe.srcdoc = `<!doctype html><html lang="en" ${dark ? 'data-uva-color-scheme="dark"' : ''}>
     <head><title>Results</title>
-    <link rel="stylesheet" href="${cdn}tokens.css" />
+    ${tokens ? `<link rel="stylesheet" href="${cdn}tokens.css" />` : ''}
     <link rel="stylesheet" href="${cdn}base.css" /></head>
     <body>${body}</body></html>`;
   document.body.append(iframe);
@@ -102,8 +106,11 @@ describe('base.css badges, toolbar, empty state and skeletons', function () {
   let win: Window;
   const $ = (id: string) => doc.getElementById(id)!;
   const cs = (id: string) => win.getComputedStyle($(id));
-  const open = async (opts?: { dark?: boolean; width?: number }) => {
-    iframe = await frame(opts);
+  const open = async (
+    opts?: { dark?: boolean; width?: number; tokens?: boolean },
+    body?: string,
+  ) => {
+    iframe = await frame(opts, body);
     doc = iframe.contentDocument!;
     win = iframe.contentWindow!;
   };
@@ -117,9 +124,14 @@ describe('base.css badges, toolbar, empty state and skeletons', function () {
     });
   });
 
-  for (const dark of [false, true]) {
-    describe(dark ? 'dark' : 'light', () => {
-      beforeEach(() => open({ dark }));
+  for (const [dark, tokens] of [
+    [false, true],
+    [true, true],
+    [false, false],
+    [true, false],
+  ] as const) {
+    describe(`${dark ? 'dark' : 'light'}${tokens ? '' : ', base.css alone'}`, () => {
+      beforeEach(() => open({ dark, tokens }));
 
       it('every badge has a text label at AA or better; status badges reach AAA', () => {
         for (const id of BADGES) {
@@ -182,6 +194,46 @@ describe('base.css badges, toolbar, empty state and skeletons', function () {
     expect(q.height).to.be.at.least(44);
   });
 
+  it('at 28em a search form and a growing field stack full width too', async () => {
+    await open(
+      { width: 476 },
+      `<main><h1>T</h1><div class="uvalib-toolbar" id="toolbar">
+        <form class="uvalib-search-form" role="search" id="form"><label for="s">Search</label><input class="uvalib-input" id="s" type="search" /><button class="uvalib-button" type="submit">Go</button></form>
+        <div class="uvalib-toolbar__field uvalib-toolbar__field--grow" id="grow"><label for="g">Filter</label><input class="uvalib-input" id="g" /></div>
+      </div></main>`,
+    );
+    const bar = $('toolbar').getBoundingClientRect();
+    for (const id of ['form', 'grow'])
+      expect($(id).getBoundingClientRect().width, id).to.be.closeTo(bar.width, 1);
+    expect($('grow').getBoundingClientRect().top).to.be.greaterThan(
+      $('form').getBoundingClientRect().bottom - 1,
+    );
+  });
+
+  it('hidden hides every class, though each sets display', async () => {
+    await open(
+      {},
+      `<main><h1>T</h1>${[
+        'uvalib-badge',
+        'uvalib-media',
+        'uvalib-media__badges',
+        'uvalib-toolbar',
+        'uvalib-toolbar__field',
+        'uvalib-toolbar__group',
+        'uvalib-toolbar__summary',
+        'uvalib-empty-state',
+        'uvalib-skeleton',
+        'uvalib-skeleton-text',
+      ]
+        .map((c) => `<div class="${c}" hidden>x</div>`)
+        .join(
+          '',
+        )}<uvalib-tag-list hidden>x</uvalib-tag-list><uvalib-results-count hidden></uvalib-results-count></main>`,
+    );
+    for (const n of doc.querySelectorAll('main [hidden]'))
+      expect(win.getComputedStyle(n).display, n.className || n.localName).to.equal('none');
+  });
+
   it('the toolbar stacks at 320px with no horizontal scroll', async () => {
     await open({ width: 320 });
     const bar = $('toolbar');
@@ -237,6 +289,10 @@ describe('base.css badges, toolbar, empty state and skeletons', function () {
       expect(s.borderTopColor, id).to.not.equal('rgba(0, 0, 0, 0)');
       expect(s.borderTopColor, id).to.not.equal(s.backgroundColor);
     }
+    // The count sits on a photo, which keeps its pixels: an opaque box with readable text.
+    const count = cs('count');
+    expect(channels(count.backgroundColor)[3] ?? 1).to.equal(1);
+    expect(contrast(count.color, count.backgroundColor)).to.be.at.least(7);
     await expectNoAxeViolations(doc.documentElement);
   });
 });

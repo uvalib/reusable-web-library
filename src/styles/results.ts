@@ -123,7 +123,8 @@ export const results = css`
   .uvalib-toolbar__field > .uvalib-input {
     inline-size: 100%;
   }
-  .uvalib-toolbar > :is(.uvalib-toolbar__field--grow, .uvalib-search-form) {
+  /* :where keeps it as specific as the phone rule below, which then wins. */
+  .uvalib-toolbar > :where(.uvalib-toolbar__field--grow, .uvalib-search-form) {
     flex: 1 1 16rem;
   }
   .uvalib-toolbar__group {
@@ -225,10 +226,32 @@ export const results = css`
     .uvalib-badge {
       border-color: CanvasText;
     }
+    /* Over a photo, which keeps its pixels: an opaque system-colour box, as the card badge. */
+    .uvalib-badge--count {
+      forced-color-adjust: none;
+      border-color: Canvas;
+      background: CanvasText;
+      color: Canvas;
+    }
     .uvalib-skeleton,
     .uvalib-skeleton-text {
       border: 1px solid GrayText;
       animation: none;
     }
+  }
+  /* The classes set display, which would beat the hidden attribute's. */
+  :is(
+    .uvalib-badge,
+    .uvalib-media,
+    .uvalib-media__badges,
+    .uvalib-toolbar,
+    .uvalib-toolbar__field,
+    .uvalib-toolbar__group,
+    .uvalib-toolbar__summary,
+    .uvalib-empty-state,
+    .uvalib-skeleton,
+    .uvalib-skeleton-text
+  )[hidden] {
+    display: none !important;
   }
 `;
