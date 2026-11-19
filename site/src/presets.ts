@@ -146,7 +146,28 @@ ${body}
 `;
 }
 
-const PHOTO = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+/**
+ * Example images from the Library's own IIIF server (never copied into this repository):
+ * Holsinger Studio photographs of Grounds (Albert and Shirley Small Special Collections
+ * Library, MSS 9862) and book pages from Electronic Text Collections. `iiif(id, region, size)`
+ * builds a IIIF Image API URL; tests and Lighthouse answer this host with local stand-ins.
+ */
+const iiif = (id: string, size: string, region = 'full') =>
+  `https://iiif.lib.virginia.edu/iiif/uva-lib:${id}/${region}/${size}/0/default.jpg`;
+/** One photo-grid link: the full-size image, a thumbnail about twice the row height. */
+const photo = (id: string, caption: string, w: number, h: number, region = 'full', key = id) =>
+  `          <a href="${iiif(id, '!1600,1600', region)}" data-caption="${caption}" data-id="${key}"><img src="${iiif(id, ',440', region)}" alt="${caption}" width="${w}" height="${h}" loading="lazy"></a>`;
+const PHOTOS = [
+  photo('1042806', 'Rotunda, north front in snow, 1914', 5805, 4729),
+  photo('1049095', 'The Lawn', 5867, 4668),
+  photo('1042806', 'Rotunda in snow (detail)', 2554, 4729, 'pct:28,0,44,100', '1042806-detail'),
+  photo('1043731', 'Rotunda and Lawn', 5820, 4668),
+  photo('1040162', 'Lawn games', 5888, 4723),
+  photo('1039613', 'Rotunda', 5882, 4307),
+].join('\n');
+/** Page links as Electronic Text Collections renders them (page images on IIIF). */
+const pageLink = (id: string, n: number) =>
+  `        <a class="page" href="${iiif(id, '!1600,1600')}" data-caption="Page ${n}" data-id="${n}">p. ${n}</a>`;
 
 export const presets: Preset[] = [
   {
@@ -598,12 +619,12 @@ site-footer footer {
           body: `    <site-page>
       <h1>Addison collection</h1>
       <uvalib-card href="#rotunda">
-        <img slot="media" alt="A courtyard arch" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" />
+        <img slot="media" alt="The Rotunda and Lawn, about 1910" src="${iiif('1043731', '!800,600')}" width="5820" height="4668" />
         <span slot="badge">13 photos</span>
         <span slot="heading">Rotunda</span>
         <time slot="meta" datetime="1910">1910</time>
         <span slot="chip">Architecture</span>
-        The west colonnade after the annex fire.
+        Holsinger Studio photographs of the Rotunda and the Lawn.
       </uvalib-card>
     </site-page>`,
         }),
@@ -802,10 +823,12 @@ article p {
       <h1>Photographs</h1>
       <uvalib-lightbox url-param="photo">
         <uvalib-photo-grid>
-          <a href="${PHOTO}" data-caption="The Rotunda" data-id="rotunda"><img alt="The Rotunda" width="160" height="80"></a>
-          <a href="${PHOTO}" data-caption="The Lawn" data-id="lawn"><img alt="The Lawn" width="80" height="80"></a>
+${PHOTOS}
         </uvalib-photo-grid>
-        <p slot="details">Photographs of the University.</p>
+        <p slot="details">
+          Holsinger Studio Collection (MSS 9862), Albert and Shirley Small Special Collections
+          Library, University of Virginia. Shown from the Library's IIIF image server.
+        </p>
       </uvalib-lightbox>
     </site-page>`,
         }),
@@ -826,10 +849,10 @@ article p {
           components: ['uvalib-lightbox'],
           body: `    <site-page>
       <h1>A reading page</h1>
+      <p>Smith, Richard Penn. <cite>The actress of Padua, and other tales</cite>, 1836. Page images:</p>
       <uvalib-lightbox selector="a.page" url-param="photo"></uvalib-lightbox>
       <p>
-        <a class="page" href="${PHOTO}" data-caption="Page 2" data-id="2">p. 2</a>
-        <a class="page" href="${PHOTO}" data-caption="Page 3" data-id="3">p. 3</a>
+${[286686, 286687, 286688, 286689].map((id, i) => pageLink(String(id), i + 2)).join('\n')}
       </p>
     </site-page>`,
         }),

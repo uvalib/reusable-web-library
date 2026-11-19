@@ -18,6 +18,7 @@
           "*pool-eds-ws.internal.lib.virginia.edu*",
           "*.execute-api.us-east-1.amazonaws.com*",
           "*static.lib.virginia.edu*",
+          "*iiif.lib.virginia.edu*",
           "*analytics.lib.virginia.edu*",
           "*://www.library.virginia.edu/*",
           "*://library.virginia.edu/*"

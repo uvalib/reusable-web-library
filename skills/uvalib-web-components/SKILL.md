@@ -304,8 +304,10 @@ A collection grid, a photo card and previous/next sections. The card's `href` is
         <uvalib-card href="#rotunda">
           <img
             slot="media"
-            alt="A courtyard arch"
-            src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+            alt="The Rotunda and Lawn, about 1910"
+            src="https://iiif.lib.virginia.edu/iiif/uva-lib:1043731/full/!800,600/0/default.jpg"
+            width="5820"
+            height="4668"
           />
           <span slot="badge">13 photos</span>
           <span slot="heading">Rotunda</span>
@@ -587,21 +589,36 @@ Use these instead of a hand-built gallery or a carousel. There is no autoplay.
       <uvalib-lightbox url-param="photo">
         <uvalib-photo-grid>
           <a
-            href="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
-            data-caption="The Rotunda"
-            data-id="rotunda"
+            href="https://iiif.lib.virginia.edu/iiif/uva-lib:1042806/full/!1600,1600/0/default.jpg"
+            data-caption="Rotunda, north front in snow, 1914"
+            data-id="1042806"
           >
-            <img alt="The Rotunda" width="160" height="80" />
+            <img
+              src="https://iiif.lib.virginia.edu/iiif/uva-lib:1042806/full/,440/0/default.jpg"
+              alt="Rotunda, north front in snow, 1914"
+              width="5805"
+              height="4729"
+              loading="lazy"
+            />
           </a>
           <a
-            href="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+            href="https://iiif.lib.virginia.edu/iiif/uva-lib:1049095/full/!1600,1600/0/default.jpg"
             data-caption="The Lawn"
-            data-id="lawn"
+            data-id="1049095"
           >
-            <img alt="The Lawn" width="80" height="80" />
+            <img
+              src="https://iiif.lib.virginia.edu/iiif/uva-lib:1049095/full/,440/0/default.jpg"
+              alt="The Lawn"
+              width="5867"
+              height="4668"
+              loading="lazy"
+            />
           </a>
         </uvalib-photo-grid>
-        <p slot="details">Photographs of the University.</p>
+        <p slot="details">
+          Holsinger Studio Collection (MSS 9862), Albert and Shirley Small Special Collections
+          Library, University of Virginia.
+        </p>
       </uvalib-lightbox>
     </site-page>
   </body>

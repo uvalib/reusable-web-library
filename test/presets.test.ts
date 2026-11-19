@@ -361,7 +361,7 @@ describe('playground presets', function () {
         const dialog = box.shadowRoot.querySelector('dialog')!;
         expect(dialog.open, id).to.equal(true);
         expect(dialog.querySelector('.caption')!.textContent).to.equal(
-          id === 'photo-grid' ? 'The Rotunda' : 'Page 2',
+          id === 'photo-grid' ? 'Rotunda, north front in snow, 1914' : 'Page 2',
         );
         expect(countMain(doc)).to.equal(1);
         await expectNoPageAxeViolations(doc);
