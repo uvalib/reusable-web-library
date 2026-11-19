@@ -3,6 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import { trackEvent } from '../../base/analytics.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
+import { langDir } from '../../base/inline-copy.js';
 import { normalize, safeHref, SourceChildren } from '../../base/source-children.js';
 import { accessible } from '../../styles/accessible.js';
 import { rightsName, specialCollectionsCitation } from './rights.js';
@@ -26,10 +27,24 @@ export interface MetadataItem {
   value: MetadataValue | MetadataValue[];
 }
 
-/** A row as drawn: each value is a template or copies of the author's nodes. */
+/**
+ * A value as drawn: a template or text (from `items`), or `source`, prepared copies of an
+ * author's `<dd>` content that are never inserted themselves (each render set clones them).
+ * `lang`/`dir` come from the source `<dd>`.
+ */
+interface Value {
+  content?: TemplateResult | string;
+  source?: Node[];
+  lang?: string;
+  dir?: string;
+}
+
+/** A row as drawn; `lang`/`dir` come from the source `<dt>`. */
 interface Row {
   label: string;
-  values: (TemplateResult | Node[] | string)[];
+  lang?: string;
+  dir?: string;
+  values: Value[];
 }
 
 const RIGHTS_INFO_TEXT = 'More about rights and permissions';
@@ -265,27 +280,52 @@ export class UvalibMetadata extends UvalibElement {
         if (!label) continue;
         // Several <dt> before their values name one row.
         if (row && !row.values.length) row.label += ` / ${label}`;
-        else rows.push((row = { label, values: [] }));
+        else rows.push((row = { label, values: [], ...langDir(c) }));
       } else if (c.localName === 'dd') {
         if (!row) {
           this.warnOnce('dd', 'ignoring a <dd> with no <dt> before it.');
           continue;
         }
-        row.values.push([...c.childNodes].map((n) => this.copy(n)));
+        row.values.push({ source: [...c.childNodes].map((n) => this.copy(n)), ...langDir(c) });
       }
     }
     return rows.filter((r) => r.values.length);
   }
 
-  /** A copy of an author's node: sizes added to downloads; ids dropped in light DOM. */
+  /**
+   * A copy of an author's node: links with an unsafe href (javascript:, data:, …) replaced
+   * by their content, with one warning; sizes added to downloads once (not when the link's
+   * text already ends with it), `data-size` dropped; ids dropped in light DOM.
+   */
   private copy(n: Node): Node {
     const clone = n.cloneNode(true);
     if (!(clone instanceof Element)) return clone;
-    const all = [clone, ...clone.querySelectorAll('*')];
-    for (const el of all) {
+    const base = this.ownerDocument.baseURI;
+    const unsafe: Element[] = [];
+    for (const el of [clone, ...clone.querySelectorAll('*')]) {
       if (this.lightDom) el.removeAttribute('id');
-      const size = el.localName === 'a' ? normalize(el.getAttribute('data-size')) : '';
-      if (size) el.append(this.sizeNodes(size));
+      if (el.localName !== 'a') continue;
+      const href = el.getAttribute('href');
+      if (href !== null && !safeHref(href, base)) {
+        this.warnOnce(
+          'href',
+          'showing a link as text: its href is not http(s), mailto, tel or relative.',
+        );
+        unsafe.push(el);
+      }
+      const size = normalize(el.getAttribute('data-size'));
+      el.removeAttribute('data-size');
+      if (size && !normalize(el.textContent).endsWith(size)) el.append(this.sizeNodes(size));
+    }
+    // An unsafe link keeps only its content (in a <span> when it is the copied node itself).
+    for (const a of unsafe.reverse()) {
+      if (a !== clone) {
+        a.replaceWith(...a.childNodes);
+        continue;
+      }
+      const span = this.ownerDocument.createElement('span');
+      span.append(...a.childNodes);
+      return span;
     }
     return clone;
   }
@@ -341,7 +381,7 @@ export class UvalibMetadata extends UvalibElement {
             ${i.value.map((v) => html`<li>${this.renderValue(v)}</li>`)}
           </ul>`
         : this.renderValue(i.value);
-      rows.push({ label, values: [value] });
+      rows.push({ label, values: [{ content: value }] });
     }
     return rows;
   }
@@ -418,6 +458,21 @@ export class UvalibMetadata extends UvalibElement {
     return this.items ? this.fromItems(this.items) : this.childRows;
   }
 
+  /** The rows' source the clones below were made for. */
+  private clonedFor?: unknown;
+  private clones = new WeakMap<Node[], Node[]>();
+
+  /**
+   * A value's nodes: fresh clones of its prepared source whenever the rows shown change
+   * (new markup, or back from `items`), reused by unrelated updates (the citation status) so
+   * that focus in a value is not lost.
+   */
+  private nodesOf(source: Node[]): Node[] {
+    let c = this.clones.get(source);
+    if (!c) this.clones.set(source, (c = source.map((n) => n.cloneNode(true))));
+    return c;
+  }
+
   protected override updated(changed: PropertyValues): void {
     super.updated(changed);
     this.toggleAttribute('data-empty', !this.renderRoot.querySelector('.row'));
@@ -433,13 +488,23 @@ export class UvalibMetadata extends UvalibElement {
           </div>`
         : nothing;
     };
+    const shownFrom = this.items ?? this.childRows;
+    if (shownFrom !== this.clonedFor) {
+      this.clonedFor = shownFrom;
+      this.clones = new WeakMap();
+    }
     return html`<dl>
       ${text('Creator', this.creator)}${text('Organization', this.organization)}
       ${this.rows.map(
         (r) =>
           html`<div class="row">
-            <dt>${r.label}</dt>
-            ${r.values.map((v) => html`<dd>${v}</dd>`)}
+            <dt lang=${r.lang ?? nothing} dir=${r.dir ?? nothing}>${r.label}</dt>
+            ${r.values.map(
+              (v) =>
+                html`<dd lang=${v.lang ?? nothing} dir=${v.dir ?? nothing}>
+                  ${v.source ? this.nodesOf(v.source) : v.content}
+                </dd>`,
+            )}
           </div>`,
       )}
       ${this.renderRights()}${this.renderCitation()}

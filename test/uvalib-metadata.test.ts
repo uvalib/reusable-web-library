@@ -308,6 +308,69 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       }
     });
 
+    it('shows unsafe links in the <dl> as text, with one warning', async () => {
+      let el!: UvalibMetadata;
+      const warns = await warnings(async () => {
+        el = await make(
+          '<dl><dt>Site</dt><dd><a href="javascript:alert(1)">Link</a> and <a href="data:text/html,x"><em>data</em></a></dd><dd><a href="https://example.edu/ok">OK</a></dd></dl>',
+        );
+      });
+      const links = [...dl(el).querySelectorAll('a')];
+      expect(links.map((a) => a.getAttribute('href'))).to.deep.equal(['https://example.edu/ok']);
+      expect(shown(el)).to.deep.equal([['Site', 'Link and data', 'OK']]);
+      expect(dl(el).querySelector('em')!.textContent).to.equal('data');
+      expect(warns.filter((w) => w.includes('href'))).to.have.length(1);
+    });
+
+    it('adds a size once, never twice, and keeps copies apart from re-renders', async () => {
+      const el = await make(
+        '<dl><dt>Download</dt><dd><a href="x.epub" download data-size="184 KB">EPUB</a></dd><dd><a href="y.txt" download data-size="9 KB">Plain text · 9 KB</a></dd></dl>',
+      );
+      const sizes = () =>
+        [...row(el, 'Download').querySelectorAll('a')].map((a) => [
+          a.textContent,
+          a.hasAttribute('data-size'),
+        ]);
+      const expected = [
+        ['EPUB · , 184 KB', false],
+        ['Plain text · 9 KB', false],
+      ];
+      expect(sizes()).to.deep.equal(expected);
+      // An unrelated update keeps the very same nodes (focus inside a value is kept).
+      const before = row(el, 'Download').querySelector('a')!;
+      el.creator = 'Smith';
+      await settle(el);
+      expect(row(el, 'Download').querySelector('a')).to.equal(before);
+      expect(sizes()).to.deep.equal(expected);
+      // Away to items and back: fresh copies, still one size each.
+      el.items = [{ label: 'Date', value: '1836' }];
+      await settle(el);
+      el.items = undefined;
+      await settle(el);
+      expect(row(el, 'Download').querySelector('a')).to.not.equal(before);
+      expect(sizes()).to.deep.equal(expected);
+      // A change to the source re-reads it once.
+      const source = [...el.querySelectorAll('a')].find((a) => !dl(el).contains(a))!;
+      source.textContent = 'EPUB 3';
+      await settle(el);
+      expect(sizes()[0]).to.deep.equal(['EPUB 3 · , 184 KB', false]);
+    });
+
+    it('keeps lang and dir from the source <dt> and <dd>', async () => {
+      const el = await make(
+        '<dl><dt lang="fr">Titre</dt><dd lang="fr" dir="ltr">L&#39;actrice</dd><dd dir="rtl" lang="ar">الممثلة</dd><dt>Date</dt><dd>1836</dd></dl>',
+      );
+      const r = row(el, 'Titre');
+      expect(r.querySelector('dt')!.getAttribute('lang')).to.equal('fr');
+      expect([...r.querySelectorAll('dd')].map((d) => [d.lang, d.dir])).to.deep.equal([
+        ['fr', 'ltr'],
+        ['ar', 'rtl'],
+      ]);
+      const d = row(el, 'Date');
+      expect(d.querySelector('dt')!.hasAttribute('lang')).to.equal(false);
+      expect(d.querySelector('dd')!.hasAttribute('dir')).to.equal(false);
+    });
+
     it('keeps only the structural rules with no-style', async () => {
       const el = await make(RECORD, 'no-style');
       const ul = row(el, 'Subjects').querySelector('ul')!;
