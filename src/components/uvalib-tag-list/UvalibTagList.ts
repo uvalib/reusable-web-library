@@ -369,6 +369,7 @@ export class UvalibTagList extends UvalibElement {
     const label = normalize(this.label);
     const labelId = `${this.uid}-label`;
     const listId = `${this.uid}-list`;
+    const toggleText = this.expanded ? 'Show fewer' : `Show all ${tags.length}`;
     // One wrapper, always rendered: in light DOM nothing new appears among the host's
     // children later (the observer would take it for an author's tag).
     return html`<div class="tag-list" ?hidden=${!tags.length}>
@@ -405,15 +406,7 @@ export class UvalibTagList extends UvalibElement {
               aria-controls=${listId}
               @click=${this.toggle}
             >
-              ${
-                this.expanded
-                  ? html`Show
-                    fewer${label ? html`<span class="visually-hidden"> ${label}</span>` : nothing}`
-                  : html`Show all
-                    ${tags.length}${
-                      label ? html`<span class="visually-hidden"> ${label}</span>` : nothing
-                    }`
-              }
+              ${toggleText}${label ? html`<span class="visually-hidden"> ${label}</span>` : nothing}
             </button>`
           : nothing
       }
