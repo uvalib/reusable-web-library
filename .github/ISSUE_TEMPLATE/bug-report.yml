@@ -1,0 +1,51 @@
+name: Bug report
+description: Something in a component doesn't work, looks wrong, or isn't accessible
+title: '[Bug]: '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: >
+        This repository is public. Don't include passwords, tokens, internal-only hostnames, patron or
+        staff personal data, or screenshots that show any of these.
+  - type: input
+    id: component
+    attributes:
+      label: Component
+      description: The tag (for example `<bento-box>`), stylesheet or the skill.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: From the CDN manifest (`/web-components/v1/manifest.json`), package.json, or the skill's installed.json.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The smallest markup or page (public URL) that shows it, and what you did.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual
+      description: What should happen, and what happens instead (console errors included).
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device
+      description: For example Safari 18 on iPhone, Chrome 131 on Windows with NVDA.
+  - type: dropdown
+    id: a11y
+    attributes:
+      label: Is it an accessibility problem?
+      options:
+        - 'No'
+        - 'Yes (WCAG failure or barrier)'
+        - 'Not sure'

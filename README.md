@@ -62,6 +62,10 @@ Name the skill so the agent loads it, say what to keep, and ask it to audit befo
 
 > Use the uvalib-web-components skill's accessibility testing guide to add a Playwright + axe test matched to Lighthouse and a Lighthouse CI config to this project, run them on the home, a list, a detail and the search page in light and dark at phone and desktop widths, and fix what they find. Report anything you couldn't test.
 
+**Ask for something the library doesn't have**
+
+> Our pages need an accordion and the library has none. Use the uvalib-web-components skill to check the repo's issues for an existing request, then draft a new-component issue for uvalib/reusable-web-library (what it's for, our public page URLs, the library.virginia.edu pattern to match, accessibility needs). Show me the draft before filing it, and build a small accessible stopgap that links the issue.
+
 **Keep it current**
 
 > Update the uvalib-web-components skill in this project to the latest release, then check whether anything we use changed and needs updating.
@@ -100,6 +104,10 @@ npx @uvalib/web-components@latest install-skill --dir .claude/skills --force
 Projects that commit `.claude/skills/` get each update as an ordinary reviewed change.
 
 To do it by hand, read on.
+
+## Requests and bug reports
+
+Ask for a new component, a feature or change in an existing one, or report a bug through [the repository's issues](https://github.com/uvalib/reusable-web-library/issues/new/choose). Each has a form: **New component**, **Feature or change request** and **Bug report**. The repository is public, so leave out passwords, tokens, internal-only hostnames and personal data. The agent skill knows the forms too: ask your agent to search the existing issues, draft one, and file it once you approve it (it uses the GitHub CLI, `gh`, or gives you the form's link).
 
 ## Playground
 
