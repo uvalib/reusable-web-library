@@ -51,15 +51,56 @@ const VISUALLY_HIDDEN: Partial<CSSStyleDeclaration> = {
 
 let instanceCounter = 0;
 
-const json = <T>(text: string | null, fallback: T): T => {
+type Plain = Record<string, unknown>;
+const isPlain = (v: unknown): v is Plain =>
+  typeof v === 'object' && v !== null && Object.getPrototypeOf(v) === Object.prototype;
+
+/** Parse a JSON attribute; `check` says whether the value has the right shape. */
+const json = <T>(text: string | null, fallback: T, check: (v: unknown) => boolean): T => {
   if (!text) return fallback;
   try {
-    return JSON.parse(text) as T;
+    const v: unknown = JSON.parse(text);
+    if (check(v)) return v as T;
   } catch {
-    console.warn(`${TAG}: ignoring invalid JSON`, text);
-    return fallback;
+    // reported below
   }
+  console.warn(`${TAG}: ignoring an attribute that is not the expected JSON`, text);
+  return fallback;
 };
+
+/** A bundle path always ends in `/`: Pagefind appends file names to it. */
+export const withSlash = (path: string): string => (path.endsWith('/') ? path : `${path}/`);
+
+/** Pagefind's English "many results" message, used to read the count back out of it. */
+const MANY_RESULTS_EN = '[COUNT] results for [SEARCH_TERM]';
+const escapeRe = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * The total count in Pagefind's message, or undefined. With the message's template (`[COUNT]`
+ * and `[SEARCH_TERM]`), the query is matched in its own place, so digits in the query never
+ * leak into the count; without one, only the query's last occurrence is taken out.
+ */
+export function countFromMessage(
+  message: string,
+  query: string,
+  template?: string,
+): number | undefined {
+  let rest: string | undefined;
+  if (template?.includes('[COUNT]')) {
+    const re = new RegExp(
+      `^${escapeRe(template)
+        .replace(escapeRe('[COUNT]'), '(.+?)')
+        .replace(escapeRe('[SEARCH_TERM]'), escapeRe(query))}$`,
+    );
+    rest = message.match(re)?.[1];
+  }
+  if (rest === undefined) {
+    const at = message.lastIndexOf(query);
+    rest = at < 0 ? message : message.slice(0, at) + ' ' + message.slice(at + query.length);
+  }
+  const digits = rest.match(/\d[\d.,\s\u00a0\u202f]*/);
+  return digits ? Number(digits[0].replace(/\D/g, '')) : undefined;
+}
 
 /**
  * Pagefind's default search UI (`PagefindUI`, from the site's own Pagefind bundle) with the
@@ -73,8 +114,8 @@ const json = <T>(text: string | null, fallback: T): T => {
  * for virginia") once results settle (the stock message is not a live region); focus kept in
  * the field after Clear or Escape (the stock UI blurs it, dropping focus to the page) and
  * moved to the first new result after "Load more results"; the loading placeholders' dots
- * hidden from screen readers; `?q=` read at start and the settled query written back with
- * `history.replaceState`, so a search can be shared; and reports to `<site-analytics>`. The
+ * hidden from screen readers; `?q=` read at start (and on Back and Forward) and the settled
+ * query written back with `history.replaceState`, so a search can be shared; and reports to `<site-analytics>`. The
  * `ui` property is the `PagefindUI` instance (for `triggerFilters`), and `ready` resolves
  * with it. Attributes are read once, when the element is first connected.
  *
@@ -91,26 +132,41 @@ const json = <T>(text: string | null, fallback: T): T => {
  * @attr {string} translations - JSON of Pagefind UI strings to override (`{"zero_results": "…"}`).
  * @attr {string} options - JSON of any other `PagefindUI` options (`{"openFilters": ["author"]}`), applied last.
  * @attr {string} [query-param=q] - The URL parameter that holds the query; empty turns it off.
- * @fires search-results - Results settled: `detail` is `{ query, count }`. Does not bubble.
+ * @fires search-results - Results settled: `detail` is `{ query, count }`; `{ query: '', count: 0 }` when the field is emptied after a search. Does not bubble.
  * @fires uvalib-analytics-search - For `<site-analytics>`: the settled query, category `Pagefind` and its result count, once per query and filter set. Bubbles and is composed.
  * @fires uvalib-analytics-event - For `<site-analytics>`: `['uvalib-pagefind-search', 'filter-change', '<filter>: <value>', 1 | 0]` (checked or unchecked), and `['uvalib-pagefind-search', 'error', 'load']` if Pagefind cannot be loaded. Bubbles and is composed.
  */
 export class UvalibPagefindSearch extends HTMLElement {
+  /** Bumped by each start and teardown, so a start still loading after removal stops. */
+  private generation = 0;
   private started = false;
   private _ui?: PagefindUIInstance;
   private resolveReady!: (ui: PagefindUIInstance) => void;
+  private _ready: Promise<PagefindUIInstance> = this.newReady();
   private readonly uid = `${TAG}-${++instanceCounter}`;
-  private readonly container = document.createElement('div');
+  private container = document.createElement('div');
   private readonly status = document.createElement('p');
   private observer?: MutationObserver;
   private settleTimer?: ReturnType<typeof setTimeout>;
   private lastAnnounced = '';
   private lastTracked = '';
+  /** The "many results" template, to read the count back out of Pagefind's message. */
+  private manyResults?: string;
   /** After "Load more results": the index of the first new result, to focus once it loads. */
   private focusIndex?: number;
+  private readonly onPopState = () => this.followUrl();
 
-  /** Resolves with the `PagefindUI` instance once it is created. */
-  readonly ready: Promise<PagefindUIInstance> = new Promise((r) => (this.resolveReady = r));
+  private newReady(): Promise<PagefindUIInstance> {
+    return new Promise((r) => (this.resolveReady = r));
+  }
+
+  /**
+   * Resolves with the `PagefindUI` instance once it is created (a new promise after the
+   * element is removed and inserted again).
+   */
+  get ready(): Promise<PagefindUIInstance> {
+    return this._ready;
+  }
 
   /** The `PagefindUI` instance (for `triggerSearch` / `triggerFilters`), once created. */
   get ui(): PagefindUIInstance | undefined {
@@ -128,19 +184,42 @@ export class UvalibPagefindSearch extends HTMLElement {
   connectedCallback(): void {
     if (this.started) return;
     this.started = true;
-    void this.start();
+    void this.start(++this.generation);
   }
 
   disconnectedCallback(): void {
-    // Moving the element keeps its search; removing it for good stops the timers.
+    // Moving the element (removed and inserted in one task) keeps its search; removing it
+    // for good destroys the Pagefind UI, so inserting it again starts afresh.
     queueMicrotask(() => {
-      if (this.isConnected) return;
-      clearTimeout(this.settleTimer);
+      if (!this.isConnected && this.started) this.teardown();
     });
   }
 
-  private async start(): Promise<void> {
-    const bundlePath = this.getAttribute('bundle-path') || '/pagefind/';
+  private teardown(): void {
+    this.generation++;
+    this.started = false;
+    clearTimeout(this.settleTimer);
+    this.observer?.disconnect();
+    this.observer = undefined;
+    window.removeEventListener('popstate', this.onPopState);
+    try {
+      this._ui?.destroy();
+    } catch {
+      // Pagefind's own teardown failing must not stop ours.
+    }
+    if (this._ui) this._ready = this.newReady();
+    this._ui = undefined;
+    this.container.remove();
+    this.container = document.createElement('div');
+    this.querySelector(`:scope > .${TAG}__label`)?.remove();
+    this.status.remove();
+    this.status.textContent = '';
+    this.lastAnnounced = this.lastTracked = '';
+    this.focusIndex = undefined;
+  }
+
+  private async start(generation: number): Promise<void> {
+    const bundlePath = withSlash(this.getAttribute('bundle-path') || '/pagefind/');
     const placeholder = this.getAttribute('placeholder') || 'Search';
     const label = document.createElement('label');
     label.className = `${TAG}__label`;
@@ -157,6 +236,7 @@ export class UvalibPagefindSearch extends HTMLElement {
     try {
       PagefindUI = await loadPagefindUI(`${bundlePath}pagefind-ui.js`);
     } catch {
+      if (generation !== this.generation) return;
       trackError(this, TAG, 'load');
       label.remove();
       const p = document.createElement('p');
@@ -165,31 +245,69 @@ export class UvalibPagefindSearch extends HTMLElement {
       this.container.append(p);
       return;
     }
+    if (generation !== this.generation) return; // removed while the script loaded
     const num = (name: string, fallback?: number) => {
       const n = Number.parseInt(this.getAttribute(name) ?? '', 10);
       return Number.isFinite(n) && n > 0 ? n : fallback;
     };
-    const options: Record<string, unknown> = {
-      element: this.container,
+    const mergeIndex = json<unknown[]>(this.getAttribute('merge-index'), [], Array.isArray)
+      .filter((m): m is Plain => isPlain(m) && typeof m.bundlePath === 'string')
+      .map((m) => ({ ...m, bundlePath: withSlash(m.bundlePath as string) }));
+    const translations: Plain = {
+      placeholder,
+      ...json<Plain>(this.getAttribute('translations'), {}, isPlain),
+    };
+    const extra = json<Plain>(this.getAttribute('options'), {}, isPlain);
+    const options: Plain = {
       bundlePath,
-      mergeIndex: json(this.getAttribute('merge-index'), []),
+      mergeIndex,
       pageSize: num('page-size', 10),
       showSubResults: this.hasAttribute('show-sub-results'),
       showImages: this.hasAttribute('show-images'),
-      translations: { placeholder, ...json(this.getAttribute('translations'), {}) },
-      ...json(this.getAttribute('options'), {}),
+      ...extra,
+      translations,
+      // Always this element's own container: the label, status and focus fixes live there.
+      element: this.container,
     };
+    if (typeof options.bundlePath === 'string') options.bundlePath = withSlash(options.bundlePath);
     const excerpt = num('excerpt-length');
     if (excerpt) options.excerptLength ??= excerpt;
+    const lang = (document.documentElement.lang || 'en').toLowerCase();
+    this.manyResults =
+      typeof translations.many_results === 'string'
+        ? translations.many_results
+        : lang === 'en' || lang.startsWith('en-')
+          ? MANY_RESULTS_EN
+          : undefined;
     const ui = new PagefindUI(options);
     this._ui = ui;
     // Svelte renders synchronously, so the field exists now.
     const input = this.input;
     if (input) input.id = `${this.uid}-input`;
     this.listen();
-    const q = this.queryParam && new URLSearchParams(location.search).get(this.queryParam);
+    window.addEventListener('popstate', this.onPopState);
+    const q = this.urlQuery();
     if (q) ui.triggerSearch(q);
     this.resolveReady(ui);
+  }
+
+  /** The query in the page URL, or '' (always '' with `query-param=""`). */
+  private urlQuery(): string {
+    return (this.queryParam && new URLSearchParams(location.search).get(this.queryParam)) || '';
+  }
+
+  /** Back and Forward: search for the URL's query, or clear the field when it has none. */
+  private followUrl(): void {
+    if (!this.queryParam || !this._ui) return;
+    const q = this.urlQuery();
+    const input = this.input;
+    if (!input || input.value.trim() === q) return;
+    if (q) {
+      this._ui.triggerSearch(q);
+    } else {
+      input.value = '';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
   }
 
   private listen(): void {
@@ -202,10 +320,17 @@ export class UvalibPagefindSearch extends HTMLElement {
         this.focusIndex = c.querySelectorAll('.pagefind-ui__results > li').length;
       }
     });
-    c.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && (e.target as Element).matches('.pagefind-ui__search-input'))
-        this.refocus();
-    });
+    // Capture, so the field's value is read before Pagefind empties it. Escape in an empty
+    // field is left alone: it leaves the field (and can close a surrounding dialog).
+    c.addEventListener(
+      'keydown',
+      (e) => {
+        const t = e.target as HTMLInputElement;
+        if (e.key === 'Escape' && t.matches('.pagefind-ui__search-input') && t.value !== '')
+          this.refocus();
+      },
+      true,
+    );
     c.addEventListener('change', (e) => {
       const box = e.target as HTMLInputElement;
       if (!box.matches('.pagefind-ui__filter-checkbox')) return;
@@ -235,25 +360,23 @@ export class UvalibPagefindSearch extends HTMLElement {
     this.settleTimer = setTimeout(() => this.settle(), SETTLE_MS);
   }
 
-  /** The query in the field and the checked filters, or undefined while results load. */
+  /**
+   * The query in the field, its count and message, and a key for the query and checked
+   * filters; undefined while results load (Pagefind's message is drawn before the results'
+   * data, so a list with loading placeholders has not settled).
+   */
   private settled(): { query: string; count: number; message: string; key: string } | undefined {
     const c = this.container;
     const query = (this.input?.value ?? '').trim();
     const area = c.querySelector('.pagefind-ui__results-area');
     const list = area?.querySelector('.pagefind-ui__results');
-    if (!query || !list) return undefined;
+    if (!query || !list || list.querySelector('.pagefind-ui__loading')) return undefined;
     const message = area!.querySelector('.pagefind-ui__message')?.textContent?.trim() ?? '';
     const shown = list.children.length;
-    let count = shown;
-    if (area!.querySelector('.pagefind-ui__button')) {
-      // More results than shown: the count is the number in the message ("[COUNT] results
-      // for [SEARCH_TERM]"), once the query itself is taken out of it.
-      const digits = message
-        .split(query)
-        .join(' ')
-        .match(/\d[\d.,\s  ]*/);
-      count = digits ? Number(digits[0].replace(/\D/g, '')) : shown;
-    }
+    // More results than shown: the count is the number in the message.
+    const count = area!.querySelector('.pagefind-ui__button')
+      ? (countFromMessage(message, query, this.manyResults) ?? shown)
+      : shown;
     const filters = [...c.querySelectorAll<HTMLInputElement>('.pagefind-ui__filter-checkbox')]
       .filter((b) => b.checked)
       .map((b) => `${b.name}:${b.value}`)
@@ -264,17 +387,11 @@ export class UvalibPagefindSearch extends HTMLElement {
   private settle(): void {
     const s = this.settled();
     if (!s) {
-      if (!(this.input?.value ?? '').trim()) {
-        this.lastAnnounced = '';
-        this.lastTracked = '';
-        this.status.textContent = '';
-        this.writeQuery('');
-      }
+      if (!(this.input?.value ?? '').trim()) this.cleared();
       return;
     }
-    if (s.message && s.message !== this.lastAnnounced) {
-      this.lastAnnounced = s.message;
-      this.status.textContent = s.message;
+    if (s.message && (s.message !== this.lastAnnounced || s.key !== this.lastTracked)) {
+      this.announce(s.message);
     }
     if (s.key === this.lastTracked) return;
     this.lastTracked = s.key;
@@ -283,6 +400,27 @@ export class UvalibPagefindSearch extends HTMLElement {
     this.dispatchEvent(
       new CustomEvent('search-results', { detail: { query: s.query, count: s.count } }),
     );
+  }
+
+  /** The field was emptied: clear the status and the URL, and say so once. */
+  private cleared(): void {
+    this.lastAnnounced = '';
+    this.status.textContent = '';
+    this.writeQuery('');
+    if (!this.lastTracked) return;
+    this.lastTracked = '';
+    this.dispatchEvent(new CustomEvent('search-results', { detail: { query: '', count: 0 } }));
+  }
+
+  /** Put `message` in the status region; the same text again is emptied first, so it is read. */
+  private announce(message: string): void {
+    this.lastAnnounced = message;
+    if (this.status.textContent !== message) {
+      this.status.textContent = message;
+      return;
+    }
+    this.status.textContent = '';
+    setTimeout(() => (this.status.textContent = message), 100);
   }
 
   private writeQuery(query: string): void {
