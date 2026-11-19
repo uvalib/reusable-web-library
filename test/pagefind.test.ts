@@ -1,12 +1,12 @@
 // pagefind.css and <uvalib-pagefind-search>, against Pagefind's real default UI and a tiny
 // index that test/helpers/pagefind-fixture.mjs builds locally when the test server starts
-// (served at /pagefind-fixture/; no network). The page is an iframe that links the built
+// (served at /pagefind-demo/; no network). The page is an iframe that links the built
 // stylesheets from dist-cdn, as a host page would, and never Pagefind's pagefind-ui.css.
 import { expect } from '@open-wc/testing';
 import { emulateMedia, sendKeys } from '@web/test-runner-commands';
 import { expectNoAxeViolations } from './helpers/axe.js';
 
-const BUNDLE = '/pagefind-fixture/';
+const BUNDLE = '/pagefind-demo/';
 const PAGE = '/test/fixtures/pagefind/search.html';
 
 type PagefindWindow = Window & {

@@ -49,6 +49,7 @@ describe('playground presets', function () {
       'record-metadata',
       'search-facets',
       'search-results',
+      'pagefind-search',
       'todays-hours',
       'weekly-hours',
       'events',
@@ -101,6 +102,7 @@ describe('playground presets', function () {
       Search: [
         'search-facets',
         'search-results',
+        'pagefind-search',
         'uvalib-filter-shadow',
         'uvalib-filter-light',
         'uvalib-date-range-shadow',
@@ -514,6 +516,32 @@ describe('playground presets', function () {
       });
     });
   }
+
+  it('pagefind-search searches the demo index and passes axe', async () => {
+    const p = presets.find((x) => x.id === 'pagefind-search')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-page', 'uvalib-pagefind-search']);
+      const el = doc.querySelector('uvalib-pagefind-search') as HTMLElement & {
+        ready: Promise<unknown>;
+      };
+      await el.ready;
+      const input = doc.querySelector<HTMLInputElement>('.pagefind-ui__search-input')!;
+      expect(input.labels?.[0]?.textContent).to.equal('Search all texts');
+      const settled = new Promise((r) => el.addEventListener('search-results', r, { once: true }));
+      input.value = 'virginia';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      await settled;
+      expect(doc.querySelectorAll('.pagefind-ui__results > li').length).to.equal(3);
+      expect(doc.querySelector('[role="status"]')!.textContent).to.equal('7 results for virginia');
+      await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  }).timeout(15000);
 
   for (const [id, tag, rows] of [
     ['todays-hours', 'site-hours-section', 'dt.location'],

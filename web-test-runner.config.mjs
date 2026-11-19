@@ -52,7 +52,7 @@ export default {
   plugins: [
     esbuildPlugin({ ts: true, tsconfig: './tsconfig.json' }),
     hoursClockPlugin(),
-    // A tiny Pagefind index, built locally at start-up and served at /pagefind-fixture/.
+    // A tiny Pagefind index, built locally at start-up and served at /pagefind-demo/.
     pagefindFixturePlugin(),
   ],
   // Full-page axe runs take close to mocha's 2s default when the whole suite runs in

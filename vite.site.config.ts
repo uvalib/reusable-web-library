@@ -2,6 +2,7 @@ import { copyFileSync, cpSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
+import { buildPagefindDemo } from './scripts/pagefind-demo.mjs';
 import { examplesMainNav } from './site/src/main-nav.js';
 import { COLOR_SCHEME_SNIPPET } from './site/src/presets.js';
 
@@ -23,7 +24,7 @@ function devCdn(): Plugin {
       server.middlewares.use((req, _res, next) => {
         const m = req.url?.match(/\/cdn\/(site-[a-z]+)\.js(?:\?.*)?$/);
         if (m) req.url = `/src/components/${m[1]}/${m[1]}.ts`;
-        const css = req.url?.match(/\/cdn\/(tokens|base)\.css(?:\?.*)?$/);
+        const css = req.url?.match(/\/cdn\/(tokens|base|pagefind)\.css(?:\?.*)?$/);
         if (css) req.url = `/dist-cdn/${css[1]}.css`;
         next();
       });
@@ -58,8 +59,9 @@ function examplesPage(): Plugin {
 }
 
 /**
- * Build only: copy the CDN build to `dist-site/cdn/` (the previews import it), and
- * playground-elements' TypeScript worker next to the JS bundle, as its README requires.
+ * Build only: copy the CDN build to `dist-site/cdn/` (the previews import it), build the
+ * Pagefind example's demo index into `dist-site/pagefind-demo/`, and
+ * copy playground-elements' TypeScript worker next to the JS bundle, as its README requires.
  */
 function siteFiles(): Plugin {
   return {
@@ -70,8 +72,11 @@ function siteFiles(): Plugin {
         this.error('dist-cdn/ is missing: run `pnpm build` before `pnpm build:site`.');
       }
     },
-    closeBundle() {
+    async closeBundle() {
       cpSync(join(root, 'dist-cdn'), join(outDir, 'cdn'), { recursive: true });
+      // The Pagefind example searches a tiny demo index, built here with Pagefind's own
+      // binary (the pagefind devDependency), as a static site's build would.
+      await buildPagefindDemo(join(outDir, 'pagefind-demo'));
       // The library-hours preset runs outside library.virginia.edu, whose JSON:API has no
       // CORS, so it reads this snapshot of the library list (the trimmed test fixture).
       // Hours still come live from LibCal.
