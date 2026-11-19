@@ -32,6 +32,7 @@ const TAGS = [
   'library-hours-setup',
   'events-section',
   'bento-box',
+  'uvalib-tabs',
 ];
 
 const manifest = () => JSON.parse(readFileSync(join(cdn, 'manifest.json'), 'utf8'));

@@ -66,6 +66,7 @@ describe('index', () => {
       'articles-section',
       'libguides-section',
       'website-section',
+      'uvalib-tabs',
     ]) {
       expect(customElements.get(tag) === undefined, `${tag} is defined`).to.equal(true);
     }

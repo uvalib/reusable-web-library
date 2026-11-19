@@ -677,6 +677,132 @@ site-footer footer {
     },
   },
   {
+    id: 'tabs',
+    group: 'Cards',
+    title: 'Tabs',
+    description:
+      'uvalib-tabs builds the tablist from each section’s data-tab label. Arrow keys move and select; Home and End jump. url-param="tab" puts the panel id in the address, and Back restores the previous tab. The first panel is visible before the element upgrades.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Tabs',
+          components: ['uvalib-tabs'],
+          body: `    <site-page>
+      <h1>The archive</h1>
+      <uvalib-tabs url-param="tab">
+        <section data-tab="Events" id="events">
+          <h2>Events</h2>
+          <p>Talks and exhibitions this month.</p>
+        </section>
+        <section data-tab="Stories" id="stories">
+          <h2>Stories</h2>
+          <p>Essays from the collections.</p>
+        </section>
+        <section data-tab="People" id="people">
+          <h2>People</h2>
+          <p>Staff and the people in the photographs.</p>
+        </section>
+      </uvalib-tabs>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'person-cards',
+    group: 'Cards',
+    title: 'Person cards',
+    description:
+      'media-shape="circle" crops each portrait to a circle and keeps the image alt. The count badge still sits on the picture. The heading is the card’s one link.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'People',
+          components: ['uvalib-card', 'uvalib-card-grid'],
+          body: `    <site-page>
+      <h1>People</h1>
+      <uvalib-card-grid>
+        <uvalib-card media-shape="circle" href="#ada">
+          <img slot="media" alt="Ada Lovelace" src="${iiif('1043731', ',440')}" width="5820" height="4668">
+          <span slot="badge">3</span>
+          <span slot="heading">Ada Lovelace</span>
+        </uvalib-card>
+        <uvalib-card media-shape="circle" href="#alan">
+          <img slot="media" alt="Alan Turing" src="${iiif('1039613', ',440')}" width="5882" height="4307">
+          <span slot="heading">Alan Turing</span>
+        </uvalib-card>
+      </uvalib-card-grid>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'story-card',
+    group: 'Cards',
+    title: 'Story card',
+    description:
+      'A static card (no href) can hold an actions row: “Read the story” and “Photos (132)”. A clickable card must not contain those controls, because its link covers the whole card.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Stories',
+          components: ['uvalib-card'],
+          body: `    <site-page>
+      <h1>Stories</h1>
+      <uvalib-card>
+        <img slot="media" alt="" src="${iiif('1049095', ',800')}" width="5867" height="4668">
+        <span slot="heading">The Lawn in winter</span>
+        <a slot="actions" href="#story">Read the story</a>
+        <a slot="actions" href="#photos">Photos (132)</a>
+        Snow on the Lawn, looking toward the Rotunda.
+      </uvalib-card>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'load-more',
+    group: 'Cards',
+    title: 'Load more',
+    description:
+      'mode="load-more" is a Load more button and “Showing N of M”. The click fires load-more with the next page. This page appends a story and calls loaded() so focus moves to it. for names the list.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Load more',
+          components: ['uvalib-pager'],
+          body: `    <site-page>
+      <h1>All stories</h1>
+      <ul id="stories">
+        <li><a href="#story-1">Story 1</a></li>
+        <li><a href="#story-2">Story 2</a></li>
+        <li><a href="#story-3">Story 3</a></li>
+      </ul>
+      <uvalib-pager mode="load-more" for="stories" shown="3" total="6" page="1" label="Stories"></uvalib-pager>
+    </site-page>
+    <script type="module">
+      const pager = document.querySelector('uvalib-pager');
+      const list = document.getElementById('stories');
+      pager.addEventListener('load-more', (e) => {
+        const n = list.children.length + 1;
+        const a = document.createElement('a');
+        a.href = '#story-' + n;
+        a.textContent = 'Story ' + n;
+        const li = document.createElement('li');
+        li.append(a);
+        list.append(li);
+        pager.shown = n;
+        pager.page = e.detail.page;
+        pager.loaded(a);
+      });
+    </script>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'contents-sidebar',
     group: 'Contents',
     title: 'Contents sidebar',
@@ -830,6 +956,36 @@ ${PHOTOS}
           Library, University of Virginia. Shown from the Library's IIIF image server.
         </p>
       </uvalib-lightbox>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'photo-grid-badges',
+    group: 'Images',
+    title: 'Photo grid badges',
+    description:
+      'data-badge draws a label over the thumbnail (“seq”, “3 photos”) and includes it in the link’s accessible name. The alt caption is unchanged. A span slot="badge" inside the link does the same.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Photo grid badges',
+          components: ['uvalib-photo-grid'],
+          body: `    <site-page>
+      <h1>Sequences</h1>
+      <uvalib-photo-grid>
+        <a href="${iiif('1042806', '!1600,1600')}" data-badge="seq">
+          <img src="${iiif('1042806', ',440')}" alt="Rotunda in snow" width="5805" height="4729" loading="lazy">
+        </a>
+        <a href="${iiif('1049095', '!1600,1600')}" data-badge="3 photos">
+          <img src="${iiif('1049095', ',440')}" alt="The Lawn" width="5867" height="4668" loading="lazy">
+        </a>
+        <a href="${iiif('1039613', '!1600,1600')}">
+          <img src="${iiif('1039613', ',440')}" alt="Rotunda" width="5882" height="4307" loading="lazy">
+          <span slot="badge">seq</span>
+        </a>
+      </uvalib-photo-grid>
     </site-page>`,
         }),
       },

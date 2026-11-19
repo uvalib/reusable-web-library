@@ -25,6 +25,7 @@ const tags = [
   'library-hours-setup',
   'events-section',
   'bento-box',
+  'uvalib-tabs',
 ];
 
 // Library mode, ES output: one self-contained entry per component, with Lit and shared
