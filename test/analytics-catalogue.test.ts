@@ -12,6 +12,8 @@ import '../src/components/uvalib-breadcrumbs/uvalib-breadcrumbs.js';
 import '../src/components/uvalib-card/uvalib-card.js';
 import '../src/components/uvalib-card-grid/uvalib-card-grid.js';
 import '../src/components/uvalib-pager/uvalib-pager.js';
+import '../src/components/uvalib-contents/uvalib-contents.js';
+import '../src/components/uvalib-metadata/uvalib-metadata.js';
 import '../src/components/events-section/events-section.js';
 import '../src/components/site-hours-section/site-hours-section.js';
 import '../src/components/library-weekly-hours/library-weekly-hours.js';
@@ -278,6 +280,55 @@ describe('analytics catalogue', () => {
         root(el).querySelector<HTMLAnchorElement>('a[data-page="3"]')!.click();
         expect(events()).to.deep.equal([['uvalib-pager', 'page-change', 'number', 3]]);
         expect(JSON.stringify(rec.events)).to.not.match(/\?page=/);
+      });
+    });
+
+    describe(`uvalib-contents (${mode})`, () => {
+      afterEach(() => setViewport({ width: 800, height: 600 }));
+
+      it('the level and the toggle, never the label or URL', async () => {
+        await setViewport({ width: 600, height: 800 });
+        const el = await fixture<HTMLElement & { updateComplete: Promise<unknown> }>(
+          `<uvalib-contents ${attr(mode)} current="/b"><ol><li><a href="/a">Alpha</a><ol><li><a href="/b">Beta</a></li></ol></li></ol></uvalib-contents>`,
+        );
+        await quietRender(el);
+        const toggle = root(el).querySelector<HTMLButtonElement>('nav button.toggle')!;
+        toggle.click();
+        await el.updateComplete;
+        const links = root(el).querySelectorAll<HTMLAnchorElement>('nav a');
+        links[1]!.click();
+        links[0]!.click();
+        toggle.click();
+        expect(events()).to.deep.equal([
+          ['uvalib-contents', 'toggle', 'open'],
+          ['uvalib-contents', 'link-click', 'level 2', 2],
+          ['uvalib-contents', 'link-click', 'level 1', 1],
+          ['uvalib-contents', 'toggle', 'close'],
+        ]);
+        expect(JSON.stringify(rec.events)).to.not.match(/Alpha|Beta|\//);
+      });
+    });
+
+    describe(`uvalib-metadata (${mode})`, () => {
+      it('copy-citation only, never the citation; downloads are left to Matomo', async () => {
+        const restore = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+        Object.defineProperty(navigator, 'clipboard', {
+          value: { writeText: () => Promise.resolve() },
+          configurable: true,
+        });
+        try {
+          const el = await fixture<HTMLElement & { updateComplete: Promise<unknown> }>(
+            `<uvalib-metadata ${attr(mode)} citation="Secret title, 1836"><dl><dt>Download</dt><dd><a href="x.epub" download data-size="1 KB">EPUB</a></dd></dl></uvalib-metadata>`,
+          );
+          await quietRender(el);
+          root(el).querySelector<HTMLAnchorElement>('dl a[download]')!.click();
+          root(el).querySelector<HTMLButtonElement>('dl button')!.click();
+          expect(events()).to.deep.equal([['uvalib-metadata', 'copy-citation']]);
+          expect(JSON.stringify(rec.events)).to.not.match(/Secret|epub/);
+        } finally {
+          if (restore) Object.defineProperty(navigator, 'clipboard', restore);
+          else delete (navigator as { clipboard?: unknown }).clipboard;
+        }
       });
     });
 

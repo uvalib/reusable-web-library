@@ -21,6 +21,8 @@ const TAGS = [
   'uvalib-card',
   'uvalib-card-grid',
   'uvalib-pager',
+  'uvalib-contents',
+  'uvalib-metadata',
   'site-alerts',
   'site-hours-section',
   'library-weekly-hours',

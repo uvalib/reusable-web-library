@@ -680,6 +680,49 @@ A grid of `<uvalib-card>` elements. It is a list, so a screen reader announces h
 |---|---|---|
 | `--uvalib-card-min` |  | Set from `min-card-width` when that value is a length. The grid uses it as the `auto-fill` minimum. |
 
+## `<uvalib-contents>`
+
+Sub-navigation or a table of contents, as library.virginia.edu's sub-navigation: a `<nav>` landmark (named by `label`, "Contents" by default) with the label as a visible headline, and a nested list of links with dividers between the top-level entries and a bar beside each nested level. Give the list as a child: an `<ol>` or `<ul>` of `<li>` elements, each with an `<a href>` (or plain text for a group label) and, for sub-entries, a nested `<ol>`/`<ul>`, to any depth. Other children (a heading) are ignored. The list follows changes to the children. Apps set the `items` property instead (`{ label, href?, children? }`, winning over the children while set). The current entry gets `aria-current`: `page` for the link to this page, `location` for the link to the section of it in the URL's hash. It is found from the page URL (path, and hash for in-page sections), followed through same-document navigations (`hashchange`, `popstate` and the Navigation API), or from the `current` attribute (a URL, resolved like the links). An entry whose href has a query string matches only that query (`?part=2`); one without matches the page whatever its query. Hash-only hrefs are places on that page. With `current` unset, a valid `aria-current` on a source link (`page`, `location` or `true`) is used instead, the first of each kind. `lang` and `dir` on the source links and items, and inline markup in their text (`em`, `cite`, `code`, `abbr`…, copied element by element, never as HTML), are kept. On narrow screens the list collapses into a disclosure: the headline becomes a button with `aria-expanded`, and the list starts closed (as the Electronic Text Collections' Contents does on phones, so the text comes first) until the reader opens it, or while the `open` attribute is set; opening it shows the current entry. Narrow means the viewport (`collapse-below`, 64rem by default), not the element's own width: a contents sidebar is always far narrower than 64rem, so a container query could not tell a phone from a desktop. `sticky` keeps it in view in a sidebar on wide screens; a list longer than the window then scrolls, and the current entry is scrolled into view inside it (never the page). Single-page apps: the list is drawn from copies of the children, so a router's own click handlers on them do not run. Listen for `uvalib-contents-navigate` and cancel it to route in place; hash links need nothing.
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `label` |  | `DEFAULT_LABEL` | Accessible name of the navigation landmark, and its visible headline. |
+| `heading-level` |  | `DEFAULT_LEVEL` | The headline's level (2 to 6), for the page's outline. |
+| `current` | `string \| undefined` |  | The URL of the current entry (resolved like the links), for apps whose route is not the page URL. Unset: the page URL, followed through same-document navigations. |
+| `collapse-below` |  | `DEFAULT_COLLAPSE` | The viewport width at and below which the list collapses into a disclosure: a CSS length (`64rem`, `800px`). `0` or `none` never collapses. |
+| `open` | `boolean` | `false` | Whether the collapsed disclosure is open (no effect on wide screens). Toggled by its button. |
+| `sticky` | `boolean` | `false` | Keep it in view while the page scrolls (a sidebar), on wide screens. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-analytics-event` | For `<site-analytics>`: a click on an entry, `['uvalib-contents', 'link-click', 'level <N>', <N>]` (N from 1, the top level), and opening or closing the disclosure, `['uvalib-contents', 'toggle', 'open' \| 'close']`; never the label or URL. Bubbles and is composed. |
+| `uvalib-contents-navigate` | A plain click on an entry: `detail` is `{ href, level }` (href as written). Cancel it (`preventDefault()`) to navigate in the app; the click's default is then prevented. Bubbles and is composed. |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uvalib-contents-sticky-top` | `1rem` | With `sticky`: the gap kept above it. |
+| `--uvalib-contents-max-height` | `none` | The list's maximum height on wide screens (it scrolls beyond it); with `sticky`, the window's height less twice the sticky gap. |
+| `--uva-blue-alt-dark` | `#005679` | Link colour. |
+| `--uva-brand-blue` | `#232d4b` | The current entry's bar. |
+| `--uva-brand-orange` | `#e57200` | The nested levels' bar. |
+| `--uva-grey-darkest` | `#2b2b2b` | Text and current entry colour. |
+| `--uva-color-utility-link` |  | Dark-mode role token: link colour (else `--uva-blue-alt-dark`). |
+| `--uva-color-text` |  | Dark-mode role token: text and current entry (else `--uva-grey-darkest`). |
+| `--uva-color-link` |  | Dark-mode role token: the current entry's bar and the button's text (else `--uva-brand-blue`). |
+| `--uva-color-current` |  | Dark-mode role token: the nested levels' bar (else `--uva-brand-orange`). |
+| `--uva-color-border` |  | Dark-mode role token: dividers (else #dadada). |
+| `--uva-color-control-border` |  | Dark-mode role token: the button's border (else #808080). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: the button's background (else #fff). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+
 ## `<uvalib-date-range>`
 
 A date-range picker: a two-thumb year slider plus "From" and "To" date inputs. `min` and `max` (ISO dates, `YYYY-MM-DD`) are required; without valid ones the element renders nothing and logs a console warning once. The start can never pass the end, and both stay within `min`..`max`.
@@ -762,6 +805,44 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 | `--uva-color-link` |  | Dark-mode role token: scope chip text and hover border (else `--uva-brand-blue`). |
 | `--uva-color-accent-bg` |  | Dark-mode role token: pressed chip background and border (else `--uva-brand-blue`). |
 | `--uva-color-on-accent` |  | Dark-mode role token: pressed chip text (else #fff). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+
+## `<uvalib-metadata>`
+
+A record's details as a description list, as on the library's digital collections: label and value side by side on wide screens (the element's own width, 36rem and up), stacked on narrow ones. Values may be text, links or lists (subjects). Give the rows as a `<dl>` child (so the page reads the same before the script loads): `<dt>` labels and `<dd>` values, optionally wrapped in a `<div>` per row; several `<dd>` after one `<dt>` are several values. The values are copied as written (links, lists, `download` attributes kept); a link with `data-size="184 KB"` is shown as a download, "EPUB · 184 KB". The list follows changes to the children. Apps set the `items` property instead (`{ label, value }`, winning over the children while set). Built-in rows for credit and rights (as Special Collections asks): `creator` and `organization` come first; `rights` (a rightsstatements.org or Creative Commons URL, shown as its short name linked to it, or plain text) and `citation` ("How to cite", with a Copy citation button that announces "Copied" politely) come last. `citation-title` builds the Special Collections citation, "<title>, Albert and Shirley Small Special Collections Library, University of Virginia".
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `creator` | `string \| undefined` |  | The creator (author, photographer…), shown first. |
+| `organization` | `string \| undefined` |  | The organization holding or crediting the item, shown after the creator. |
+| `rights` | `string \| undefined` |  | The rights statement: a rightsstatements.org or Creative Commons URL (shown as its short name, linked), another http(s) URL (shown as `rights-label`, or "Rights statement"), or plain text. |
+| `rights-label` | `string \| undefined` |  | The link text for a `rights` URL, instead of its short name. |
+| `rights-info` | `string \| undefined` |  | A "More about rights and permissions" link under the statement, such as `https://www.library.virginia.edu/policies/use-of-materials`. |
+| `citation` | `string \| undefined` |  | "How to cite": the citation, as written. Wins over `citation-title`. |
+| `citation-title` | `string \| undefined` |  | A title or collection name for the Special Collections citation: "<title>, Albert and Shirley Small Special Collections Library, University of Virginia". |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-analytics-event` | For `<site-analytics>`: the Copy citation button, `['uvalib-metadata', 'copy-citation']`. Downloads are left to Matomo's own download tracking. Bubbles and is composed. |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-blue-alt-dark` | `#005679` | Link colour. |
+| `--uva-grey-darkest` | `#2b2b2b` | Value colour. |
+| `--uva-color-utility-link` |  | Dark-mode role token: link colour (else `--uva-blue-alt-dark`). |
+| `--uva-color-text` |  | Dark-mode role token: value colour (else `--uva-grey-darkest`). |
+| `--uva-color-text-muted` |  | Dark-mode role token: label and status colour (else #4b5563). |
+| `--uva-color-border` |  | Dark-mode role token: row dividers (else #dadada). |
+| `--uva-color-link` |  | Dark-mode role token: the button's text and border (else `--uva-brand-blue`). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: the button's background (else #fff). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ## `<uvalib-pager>`

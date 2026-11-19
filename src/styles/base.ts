@@ -37,7 +37,9 @@ export const base = css`
   uvalib-breadcrumbs:not(:defined),
   uvalib-card:not(:defined),
   uvalib-card-grid:not(:defined),
-  uvalib-pager:not(:defined) {
+  uvalib-pager:not(:defined),
+  uvalib-contents:not(:defined),
+  uvalib-metadata:not(:defined) {
     display: block;
     line-height: 1.5;
     visibility: hidden;

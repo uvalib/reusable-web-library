@@ -28,6 +28,15 @@ export type { BreadcrumbItem } from './components/uvalib-breadcrumbs/UvalibBread
 export { UvalibCard } from './components/uvalib-card/UvalibCard.js';
 export { UvalibCardGrid } from './components/uvalib-card-grid/UvalibCardGrid.js';
 export { UvalibPager } from './components/uvalib-pager/UvalibPager.js';
+export { UvalibContents } from './components/uvalib-contents/UvalibContents.js';
+export type { ContentsItem } from './components/uvalib-contents/UvalibContents.js';
+export { UvalibMetadata } from './components/uvalib-metadata/UvalibMetadata.js';
+export type {
+  MetadataItem,
+  MetadataLink,
+  MetadataValue,
+} from './components/uvalib-metadata/UvalibMetadata.js';
+export { rightsName, specialCollectionsCitation } from './components/uvalib-metadata/rights.js';
 export { SiteAlerts } from './components/site-alerts/SiteAlerts.js';
 export type { SiteAlert, SiteAlertsShow } from './components/site-alerts/SiteAlerts.js';
 export { SiteHoursSection } from './components/site-hours-section/SiteHoursSection.js';
