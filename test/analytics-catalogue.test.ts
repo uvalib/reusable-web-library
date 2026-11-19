@@ -9,6 +9,9 @@ import '../src/components/site-main-nav/site-main-nav.js';
 import '../src/components/site-footer/site-footer.js';
 import '../src/components/site-page/site-page.js';
 import '../src/components/uvalib-breadcrumbs/uvalib-breadcrumbs.js';
+import '../src/components/uvalib-card/uvalib-card.js';
+import '../src/components/uvalib-card-grid/uvalib-card-grid.js';
+import '../src/components/uvalib-pager/uvalib-pager.js';
 import '../src/components/events-section/events-section.js';
 import '../src/components/site-hours-section/site-hours-section.js';
 import '../src/components/library-weekly-hours/library-weekly-hours.js';
@@ -199,6 +202,82 @@ describe('analytics catalogue', () => {
           ['uvalib-breadcrumbs', 'link-click', 'level 2', 2],
           ['uvalib-breadcrumbs', 'link-click', 'level 1', 1],
         ]);
+      });
+    });
+
+    describe(`uvalib-card (${mode})`, () => {
+      const cardLink = (card: Element) =>
+        (card.shadowRoot ?? card).querySelector<HTMLAnchorElement>('a.title-link')!;
+
+      it('the place in the grid, or single; never the title or URL', async () => {
+        const grid = await fixture<HTMLElement & { updateComplete: Promise<unknown> }>(
+          `<uvalib-card-grid ${attr(mode)}>
+            <uvalib-card href="#early-american-fiction"><span slot="heading">Early American Fiction</span></uvalib-card>
+            <uvalib-card href="https://example.test/addison/rotunda"><span slot="heading">Rotunda at dusk</span></uvalib-card>
+          </uvalib-card-grid>`,
+        );
+        await grid.updateComplete;
+        const cards = [...grid.querySelectorAll('uvalib-card')];
+        await Promise.all(
+          cards.map(
+            (c) => (c as HTMLElement & { updateComplete: Promise<unknown> }).updateComplete,
+          ),
+        );
+        await nextFrame();
+        expect(rec.events, 'reported on render').to.deep.equal([]);
+        cardLink(cards[1]!).click();
+        cardLink(cards[0]!).dispatchEvent(
+          new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }),
+        );
+        const alone = await fixture<HTMLElement & { updateComplete: Promise<unknown> }>(
+          `<uvalib-card ${attr(mode)} href="#only"><span slot="heading">A title that must not be sent</span></uvalib-card>`,
+        );
+        await alone.updateComplete;
+        cardLink(alone).click();
+        expect(events()).to.deep.equal([
+          ['uvalib-card', 'card-click', '2', 2],
+          ['uvalib-card', 'card-click', '1', 1],
+          ['uvalib-card', 'card-click', 'single'],
+        ]);
+        expect(JSON.stringify(rec.events)).to.not.match(
+          /Early American|Rotunda|must not be sent|example\.test|#early|#only/,
+        );
+      });
+    });
+
+    describe(`uvalib-pager (${mode})`, () => {
+      it('next and previous, with no page number, label or URL', async () => {
+        const el = await fixture<HTMLElement & { updateComplete: Promise<unknown> }>(
+          `<uvalib-pager ${attr(mode)} prev-href="#opening" prev-label="The opening chapter" next-href="#closing" next-label="What follows the fire"></uvalib-pager>`,
+        );
+        await quietRender(el);
+        const r = root(el);
+        r.querySelector<HTMLAnchorElement>('a[data-kind="next"]')!.click();
+        r.querySelector<HTMLAnchorElement>('a[data-kind="previous"]')!.dispatchEvent(
+          new MouseEvent('click', {
+            bubbles: true,
+            composed: true,
+            cancelable: true,
+            ctrlKey: true,
+          }),
+        );
+        expect(events()).to.deep.equal([
+          ['uvalib-pager', 'page-change', 'next'],
+          ['uvalib-pager', 'page-change', 'previous'],
+        ]);
+        expect(JSON.stringify(rec.events)).to.not.match(
+          /opening|follows the fire|#closing|#opening/,
+        );
+      });
+
+      it('a numbered page, never the template', async () => {
+        const el = await fixture<HTMLElement & { updateComplete: Promise<unknown> }>(
+          `<uvalib-pager ${attr(mode)} page="2" pages="5" href-template="?page={page}"></uvalib-pager>`,
+        );
+        await quietRender(el);
+        root(el).querySelector<HTMLAnchorElement>('a[data-page="3"]')!.click();
+        expect(events()).to.deep.equal([['uvalib-pager', 'page-change', 'number', 3]]);
+        expect(JSON.stringify(rec.events)).to.not.match(/\?page=/);
       });
     });
 

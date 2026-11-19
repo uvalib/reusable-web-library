@@ -4,6 +4,7 @@ Reusable web components for UVA Library sites, built with Lit and TypeScript:
 
 - **Page chrome:** `<site-page>` (skip link, header with the library main navigation and live library alerts, one `<main>`, footer), `<site-alerts>` (the alerts, also usable alone), `<site-header>`, `<site-main-nav>`, `<site-footer>`, `<site-analytics>` and `<uvalib-analytics>` (Matomo, one element under two names) and `<site-style>` (legacy compatibility).
 - **Navigation:** `<uvalib-breadcrumbs>` (the breadcrumb trail).
+- **Cards:** `<uvalib-card>`, `<uvalib-card-grid>` and `<uvalib-pager>`.
 - **Search:** `<uvalib-filter>` and `<uvalib-date-range>`.
 - **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
 - **Library events:** `<events-section>`.
@@ -243,6 +244,50 @@ connect-src https://d2q6t6fdv76k7r.cloudfront.net wss://*.appsync-realtime-api.u
 - **Placement.** In `<site-page>` the trail sits where library.virginia.edu puts it: after the header and the alert list band, before `<main>` and outside it, so the skip link lands past it, lined up with `<main>`'s content (same max width and 40px side padding, 16px above). In light mode (`no-shadow-dom`) it is moved there as a real child of `<site-page>`, never into `<main>`. Without a `slot="breadcrumbs"` child the page is unchanged. Elsewhere it is an ordinary block: put it first in the page content, above the `<h1>`.
 - **Styles.** Links `--uva-color-utility-link` (else `--uva-blue-alt-dark`, #005679, as on library.virginia.edu), underlined; a linked current page in the text colour; the slash in `--uva-color-text-muted` (else `--uva-grey-dark`); the current page in the text colour; the library focus ring. Long trails wrap (no horizontal scroll at 320px). It follows dark mode through the role tokens. `no-style` keeps only the structure (an inline list without bullets or indent, the separators' spacing); light DOM styles are scoped to the tag in `@layer uvalib`, so a site's own CSS wins.
 
+## Cards
+
+`<uvalib-card>` is one summary: a collection (title and “N texts”), a photo, or anything similar. `<uvalib-card-grid>` lays those cards out. `<uvalib-pager>` is the previous/next row on a reading page, or a numbered page list. Entries: `uvalib-card.js`, `uvalib-card-grid.js` and `uvalib-pager.js` on the CDN, and the same paths under `@uvalib/web-components/` on npm.
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-card.js"
+></script>
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-card-grid.js"
+></script>
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-pager.js"
+></script>
+<site-page>
+  <h1>Collections</h1>
+  <uvalib-card-grid>
+    <uvalib-card href="/collections/early-american-fiction/">
+      <span slot="heading">Early American Fiction</span>
+      128 texts
+    </uvalib-card>
+  </uvalib-card-grid>
+  <uvalib-pager
+    prev-href="/text/eaf375v1/d8/"
+    prev-label="The opening"
+    next-href="/text/eaf375v1/d10/"
+    next-label="What follows"
+  ></uvalib-pager>
+</site-page>
+```
+
+- **A clickable card.** `href` makes the heading the link, and a CSS pseudo-element stretches that link over the card, so the whole card is one destination. The arrow is only a visual aid. Never wrap the card in an `<a>`. A clickable card must not contain another link, button or other control: the stretched link would cover it, and a link inside a link is invalid. The heading needs an accessible name (text, or an image alt or label); otherwise the link is hidden. A static card (no `href`, or an empty or unsafe one such as `javascript:`) has no stretch, so its excerpt may contain links. An unsafe href is shown as plain text, with one console warning.
+- **Slots.** `media` (an `<img>` with a real alt, or `alt=""` when the heading already names it), `badge` (for example “13 photos”, over the image), `heading`, `meta` (a date in `<time>`, or a byline), `chip` (one element per category) and the default slot for the excerpt.
+- **Heading level.** Unset, it is one below the nearest heading before the card, or 3 when there is none (the same rule as `<events-section>`). `heading-level` (1–6) wins.
+- **The grid.** A list, so a screen reader announces how many cards there are. Columns follow the grid’s own width: four above 992px, two through 767px, then one. Cards in a row match the tallest. `min-card-width` (a length such as `16rem`) switches that to `auto-fill` / `minmax`; anything else is ignored, with one warning. Only `<uvalib-card>` children are listed.
+- **Previous/next.** `prev-href` and `next-href` (either may be omitted; with neither, nothing is rendered). Each link shows a “Previous” or “Next” kicker and, when set, `prev-label` or `next-label`. A long title truncates; the full text stays in the accessible name. The links use `rel="prev"` and `rel="next"`. The landmark’s name is `label`, or “Sections”.
+- **Numbered pages.** Set `pages` (a positive count; it wins over previous/next, with one warning if those are set too). `page` is the current page, clamped to that range, and is text with `aria-current="page"`, not a link. Other pages use `href-template`, which must contain `{page}` (the default is `?page={page}`). A long range keeps the first page, a window around the current page, the last page, and an ellipsis where numbers are skipped. The landmark’s name is `label`, or “Pagination”.
+- **One landmark name.** Two pagers with the same accessible name fail the accessibility check. Give the second a different `label`.
+- **Single-page apps.** A plain click fires `uvalib-card-navigate` (`detail: { href, position }`) or `uvalib-pager-navigate` (`detail: { href, kind, page? }`). Cancel it with `preventDefault()` and route in the app. `position` is `'single'` or `'1'`, `'2'`, …. `kind` is `'next'`, `'previous'` or `'number'`, and `page` is set only for `'number'`.
+- **Styles.** A raised surface, a 1px border, and on hover or focus the shadow `0 0 20px 0 #DADADA`. Focusing the heading link draws the focus ring on the card. The chip is `--uva-blue-alt-300` on `--uva-blue-alt-dark` (6.13:1: WCAG AA for normal text, short of AAA’s 7:1). Dark mode follows the role tokens. `no-style` keeps the stretch, the grid and the truncation, and drops the colours.
+
 ## Rendering modes
 
 | Attributes               | Rendering                                                                                                                                                   |
@@ -478,6 +523,8 @@ Three elements show opening hours from the library's own data, for library.virgi
   | `site-main-nav`                              | `link-click`                                                                                                         | `Group > Link` (a top-level link: its label)                                                                                              |                               |
   | `site-footer`                                | `link-click` (not the pre-footer's)                                                                                  | `Column: Link`, e.g. `About: Staff directory`; `Contact us: Phone`, `Contact us: Email`; `Social: Facebook`, `Social: Instagram`          |                               |
   | `uvalib-breadcrumbs`                         | `link-click`                                                                                                         | `level N` (never the label)                                                                                                               | N, from 1                     |
+  | `uvalib-card`                                | `card-click`                                                                                                         | `single`, or the card's place in its grid (`1`, `2`, …); never the title or URL                                                           | that place, from 1, in a grid |
+  | `uvalib-pager`                               | `page-change`                                                                                                        | `next`, `previous` or `number` (never the label or URL)                                                                                   | the page, for `number` only   |
   | `site-alerts`                                | a content impression, once per alert per page view: `trackContentImpression('Library alert', '<severity>: <title>')` |                                                                                                                                           |                               |
   | `site-alerts`                                | `dismiss`, `link-click` (a link in an alert's text)                                                                  | `<severity>: <title>`                                                                                                                     |                               |
   | `site-alerts`                                | `error` (the alerts script failed to load)                                                                           | `alerts-script`                                                                                                                           |                               |
@@ -1115,6 +1162,79 @@ A breadcrumb trail, as on library.virginia.edu: links separated by slashes, endi
 | `--uva-color-text-muted` |  | Dark-mode role token: separator colour (else `--uva-grey-dark`). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
+### `<uvalib-card>`
+
+One card: a collection (title and “N texts”), a photo (image, count, date, category, title, excerpt) or any other raised summary. With `href`, the heading is the link and a pseudo-element stretches that link over the card, so the whole card is one click. The arrow is only a visual aid. The card is never wrapped in an `<a>`. A clickable card must not contain another link, button or other control: the stretched link covers it. A static card (no `href`, or an empty or unsafe one) has no stretch, so its excerpt may contain links. With `href`, the heading needs an accessible name (text, or an image `alt` or `aria-label`); otherwise the link is hidden. Regions are light-DOM children. Give `slot="media"`, `slot="badge"`, `slot="heading"`, `slot="meta"` or `slot="chip"`; anything else (including text) is the excerpt. An image needs a real alt, or `alt=""` when the heading already names it. A date belongs in `<time>` in the meta slot. One element per chip. The heading level defaults like `<events-section>`: one below the nearest heading before the card, or 3 when there is none. `heading-level` (1–6) wins. An invalid value is ignored.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `href` | `string \| undefined` |  | Makes the card one link: the heading stretches over the card. Empty is not a link. |
+| `heading-level` | `number \| undefined` |  | Heading level of the title, 1–6. Unset, it is one below the nearest heading before this card, or 3 when there is none. Any other value is ignored. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Slots
+
+| Slot | Description |
+|---|---|
+| `media` | Image or other media. An `<img>` needs a real alt, or `alt=""` when the heading names it. |
+| `badge` | Short label drawn over the media, such as “13 photos”. |
+| `heading` | The card title. With `href`, this heading’s link is the card, so it needs an accessible name. |
+| `meta` | Date (`<time>`) or byline, under the title. |
+| `chip` | Category. One element per chip. |
+| (default) | Excerpt. A static card may put links here; a clickable card must not contain other controls. |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-analytics-event` | For `<site-analytics>`: a primary-button click on the card link that was not already canceled, including a modified click, `['uvalib-card', 'card-click', 'single']` or, inside `<uvalib-card-grid>`, `['uvalib-card', 'card-click', '<n>', <n>]` (n from 1, the card’s place in that grid). Never the title or URL. Bubbles and is composed. |
+| `uvalib-card-navigate` | A plain click on the card link: `detail` is `{ href, position }` (`position` is `'single'` or `'1'`, `'2'`, …). Cancel it (`preventDefault()`) to route in the app; the click’s default is then prevented. Bubbles and is composed. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-brand-blue` | `#232d4b` | Title link when `--uva-color-link` is unset, and the badge background when `--uva-color-accent-bg` is unset. |
+| `--uva-blue-alt-300` | `#BFE7F7` | Chip background. With `--uva-blue-alt-dark` this pair is 6.13:1 (WCAG AA for normal text, short of AAA’s 7:1). |
+| `--uva-blue-alt-dark` | `#005679` | Chip text. |
+| `--uva-grey-100` | `#DADADA` | Hover shadow colour when `--uva-color-shadow` is unset. |
+| `--uva-color-surface-raised` |  | Dark-mode role token: card background (else #fff). |
+| `--uva-color-border` |  | Dark-mode role token: card border (else `--uva-grey-100`). |
+| `--uva-color-text` |  | Dark-mode role token: body text (else `--uva-grey-darkest`). |
+| `--uva-color-text-muted` |  | Dark-mode role token: meta line (else #4f4f4f). |
+| `--uva-color-link` |  | Dark-mode role token: title link (else `--uva-brand-blue`). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring on the card (else `--uva-brand-orange`). |
+| `--uva-color-accent-bg` |  | Dark-mode role token: badge background (else `--uva-brand-blue`). |
+| `--uva-color-on-accent` |  | Text on the badge (else #fff). |
+| `--uva-color-shadow` |  | Dark-mode role token: hover shadow colour (else `--uva-grey-100`). |
+
+### `<uvalib-card-grid>`
+
+A grid of `<uvalib-card>` elements. It is a list, so a screen reader announces how many cards there are. Safari drops that list when markers are removed, so the list role is set as well as the `<ul>`. Columns follow the theme’s breakpoints on the grid’s own width (a container query, so a sidebar collapses the grid too): four above 992px, two through 767px, then one. Cards in a row match the height of the tallest. Set `min-card-width` (a length: `16rem`, `240px`, …) to use `repeat(auto-fill, minmax(min(100%, <width>), 1fr))` instead. An invalid value is ignored, with one console warning, and the 4/2/1 columns stay. Only `<uvalib-card>` children are listed. Anything else is left in the tree (hidden in light DOM) and warned about once. The grid gives each card a `slot` while it is inside; that attribute is removed when the card leaves, so it is not hidden by another shadow root.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `min-card-width` | `string \| undefined` |  | When a length (`16rem`, `240px`, `20ch`, `40%`), the grid fills by that minimum instead of the fixed 4/2/1 columns. Any other value is ignored. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Slots
+
+| Slot | Description |
+|---|---|
+| (default) | `<uvalib-card>` elements, one per cell. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uvalib-card-min` |  | Set from `min-card-width` when that value is a length. The grid uses it as the `auto-fill` minimum. |
+
 ### `<uvalib-date-range>`
 
 A date-range picker: a two-thumb year slider plus "From" and "To" date inputs. `min` and `max` (ISO dates, `YYYY-MM-DD`) are required; without valid ones the element renders nothing and logs a console warning once. The start can never pass the end, and both stay within `min`..`max`.
@@ -1198,6 +1318,43 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 | `--uva-color-accent-bg` |  | Dark-mode role token: pressed chip background and border (else `--uva-brand-blue`). |
 | `--uva-color-on-accent` |  | Dark-mode role token: pressed chip text (else #fff). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+
+### `<uvalib-pager>`
+
+Previous/next section links, as on a reading page, or a numbered page list. Previous/next: set `prev-href` and `next-href` (either may be omitted). Each link shows a “Previous” or “Next” kicker and, when `prev-label` or `next-label` is set, that title. A visually hidden “: ” sits between them, so the accessible name is punctuated even when CSS is off. A long title truncates visually; the full text stays in the accessible name. The links use `rel="prev"` and `rel="next"`. With neither href, nothing is rendered. Numbered pages: set `pages` (a positive count). `page` is the current page, clamped to `1…pages`. Each link’s href comes from `href-template`, which must contain `{page}` (the default is `?page={page}`). The current page is text with `aria-current="page"`, not a link. Long ranges collapse to the first page, a window around the current page, the last page, and an ellipsis where numbers are skipped. `pages` wins when previous/next attributes are also set, with one console warning. The landmark’s accessible name is `label`, or “Sections” for previous/next and “Pagination” for numbered pages. An empty `label` uses that default. Two pagers on one page need different labels: a repeated landmark name fails the accessibility check.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `prev-href` | `string \| undefined` |  | Href of the previous section. Omitted, that side is not shown. |
+| `prev-label` | `string \| undefined` |  | Title of the previous section, under the “Previous” kicker. |
+| `next-href` | `string \| undefined` |  | Href of the next section. Omitted, that side is not shown. |
+| `next-label` | `string \| undefined` |  | Title of the next section, under the “Next” kicker. |
+| `page` | `number \| undefined` |  | Current page, from 1. Clamped to `pages`. Used when `pages` is set. |
+| `pages` | `number \| undefined` |  | How many pages. A positive number selects numbered pages and ignores previous/next. Zero, negative or non-numeric does not. |
+| `href-template` | `string \| undefined` |  | Href of each numbered page, with `{page}` where the number goes. Default `?page={page}` when omitted. Without `{page}`, numbered links are not made. |
+| `label` | `string \| undefined` |  | Accessible name of the navigation landmark. Default “Pagination” for numbered pages and “Sections” for previous/next. Empty uses that default. A second pager on the page needs its own name. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-analytics-event` | For `<site-analytics>`: a primary-button click that was not already canceled, including a modified click, on a page link `['uvalib-pager', 'page-change', 'number', <n>]`, or on a section link `['uvalib-pager', 'page-change', 'next'\|'previous']` (no page number: that mode has none). Never the label or URL. Bubbles and is composed. |
+| `uvalib-pager-navigate` | A plain click on a pager link: `detail` is `{ href, kind, page? }` (`kind` is `'next'`, `'previous'` or `'number'`; `page` is set for `'number'`). Cancel it (`preventDefault()`) to route in the app; the click’s default is then prevented. Bubbles and is composed. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-link` |  | Dark-mode role token: link colour (else `--uva-brand-blue`). |
+| `--uva-color-text` |  | Dark-mode role token: current page (else `--uva-grey-darkest`). |
+| `--uva-color-text-muted` |  | Dark-mode role token: the Previous/Next kicker (else #4f4f4f). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+| `--uva-color-accent-bg` |  | Dark-mode role token: current page background (else `--uva-brand-blue`). |
+| `--uva-color-on-accent` |  | Text on the current page background (else #fff). |
 
 ### `<website-section>`
 
