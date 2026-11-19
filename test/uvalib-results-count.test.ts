@@ -82,20 +82,53 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       stop();
     });
 
-    it('does not announce a count that came back to the last one announced', async () => {
+    it('announces the first count that arrives after an empty first render (async data)', async () => {
+      const el = await make('noun="shoots" announce-delay="60"');
+      expect(visible(el)).to.equal('');
+      const { heard, stop } = listen(el);
+      await wait(120);
+      expect(heard).to.deep.equal([]);
+      el.shown = 48;
+      el.total = 3694;
+      await el.updateComplete;
+      await wait(150);
+      expect(heard).to.deep.equal(['Showing 48 of 3,694 shoots']);
+      stop();
+    });
+
+    it('re-announces a count that recurs after a different one, even while still in the region', async () => {
       const el = await make();
       const { heard, stop } = listen(el);
       el.shown = 10;
       await el.updateComplete;
-      el.shown = 48;
+      await wait(150);
+      expect(heard).to.deep.equal(['Showing 10 of 3,694 shoots']);
+      // A different count shows briefly (not long enough to be announced), then the same again.
+      el.shown = 11;
+      await el.updateComplete;
+      await wait(20);
+      el.shown = 10;
+      await el.updateComplete;
+      await wait(200);
+      expect(heard).to.deep.equal(['Showing 10 of 3,694 shoots', 'Showing 10 of 3,694 shoots']);
+      // Nothing changed: nothing new is said.
+      el.noun = 'shoots';
       await el.updateComplete;
       await wait(150);
-      expect(heard).to.deep.equal([]);
-      el.total = 100;
-      await el.updateComplete;
-      await wait(150);
-      expect(heard).to.deep.equal(['Showing 48 of 100 shoots']);
+      expect(heard.length).to.equal(2);
       stop();
+    });
+
+    it('says No … for 0 shown, and treats a blank or missing attribute as unset', async () => {
+      const el = await make('shown="0" total="6" noun="shoots"');
+      expect(visible(el)).to.equal('No shoots');
+      const blank = await make('shown="" total="12" noun="shoots"');
+      expect(blank.shown).to.equal(undefined);
+      expect(visible(blank)).to.equal('Showing all 12 shoots');
+      blank.removeAttribute('total');
+      await blank.updateComplete;
+      expect(blank.total).to.equal(undefined);
+      expect(visible(blank)).to.equal('');
     });
 
     it('waits one second by default', async () => {

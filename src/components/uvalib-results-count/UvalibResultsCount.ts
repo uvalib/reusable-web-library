@@ -17,6 +17,12 @@ const whole = (n: unknown): number | undefined => {
   return Number.isFinite(v) && v >= 0 ? Math.trunc(v) : undefined;
 };
 
+/** `shown` and `total` from attributes: a missing or blank one is unset, not 0. */
+const optionalNumber = {
+  fromAttribute: (v: string | null) => (v === null || v.trim() === '' ? undefined : Number(v)),
+  toAttribute: (v: number | undefined) => (v === undefined ? null : String(v)),
+};
+
 /** Kept with `no-style`: the hidden live region stays hidden. */
 const structuralRules = (host: string) => `
   ${host} { display: block; }
@@ -42,14 +48,17 @@ const shadowStructure = unsafeCSS(structuralRules(':host'));
  * Set `total` (how many match), `shown` (how many are on the page) and `noun` (plural,
  * default “results”; `singular` for a total of one). The visible text follows at once:
  * “Showing 48 of 3,694 shoots”, “Showing all 12 shoots” (shown is the total, or unset),
- * “Showing 1 shoot” or “No shoots”; with only `shown`, “Showing 48 shoots”. Numbers use
- * thousands separators.
+ * “Showing 1 shoot” or “No shoots” (a total of 0, or 0 shown); with only `shown`, “Showing
+ * 48 shoots”. Numbers use thousands separators. A missing or blank `shown` or `total` is
+ * unset, not 0.
  *
  * The announcement waits until the text has not changed for `announce-delay` milliseconds
  * (default 1000, as `<bento-box>` and `<uvalib-pagefind-search>` settle), so typing in a
- * filter box is announced once. Nothing is announced for the first render, nor when the text
- * comes back to what was last announced. The announcement is cleared from the hidden region
- * five seconds later, so reading the page finds the count once.
+ * filter box is announced once. The first render is never announced; when it has no count
+ * yet (the data still loading), the first count that arrives is. A count is announced again
+ * when it comes back after a different one (a new search with the same number of results),
+ * but not when nothing was shown in between. The announcement is cleared from the hidden
+ * region five seconds later, so reading the page finds the count once.
  *
  * `<bento-box>` and `<uvalib-pagefind-search>` announce their own counts: use this element
  * for your own listings, not beside them.
@@ -70,10 +79,10 @@ export class UvalibResultsCount extends UvalibElement {
   ];
 
   /** How many results are shown on the page. */
-  @property({ type: Number }) shown?: number;
+  @property({ converter: optionalNumber }) shown?: number;
 
   /** How many results match in all. */
-  @property({ type: Number }) total?: number;
+  @property({ converter: optionalNumber }) total?: number;
 
   /** What is counted, plural: “results” by default. */
   @property({ type: String }) noun = 'results';
@@ -89,6 +98,8 @@ export class UvalibResultsCount extends UvalibElement {
 
   /** The text last announced, or shown at the first render. */
   private baseline = '';
+  /** Whether a different text was shown since the baseline (so the same text is news again). */
+  private moved = false;
   private pending?: ReturnType<typeof setTimeout>;
   private clearing?: ReturnType<typeof setTimeout>;
 
@@ -133,12 +144,13 @@ export class UvalibResultsCount extends UvalibElement {
     const total = whole(this.total);
     const shown = whole(this.shown);
     if (total !== undefined) {
-      if (total === 0) return `No ${this.word(0)}`;
+      if (total === 0 || shown === 0) return `No ${this.word(0)}`;
       if (shown !== undefined && shown < total)
         return `Showing ${count(shown)} of ${count(total)} ${this.word(total)}`;
       if (total === 1) return `Showing 1 ${this.word(1)}`;
       return `Showing all ${count(total)} ${this.word(total)}`;
     }
+    if (shown === 0) return `No ${this.word(0)}`;
     if (shown !== undefined) return `Showing ${count(shown)} ${this.word(shown)}`;
     return '';
   }
@@ -155,6 +167,7 @@ export class UvalibResultsCount extends UvalibElement {
     }
     // The live region's own change is not a new count.
     if (changed.size === 1 && changed.has('announcement')) return;
+    if (this.text !== this.baseline) this.moved = true;
     clearTimeout(this.pending);
     const delay = whole(this.announceDelay) ?? ANNOUNCE_DELAY_MS;
     this.pending = setTimeout(() => this.announce(), delay);
@@ -162,11 +175,22 @@ export class UvalibResultsCount extends UvalibElement {
 
   private announce(): void {
     const text = this.text;
-    if (text === this.baseline) return;
+    if (!this.moved || !text) {
+      this.moved = false;
+      return;
+    }
+    this.moved = false;
     this.baseline = text;
     clearTimeout(this.clearing);
-    this.announcement = text;
-    this.clearing = setTimeout(() => (this.announcement = ''), CLEAR_MS);
+    const say = () => {
+      this.announcement = text;
+      this.clearing = setTimeout(() => (this.announcement = ''), CLEAR_MS);
+    };
+    // The same words still in the region would not be read again: empty it first.
+    if (this.announcement === text) {
+      this.announcement = '';
+      void this.updateComplete.then(() => requestAnimationFrame(say));
+    } else say();
   }
 
   protected override render() {
