@@ -137,7 +137,7 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
     it('limit shows that many and a Show all N toggle that keeps focus', async () => {
       const rec = recordAnalytics();
       try {
-        const el = await make(TAGS, 'label="Subjects" limit="2"');
+        const el = await make(TAGS, 'label="Subjects" limit="2" track-label');
         expect(shown(el).map((s) => s[1])).to.deep.equal(['Rotunda', 'Lawn']);
         const btn = toggle(el)!;
         expect(btn.getAttribute('aria-expanded')).to.equal('false');
@@ -209,10 +209,11 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         expect(navs.length).to.equal(1);
         const events = rec.of('uvalib-analytics-event').map((d) => d.event);
         expect(events).to.deep.equal([
-          ['uvalib-tag-list', 'tag-click', 'Subjects', 3],
-          ['uvalib-tag-list', 'tag-click', 'Subjects', 3],
+          ['uvalib-tag-list', 'tag-click', 'list 1', 3],
+          ['uvalib-tag-list', 'tag-click', 'list 1', 3],
         ]);
         expect(JSON.stringify(rec.events)).to.not.include('Snow');
+        expect(JSON.stringify(rec.events)).to.not.include('Subjects');
         // Plain tags are not clicks.
         (tagsOf(el)[1] as HTMLElement).click();
         expect(rec.of('uvalib-analytics-event').length).to.equal(2);
@@ -222,30 +223,44 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       }
     });
 
-    it('reports "tags" when unlabelled, and nothing with no-analytics', async () => {
+    it('names lists by position unless track-label; nothing with no-analytics', async () => {
       const rec = recordAnalytics();
       const route = (e: Event) => e.preventDefault();
       document.addEventListener('uvalib-tag-list-navigate', route);
       try {
         await warnings(async () => {
-          const el = await make(TAGS, '');
-          (tagsOf(el)[0] as HTMLAnchorElement).click();
-          const quiet = await make(TAGS, 'label="S" no-analytics');
-          (tagsOf(quiet)[0] as HTMLAnchorElement).click();
+          const box = await fixture<HTMLDivElement>(
+            `<div><uvalib-tag-list ${attr}>${TAGS}</uvalib-tag-list><uvalib-tag-list ${attr} label="Record title from data">${TAGS}</uvalib-tag-list><uvalib-tag-list ${attr} label="Subjects" track-label>${TAGS}</uvalib-tag-list><uvalib-tag-list ${attr} label="S" no-analytics>${TAGS}</uvalib-tag-list></div>`,
+          );
+          const lists = [...box.querySelectorAll<UvalibTagList>('uvalib-tag-list')];
+          await Promise.all(lists.map((l) => l.updateComplete));
+          for (const l of lists) (tagsOf(l)[0] as HTMLAnchorElement).click();
         });
         expect(rec.of('uvalib-analytics-event').map((d) => d.event)).to.deep.equal([
-          ['uvalib-tag-list', 'tag-click', 'tags', 1],
+          ['uvalib-tag-list', 'tag-click', 'list 1', 1],
+          ['uvalib-tag-list', 'tag-click', 'list 2', 1],
+          ['uvalib-tag-list', 'tag-click', 'Subjects', 1],
         ]);
+        expect(JSON.stringify(rec.events)).to.not.include('Record title');
       } finally {
         document.removeEventListener('uvalib-tag-list-navigate', route);
         rec.restore();
       }
     });
 
-    it('links have a 24px target, the focus ring, and pass axe', async () => {
-      const el = await make(TAGS, 'label="Subjects" limit="3"');
-      for (const t of [...tagsOf(el), toggle(el)!].filter((t) => !t.closest('[hidden]')))
-        expect(t.getBoundingClientRect().height, t.textContent!).to.be.at.least(24);
+    it('tags and the toggle are 2rem targets, 0.5rem apart, with the focus ring; axe passes', async () => {
+      const el = await make(
+        '<a href="#ai">AI</a><a href="#5">5</a><span>x</span>' + TAGS,
+        'label="Subjects" limit="3"',
+      );
+      const shownTargets = [...tagsOf(el), toggle(el)!].filter((t) => !t.closest('[hidden]'));
+      for (const t of shownTargets) {
+        const r = t.getBoundingClientRect();
+        expect(r.height, t.textContent!).to.be.at.least(32);
+        expect(r.width, t.textContent!).to.be.at.least(32);
+      }
+      const [a, b] = tagsOf(el).map((t) => t.getBoundingClientRect());
+      expect(b!.left - a!.right).to.be.closeTo(8.5, 1);
       (document.activeElement as HTMLElement | null)?.blur();
       const first = tagsOf(el)[0]!;
       first.focus();
@@ -289,6 +304,76 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       }
     });
 
+    it('no-style keeps 24px targets and space between the list and the toggle', async () => {
+      const el = await make(
+        '<a href="#ai">AI</a><a href="#b">B</a><a href="#c">C</a>',
+        'label="S" limit="2" no-style',
+      );
+      for (const t of [...tagsOf(el).slice(0, 2), toggle(el)!]) {
+        const r = t.getBoundingClientRect();
+        expect(r.height, t.textContent!).to.be.at.least(24);
+        expect(r.width, t.textContent!).to.be.at.least(24);
+      }
+      const last = tagsOf(el)[1]!.getBoundingClientRect();
+      expect(toggle(el)!.getBoundingClientRect().top - last.bottom).to.be.at.least(8);
+    });
+
+    it('a blank href is no href: the template applies', async () => {
+      const el = await make(
+        '<a href="">Rotunda</a><a href="  ">Lawn</a>',
+        'label="S" href-template="#q={tag}"',
+      );
+      expect(shown(el)).to.deep.equal([
+        ['a', 'Rotunda', '#q=Rotunda'],
+        ['a', 'Lawn', '#q=Lawn'],
+      ]);
+      const plain = await make('<a href="">Rotunda</a>', 'label="S"');
+      expect(shown(plain)).to.deep.equal([['span', 'Rotunda', null]]);
+    });
+
+    it('keeps lang, dir and inline semantics, copied element by element', async () => {
+      const el = await make(
+        '<span lang="fr">Éditions <em>originales</em><img src="data:," alt=""></span><a href="#ar" lang="ar" dir="rtl">مكتبة</a><span><abbr title="University of Virginia">UVA</abbr> <b onclick="x()">Grounds</b></span>',
+        'label="S"',
+      );
+      const [fr, ar, uva] = tagsOf(el);
+      expect([
+        fr!.getAttribute('lang'),
+        ar!.getAttribute('lang'),
+        ar!.getAttribute('dir'),
+      ]).to.deep.equal(['fr', 'ar', 'rtl']);
+      expect(fr!.querySelector('em')!.textContent).to.equal('originales');
+      expect(fr!.querySelector('img')).to.equal(null);
+      expect(uva!.querySelector('abbr')!.getAttribute('title')).to.equal('University of Virginia');
+      expect(uva!.querySelector('b')!.hasAttribute('onclick')).to.equal(false);
+      el.items = [{ label: 'Rotonde', lang: 'fr' }];
+      await settle(el);
+      expect(tagsOf(el)[0]!.getAttribute('lang')).to.equal('fr');
+    });
+
+    it('a click whose target is the text node still counts and routes', async () => {
+      const rec = recordAnalytics();
+      const navs: unknown[] = [];
+      const route = (e: Event) => {
+        navs.push(e.type);
+        e.preventDefault();
+      };
+      document.addEventListener('uvalib-tag-list-navigate', route);
+      try {
+        const el = await make();
+        const text = [...tagsOf(el)[0]!.childNodes].find((n) => n.nodeType === Node.TEXT_NODE)!;
+        expect(text.nodeType).to.equal(Node.TEXT_NODE);
+        const click = new MouseEvent('click', { bubbles: true, composed: true, cancelable: true });
+        text.dispatchEvent(click);
+        expect(navs.length).to.equal(1);
+        expect(click.defaultPrevented).to.equal(true);
+        expect(rec.of('uvalib-analytics-event').length).to.equal(1);
+      } finally {
+        document.removeEventListener('uvalib-tag-list-navigate', route);
+        rec.restore();
+      }
+    });
+
     it('keeps the row layout and the hidden label with no-style', async () => {
       const el = await make(TAGS, 'label="S" hide-label no-style');
       expect(getComputedStyle(list(el)).display).to.equal('flex');
@@ -297,3 +382,39 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
     });
   });
 }
+
+describe('uvalib-tag-list (no-shadow-dom) reconnects', () => {
+  it('keeps the author children when moved or reconnected before its first update', async () => {
+    const a = await fixture<HTMLDivElement>(
+      '<div><section id="from"></section><section id="to"></section></div>',
+    );
+    const el = document.createElement('uvalib-tag-list') as UvalibTagList;
+    el.setAttribute('no-shadow-dom', '');
+    el.setAttribute('label', 'Subjects');
+    el.innerHTML = '<a href="#r">Rotunda</a><span>Lawn</span>';
+    a.querySelector('#from')!.append(el);
+    // Moved (as <site-page no-shadow-dom> moves its content) before Lit's first render.
+    a.querySelector('#to')!.append(el);
+    el.remove();
+    a.querySelector('#to')!.append(el);
+    const late = document.createElement('span');
+    late.textContent = 'Snow';
+    el.append(late);
+    await el.updateComplete;
+    await nextFrame();
+    await el.updateComplete;
+    expect(shown(el)).to.deep.equal([
+      ['a', 'Rotunda', '#r'],
+      ['span', 'Lawn', null],
+      ['span', 'Snow', null],
+    ]);
+    // The sources sit hidden in one holder; the rendered list is not taken for a source.
+    expect(el.querySelectorAll(':scope > .uvalib-tag-list-source').length).to.equal(1);
+    expect(el.querySelectorAll(':scope > .tag-list').length).to.equal(1);
+    el.remove();
+    a.querySelector('#from')!.append(el);
+    await nextFrame();
+    await el.updateComplete;
+    expect(shown(el).map((x) => x[1])).to.deep.equal(['Rotunda', 'Lawn', 'Snow']);
+  });
+});
