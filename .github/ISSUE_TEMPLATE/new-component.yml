@@ -1,0 +1,46 @@
+name: New component
+description: Ask for a component or pattern the library doesn't have yet
+title: '[New component]: '
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: >
+        This repository is public. Don't include passwords, tokens, internal-only hostnames, patron or
+        staff personal data, or screenshots that show any of these.
+  - type: input
+    id: name
+    attributes:
+      label: Proposed name
+      description: For example `uvalib-accordion`. A working name is fine.
+    validations:
+      required: true
+  - type: textarea
+    id: need
+    attributes:
+      label: What it's for
+      description: The pattern, where it appears, and what people need to do with it.
+    validations:
+      required: true
+  - type: textarea
+    id: where
+    attributes:
+      label: Sites that need it
+      description: Public URLs of pages that have (or will have) this pattern, and how many Library sites could use it.
+    validations:
+      required: true
+  - type: textarea
+    id: reference
+    attributes:
+      label: Existing patterns to match
+      description: library.virginia.edu pages, design-system decisions, Virgo or other Library examples it should follow.
+  - type: textarea
+    id: a11y
+    attributes:
+      label: Accessibility needs
+      description: Keyboard, screen reader, focus, motion or contrast requirements you already know about (the library targets WCAG 2.2 AA at minimum, aiming for AAA).
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Workaround in use
+      description: What the site does today without the component, if anything.

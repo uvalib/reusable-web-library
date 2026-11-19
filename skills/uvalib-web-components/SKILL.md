@@ -630,3 +630,30 @@ Before finishing, load the page in a browser (or test) and confirm:
 ## 10. Keeping this skill current
 
 This skill is a copy. `installed.json` next to this file records the package version it came from. When the user asks about updating it, or the page loads a newer component version than that, check it with `npx @uvalib/web-components@latest install-skill --check --dir <skills-dir>` (`<skills-dir>` is the folder that holds this skill, usually `.claude/skills`); it prints the update command when a newer release exists.
+
+## 11. Requesting components, features and fixes
+
+When the components can't do what the page needs, ask the library team through the GitHub issues of [uvalib/reusable-web-library](https://github.com/uvalib/reusable-web-library/issues) instead of building a permanent copy of the chrome or a look-alike component:
+
+- **New component:** a pattern that several Library sites share and no component covers (check this skill's list and [reference/components.md](reference/components.md) first). Form: `new-component.yml`.
+- **Feature or change:** an existing component needs an option, a behaviour or a fix in what it renders. Form: `feature-request.yml`.
+- **Bug:** a component misbehaves, looks wrong, or fails an accessibility check. Form: `bug-report.yml`.
+
+How to do it:
+
+1. **Search first**, including closed issues, so you add to an existing request rather than duplicating it:
+
+   ```bash
+   gh issue list --repo uvalib/reusable-web-library --state all --search "accordion in:title,body"
+   ```
+
+2. **Draft the issue and show it to the user before filing.** The repository is public: never include passwords, tokens, internal-only hostnames, patron or staff personal data, or private screenshots. Fill in the form's fields: what is needed, the public URLs of pages that need it, the existing library.virginia.edu or design-system pattern it should match, accessibility needs, the version in use (`installed.json`, the CDN `manifest.json` or package.json), and the workaround in place.
+3. **File it only after the user says yes.** With the GitHub CLI signed in:
+
+   ```bash
+   gh issue create --repo uvalib/reusable-web-library --label enhancement --title "[New component]: accordion" --body-file issue.md
+   ```
+
+   Use `--label bug` and a `[Bug]: ` title for bugs, `[Feature]: ` for changes. If `gh` isn't available or signed in, give the user the form's link instead, for example `https://github.com/uvalib/reusable-web-library/issues/new?template=new-component.yml`, with the drafted text to paste. Report the issue's URL.
+
+4. **Meanwhile:** build the smallest local workaround from the library's tokens (`--uva-*`), `base.css` classes and existing components, keep it accessible (section 9), and mark it in the code with a comment that links the issue, so it can be replaced when the component ships.
