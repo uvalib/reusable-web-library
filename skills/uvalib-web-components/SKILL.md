@@ -1,11 +1,11 @@
 ---
 name: uvalib-web-components
-description: Use when building or editing UVA Library web pages or sites, adding the UVA Library header, footer or page wrapper to a page, using the custom elements <site-page>, <site-header>, <site-main-nav>, <site-footer>, <site-analytics>, <uvalib-analytics>, <site-style>, <uvalib-breadcrumbs>, <uvalib-card>, <uvalib-card-grid>, <uvalib-pager>, <uvalib-contents>, <uvalib-metadata>, <site-alerts>, <uvalib-filter>, <uvalib-date-range>, <site-hours-section>, <library-weekly-hours>, <library-hours-setup>, <events-section>, <bento-box> or <uvalib-pagefind-search>, Pagefind site search (pagefind.css), working with the @uvalib/web-components npm package, or editing script/link URLs on unpkg.internal.lib.virginia.edu (including migrating old /web-components/latest/ or cdn-v URLs). Covers CDN vs npm, version pinning, shadow vs light DOM, theming with --uva-* tokens, WCAG 2.2 AA accessibility testing (axe-core in Playwright matched to Lighthouse, Lighthouse CI, manual checks), and a verification checklist.
+description: Use when building or editing UVA Library web pages or sites, adding the UVA Library header, footer or page wrapper to a page, using <site-page>, <site-header>, <site-main-nav>, <site-footer>, <site-analytics>, <uvalib-analytics>, <site-style>, <uvalib-breadcrumbs>, <uvalib-card>, <uvalib-card-grid>, <uvalib-pager>, <uvalib-contents>, <uvalib-metadata>, <site-alerts>, <uvalib-filter>, <uvalib-date-range>, <site-hours-section>, <library-weekly-hours>, <library-hours-setup>, <events-section>, <bento-box>, <uvalib-pagefind-search>, <uvalib-lightbox> or <uvalib-photo-grid>, Pagefind site search (pagefind.css), working with the @uvalib/web-components npm package, or editing script/link URLs on unpkg.internal.lib.virginia.edu (including migrating old /web-components/latest/ or cdn-v URLs). Covers CDN vs npm, version pinning, shadow vs light DOM, theming with --uva-* tokens, WCAG 2.2 AA accessibility testing (axe-core in Playwright matched to Lighthouse, Lighthouse CI, manual checks), and a verification checklist.
 ---
 
 # UVA Library web components
 
-`@uvalib/web-components` provides the UVA Library page chrome as custom elements: `<site-page>` (skip link, header with the library main navigation, one `<main>`, footer), `<site-header>`, `<site-main-nav>` (the main navigation, rendered by the header), `<site-footer>`, `<site-analytics>` (Matomo; also registered as `<uvalib-analytics>`) and `<site-style>` (legacy compatibility), plus `<uvalib-breadcrumbs>` (the breadcrumb trail), `<uvalib-contents>` (sub-navigation or a table of contents) and `<uvalib-metadata>` (a record's details, credit, rights and how to cite), all in section 2, `<uvalib-card>`, `<uvalib-card-grid>` and `<uvalib-pager>` (cards and paging, section 5) and `<site-alerts>` (the live library alerts, which `<site-page>` shows itself). It also ships two search-page components, `<uvalib-filter>` and `<uvalib-date-range>` (section 6), and three library-hours elements for library.virginia.edu, `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`, `<events-section>` for upcoming library events and `<bento-box>` for the library's search results page (section 7), and `pagefind.css` with `<uvalib-pagefind-search>` for a static site's Pagefind search (section 6). Tag names are stable.
+`@uvalib/web-components` provides the UVA Library page chrome as custom elements: `<site-page>` (skip link, header with the library main navigation, one `<main>`, footer), `<site-header>`, `<site-main-nav>` (the main navigation, rendered by the header), `<site-footer>`, `<site-analytics>` (Matomo; also registered as `<uvalib-analytics>`) and `<site-style>` (legacy compatibility), plus `<uvalib-breadcrumbs>` (the breadcrumb trail), `<uvalib-contents>` (sub-navigation or a table of contents) and `<uvalib-metadata>` (a record's details, credit, rights and how to cite), all in section 2, `<uvalib-card>`, `<uvalib-card-grid>` and `<uvalib-pager>` (cards and paging, section 5) and `<site-alerts>` (the live library alerts, which `<site-page>` shows itself). It also ships two search-page components, `<uvalib-filter>` and `<uvalib-date-range>` (section 6), and three library-hours elements for library.virginia.edu, `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`, `<events-section>` for upcoming library events and `<bento-box>` for the library's search results page (section 7), and `pagefind.css` with `<uvalib-pagefind-search>` for a static site's Pagefind search (section 6), and `<uvalib-lightbox>` and `<uvalib-photo-grid>` for images (section 8). Tag names are stable.
 
 Authority rule: https://www.library.virginia.edu and the UVA Library design system are the source of truth for how the chrome looks and what it says. Do not re-create, copy or restyle the header, footer, logo or links by hand. Use the components, and change appearance only through the theming surface below.
 
@@ -31,7 +31,7 @@ Loading rules:
 
 - One script is enough for the page chrome: `site-page.js` also loads the header (with its main navigation) and footer. For Matomo, give `<site-page>` a `matomo-id` (it loads the analytics code itself), or add `site-analytics.js` and a `<site-analytics>` (or `uvalib-analytics.js` and `<uvalib-analytics>`) element; never both, and never alongside a hand-written Matomo snippet.
 - Also link `.../v1/base.css` in `<head>` (npm: `@uvalib/web-components/base.css`), unless the page sets `no-global-styles`. `<site-page>` installs the same base styles only after the first paint, so without the link the page shifts once (the default body margin goes away, and a heading's margin stops collapsing through the not-yet-defined `<site-page>`). The link also keeps `<site-page>` invisible until it is defined, with a two-second fallback.
-- npm: the define entries (`@uvalib/web-components/site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-breadcrumbs.js`, `uvalib-card.js`, `uvalib-card-grid.js`, `uvalib-pager.js`, `uvalib-contents.js`, `uvalib-metadata.js`, `site-alerts.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`, `events-section.js`, `bento-box.js`, `uvalib-pagefind-search.js`) register the element (`bento-box.js` also registers its four sections). Importing the package root (`@uvalib/web-components`) gives the classes only and registers nothing. If you use the `SitePage` class directly, also import the header and footer define entries.
+- npm: the define entries (`@uvalib/web-components/site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-breadcrumbs.js`, `uvalib-card.js`, `uvalib-card-grid.js`, `uvalib-pager.js`, `uvalib-contents.js`, `uvalib-metadata.js`, `site-alerts.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`, `events-section.js`, `bento-box.js`, `uvalib-pagefind-search.js`, `uvalib-lightbox.js`, `uvalib-photo-grid.js`) register the element (`bento-box.js` also registers its four sections). Importing the package root (`@uvalib/web-components`) gives the classes only and registers nothing. If you use the `SitePage` class directly, also import the header and footer define entries.
 - Do not load the same component from both the CDN and npm on one page.
 
 ## 2. Required page structure
@@ -221,7 +221,7 @@ import '@uvalib/web-components/tokens.css'; // optional: tokens for your own CSS
 
 Analytics: only when the site needs Matomo, set `<site-page matomo-id="N">`, or add `site-analytics.js` and a `<site-analytics matomoid="N">`; see the analytics page in [reference/snippets.md](reference/snippets.md). `<uvalib-analytics>` (`uvalib-analytics.js`) is the same element under its original name, for existing markup. It listens on `document` for `uvalib-analytics-*` and `site-analytics-*` events (`event`, `search`, `pageview`, `content`) and queues them for Matomo, so events fired before Matomo loads are kept, and a page never counts twice. A single-page app whose router uses `pushState` or hashes can set `spa="auto"` to have each route change counted (after the new title is set, never twice for one URL); bare `spa` means the app sends its own `uvalib-analytics-pageview` events.
 
-The library's components already report what visitors do with them; do not add tracking for any of it: header utility and site links, logo, skip link, Menu and colour scheme; main-nav menu opens and links; footer links; breadcrumb and contents levels, the contents disclosure, Copy citation; card clicks (the card's place in its grid, or single); pager next, previous and page numbers; alerts (impressions, dismiss, links, errors); event clicks; See all hours, week changes; filter facets, scopes and See more/less; date-range changes; bento searches, result and See all clicks, retries; and load errors. The README's "Analytics" section has the full table.
+The library's components already report what visitors do with them; do not add tracking for any of it: header utility and site links, logo, skip link, Menu and colour scheme; main-nav menu opens and links; footer links; breadcrumb and contents levels, the contents disclosure, Copy citation; card clicks (the card's place in its grid, or single); pager next, previous and page numbers; alerts (impressions, dismiss, links, errors); event clicks; See all hours, week changes; filter facets, scopes and See more/less; date-range changes; bento searches, result and See all clicks, retries; lightbox opens, next, previous and full size (the name is `image N`, never the URL or the caption); and load errors. `<uvalib-photo-grid>` reports nothing. The README's "Analytics" section has the full table.
 
 For the host page's own content, tag the clickable element (or a wrapper) with `data-uvalib-track="category,action[,name[,value]]"` instead of writing a listener, for example `<a href="/spaces" data-uvalib-track="home-page,banner-click,Study spaces">`: the category is your page or widget, the action a fixed kebab-case verb, the name a short fixed label, the value a number. It works inside shadow DOM too. Never put titles, URLs, search text, ids, email addresses, phone numbers or other personal data in events.
 
@@ -548,7 +548,67 @@ Use these only on library.virginia.edu (or with the data endpoints repointed): t
 - On library.virginia.edu use `no-shadow-dom no-style` inside the page's `.uvalib-bento-search` body class: the Drupal theme styles its classes (`bento-search-bar`, `bs-header`, `bs-results-container`, `bs-results--block`, `bs-results--header`, `bs-results--list`, `ul-0`, `ul-1`, …).
 - Migrating Drupal: `…/web-components/cdn-v2.2.38/@uvalib/bento-box/bento-box.js` becomes `https://unpkg.internal.lib.virginia.edu/web-components/v1/bento-box.js`; the markup stays (`<bento-box no-style no-shadow-dom limit="3">`).
 
-## 8. Verification checklist
+## 8. Images
+
+Use these instead of a hand-built gallery or a carousel. There is no autoplay.
+
+- `<uvalib-lightbox>` from `uvalib-lightbox.js`: progressive enhancement over plain links. Wrap them (`<a href="full.jpg" data-caption="Page 2"><img alt="Page 2" width="1600" height="2000"></a>`), or point at links elsewhere with `selector="a.pb-image"`. Without JavaScript, and on a modified click, the link opens the image as before. A primary click opens a native `<dialog>` (`showModal()`): the caption names it, Close takes focus, focus returns to the trigger, Escape and the backdrop close it. With more than one image, Previous and Next and the arrow keys move through the set (wrapping; Left is previous in left-to-right), with a polite "3 of 13". Full size opens the original image in a new tab and says so in its accessible name. It is offered for an http(s) URL or a PNG, JPEG, GIF or WebP `data:` image, never an SVG `data:` URL. A IIIF Image API URL keeps its region and only the size becomes `!W,H` for the viewport; TIFF and JPEG2000 URLs are left as written. Full size stays the original href.
+- `url-param="photo"` keeps `?photo=<id>` in sync (the id is `data-id`, else `id`, else the IIIF identifier, else the position from 1): opening pushes a history entry, stepping replaces it, Back closes. On a hash route the parameter is written inside the hash. Opening from a URL that already has it is not an analytics event. With `spa="auto"`, that opening push may count as one Matomo page view.
+- Details: a child with `slot="details"` (`data-for` selects one item by id or position from 1; without it the details show for every image), or `data-details-id` on a link naming an element elsewhere. It is put back when the viewer moves on or closes.
+- `<uvalib-photo-grid>` from `uvalib-photo-grid.js`: justified rows. Each direct `<a href>` or `<button>` is one photo and stays a real control. The row is about 220px, and 140px at 767px and below, unless `row-height` is set (a bare number is pixels). Give each image `width` and `height` so the row does not jump when it loads. An image with no visible text gets a caption from its alt, and a repeated alt is cleared (the original is kept for a lightbox). A different alt is kept. Do not set an `aria-label` that differs from the visible text; the grid will not add a caption beside one. Generated "Photo N" captions renumber when the photos change order. A grid inside a lightbox opens the viewer. The grid reports no analytics.
+
+```html snippet
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Photographs</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.internal.lib.virginia.edu/web-components/v1/base.css"
+    />
+    <script
+      type="module"
+      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
+    ></script>
+    <script
+      type="module"
+      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-lightbox.js"
+    ></script>
+    <script
+      type="module"
+      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-photo-grid.js"
+    ></script>
+  </head>
+  <body>
+    <site-page>
+      <h1>Photographs</h1>
+      <uvalib-lightbox url-param="photo">
+        <uvalib-photo-grid>
+          <a
+            href="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+            data-caption="The Rotunda"
+            data-id="rotunda"
+          >
+            <img alt="The Rotunda" width="160" height="80" />
+          </a>
+          <a
+            href="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+            data-caption="The Lawn"
+            data-id="lawn"
+          >
+            <img alt="The Lawn" width="80" height="80" />
+          </a>
+        </uvalib-photo-grid>
+        <p slot="details">Photographs of the University.</p>
+      </uvalib-lightbox>
+    </site-page>
+  </body>
+</html>
+```
+
+## 9. Verification checklist
 
 Before finishing, load the page in a browser (or test) and confirm:
 
@@ -567,6 +627,6 @@ Before finishing, load the page in a browser (or test) and confirm:
 9. A sub-site's name is `site-name` on `<site-page>`, not a hand-built title bar; buttons and search boxes in the content use the `.uvalib-button` / `.uvalib-input` / `.uvalib-search-form` classes, toggles carry `aria-pressed`, and every field has a label.
 10. With analytics: no hand-written listener duplicates what the components already report, host-page tracking uses `data-uvalib-track`, and no event name holds a title, URL, search text or personal data.
 
-## 9. Keeping this skill current
+## 10. Keeping this skill current
 
 This skill is a copy. `installed.json` next to this file records the package version it came from. When the user asks about updating it, or the page loads a newer component version than that, check it with `npx @uvalib/web-components@latest install-skill --check --dir <skills-dir>` (`<skills-dir>` is the folder that holds this skill, usually `.claude/skills`); it prints the update command when a newer release exists.

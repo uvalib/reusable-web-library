@@ -12,6 +12,7 @@ export const GROUPS = [
   'Cards',
   'Contents',
   'Metadata',
+  'Images',
   'Search',
   'Hours',
   'Events',
@@ -141,6 +142,8 @@ ${body}
 </html>
 `;
 }
+
+const PHOTO = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
 export const presets: Preset[] = [
   {
@@ -778,6 +781,68 @@ article p {
       </uvalib-metadata>
     </site-page>`,
         }),
+      },
+    },
+  },
+  {
+    id: 'photo-grid',
+    group: 'Images',
+    title: 'Photo grid',
+    description:
+      'uvalib-photo-grid lays each link out in a justified row from its image width and height (about 220px tall, 140px on a phone). Inside uvalib-lightbox a plain click opens the viewer: Close takes focus, Previous and Next move through the set, and url-param="photo" puts ?photo= in the address so the open image can be shared. Without JavaScript the links still open the image.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Photo grid',
+          components: ['uvalib-lightbox', 'uvalib-photo-grid'],
+          body: `    <site-page>
+      <h1>Photographs</h1>
+      <uvalib-lightbox url-param="photo">
+        <uvalib-photo-grid>
+          <a href="${PHOTO}" data-caption="The Rotunda" data-id="rotunda"><img alt="The Rotunda" width="160" height="80"></a>
+          <a href="${PHOTO}" data-caption="The Lawn" data-id="lawn"><img alt="The Lawn" width="80" height="80"></a>
+        </uvalib-photo-grid>
+        <p slot="details">Photographs of the University.</p>
+      </uvalib-lightbox>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'page-images',
+    group: 'Images',
+    title: 'Page images',
+    description:
+      'uvalib-lightbox can enhance links that are not inside it. selector="a.page" turns these page-number links into the viewer; a modified click, or no JavaScript, still follows the link. The same url-param works on a hash route, written inside the hash.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Page images',
+          styles: true,
+          components: ['uvalib-lightbox'],
+          body: `    <site-page>
+      <h1>A reading page</h1>
+      <uvalib-lightbox selector="a.page" url-param="photo"></uvalib-lightbox>
+      <p>
+        <a class="page" href="${PHOTO}" data-caption="Page 2" data-id="2">p. 2</a>
+        <a class="page" href="${PHOTO}" data-caption="Page 3" data-id="3">p. 3</a>
+      </p>
+    </site-page>`,
+        }),
+      },
+      'styles.css': {
+        content: `a.page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0.25rem;
+  padding: 0.5rem 0.75rem;
+}
+`,
       },
     },
   },

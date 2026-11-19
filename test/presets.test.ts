@@ -47,6 +47,8 @@ describe('playground presets', function () {
       'numbered-pager',
       'contents-sidebar',
       'record-metadata',
+      'photo-grid',
+      'page-images',
       'search-facets',
       'search-results',
       'pagefind-search',
@@ -66,6 +68,7 @@ describe('playground presets', function () {
       'Cards',
       'Contents',
       'Metadata',
+      'Images',
       'Search',
       'Hours',
       'Events',
@@ -99,6 +102,7 @@ describe('playground presets', function () {
       Cards: ['collection-cards', 'photo-card', 'section-pager', 'numbered-pager'],
       Contents: ['contents-sidebar'],
       Metadata: ['record-metadata'],
+      Images: ['photo-grid', 'page-images'],
       Search: [
         'search-facets',
         'search-results',
@@ -322,6 +326,43 @@ describe('playground presets', function () {
             'How to cite',
           ]);
         }
+        expect(countMain(doc)).to.equal(1);
+        await expectNoPageAxeViolations(doc);
+        expect(errors).to.deep.equal([]);
+      } finally {
+        iframe.remove();
+      }
+    }
+  });
+
+  it('a photo grid inside a lightbox opens the viewer, and page links do too', async function () {
+    this.timeout(10000);
+    for (const id of ['photo-grid', 'page-images'] as const) {
+      const p = presets.find((x) => x.id === id)!;
+      const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+      try {
+        const doc = iframe.contentDocument!;
+        const tags =
+          id === 'photo-grid'
+            ? ['site-page', 'uvalib-lightbox', 'uvalib-photo-grid']
+            : ['site-page', 'uvalib-lightbox'];
+        await whenAllDefined(iframe.contentWindow!, tags);
+        await new Promise((r) => setTimeout(r, 100));
+        const box = doc.querySelector('uvalib-lightbox') as HTMLElement & {
+          updateComplete: Promise<unknown>;
+          shadowRoot: ShadowRoot;
+        };
+        (
+          doc.querySelector(
+            id === 'photo-grid' ? 'uvalib-photo-grid a' : 'a.page',
+          ) as HTMLAnchorElement
+        ).click();
+        await box.updateComplete;
+        const dialog = box.shadowRoot.querySelector('dialog')!;
+        expect(dialog.open, id).to.equal(true);
+        expect(dialog.querySelector('.caption')!.textContent).to.equal(
+          id === 'photo-grid' ? 'The Rotunda' : 'Page 2',
+        );
         expect(countMain(doc)).to.equal(1);
         await expectNoPageAxeViolations(doc);
         expect(errors).to.deep.equal([]);

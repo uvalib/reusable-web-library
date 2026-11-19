@@ -6,6 +6,7 @@ Reusable web components for UVA Library sites, built with Lit and TypeScript:
 - **Navigation:** `<uvalib-breadcrumbs>` (the breadcrumb trail) and `<uvalib-contents>` (sub-navigation or a table of contents).
 - **Cards:** `<uvalib-card>`, `<uvalib-card-grid>` and `<uvalib-pager>`.
 - **Records:** `<uvalib-metadata>` (a record's details, credit, rights and how to cite).
+- **Images:** `<uvalib-lightbox>` (an image viewer over plain links) and `<uvalib-photo-grid>` (justified rows of thumbnails).
 - **Search:** `<uvalib-filter>` and `<uvalib-date-range>`.
 - **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
 - **Library events:** `<events-section>`.
@@ -369,6 +370,40 @@ Two components for Library sites with records and long texts, such as the Electr
 
 Both follow dark mode through the role tokens and reflow at 320px; `no-style` keeps only the structure, and light DOM styles are scoped to the tag in `@layer uvalib`.
 
+## Images
+
+`<uvalib-lightbox>` opens a set of plain image links in a dialog. `<uvalib-photo-grid>` lays the thumbnails out in justified rows. Entries: `uvalib-lightbox.js` and `uvalib-photo-grid.js` on the CDN, `@uvalib/web-components/uvalib-lightbox.js` and `…/uvalib-photo-grid.js` on npm. Without JavaScript the links still open the image.
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-lightbox.js"
+></script>
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-photo-grid.js"
+></script>
+<uvalib-lightbox url-param="photo">
+  <uvalib-photo-grid>
+    <a href="rotunda.jpg" data-caption="The Rotunda">
+      <img alt="The Rotunda" width="1600" height="800" />
+    </a>
+    <a href="lawn.jpg" data-caption="The Lawn">
+      <img alt="The Lawn" width="800" height="800" />
+    </a>
+  </uvalib-photo-grid>
+</uvalib-lightbox>
+```
+
+- **Progressive enhancement.** Wrap the links, or point at links elsewhere with `selector` (for example `selector="a.pb-image"` on a reading page). A primary click opens the viewer. A modified click (command, control, shift, alt, or another mouse button) follows the link as usual.
+- **Dialog.** A native `<dialog>` opened with `showModal()`. The caption names it (`aria-labelledby`). Focus moves to Close on open and back to the trigger on close. Escape and a click on the backdrop close it. With more than one image, Previous and Next and the arrow keys move through the set, wrapping, and a polite "3 of 13" is shown. Left is previous in left-to-right and next in right-to-left. Full size opens the original image in a new tab, and its accessible name says so. Loading and a failed image are announced. The dialog image's alt is the trigger image's alt, or the caption when that alt is empty. There is no autoplay and no carousel.
+- **Caption and id.** The caption is `data-caption`, else the image alt, else the link's own text, else `title`, else "Image". The deep-link id is `data-id`, else the element's `id`, else the IIIF identifier, else the position from 1.
+- **IIIF.** An Image API URL keeps its region (a crop or `square` stays). Only the size becomes `!W,H` for the viewport (CSS pixels times the screen density, at most 2, and at most 2000 pixels on a side). TIFF and JPEG2000 URLs are left as written. Full size still opens the original href, and only for an http(s) URL or a PNG, JPEG, GIF or WebP `data:` image. A resize while the viewer is open asks for the new size and is not an analytics event. Other image URLs are used as written. A `javascript:` URL, and an SVG `data:` URL, are refused.
+- **Deep link.** `url-param="photo"` keeps `?photo=<id>` in sync: opening pushes a history entry, stepping replaces it, and Back closes. On a hash route (`#/text`, or a hash that already contains `?`) the parameter is written inside the hash (`#/text?photo=<id>`). Opening from a URL that already has the parameter is not a new action, and neither is Back or Forward. With `<site-analytics spa="auto">` (or `<uvalib-analytics spa="auto">`), that opening push is a same-document route change, so Matomo may count one page view; stepping replaces the entry and does not.
+- **Details.** A child with `slot="details"` (optional `data-for` equal to the item's id or its position from 1; without `data-for` it shows for every image), or `data-details-id` on a link naming an element elsewhere on the page. It is shown in the dialog and put back when the viewer moves on or closes.
+- **Photo grid.** Each direct child that is an `<a href>` or a `<button>` is one photo. The row is about 220px tall, and 140px when the viewport is 767px or narrower, unless `row-height` is set (a bare number is pixels; `rem`, `em` and the other CSS lengths are kept). Each image keeps its shape from its `width` and `height` attributes, or from the loaded image, so the row does not jump. Every item stays a real link or button. An image with no visible text gets a visible caption from its alt, and an alt that repeats that caption is cleared so it is not announced twice. The original alt is kept for a lightbox. A different alt is kept (the accessible name still contains the visible text). An `aria-label` is left as the name. Generated "Photo N" captions renumber when the photos change order. An item with no name is captioned "Photo N" and warned about once. A child that is not a link or a button is skipped, with one warning. The grid reports no analytics. Put it inside `<uvalib-lightbox>` and a plain click opens the viewer.
+- **Motion and colour.** `prefers-reduced-motion` turns the dialog's short fade off. The backdrop, surface and focus ring use the dark-mode role tokens. Controls are at least 44px. `no-style` keeps the dialog's structure and, for the grid, the row layout: the thumbnails stay in light DOM, and those rules are what reserve each image's space.
+
 ## Rendering modes
 
 | Attributes               | Rendering                                                                                                                                                   |
@@ -642,7 +677,7 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
   - `…-content`: `detail: { name, piece, target?, interaction? }`, a Matomo content impression (`trackContentImpression`), or with `interaction` a `trackContentInteraction`; `trackContent(el, { name, piece, target?, interaction? })` from `@uvalib/web-components/base.js` fires it.
 - **Nothing is lost or counted twice.** Every call goes through Matomo's `_paq` queue, which matomo.js replays when it loads, so events fired before it arrives are kept (and nothing waits for it if it is blocked). However many analytics elements a page has, from any copy of this library (an npm build next to a CDN script, two CDN versions), matomo.js is loaded and the page view recorded once and only one element forwards each event; if it is removed, the next one takes over. A Matomo snippet already on the page (a `matomo.js` script, or a `_paq` that sets a site id) is used as it is: nothing is loaded or recorded again, and the element only forwards the events.
 - **Matomo's own link tracking** (`enableLinkTracking`, on unless `spa`, as in the old element) still records clicks on links to other sites and downloads with their URLs, result links included. Besides Matomo's own download types (pdf, doc*, xls*, ppt*, …), links to the library's file types count as downloads: epub, mobi, csv, tsv, json, xml, zip, tar, gz, mp3, mp4, m4a, tif, tiff, jp2, mrc, ris, bib and txt (`addDownloadExtensions`). The components' own events never carry titles or URLs.
-- **`spa="auto"`** records a page view on load and on every same-document route change (`history.replaceState`, such as a search page syncing its filters to the URL, and reloads are never page views): a hash change, Back and Forward (`popstate`), the Navigation API's `currententrychange` where the browser has it, and `history.pushState` (wrapped once per page, shared by every copy of this library, and left in place). The view is recorded on the next frame, so the title the app sets right after navigating is the one counted, with the URL as the custom URL and the previous view's URL as the referrer. A change to the URL already counted (`replaceState`, a second `pushState` to the same URL, the several events one Back fires) is not counted again. Bare `spa` keeps its meaning: no automatic views.
+- **`spa="auto"`** records a page view on load and on every same-document route change (`history.replaceState`, such as a search page syncing its filters to the URL, and reloads are never page views): a hash change, Back and Forward (`popstate`), the Navigation API's `currententrychange` where the browser has it, and `history.pushState` (wrapped once per page, shared by every copy of this library, and left in place). The view is recorded on the next frame, so the title the app sets right after navigating is the one counted, with the URL as the custom URL and the previous view's URL as the referrer. A change to the URL already counted (`replaceState`, a second `pushState` to the same URL, the several events one Back fires) is not counted again. Opening `<uvalib-lightbox url-param>` pushes one history entry, so this counts that open as a page view; stepping through the images replaces the entry and is not another view. Bare `spa` keeps its meaning: no automatic views.
 - **`data-uvalib-track` for host content.** A click on an element with `data-uvalib-track="category,action[,name[,value]]"`, or on anything inside it, sends that Matomo event (the nearest tagged element wins; `value` must be a number). It works in light and shadow DOM (one capture-phase listener on `document`, reading the click's composed path) and needs an analytics element on the page. Use your site's name or the widget as the category and a fixed verb as the action, and never put titles, URLs or personal data in it: `<a href="/spaces" data-uvalib-track="home-page,banner-click,Study spaces">`.
 - **`<site-page matomo-id="N">`** (and optional `matomo-url`) adds one `<site-analytics>` for that site and loads its code only then. Off by default. While that code loads, what the components report is kept and handed over, so an early bento search is not lost. If the page already has a `<site-analytics>` or `<uvalib-analytics>` (including the old v0.0.12 one), site-page adds none and that element does the recording.
 - **What the library's components send.** They only fire `uvalib-analytics-*` events, so nothing happens without an analytics element (the old v0.0.12 element records them too). Every event is `[category, action, name?, value?]`: the category is the component's tag, the action a fixed verb, the name a short label from the library's own chrome or data (never a URL, never typed text), the value a number. Each one follows a visitor's action or a real failure: nothing is sent on render, re-render, the initial state or a restored one (a filter value set by the app, a remembered colour scheme). Errors are sent once per element and kind of failure.
@@ -662,6 +697,7 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
   | `uvalib-contents`                            | `link-click`                                                                                                         | `level N` (never the label or URL)                                                                                                        | N, from 1 (the top level)     |
   | `uvalib-contents`                            | `toggle` (the narrow-screen disclosure)                                                                              | `open` or `close`                                                                                                                         |                               |
   | `uvalib-metadata`                            | `copy-citation` (downloads are left to Matomo's own download tracking)                                               |                                                                                                                                           |                               |
+  | `uvalib-lightbox`                            | `open`, `next`, `previous`, `full-size`                                                                              | `image N` (never the URL or the caption)                                                                                                  | N, from 1                     |
   | `site-alerts`                                | a content impression, once per alert per page view: `trackContentImpression('Library alert', '<severity>: <title>')` |                                                                                                                                           |                               |
   | `site-alerts`                                | `dismiss`, `link-click` (a link in an alert's text)                                                                  | `<severity>: <title>`                                                                                                                     |                               |
   | `site-alerts`                                | `error` (the alerts script failed to load)                                                                           | `alerts-script`                                                                                                                           |                               |
@@ -678,7 +714,7 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
   | `bento-box`                                  | `see-all-click`, `retry`                                                                                             | the section                                                                                                                               |                               |
   | `bento-box`                                  | `error`                                                                                                              | `section-load: <section>`                                                                                                                 |                               |
 
-  `<bento-box>` also sends a Matomo site search per section once its results are in (not on an error, not again on a re-render): the query, the section as category, and the section's total (0 when nothing was found). A new query, also by Back or Forward, is a new search. The `<library-weekly-hours>` elements `<library-hours-setup>` creates report as `library-weekly-hours`. Alert severities are `Critical`, `Warning`, `Information`, `Header` or `Regional warning` / `Regional information`. Names are capped at 100 characters.
+  `<bento-box>` also sends a Matomo site search per section once its results are in (not on an error, not again on a re-render): the query, the section as category, and the section's total (0 when nothing was found). A new query, also by Back or Forward, is a new search. The `<library-weekly-hours>` elements `<library-hours-setup>` creates report as `library-weekly-hours`. Alert severities are `Critical`, `Warning`, `Information`, `Header` or `Regional warning` / `Regional information`. Names are capped at 100 characters. `<uvalib-photo-grid>` reports nothing.
 
 - **Privacy.** The components never send URLs, paths, record titles, ids, email addresses or phone numbers, or anything a visitor typed: only the fixed names above, positions and counts, labels of the library's own links, and the titles of library alerts (written by the library for everyone). The one exception is search: bento-box's queries are what visitors typed, and are sent as Matomo site searches.
 - **Opting out.** Nothing is sent from a component, a `data-uvalib-track` element or an event fired by hand when:
@@ -1503,6 +1539,61 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 | `--uva-color-on-accent` |  | Dark-mode role token: pressed chip text (else #fff). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
+### `<uvalib-lightbox>`
+
+An accessible image viewer over a set of plain links. With JavaScript a primary click opens a modal dialog; without it (or with a modified click) the link opens the image as before. Wrap the links, or point at them with `selector` (for example `a.pb-image` on a reading page). There is no autoplay and no carousel. The dialog is labelled by the caption (`data-caption`, else the image alt, else the link text). Focus moves to Close on open and back to the trigger on close. Escape and a click on the backdrop close it. With more than one image, Previous and Next and the arrow keys move through the set (wrapping), and a polite “3 of 13” counter is shown. Full size opens the original image in a new tab. A IIIF Image API URL keeps its region; only the size becomes `!W,H` for the viewport. TIFF and JPEG2000 URLs are left as written. `url-param` (for example `photo`) keeps `?photo=<id>` in sync, including on a hash route (`#/text?photo=<id>`): opening pushes a history entry, stepping replaces it, and Back closes. Optional details: children with `slot="details"` (and `data-for` equal to the item's id or its position from 1; without `data-for` they show for every image), or `data-details-id` on a link pointing at an element elsewhere on the page. Either is shown inside the dialog and put back when the viewer moves on or closes.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `selector` | `string` | `''` | CSS selector for image links elsewhere in this root (the page, or the shadow root the component sits in). Combined with any links inside the component. Example: `a.pb-image`. |
+| `url-param` | `string` | `''` | Query parameter kept in sync with the open image, for example `photo` → `?photo=<id>`. The id is the link's `data-id`, else its `id`, else the IIIF identifier, else its position from 1. On a hash route the parameter is written inside the hash. Empty: no deep link. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Slots
+
+| Slot | Description |
+|---|---|
+| (default) | The image links. A plain click opens the viewer; without JavaScript they open the image. |
+| `details` | Details for the open image. `data-for` selects one item by its id or position (from 1); without it the details show for every image. |
+
+#### CSS parts
+
+| Part | Description |
+|---|---|
+| `dialog` | The modal dialog. |
+| `panel` | The surface inside the dialog. |
+| `caption` | The caption that names the dialog. |
+| `image` | The image. |
+| `controls` | Previous, Next, the counter and Full size. |
+| `details` | The details panel. |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-lightbox', 'open'\|'next'\|'previous'\|'full-size', 'image N', N]` (N from 1, the image's place in the set). Never the URL or the caption. Not fired for a viewer restored from the URL or from Back and Forward. Bubbles and is composed. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-surface-raised` |  | Dark-mode role token: dialog surface (else `--uva-color-surface`, else #fff). |
+| `--uva-color-surface` |  | Dark-mode role token: the figure behind the image (else #fff). |
+| `--uva-color-text` |  | Dark-mode role token: text (else `--uva-grey-darkest`). |
+| `--uva-color-shadow` |  | Dark-mode role token: the backdrop scrim (else rgba(16, 23, 43, 0.72)). |
+| `--uva-color-border` |  | Dark-mode role token: dialog border (else `--uva-grey-100`). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+| `--uva-color-link` |  | Dark-mode role token: Full size text when it is not the filled control (else `--uva-brand-blue`). |
+| `--uva-color-accent-bg` |  | Dark-mode role token: Close and Full size background (else `--uva-brand-blue`). |
+| `--uva-color-on-accent` |  | Text on those controls (else #fff). |
+| `--uva-brand-orange` | `#e57200` | Focus ring when `--uva-color-focus` is unset. |
+| `--uva-brand-blue` | `#232d4b` | Control background when `--uva-color-accent-bg` is unset. |
+| `--uva-grey-darkest` | `#2b2b2b` | Text when `--uva-color-text` is unset. |
+| `--uva-grey-100` | `#dadada` | Border when `--uva-color-border` is unset. |
+
 ### `<uvalib-metadata>`
 
 A record's details as a description list, as on the library's digital collections: label and value side by side on wide screens (the element's own width, 36rem and up), stacked on narrow ones. Values may be text, links or lists (subjects). Give the rows as a `<dl>` child (so the page reads the same before the script loads): `<dt>` labels and `<dd>` values, optionally wrapped in a `<div>` per row; several `<dd>` after one `<dt>` are several values. The values are copied as written (links, lists, `download` attributes kept); a link with `data-size="184 KB"` is shown as a download, "EPUB · 184 KB". The list follows changes to the children. Apps set the `items` property instead (`{ label, value }`, winning over the children while set). Built-in rows for credit and rights (as Special Collections asks): `creator` and `organization` come first; `rights` (a rightsstatements.org or Creative Commons URL, shown as its short name linked to it, or plain text) and `citation` ("How to cite", with a Copy citation button that announces "Copied" politely) come last. `citation-title` builds the Special Collections citation, "<title>, Albert and Shirley Small Special Collections Library, University of Virginia".
@@ -1606,6 +1697,34 @@ Previous/next section links, as on a reading page, or a numbered page list. Prev
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 | `--uva-color-accent-bg` |  | Dark-mode role token: current page background (else `--uva-brand-blue`). |
 | `--uva-color-on-accent` |  | Text on the current page background (else #fff). |
+
+### `<uvalib-photo-grid>`
+
+Justified rows of thumbnails. Each direct child that is a link or a button is one photo; its image keeps its shape from the `width` and `height` attributes, or from the loaded image, so the row does not jump when the picture arrives. The row is about 220px tall and shorter on a phone; `row-height` sets that height. Every item stays a real link or button. An image with no visible text gets a visible caption from its alt (the caption is then the accessible name, and a repeated alt is cleared). The original alt is kept in `data-uvalib-alt` so a lightbox still describes the picture. An item with no name at all is captioned “Photo N” and warned about once; that caption is renumbered when the photos change order. An `aria-label` is left as the name: the grid does not add a caption that would disagree with it. Put the grid inside `<uvalib-lightbox>` and a plain click opens the viewer.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `row-height` | `string` | `''` | Row height. A bare number is pixels (`220` is 220px); `px`, `rem`, `em`, `vh`, `vw`, `vmin`, `vmax`, `ch` and `%` are kept. Empty uses 220px, or 140px when the viewport is 767px or narrower. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Slots
+
+| Slot | Description |
+|---|---|
+| (default) | The thumbnails: one `<a href>` or `<button>` per photo, each with an `<img>`. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-text` |  | Dark-mode role token: caption colour (else `--uva-grey-darkest`). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+| `--uva-color-surface` |  | Dark-mode role token: the box behind an image that has not loaded (else #fff). |
+| `--uva-grey-darkest` | `#2b2b2b` | Caption colour when `--uva-color-text` is unset. |
+| `--uva-brand-orange` | `#e57200` | Focus ring when `--uva-color-focus` is unset. |
 
 ### `<website-section>`
 

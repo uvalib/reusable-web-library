@@ -811,6 +811,61 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 | `--uva-color-on-accent` |  | Dark-mode role token: pressed chip text (else #fff). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
+## `<uvalib-lightbox>`
+
+An accessible image viewer over a set of plain links. With JavaScript a primary click opens a modal dialog; without it (or with a modified click) the link opens the image as before. Wrap the links, or point at them with `selector` (for example `a.pb-image` on a reading page). There is no autoplay and no carousel. The dialog is labelled by the caption (`data-caption`, else the image alt, else the link text). Focus moves to Close on open and back to the trigger on close. Escape and a click on the backdrop close it. With more than one image, Previous and Next and the arrow keys move through the set (wrapping), and a polite “3 of 13” counter is shown. Full size opens the original image in a new tab. A IIIF Image API URL keeps its region; only the size becomes `!W,H` for the viewport. TIFF and JPEG2000 URLs are left as written. `url-param` (for example `photo`) keeps `?photo=<id>` in sync, including on a hash route (`#/text?photo=<id>`): opening pushes a history entry, stepping replaces it, and Back closes. Optional details: children with `slot="details"` (and `data-for` equal to the item's id or its position from 1; without `data-for` they show for every image), or `data-details-id` on a link pointing at an element elsewhere on the page. Either is shown inside the dialog and put back when the viewer moves on or closes.
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `selector` | `string` | `''` | CSS selector for image links elsewhere in this root (the page, or the shadow root the component sits in). Combined with any links inside the component. Example: `a.pb-image`. |
+| `url-param` | `string` | `''` | Query parameter kept in sync with the open image, for example `photo` → `?photo=<id>`. The id is the link's `data-id`, else its `id`, else the IIIF identifier, else its position from 1. On a hash route the parameter is written inside the hash. Empty: no deep link. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### Slots
+
+| Slot | Description |
+|---|---|
+| (default) | The image links. A plain click opens the viewer; without JavaScript they open the image. |
+| `details` | Details for the open image. `data-for` selects one item by its id or position (from 1); without it the details show for every image. |
+
+### CSS parts
+
+| Part | Description |
+|---|---|
+| `dialog` | The modal dialog. |
+| `panel` | The surface inside the dialog. |
+| `caption` | The caption that names the dialog. |
+| `image` | The image. |
+| `controls` | Previous, Next, the counter and Full size. |
+| `details` | The details panel. |
+
+### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-lightbox', 'open'\|'next'\|'previous'\|'full-size', 'image N', N]` (N from 1, the image's place in the set). Never the URL or the caption. Not fired for a viewer restored from the URL or from Back and Forward. Bubbles and is composed. |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-surface-raised` |  | Dark-mode role token: dialog surface (else `--uva-color-surface`, else #fff). |
+| `--uva-color-surface` |  | Dark-mode role token: the figure behind the image (else #fff). |
+| `--uva-color-text` |  | Dark-mode role token: text (else `--uva-grey-darkest`). |
+| `--uva-color-shadow` |  | Dark-mode role token: the backdrop scrim (else rgba(16, 23, 43, 0.72)). |
+| `--uva-color-border` |  | Dark-mode role token: dialog border (else `--uva-grey-100`). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+| `--uva-color-link` |  | Dark-mode role token: Full size text when it is not the filled control (else `--uva-brand-blue`). |
+| `--uva-color-accent-bg` |  | Dark-mode role token: Close and Full size background (else `--uva-brand-blue`). |
+| `--uva-color-on-accent` |  | Text on those controls (else #fff). |
+| `--uva-brand-orange` | `#e57200` | Focus ring when `--uva-color-focus` is unset. |
+| `--uva-brand-blue` | `#232d4b` | Control background when `--uva-color-accent-bg` is unset. |
+| `--uva-grey-darkest` | `#2b2b2b` | Text when `--uva-color-text` is unset. |
+| `--uva-grey-100` | `#dadada` | Border when `--uva-color-border` is unset. |
+
 ## `<uvalib-metadata>`
 
 A record's details as a description list, as on the library's digital collections: label and value side by side on wide screens (the element's own width, 36rem and up), stacked on narrow ones. Values may be text, links or lists (subjects). Give the rows as a `<dl>` child (so the page reads the same before the script loads): `<dt>` labels and `<dd>` values, optionally wrapped in a `<div>` per row; several `<dd>` after one `<dt>` are several values. The values are copied as written (links, lists, `download` attributes kept); a link with `data-size="184 KB"` is shown as a download, "EPUB · 184 KB". The list follows changes to the children. Apps set the `items` property instead (`{ label, value }`, winning over the children while set). Built-in rows for credit and rights (as Special Collections asks): `creator` and `organization` come first; `rights` (a rightsstatements.org or Creative Commons URL, shown as its short name linked to it, or plain text) and `citation` ("How to cite", with a Copy citation button that announces "Copied" politely) come last. `citation-title` builds the Special Collections citation, "<title>, Albert and Shirley Small Special Collections Library, University of Virginia".
@@ -914,6 +969,34 @@ Previous/next section links, as on a reading page, or a numbered page list. Prev
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 | `--uva-color-accent-bg` |  | Dark-mode role token: current page background (else `--uva-brand-blue`). |
 | `--uva-color-on-accent` |  | Text on the current page background (else #fff). |
+
+## `<uvalib-photo-grid>`
+
+Justified rows of thumbnails. Each direct child that is a link or a button is one photo; its image keeps its shape from the `width` and `height` attributes, or from the loaded image, so the row does not jump when the picture arrives. The row is about 220px tall and shorter on a phone; `row-height` sets that height. Every item stays a real link or button. An image with no visible text gets a visible caption from its alt (the caption is then the accessible name, and a repeated alt is cleared). The original alt is kept in `data-uvalib-alt` so a lightbox still describes the picture. An item with no name at all is captioned “Photo N” and warned about once; that caption is renumbered when the photos change order. An `aria-label` is left as the name: the grid does not add a caption that would disagree with it. Put the grid inside `<uvalib-lightbox>` and a plain click opens the viewer.
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `row-height` | `string` | `''` | Row height. A bare number is pixels (`220` is 220px); `px`, `rem`, `em`, `vh`, `vw`, `vmin`, `vmax`, `ch` and `%` are kept. Empty uses 220px, or 140px when the viewport is 767px or narrower. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### Slots
+
+| Slot | Description |
+|---|---|
+| (default) | The thumbnails: one `<a href>` or `<button>` per photo, each with an `<img>`. |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-text` |  | Dark-mode role token: caption colour (else `--uva-grey-darkest`). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+| `--uva-color-surface` |  | Dark-mode role token: the box behind an image that has not loaded (else #fff). |
+| `--uva-grey-darkest` | `#2b2b2b` | Caption colour when `--uva-color-text` is unset. |
+| `--uva-brand-orange` | `#e57200` | Focus ring when `--uva-color-focus` is unset. |
 
 ## `<website-section>`
 

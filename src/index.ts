@@ -39,6 +39,8 @@ export type {
 export { rightsName, specialCollectionsCitation } from './components/uvalib-metadata/rights.js';
 export { UvalibPagefindSearch } from './components/uvalib-pagefind-search/UvalibPagefindSearch.js';
 export type { PagefindUIInstance } from './components/uvalib-pagefind-search/UvalibPagefindSearch.js';
+export { UvalibLightbox } from './components/uvalib-lightbox/UvalibLightbox.js';
+export { UvalibPhotoGrid } from './components/uvalib-photo-grid/UvalibPhotoGrid.js';
 export { SiteAlerts } from './components/site-alerts/SiteAlerts.js';
 export type { SiteAlert, SiteAlertsShow } from './components/site-alerts/SiteAlerts.js';
 export { SiteHoursSection } from './components/site-hours-section/SiteHoursSection.js';

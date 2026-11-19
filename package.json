@@ -99,6 +99,14 @@
       "types": "./dist/components/uvalib-pagefind-search/uvalib-pagefind-search.d.ts",
       "default": "./dist/components/uvalib-pagefind-search/uvalib-pagefind-search.js"
     },
+    "./uvalib-lightbox.js": {
+      "types": "./dist/components/uvalib-lightbox/uvalib-lightbox.d.ts",
+      "default": "./dist/components/uvalib-lightbox/uvalib-lightbox.js"
+    },
+    "./uvalib-photo-grid.js": {
+      "types": "./dist/components/uvalib-photo-grid/uvalib-photo-grid.d.ts",
+      "default": "./dist/components/uvalib-photo-grid/uvalib-photo-grid.js"
+    },
     "./site-alerts.js": {
       "types": "./dist/components/site-alerts/site-alerts.d.ts",
       "default": "./dist/components/site-alerts/site-alerts.js"
