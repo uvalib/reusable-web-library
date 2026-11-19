@@ -2,6 +2,7 @@ import { expect, fixture, nextFrame } from '@open-wc/testing';
 import { emulateMedia, sendKeys, setViewport } from '@web/test-runner-commands';
 import '../src/components/uvalib-tabs/uvalib-tabs.js';
 import type { UvalibTabs } from '../src/components/uvalib-tabs/UvalibTabs.js';
+import { base } from '../src/styles/base.js';
 import { expectNoAxeViolations } from './helpers/axe.js';
 import { recordAnalytics } from './helpers/analytics.js';
 import { inDarkMode } from './helpers/dark.js';
@@ -378,6 +379,148 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       const focused = tabsOf(el)[1]!;
       expect(focused.matches(':focus-visible')).to.equal(true);
       expect(getComputedStyle(focused).outlineStyle).to.equal('solid');
+    });
+
+    it('does not warn that selected changed during update', async () => {
+      const issued = (globalThis as { litIssuedWarnings?: Set<unknown> }).litIssuedWarnings;
+      issued?.clear();
+      const orig = console.warn;
+      const warns: string[] = [];
+      console.warn = (...args: unknown[]) => void warns.push(args.join(' '));
+      try {
+        const el = await make('selected="News"');
+        await el.updateComplete;
+        expect(el.selected).to.equal('news');
+        expect(warns.some((line) => line.includes('change-in-update'))).to.equal(false);
+      } finally {
+        console.warn = orig;
+      }
+    });
+
+    it('does not update when a panel descendant changes slot', async () => {
+      const el = await make();
+      const section = el.querySelector('section')!;
+      const media = document.createElement('span');
+      section.append(media);
+      await el.updateComplete;
+      await nextFrame();
+      let updates = 0;
+      const orig = el.requestUpdate.bind(el);
+      el.requestUpdate = ((name?: PropertyKey, oldValue?: unknown) => {
+        updates += 1;
+        return orig(name, oldValue);
+      }) as typeof el.requestUpdate;
+      media.setAttribute('slot', 'media');
+      media.id = 'inner-media';
+      await nextFrame();
+      expect(updates).to.equal(0);
+    });
+
+    it('keeps the roving tabindex on a click of the already selected tab', async () => {
+      const el = await make('activation="manual"');
+      tabsOf(el)[0]!.focus();
+      await sendKeys({ press: 'ArrowRight' });
+      await el.updateComplete;
+      expect(tabsOf(el)[1]!.tabIndex).to.equal(0);
+      tabsOf(el)[0]!.click();
+      await el.updateComplete;
+      expect(el.selected).to.equal('events');
+      expect(tabsOf(el)[0]!.tabIndex).to.equal(0);
+      expect(tabsOf(el)[1]!.tabIndex).to.equal(-1);
+      tabsOf(el)[0]!.focus();
+      await sendKeys({ press: 'ArrowRight' });
+      await el.updateComplete;
+      expect(activeId(el)).to.equal(tabsOf(el)[1]!.id);
+      expect(el.selected).to.equal('events');
+    });
+
+    it('does not switch tabs for an unrelated hash, and Back restores the initial tab', async () => {
+      const hashed = await make('url-param="hash"');
+      tabsOf(hashed)[1]!.click();
+      await hashed.updateComplete;
+      expect(hashed.selected).to.equal('news');
+      location.hash = '#footnote-1';
+      await nextFrame();
+      await hashed.updateComplete;
+      expect(hashed.selected).to.equal('news');
+      expect(panelsOf(hashed)[1]!.hidden).to.equal(false);
+
+      history.replaceState(null, '', location.pathname);
+      const el = await make('url-param="tab" selected="news"');
+      expect(el.selected).to.equal('news');
+      expect(location.search).to.equal('');
+      location.hash = '#footnote-2';
+      await nextFrame();
+      await el.updateComplete;
+      expect(el.selected).to.equal('news');
+      tabsOf(el)[0]!.click();
+      await el.updateComplete;
+      expect(location.search).to.equal('?tab=events');
+      const popped = nextPop();
+      history.back();
+      await popped;
+      await el.updateComplete;
+      expect(el.selected).to.equal('news');
+      expect(panelsOf(el)[1]!.hidden).to.equal(false);
+    });
+
+    it('hides a child that is not a tab, and does not reuse button ids', async () => {
+      const paired = await make(
+        '',
+        `<button slot="tab">Events</button><section id="one"><p>One</p></section><section id="extra"><p>Extra</p></section>`,
+      );
+      expect(tabsOf(paired).length).to.equal(1);
+      expect(paired.querySelector<HTMLElement>('#extra')!.hidden).to.equal(true);
+      expect(paired.querySelector<HTMLElement>('#one')!.hidden).to.equal(false);
+      const loose = await make(
+        '',
+        `<section data-tab="Events" id="kept"><p>One</p></section><p id="note">Note</p>`,
+      );
+      expect(loose.querySelector<HTMLElement>('#note')!.hidden).to.equal(true);
+      const first = await make('', `<section data-tab="Events" id="events"><p>A</p></section>`);
+      const second = await make('', `<section data-tab="Events" id="events"><p>B</p></section>`);
+      const idA = tabsOf(first)[0]!.id;
+      const idB = tabsOf(second)[0]!.id;
+      expect(idA === idB).to.equal(false);
+      if (mode === 'no-shadow-dom')
+        expect(document.querySelectorAll(`[id="${idA}"]`).length).to.equal(1);
+    });
+
+    it('reserves the tab row before the element is defined', async () => {
+      const rem = getComputedStyle(document.documentElement).fontSize;
+      const frame = document.createElement('iframe');
+      frame.setAttribute('title', 'Undefined tabs');
+      frame.style.cssText = 'position:absolute;width:420px;height:280px;border:0';
+      document.body.append(frame);
+      const doc = frame.contentDocument!;
+      doc.open();
+      doc.write(`<!doctype html><html><head>
+        <style>${base.cssText}</style>
+        <style>html { font-size: ${rem}; } section, p { margin: 0; }</style>
+        </head><body>
+        <uvalib-tabs id="host">
+          <section data-tab="Events" id="events"><p id="one">One</p></section>
+          <section data-tab="Stories" id="stories"><p>Two</p></section>
+        </uvalib-tabs>
+      </body></html>`);
+      doc.close();
+      const host = doc.getElementById('host')!;
+      const one = doc.getElementById('one')!;
+      const stories = doc.getElementById('stories')!;
+      expect(getComputedStyle(host).display).to.equal('block');
+      expect(getComputedStyle(stories).display).to.equal('none');
+      const before = one.getBoundingClientRect().top - host.getBoundingClientRect().top;
+      frame.remove();
+
+      const el = await make(
+        '',
+        `<section data-tab="Events" id="shift-events"><p id="shift-one" style="margin:0">One</p></section>
+         <section data-tab="Stories" id="shift-stories"><p style="margin:0">Two</p></section>`,
+      );
+      const after =
+        el.querySelector('#shift-one')!.getBoundingClientRect().top -
+        el.getBoundingClientRect().top;
+      expect(Math.abs(before - after) < 2).to.equal(true);
     });
   });
 }

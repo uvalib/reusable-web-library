@@ -157,9 +157,10 @@ let seq = 0;
  * Each panel is a child with `data-tab="Events"` (and an `id` when the tab should be
  * linkable). Or put `<button slot="tab">` elements first and one panel element after
  * each; the button text is the label and those buttons are hidden, because the component
- * draws the real tabs. The selected panel stays visible across the upgrade. Give later
- * panels the `hidden` attribute in the markup so they stay hidden before the component
- * runs. The tab row wraps on a narrow screen.
+ * draws the real tabs. The selected panel stays visible across the upgrade. With
+ * `base.css`, later `data-tab` panels stay hidden before the element upgrades, and
+ * space is reserved for the tab row so the first panel does not jump. The tab row
+ * wraps on a narrow screen.
  *
  * Arrow keys, Home and End move between tabs. Selection follows the arrow unless
  * `activation="manual"`, in which case Enter or Space selects the focused tab. `selected`
@@ -218,14 +219,16 @@ export class UvalibTabs extends UvalibElement {
   private readonly boundLists = new WeakSet<HTMLElement>();
   private observer?: MutationObserver;
   private listening = false;
-  private painting = false;
-  private dirty = false;
   private booted = false;
   private userAct = false;
   private fromHistory = false;
   private pendingFocus = false;
   private cursor = 0;
   private lastKey = '';
+  /** `selected` as authored, before a URL param replaces it. Back to a URL with no param restores this. */
+  private initialSelected = '';
+  private view: Item[] = [];
+  private viewIndex = -1;
   private warnedValue = false;
   private warnedShape = false;
 
@@ -268,18 +271,9 @@ export class UvalibTabs extends UvalibElement {
     return mount;
   }
 
-  /**
-   * A property set while updating schedules another pass. `fixture` and callers
-   * awaiting `updateComplete` wait until `selected` has settled on the panel id.
-   */
-  override async getUpdateComplete(): Promise<boolean> {
-    const result = await super.getUpdateComplete();
-    if (this.isUpdatePending) return this.getUpdateComplete();
-    return result;
-  }
-
   override connectedCallback(): void {
     if (!this.booted) {
+      this.initialSelected = this.selected;
       const fromUrl = this.readUrl();
       if (fromUrl) this.selected = fromUrl;
     }
@@ -312,23 +306,33 @@ export class UvalibTabs extends UvalibElement {
     `;
   }
 
+  /**
+   * Resolve `selected` to a panel id before render. Setting it here does not
+   * schedule another update; setting it in `updated()` does, and warns.
+   */
+  protected override willUpdate(): void {
+    const items = this.collect();
+    const match = items.length ? this.indexFor(items, this.selected) : -1;
+    const index = items.length ? (match < 0 ? 0 : match) : -1;
+    const key = index >= 0 ? items[index]!.key : '';
+    if (items.length && this.selected !== key) {
+      if (match < 0 && this.selected.trim()) this.warnValue();
+      this.selected = key;
+    }
+    if (index >= 0 && (!this.manual || !this.booted || key !== this.lastKey)) this.cursor = index;
+    if (this.cursor >= items.length) this.cursor = Math.max(0, items.length - 1);
+    this.view = items;
+    this.viewIndex = index;
+  }
+
   protected override updated(): void {
     this.earlySlot?.remove();
     this.earlySlot = undefined;
-    this.painting = true;
+    const items = this.view;
+    const index = this.viewIndex;
+    const key = index >= 0 ? items[index]!.key : '';
+    this.observer?.disconnect();
     try {
-      const items = this.collect();
-      const match = items.length ? this.indexFor(items, this.selected) : -1;
-      const index = items.length ? (match < 0 ? 0 : match) : -1;
-      const key = index >= 0 ? items[index]!.key : '';
-      if (index >= 0 && (!this.manual || !this.booted || key !== this.lastKey)) this.cursor = index;
-      if (this.cursor >= items.length) this.cursor = Math.max(0, items.length - 1);
-      if (items.length && this.selected !== key) {
-        if (match < 0 && this.selected.trim()) this.warnValue();
-        this.sync(items, index);
-        this.selected = key;
-        return;
-      }
       this.sync(items, index);
       if (!items.length) {
         this.booted = true;
@@ -351,13 +355,7 @@ export class UvalibTabs extends UvalibElement {
       }
       this.focusPending(items);
     } finally {
-      queueMicrotask(() => {
-        this.painting = false;
-        if (this.dirty) {
-          this.dirty = false;
-          this.requestUpdate();
-        }
-      });
+      if (this.isConnected) this.observe();
     }
   }
 
@@ -405,12 +403,14 @@ export class UvalibTabs extends UvalibElement {
   }
 
   private readonly onMutations = (records: MutationRecord[]): void => {
-    if (records.every((record) => this.insideChrome(record.target))) return;
-    if (this.painting) {
-      this.dirty = true;
-      return;
-    }
-    this.requestUpdate();
+    const relevant = records.some((record) => {
+      const target = record.target;
+      if (target === this) return true;
+      return (
+        target instanceof Element && target.parentElement === this && !this.insideChrome(target)
+      );
+    });
+    if (relevant) this.requestUpdate();
   };
 
   private insideChrome(node: Node): boolean {
@@ -433,12 +433,17 @@ export class UvalibTabs extends UvalibElement {
     window.removeEventListener('hashchange', this.onHistory);
   }
 
-  private readonly onHistory = (): void => {
-    if (!this.urlParam.trim() || !this.booted) return;
+  private readonly onHistory = (event: Event): void => {
+    const name = this.urlParam.trim();
+    if (!name || !this.booted) return;
+    // A named query param is not the page hash. An in-page `#anchor` must not reset the tab.
+    // A hash route (`#/path?tab=`) still carries the param, so that hashchange counts.
+    if (event.type === 'hashchange' && name !== 'hash' && !usesHashParam(location.hash)) return;
     const items = this.collect();
     if (!items.length) return;
     const raw = this.readUrl();
-    const match = raw == null ? 0 : this.indexFor(items, raw);
+    if (raw != null && this.indexFor(items, raw) < 0) return;
+    const match = this.indexFor(items, raw == null ? this.initialSelected : raw);
     const index = match < 0 ? 0 : match;
     const key = items[index]!.key;
     if (key === this.lastKey) return;
@@ -454,7 +459,14 @@ export class UvalibTabs extends UvalibElement {
       return;
     const index = [...btn.parentElement.children].indexOf(btn);
     const item = this.collect()[index];
-    if (!item || (this.booted && item.key === this.lastKey)) return;
+    if (!item) return;
+    if (this.booted && item.key === this.lastKey) {
+      if (this.cursor !== index) {
+        this.cursor = index;
+        this.requestUpdate();
+      }
+      return;
+    }
     this.cursor = index;
     this.userAct = true;
     this.selected = item.key;
@@ -473,12 +485,18 @@ export class UvalibTabs extends UvalibElement {
     if (!items.length) return;
     event.preventDefault();
     const rtl = getComputedStyle(this).direction === 'rtl';
-    let next = this.cursor;
+    const focus = event.target instanceof Element ? event.target.closest('button.tab') : null;
+    const focused =
+      focus instanceof HTMLButtonElement && focus.parentElement?.classList.contains('tablist')
+        ? [...focus.parentElement.children].indexOf(focus)
+        : -1;
+    const start = focused >= 0 ? focused : this.cursor;
+    let next = start;
     if (event.key === 'Home') next = 0;
     else if (event.key === 'End') next = items.length - 1;
     else {
       const forward = event.key === 'ArrowRight' ? !rtl : rtl;
-      next = (this.cursor + (forward ? 1 : -1) + items.length) % items.length;
+      next = (start + (forward ? 1 : -1) + items.length) % items.length;
     }
     this.pendingFocus = true;
     if (this.manual) {
@@ -512,10 +530,13 @@ export class UvalibTabs extends UvalibElement {
       (node): node is HTMLButtonElement =>
         node.localName === 'button' && node.getAttribute('slot') === 'tab',
     );
-    const panels = sources.length
+    const panelCandidates = sources.length
       ? kids.filter((node) => !(node.localName === 'button' && node.getAttribute('slot') === 'tab'))
       : kids.filter((node) => node.hasAttribute('data-tab'));
-    this.warnShape(kids, sources.length, panels.length);
+    // Extra sections beside too few slot="tab" buttons are not tabs. The warning
+    // still counts them, so "a child was skipped" stays true.
+    const panels = sources.length > 0 ? panelCandidates.slice(0, sources.length) : panelCandidates;
+    this.warnShape(kids, sources.length, panelCandidates.length);
     const used = new Set<string>();
     return panels.map((panel, i) => {
       let panelId = panel.id.trim();
@@ -530,7 +551,7 @@ export class UvalibTabs extends UvalibElement {
         normalize(source?.textContent) ||
         normalize(panel.getAttribute('data-tab')) ||
         `Tab ${i + 1}`;
-      return { label, panel, key: panelId, panelId, tabId: `${panelId}-tab` };
+      return { label, panel, key: panelId, panelId, tabId: `${this.uid}-${panelId}-tab` };
     });
   }
 
@@ -646,6 +667,12 @@ export class UvalibTabs extends UvalibElement {
   }
 
   private syncPanels(items: Item[], selectedIndex: number): void {
+    const shown = new Set(items.map((item) => item.panel));
+    for (const node of this.childrenOf()) {
+      if (shown.has(node)) continue;
+      if (node.localName === 'button' && node.getAttribute('slot') === 'tab') continue;
+      if (!node.hidden) node.hidden = true;
+    }
     if (!this.isLight) {
       this.syncShadowPanels(items, selectedIndex);
       return;
