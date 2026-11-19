@@ -1,11 +1,11 @@
 ---
 name: uvalib-web-components
-description: Use when building or editing UVA Library web pages or sites, adding the UVA Library header, footer or page wrapper to a page, using the custom elements <site-page>, <site-header>, <site-main-nav>, <site-footer>, <site-analytics>, <uvalib-analytics>, <site-style>, <uvalib-breadcrumbs>, <uvalib-card>, <uvalib-card-grid>, <uvalib-pager>, <uvalib-contents>, <uvalib-metadata>, <site-alerts>, <uvalib-filter>, <uvalib-date-range>, <site-hours-section>, <library-weekly-hours>, <library-hours-setup>, <events-section> or <bento-box>, working with the @uvalib/web-components npm package, or editing script/link URLs on unpkg.internal.lib.virginia.edu (including migrating old /web-components/latest/ or cdn-v URLs). Covers CDN vs npm, version pinning, shadow vs light DOM, theming with --uva-* tokens, WCAG 2.2 AA accessibility testing (axe-core in Playwright matched to Lighthouse, Lighthouse CI, manual checks), and a verification checklist.
+description: Use when building or editing UVA Library web pages or sites, adding the UVA Library header, footer or page wrapper to a page, using the custom elements <site-page>, <site-header>, <site-main-nav>, <site-footer>, <site-analytics>, <uvalib-analytics>, <site-style>, <uvalib-breadcrumbs>, <uvalib-card>, <uvalib-card-grid>, <uvalib-pager>, <uvalib-contents>, <uvalib-metadata>, <site-alerts>, <uvalib-filter>, <uvalib-date-range>, <site-hours-section>, <library-weekly-hours>, <library-hours-setup>, <events-section>, <bento-box> or <uvalib-pagefind-search>, Pagefind site search (pagefind.css), working with the @uvalib/web-components npm package, or editing script/link URLs on unpkg.internal.lib.virginia.edu (including migrating old /web-components/latest/ or cdn-v URLs). Covers CDN vs npm, version pinning, shadow vs light DOM, theming with --uva-* tokens, WCAG 2.2 AA accessibility testing (axe-core in Playwright matched to Lighthouse, Lighthouse CI, manual checks), and a verification checklist.
 ---
 
 # UVA Library web components
 
-`@uvalib/web-components` provides the UVA Library page chrome as custom elements: `<site-page>` (skip link, header with the library main navigation, one `<main>`, footer), `<site-header>`, `<site-main-nav>` (the main navigation, rendered by the header), `<site-footer>`, `<site-analytics>` (Matomo; also registered as `<uvalib-analytics>`) and `<site-style>` (legacy compatibility), plus `<uvalib-breadcrumbs>` (the breadcrumb trail), `<uvalib-contents>` (sub-navigation or a table of contents) and `<uvalib-metadata>` (a record's details, credit, rights and how to cite), all in section 2, `<uvalib-card>`, `<uvalib-card-grid>` and `<uvalib-pager>` (cards and paging, section 5) and `<site-alerts>` (the live library alerts, which `<site-page>` shows itself). It also ships two search-page components, `<uvalib-filter>` and `<uvalib-date-range>` (section 6), and three library-hours elements for library.virginia.edu, `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`, `<events-section>` for upcoming library events and `<bento-box>` for the library's search results page (section 7). Tag names are stable.
+`@uvalib/web-components` provides the UVA Library page chrome as custom elements: `<site-page>` (skip link, header with the library main navigation, one `<main>`, footer), `<site-header>`, `<site-main-nav>` (the main navigation, rendered by the header), `<site-footer>`, `<site-analytics>` (Matomo; also registered as `<uvalib-analytics>`) and `<site-style>` (legacy compatibility), plus `<uvalib-breadcrumbs>` (the breadcrumb trail), `<uvalib-contents>` (sub-navigation or a table of contents) and `<uvalib-metadata>` (a record's details, credit, rights and how to cite), all in section 2, `<uvalib-card>`, `<uvalib-card-grid>` and `<uvalib-pager>` (cards and paging, section 5) and `<site-alerts>` (the live library alerts, which `<site-page>` shows itself). It also ships two search-page components, `<uvalib-filter>` and `<uvalib-date-range>` (section 6), and three library-hours elements for library.virginia.edu, `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`, `<events-section>` for upcoming library events and `<bento-box>` for the library's search results page (section 7), and `pagefind.css` with `<uvalib-pagefind-search>` for a static site's Pagefind search (section 6). Tag names are stable.
 
 Authority rule: https://www.library.virginia.edu and the UVA Library design system are the source of truth for how the chrome looks and what it says. Do not re-create, copy or restyle the header, footer, logo or links by hand. Use the components, and change appearance only through the theming surface below.
 
@@ -31,7 +31,7 @@ Loading rules:
 
 - One script is enough for the page chrome: `site-page.js` also loads the header (with its main navigation) and footer. For Matomo, give `<site-page>` a `matomo-id` (it loads the analytics code itself), or add `site-analytics.js` and a `<site-analytics>` (or `uvalib-analytics.js` and `<uvalib-analytics>`) element; never both, and never alongside a hand-written Matomo snippet.
 - Also link `.../v1/base.css` in `<head>` (npm: `@uvalib/web-components/base.css`), unless the page sets `no-global-styles`. `<site-page>` installs the same base styles only after the first paint, so without the link the page shifts once (the default body margin goes away, and a heading's margin stops collapsing through the not-yet-defined `<site-page>`). The link also keeps `<site-page>` invisible until it is defined, with a two-second fallback.
-- npm: the define entries (`@uvalib/web-components/site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-breadcrumbs.js`, `uvalib-card.js`, `uvalib-card-grid.js`, `uvalib-pager.js`, `uvalib-contents.js`, `uvalib-metadata.js`, `site-alerts.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`, `events-section.js`, `bento-box.js`) register the element (`bento-box.js` also registers its four sections). Importing the package root (`@uvalib/web-components`) gives the classes only and registers nothing. If you use the `SitePage` class directly, also import the header and footer define entries.
+- npm: the define entries (`@uvalib/web-components/site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-breadcrumbs.js`, `uvalib-card.js`, `uvalib-card-grid.js`, `uvalib-pager.js`, `uvalib-contents.js`, `uvalib-metadata.js`, `site-alerts.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`, `events-section.js`, `bento-box.js`, `uvalib-pagefind-search.js`) register the element (`bento-box.js` also registers its four sections). Importing the package root (`@uvalib/web-components`) gives the classes only and registers nothing. If you use the `SitePage` class directly, also import the header and footer define entries.
 - Do not load the same component from both the CDN and npm on one page.
 
 ## 2. Required page structure
@@ -464,6 +464,53 @@ For a search results page that needs a checkbox facet or a date-range picker, us
         console.log(e.detail.value); // [start, end] as YYYY-MM-DD
       });
     </script>
+  </body>
+</html>
+```
+
+### Static-site search (Pagefind)
+
+A static site (11ty, Jekyll, a generated collection) that searches with [Pagefind](https://pagefind.app) keeps Pagefind's own index and `pagefind-ui.js`, and gets the library look and the accessibility fixes from this package:
+
+- Link `pagefind.css` (npm: `@uvalib/web-components/pagefind.css`) **instead of** Pagefind's `pagefind-ui.css`; never both (the stock rules out-rank the theme's). It styles Pagefind's default UI (`.pagefind-ui__*`): the field and Clear like `.uvalib-input`, the filters like `<uvalib-filter>`, link-coloured result titles, the library `<mark>`, Load more as a `.uvalib-button`, with dark mode and forced colors. Pagefind's `--pagefind-ui-*` properties still work for small changes.
+- Use `<uvalib-pagefind-search>` (from `uvalib-pagefind-search.js`) rather than `new PagefindUI(...)`: it loads `<bundle-path>pagefind-ui.js` from the site's bundle and adds what CSS cannot: a visible label (the stock field has only a title), a polite result-count status (the stock message is not announced), focus that stays in the field after Clear and Escape and moves to the first new result after Load more, `?q=` read and written (`query-param`), and analytics (`trackSearch(…, 'Pagefind', count)` once results settle, and `filter-change` events). Do not add your own `?q=` script or live region.
+- Attributes: `bundle-path` (default `/pagefind/`), `merge-index` (JSON array, for sharded indexes), `page-size` (10), `show-sub-results`, `show-images`, `excerpt-length`, `placeholder`, `label`, `label-hidden`, `translations` and `options` (JSON). For filters from the URL, call `el.ready.then((ui) => ui.triggerFilters({ collection: ['…'] }))`.
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Search · Electronic Text Collections · UVA Library</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.internal.lib.virginia.edu/web-components/v1/base.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.internal.lib.virginia.edu/web-components/v1/pagefind.css"
+    />
+    <script
+      type="module"
+      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
+    ></script>
+    <script
+      type="module"
+      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-pagefind-search.js"
+    ></script>
+  </head>
+  <body>
+    <site-page site-name="Electronic Text Collections">
+      <h1>Search</h1>
+      <uvalib-pagefind-search
+        bundle-path="/pagefind/s0/"
+        merge-index='[{"bundlePath": "/pagefind/s1/"}, {"bundlePath": "/pagefind/s2/"}]'
+        placeholder="Search all texts"
+        show-sub-results
+        excerpt-length="30"
+      ></uvalib-pagefind-search>
+    </site-page>
   </body>
 </html>
 ```

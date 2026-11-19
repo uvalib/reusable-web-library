@@ -95,7 +95,7 @@ npm i @uvalib/web-components
 import '@uvalib/web-components/site-page.js'; // registers site-page, site-header, site-main-nav and site-footer
 ```
 
-The define entries are `site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`, `events-section.js` and `bento-box.js`. The package root (`import '@uvalib/web-components'`) exports the classes only and registers nothing. To use a class such as `SitePage` directly, also import the define entries. CSS is available as `@uvalib/web-components/tokens.css` and `base.css`. Do not load the same component from both the CDN and npm on one page.
+The define entries are `site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`, `events-section.js`, `bento-box.js` and `uvalib-pagefind-search.js`. The package root (`import '@uvalib/web-components'`) exports the classes only and registers nothing. To use a class such as `SitePage` directly, also import the define entries. CSS is available as `@uvalib/web-components/tokens.css`, `base.css` and `pagefind.css` (the Pagefind theme, see [Static-site search](#static-site-search-pagefind)). Do not load the same component from both the CDN and npm on one page.
 
 ## Quick start
 
@@ -592,6 +592,35 @@ Three elements show opening hours from the library's own data, for library.virgi
 - **Layout shift.** While a section loads it draws `limit` invisible placeholder entries (the real DOM and classes, `aria-hidden`), and every entry has a fixed shape: titles clamp to two lines (the whole title stays in the DOM), and authors, dates, formats and the guide byline stay on one line each, with an empty, hidden line when a record has none. So the results replace the placeholders in place. With fewer results than `limit` the list collapses once they arrive; empty and failed sections keep one entry's height under their message. To reserve the space before the script has run, add `bento-box:not(:defined) { display: block; min-height: … }` from your own layout: the [Search results example](https://uvalib.github.io/reusable-web-library/#search-results) shows the values for the styled box (one column below a 48rem container, two from there, matched with a container query on a wrapper). A query long enough to wrap the "You searched for" heading still moves what follows by a line.
 - **Light DOM output** keeps the classes the Drupal theme styles under `.uvalib-bento-search`: `.bento-search-bar` (on a `<bento-search>` element, as before) with its `form`, `input`, `button.uvalib-button-home-search` and `p`; `.bs-header` (`h2`, `.bs-search-term`, `p`); `.bs-results-container` with each section as `.bs-results--block`; `.bs-results--header` (`h3` and the "See all" form and `.uvalib-button`), `.bs-results--body`, `ol.bs-results--list`, `.bs-results--list--entry`, `.bs-results--title`, `ul.ul-0`, `ul.ul-1`, `.bs-results--author`, `.bs-results--date`, `.bs-results--format`, `.bs-results--qty`, `.bs-results--teaser`, and the website's `.bento-section-title` and `.bento-section-desc`. Fixes to the markup: each `ul.ul-1` now sits in an `li` of its `ul.ul-0` (the theme's `ul.ul-0 ul.ul-1` still matches), the input has a real label and the submit button a text name (both visually hidden), the format line has no `aria-label` repeating its text, and the repeated `id="no-results"` is gone. A few rules apply even with `no-style`, scoped to the tags in `@layer uvalib`: the hosts are blocks, placeholders are invisible, the clamps and one-line rules above, the message shares the list's grid cell, and `[hidden]` hides. Styled (without `no-style`) the box follows the Drupal look with the dark-mode role tokens.
 - **Drupal switch.** Replace the old `…/web-components/cdn-v2.2.38/@uvalib/bento-box/bento-box.js` script URL with `https://unpkg.internal.lib.virginia.edu/web-components/v1/bento-box.js`. The markup stays: `<bento-box no-style no-shadow-dom limit="3">`. The `uvalib-bento-search` body class is Drupal's and stays as it is; the headings follow the page's `<h1>` (`<h2>`, then `<h3>` sections), so no `heading-level` is needed. Links that used `?query=` keep working; new searches use `?q=`.
+
+## Static-site search (Pagefind)
+
+Static sites that search with [Pagefind](https://pagefind.app) (such as Electronic Text Collections) keep Pagefind's own index and script, and take the library look and the accessibility fixes from two files: `pagefind.css`, a theme for Pagefind's default UI (1.x), and `<uvalib-pagefind-search>`, a small element (about 3 KB, no Lit) that starts that UI with the library's defaults.
+
+```html
+<link rel="stylesheet" href="https://unpkg.internal.lib.virginia.edu/web-components/v1/base.css" />
+<link
+  rel="stylesheet"
+  href="https://unpkg.internal.lib.virginia.edu/web-components/v1/pagefind.css"
+/>
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-pagefind-search.js"
+></script>
+
+<uvalib-pagefind-search
+  bundle-path="/pagefind/s0/"
+  merge-index='[{"bundlePath": "/pagefind/s1/"}, {"bundlePath": "/pagefind/s2/"}]'
+  placeholder="Search all texts"
+  show-sub-results
+></uvalib-pagefind-search>
+```
+
+- **`pagefind.css` replaces Pagefind's `pagefind-ui.css`**: link one or the other, never both (the stock rules carry Svelte hash classes that out-rank the theme's). It maps Pagefind's `--pagefind-ui-*` custom properties to the library tokens (set them yourself for small changes) and restyles its classes: the field and the Clear button like `.uvalib-input` and a small outline `.uvalib-button`, the filters like `<uvalib-filter>` (a fieldset of native checkbox rows, "value (count)", long facets scroll in their own box), result titles in the link colour, excerpts with library.virginia.edu's `<mark>` colour, metadata tags, and "Load more results" as a `.uvalib-button`. It carries the dark-mode role tokens it reads (like `base.css`) and keeps every control visible in forced colors.
+- **What it fixes in the stock UI:** text at 16px and up (the stock scale makes it 12.8px), a readable placeholder (stock: 20% opacity), the library focus ring on every control, a hidden Clear button that can no longer take focus (stock: invisible but focusable), native checkboxes (the stock ones vanish in forced colors), 44px targets for the filter headings, rows and buttons, no fixed heights that clip zoomed or spaced text, no arrow glyph read out before each sub-result, and a 320px reflow. Text is 7:1 or more (WCAG AAA) in light and dark, except the Load more button's white on blue-alt in light mode (4.7:1, as on every `.uvalib-button`).
+- **What needs script, done by `<uvalib-pagefind-search>`:** a visible `<label>` for the field (the stock field is named only by its `title` and has no id to point a label at), a polite status region that announces "7 results for virginia" once results settle (the stock message is not a live region), focus kept in the field after Clear and Escape (the stock UI blurs it) and moved to the first new result after "Load more results", and the loading placeholders' dots hidden from screen readers. It also reads `?q=` when it starts and writes the settled query back with `history.replaceState` (`query-param`, default `q`; empty turns it off), and reports to `<site-analytics>`: the settled search (`trackSearch`, category `Pagefind`, with the result count, once per query and filter set) and `['uvalib-pagefind-search', 'filter-change', '<filter>: <value>', 1 | 0]`.
+- **Still open** (in Pagefind's markup, not fixable from outside without rewriting it): filter checkbox ids are built from the filter and value (`author-Jefferson, Thomas`), so they can contain spaces and repeat if a page has two search UIs.
+- The element loads `<bundle-path>pagefind-ui.js` unless `window.PagefindUI` already exists; Pagefind itself stays the site's. `el.ready` resolves with the `PagefindUI` instance, for `triggerFilters` (filters from the URL, say). Attributes are read once, when it connects. Without the element, the theme still styles `new PagefindUI({ element })`, but then the field needs a label and the results a live region from your own script. See the [Pagefind example](https://uvalib.github.io/reusable-web-library/#pagefind-search) in the playground and the reference below.
 
 ## Analytics
 
