@@ -69,6 +69,10 @@ export const colorScheme = css`
       --uva-color-alert-regional-border: light-dark(var(--uva-yellow, #ecc602), #ecc602);
       --uva-color-alert-regional-info-bg: light-dark(var(--uva-teal-200, #c8f2f4), #0f3a3d);
       --uva-color-alert-regional-info-border: light-dark(var(--uva-teal, #25cad3), #25cad3);
+      /* base.css's success badge (.uvalib-badge--success), beside the alert colours the other
+         status badges read: text (--uva-color-alert-text) is 7:1 or more in both schemes. */
+      --uva-color-status-success-bg: light-dark(var(--uva-green-200, #ddefdc), #173d1c);
+      --uva-color-status-success-border: light-dark(var(--uva-green-A, #4e9737), #62bb46);
     }
     :root[data-uva-color-scheme='system'] {
       color-scheme: light dark;
