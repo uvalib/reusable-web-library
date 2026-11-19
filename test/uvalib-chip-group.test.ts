@@ -157,10 +157,14 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
     });
 
     it('links: links and buttons fire select; a canceled link click is routed in the app', async () => {
-      const el = await make(
-        'mode="links" label="Try"',
-        '<a href="#snow">snow on the Lawn</a><button value="rotunda">the Rotunda</button><a href="javascript:alert(1)">bad</a>',
-      );
+      let el!: UvalibChipGroup;
+      const warns = await warnings(async () => {
+        el = await make(
+          'mode="links" label="Try"',
+          '<a href="#snow">snow on the Lawn</a><button value="rotunda">the Rotunda</button><a href="javascript:alert(1)">bad</a>',
+        );
+      });
+      expect(warns).to.have.length(1);
       const [a, b, bad] = chips(el);
       expect(a!.localName).to.equal('a');
       expect(a!.getAttribute('href')).to.equal('#snow');
@@ -360,11 +364,17 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         expect(g.scrollWidth).to.be.greaterThan(g.clientWidth);
         const tops2 = new Set(chips(row).map((c) => Math.round(c.getBoundingClientRect().top)));
         expect(tops2.size).to.equal(1);
-        // Focus scrolls the last chip into view, and Tab moves on past the group.
+        const rail = root(row).querySelector('.rail')!;
+        await waitUntil(() => rail.hasAttribute('data-more-right'), 'no fade on the right');
+        expect(rail.hasAttribute('data-more-left')).to.equal(false);
+        expect(getComputedStyle(rail, '::after').opacity).to.equal('1');
+        // Focus scrolls the last chip into view.
         const last = radios(row).at(-1)!;
         last.focus();
         await nextFrame();
         expect(g.scrollLeft).to.be.greaterThan(0);
+        await waitUntil(() => rail.hasAttribute('data-more-left'), 'no fade on the left');
+        await waitUntil(() => !rail.hasAttribute('data-more-right'), 'fade still on the right');
         await expectNoAxeViolations(row);
       } finally {
         await setViewport({ width: 800, height: 600 });

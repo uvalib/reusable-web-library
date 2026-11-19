@@ -10,7 +10,7 @@ import {
   paramFromLocation,
   usesHashParam,
   type PageLocation,
-} from '../uvalib-lightbox/media.js';
+} from '../../base/url-param.js';
 
 /** One chip: the value reported in events, its visible label, and optionally a count and link. */
 export interface ChipItem {
@@ -56,7 +56,9 @@ const structuralRules = (host: string) => `
     scroll-padding-inline: 2.5rem;
   }
   ${host} .chips.scroll > .chip { flex: none; }
-  ${host} .chips.segmented { column-gap: 0; }
+  ${host} .rail { position: relative; min-width: 0; }
+  ${host} .chips.segmented { flex-wrap: nowrap; column-gap: 0; }
+  ${host} .chips.segmented:not(.scroll) > .chip { flex: 0 1 auto; min-width: 44px; }
   ${host} .chips.segmented > .chip + .chip { margin-inline-start: -1px; }
   ${host} .chip {
     position: relative;
@@ -94,7 +96,7 @@ const structuralRules = (host: string) => `
     box-sizing: border-box;
     min-width: 0;
     min-height: 2.25rem;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
   ${host} .check { flex: none; width: 1em; height: 1em; }
   ${host} :is(.chip:disabled, .chip[aria-disabled='true'], .chip input:disabled) { cursor: not-allowed; }
@@ -149,9 +151,9 @@ const FOCUSED = unsafeCSS('.chip:focus-visible > .face, .chip input:focus-visibl
  * A count is shown in a smaller muted span after the label and read as part of the name: “2005,
  * 213 items”, with `count-label` in place of “items”. A selected chip is filled, keeps its
  * border and shows a tick. Chips wrap on a narrow screen; `scroll` keeps them on one row that
- * scrolls sideways, with its scrollbar shown and shadows at an edge with more chips. Each chip
- * is a target at least 44px square. `segmented` joins the chips into one bar, like the
- * header's Light / Dark / System control.
+ * scrolls sideways, with its scrollbar shown and a fade at an edge with more chips. Each chip
+ * is a target at least 44px square. `segmented` joins the chips into one bar that does not
+ * wrap (a long label wraps inside its segment), like the header's Light / Dark / System control.
  *
  * `url-param` (for example `year`) keeps the value in the address (`?year=2005`, a multi
  * value comma-separated, inside the hash on a hash route): read on connect, written with
@@ -169,8 +171,7 @@ const FOCUSED = unsafeCSS('.chip:focus-visible > .face, .chip input:focus-visibl
  * @cssprop --uva-color-accent-bg - Dark-mode role token: selected chip background and border (else `--uva-brand-blue`).
  * @cssprop --uva-color-on-accent - Dark-mode role token: selected chip text (else #fff).
  * @cssprop --uva-color-focus - Dark-mode role token: focus ring (else `--uva-brand-orange`).
- * @cssprop --uva-color-surface - Dark-mode role token: the scroll shadows' cover (else #fff).
- * @cssprop --uva-color-text - Dark-mode role token: the scroll shadows (mixed; else #2b2b2b).
+ * @cssprop --uva-color-surface - Dark-mode role token: the page background the scrolling row fades into at an edge with more chips (else #fff).
  */
 export class UvalibChipGroup extends UvalibElement {
   static styles = [
@@ -188,6 +189,7 @@ export class UvalibChipGroup extends UvalibElement {
         line-height: 1.3;
       }
       .segmented .face {
+        padding-inline: 0.625rem;
         border-radius: 0;
       }
       .segmented > .chip:first-child .face {
@@ -232,29 +234,34 @@ export class UvalibChipGroup extends UvalibElement {
         outline: 3px solid ${unsafeCSS(FOCUS)};
         outline-offset: 2px;
       }
-      /* One row that scrolls: the scrollbar stays visible, and a shadow shows at an edge with
-         more chips (covers that scroll with the content hide it at either end). */
+      /* One row that scrolls: the scrollbar stays visible, and the edge with more chips
+         fades out. */
       .chips.scroll {
         padding-block: 0.375rem;
         scrollbar-width: thin;
         scrollbar-color: ${unsafeCSS(BORDER)} transparent;
-        background:
-          linear-gradient(to right, var(--uva-color-surface, #fff) 30%, transparent) left / 2rem
-            100% no-repeat local,
-          linear-gradient(to left, var(--uva-color-surface, #fff) 30%, transparent) right / 2rem
-            100% no-repeat local,
-          radial-gradient(
-              farthest-side at 0 50%,
-              color-mix(in srgb, var(--uva-color-text, #2b2b2b) 35%, transparent),
-              transparent
-            )
-            left / 0.75rem 100% no-repeat scroll,
-          radial-gradient(
-              farthest-side at 100% 50%,
-              color-mix(in srgb, var(--uva-color-text, #2b2b2b) 35%, transparent),
-              transparent
-            )
-            right / 0.75rem 100% no-repeat scroll;
+      }
+      .rail::before,
+      .rail::after {
+        content: '';
+        position: absolute;
+        inset-block: 0 0.75rem;
+        z-index: 2;
+        width: 2.5rem;
+        pointer-events: none;
+        opacity: 0;
+      }
+      .rail::before {
+        left: 0;
+        background: linear-gradient(to right, var(--uva-color-surface, #fff), transparent);
+      }
+      .rail::after {
+        right: 0;
+        background: linear-gradient(to left, var(--uva-color-surface, #fff), transparent);
+      }
+      .rail[data-more-left]::before,
+      .rail[data-more-right]::after {
+        opacity: 1;
       }
       @media (forced-colors: active) {
         .face {
@@ -320,6 +327,10 @@ export class UvalibChipGroup extends UvalibElement {
   @property({ type: String, attribute: 'url-param' }) urlParam = '';
 
   @state() private childItems: ChipItem[] = [];
+  /** `scroll`: whether more chips lie beyond the left and right edges. */
+  @state() private more = { left: false, right: false };
+  private resize?: ResizeObserver;
+  private observed?: HTMLElement;
 
   private readonly uid = `${TAG}-${++uid}`;
   private warned = new Set<string>();
@@ -363,12 +374,16 @@ export class UvalibChipGroup extends UvalibElement {
     }
     window.addEventListener('popstate', this.onPop);
     if (this.urlParam) this.readUrl();
+    // Moved in the page: observe the scrolling row again.
+    if (this.hasUpdated) this.requestUpdate();
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('popstate', this.onPop);
     this.flush();
+    this.resize?.disconnect();
+    this.observed = undefined;
   }
 
   protected override willUpdate(changed: PropertyValues<this>): void {
@@ -649,18 +664,55 @@ export class UvalibChipGroup extends UvalibElement {
     </button>`;
   }
 
+  /** `scroll`: which edges have more chips beyond them (in either writing direction). */
+  private measure = (): void => {
+    const g = this.renderRoot.querySelector<HTMLElement>('.chips.scroll');
+    if (!g) return;
+    const max = g.scrollWidth - g.clientWidth;
+    const x = Math.abs(g.scrollLeft);
+    const rtl = getComputedStyle(g).direction === 'rtl';
+    const before = x > 1;
+    const after = x < max - 1;
+    const more = { left: rtl ? after : before, right: rtl ? before : after };
+    if (more.left !== this.more.left || more.right !== this.more.right) this.more = more;
+  };
+
+  protected override updated(changed: PropertyValues<this>): void {
+    super.updated(changed);
+    const g = this.renderRoot.querySelector<HTMLElement>('.chips.scroll') ?? undefined;
+    if (g !== this.observed) {
+      this.resize?.disconnect();
+      this.observed = g;
+      if (g) {
+        this.resize ??= new ResizeObserver(() => this.measure());
+        this.resize.observe(g);
+      }
+    }
+    // New or changed chips can widen the row without resizing it.
+    if (g) requestAnimationFrame(this.measure);
+  }
+
   protected override render() {
     const chips = this.chips;
     const classes = ['chips', this.scrollRow ? 'scroll' : '', this.segmented ? 'segmented' : '']
       .filter(Boolean)
       .join(' ');
-    return html`<div
+    const row = html`<div
       class=${classes}
       role=${this.kind === 'single' ? 'radiogroup' : 'group'}
       aria-label=${this.label.trim() || nothing}
       ?hidden=${!chips.length}
+      @scroll=${this.scrollRow ? this.measure : nothing}
     >
       ${chips.map((item) => this.renderChip(item))}
+    </div>`;
+    if (!this.scrollRow) return row;
+    return html`<div
+      class="rail"
+      ?data-more-left=${this.more.left}
+      ?data-more-right=${this.more.right}
+    >
+      ${row}
     </div>`;
   }
 }
