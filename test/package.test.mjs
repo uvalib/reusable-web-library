@@ -18,6 +18,8 @@ const TAGS = [
   'uvalib-filter',
   'uvalib-date-range',
   'uvalib-breadcrumbs',
+  'uvalib-contents',
+  'uvalib-metadata',
   'site-alerts',
   'site-hours-section',
   'library-weekly-hours',
