@@ -1,6 +1,6 @@
 # Using @uvalib/web-components
 
-Custom elements for UVA Library pages: `<site-page>`, `<site-header>`, `<site-footer>`, `<site-analytics>` (also `<uvalib-analytics>`) and `<site-style>`, the breadcrumb trail `<uvalib-breadcrumbs>`, cards and paging `<uvalib-card>`, `<uvalib-card-grid>` and `<uvalib-pager>`, sub-navigation `<uvalib-contents>`, record details `<uvalib-metadata>`, the image viewer `<uvalib-lightbox>` and the photo grid `<uvalib-photo-grid>`, plus the search components `<uvalib-filter>`, `<uvalib-date-range>` and `<uvalib-date-histogram>`. Full attribute, slot, part, event and custom-property tables are in [the component reference](../skills/uvalib-web-components/reference/components.md) (generated from `custom-elements.json`).
+Custom elements for UVA Library pages: `<site-page>`, `<site-header>`, `<site-footer>`, `<site-analytics>` (also `<uvalib-analytics>`) and `<site-style>`, the breadcrumb trail `<uvalib-breadcrumbs>`, cards and paging `<uvalib-card>`, `<uvalib-card-grid>` and `<uvalib-pager>`, tabs `<uvalib-tabs>`, sub-navigation `<uvalib-contents>`, record details `<uvalib-metadata>`, the image viewer `<uvalib-lightbox>` and the photo grid `<uvalib-photo-grid>`, plus the search components `<uvalib-filter>`, `<uvalib-date-range>` and `<uvalib-date-histogram>`. Full attribute, slot, part, event and custom-property tables are in [the component reference](../skills/uvalib-web-components/reference/components.md) (generated from `custom-elements.json`).
 
 ## Two ways to load
 
@@ -31,7 +31,7 @@ npm i @uvalib/web-components
 import '@uvalib/web-components/site-page.js'; // registers the element
 ```
 
-The define entries are `site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-breadcrumbs.js`, `uvalib-card.js`, `uvalib-card-grid.js`, `uvalib-pager.js`, `uvalib-contents.js`, `uvalib-metadata.js`, `uvalib-lightbox.js`, `uvalib-photo-grid.js`, `uvalib-chip-group.js`, `uvalib-tag-list.js`, `uvalib-results-count.js`, `uvalib-filter.js`, `uvalib-date-range.js` and `uvalib-date-histogram.js`. `import '@uvalib/web-components'` exports the classes only and registers nothing; if you use `SitePage` directly, import the header and footer define entries too. CSS: `@uvalib/web-components/tokens.css` and `base.css`.
+The define entries are `site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-breadcrumbs.js`, `uvalib-card.js`, `uvalib-card-grid.js`, `uvalib-pager.js`, `uvalib-contents.js`, `uvalib-metadata.js`, `uvalib-lightbox.js`, `uvalib-photo-grid.js`, `uvalib-tabs.js`, `uvalib-chip-group.js`, `uvalib-tag-list.js`, `uvalib-results-count.js`, `uvalib-filter.js`, `uvalib-date-range.js` and `uvalib-date-histogram.js`. `import '@uvalib/web-components'` exports the classes only and registers nothing; if you use `SitePage` directly, import the header and footer define entries too. CSS: `@uvalib/web-components/tokens.css` and `base.css`.
 
 ## Page structure
 
