@@ -32,24 +32,27 @@ export function paramFromLocation(loc: PageLocation, name: string): string | nul
  * keeps the hash. The hash is written as text so a `?` in it is not percent-encoded.
  * `hashMode` forces the hash (or the search) when the caller is mid-rewrite and the hash no
  * longer shows that it was a route, as when `?photo=` was just removed from `#chapter?photo=1`.
+ * `keepEmpty` writes an empty `id` as `?name=` instead of removing the parameter.
  */
 export function hrefWithParam(
   loc: PageLocation,
   name: string,
   id: string | null,
   hashMode?: boolean,
+  keepEmpty = false,
 ): string {
+  const set = id !== null && (id !== '' || keepEmpty);
   if (hashMode ?? usesHashParam(loc.hash)) {
     const q = loc.hash.indexOf('?');
     const path = q >= 0 ? loc.hash.slice(0, q) : loc.hash;
     const params = new URLSearchParams(q >= 0 ? loc.hash.slice(q + 1) : '');
-    if (id) params.set(name, id);
+    if (set) params.set(name, id);
     else params.delete(name);
     const qs = params.toString();
     return loc.pathname + loc.search + (qs ? `${path}?${qs}` : path);
   }
   const params = new URLSearchParams(loc.search);
-  if (id) params.set(name, id);
+  if (set) params.set(name, id);
   else params.delete(name);
   const qs = params.toString();
   return loc.pathname + (qs ? `?${qs}` : '') + loc.hash;

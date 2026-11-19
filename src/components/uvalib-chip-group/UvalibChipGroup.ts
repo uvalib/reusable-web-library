@@ -40,24 +40,31 @@ let uid = 0;
  * `:host` or the tag.
  */
 const structuralRules = (host: string) => `
-  ${host} { display: block; min-width: 0; max-width: 100%; }
+  ${host} { display: flow-root; min-width: 0; max-width: 100%; }
   ${host} .chips {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    column-gap: 0.5rem;
+    gap: 0.25rem 0.5rem;
     min-width: 0;
   }
   ${host} .chips.scroll {
     flex-wrap: nowrap;
     overflow-x: auto;
     overscroll-behavior-x: contain;
-    padding: 0 0.375rem;
+    padding: 0.375rem;
     scroll-padding-inline: 2.5rem;
   }
   ${host} .chips.scroll > .chip { flex: none; }
   ${host} .rail { position: relative; min-width: 0; }
-  ${host} .chips.segmented { flex-wrap: nowrap; column-gap: 0; }
+  ${host} .chips.segmented {
+    flex-wrap: nowrap;
+    column-gap: 0;
+    overflow-x: auto;
+    padding: 0.375rem;
+  }
+  /* The padding only keeps the focus ring inside the scroll box: the bar stays 44px tall. */
+  ${host} .chips.segmented:not(.scroll) { margin-block: -0.375rem; }
   ${host} .chips.segmented:not(.scroll) > .chip { flex: 0 1 auto; min-width: 44px; }
   ${host} .chips.segmented > .chip + .chip { margin-inline-start: -1px; }
   ${host} .chip {
@@ -98,7 +105,15 @@ const structuralRules = (host: string) => `
     min-height: 2.25rem;
     overflow-wrap: break-word;
   }
+  ${host} .text { min-width: 0; }
   ${host} .check { flex: none; width: 1em; height: 1em; }
+  ${host} .chip:focus-visible { outline: none; }
+  ${host} :is(.chip:focus-visible > .face, .chip input:focus-visible + .face) {
+    position: relative;
+    z-index: 1;
+    outline: 3px solid var(--uva-color-focus, var(--uva-brand-orange, #e57200));
+    outline-offset: 2px;
+  }
   ${host} :is(.chip:disabled, .chip[aria-disabled='true'], .chip input:disabled) { cursor: not-allowed; }
   ${host} .visually-hidden {
     position: absolute;
@@ -118,15 +133,19 @@ const shadowStructure = unsafeCSS(structuralRules(':host'));
 const BORDER = 'var(--uva-color-control-border, var(--uva-grey, #808080))';
 const LINK = 'var(--uva-color-link, var(--uva-brand-blue, #232d4b))';
 const ACCENT = 'var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b))';
-const FOCUS = 'var(--uva-color-focus, var(--uva-brand-orange, #e57200))';
 
 /** The tick on a selected chip, so the state never rests on colour alone. */
 const CHECK = svg`<svg class="check" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 /** The visual target of each face: selected (a radio checked or a toggle pressed). */
 const ON = unsafeCSS(".chip[aria-pressed='true'] > .face, .chip input:checked + .face");
+/** Disabled and not selected (a selected disabled chip keeps the selected fill and text). */
 const OFF_DISABLED = unsafeCSS(
-  ".chip:disabled > .face, .chip[aria-disabled='true'] > .face, .chip input:disabled + .face",
+  ".chip:disabled:not([aria-pressed='true']) > .face, .chip[aria-disabled='true'] > .face, .chip input:disabled:not(:checked) + .face",
+);
+/** Hover, never on a disabled chip. */
+const HOVER = unsafeCSS(
+  ".chip:not(:disabled, [aria-disabled='true']):hover > .face, .chip:hover input:not(:disabled) + .face",
 );
 const FOCUSED = unsafeCSS('.chip:focus-visible > .face, .chip input:focus-visible + .face');
 
@@ -146,7 +165,8 @@ const FOCUSED = unsafeCSS('.chip:focus-visible > .face, .chip input:focus-visibl
  * enters the group at the selected chip, the arrow keys move and select (as any radio group),
  * and `value` is the selected chip's value. `multi`: toggle buttons with `aria-pressed`, and
  * `value` is an array (as an attribute, comma-separated). `links`: links, or buttons that fire
- * `select`, with no selected state.
+ * `select`, with no selected state; a chip whose href is unsafe (`javascript:`) is plain text,
+ * and an empty href is a button.
  *
  * A count is shown in a smaller muted span after the label and read as part of the name: “2005,
  * 213 items”, with `count-label` in place of “items”. A selected chip is filled, keeps its
@@ -156,9 +176,12 @@ const FOCUSED = unsafeCSS('.chip:focus-visible > .face, .chip input:focus-visibl
  * wrap (a long label wraps inside its segment), like the header's Light / Dark / System control.
  *
  * `url-param` (for example `year`) keeps the value in the address (`?year=2005`, a multi
- * value comma-separated, inside the hash on a hash route): read on connect, written with
- * `pushState` when the visitor changes it (changes less than a second apart replace that
- * entry), and followed on Back and Forward, which fire `change` with `restored: true`.
+ * value comma-separated, inside the hash on a hash route). It is read on connect; the
+ * markup's `value` stands for the address without the parameter, and any other value is
+ * written, an empty one as `?year=`. Each change is one `pushState`: in `multi` at once, in
+ * `single` once the visitor settles (a second after the last change, so arrowing through a
+ * year rail adds one entry, none if it ends where it started). Back and Forward are followed
+ * and fire `change` with `restored: true`.
  *
  * @tagname uvalib-chip-group
  * @fires change - The visitor changed the selection (`single`, `multi`), or Back or Forward changed it through `url-param`: `detail` is `{ value, restored? }` (a string in `single`, an array in `multi`; `restored` is true for Back and Forward). Not fired when the app sets `value`. Bubbles and is composed.
@@ -206,8 +229,7 @@ export class UvalibChipGroup extends UvalibElement {
         font-weight: 400;
         font-variant-numeric: tabular-nums;
       }
-      .chip:hover > .face,
-      .chip:hover input + .face {
+      ${HOVER} {
         position: relative;
         border-color: ${unsafeCSS(LINK)};
       }
@@ -225,19 +247,9 @@ export class UvalibChipGroup extends UvalibElement {
         border-style: dashed;
         color: var(--uva-color-text-muted, #4f4f4f);
       }
-      .chip:focus-visible {
-        outline: none;
-      }
-      ${FOCUSED} {
-        position: relative;
-        z-index: 1;
-        outline: 3px solid ${unsafeCSS(FOCUS)};
-        outline-offset: 2px;
-      }
       /* One row that scrolls: the scrollbar stays visible, and the edge with more chips
          fades out. */
       .chips.scroll {
-        padding-block: 0.375rem;
         scrollbar-width: thin;
         scrollbar-color: ${unsafeCSS(BORDER)} transparent;
       }
@@ -272,8 +284,7 @@ export class UvalibChipGroup extends UvalibElement {
           border-color: LinkText;
           color: LinkText;
         }
-        .chip:hover > .face,
-        .chip:hover input + .face {
+        ${HOVER} {
           border-color: Highlight;
         }
         ${ON} {
@@ -288,6 +299,11 @@ export class UvalibChipGroup extends UvalibElement {
         }
         ${FOCUSED} {
           outline-color: Highlight;
+        }
+        /* Forced colors keep gradients: a light fade would cover the edge chips. */
+        .rail::before,
+        .rail::after {
+          display: none;
         }
       }
     `,
@@ -336,7 +352,10 @@ export class UvalibChipGroup extends UvalibElement {
   private warned = new Set<string>();
   /** The value before the address was read: what a URL without the parameter means. */
   private initial?: string | string[];
-  private lastWrite = 0;
+  /** Whether the parameter lives in the hash (a hash route), fixed at the first read. */
+  private hashMode?: boolean;
+  /** The last value this element set itself: any other change to `value` is the app's. */
+  private ownValue?: string | string[];
   /** The single-select change waiting to settle: where the burst started, and the chip now. */
   private pending?: { from: string; item: ChipItem };
   private timer?: ReturnType<typeof setTimeout>;
@@ -373,7 +392,6 @@ export class UvalibChipGroup extends UvalibElement {
       );
     }
     window.addEventListener('popstate', this.onPop);
-    if (this.urlParam) this.readUrl();
     // Moved in the page: observe the scrolling row again.
     if (this.hasUpdated) this.requestUpdate();
   }
@@ -381,13 +399,20 @@ export class UvalibChipGroup extends UvalibElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener('popstate', this.onPop);
-    this.flush();
+    // Detached, it could not report through the page (nor honour an ancestor's
+    // no-analytics), and its address may belong to another route by now: drop it.
+    this.cancel();
     this.resize?.disconnect();
     this.observed = undefined;
   }
 
   protected override willUpdate(changed: PropertyValues<this>): void {
-    if (changed.has('urlParam') && this.urlParam && this.hasUpdated) this.readUrl();
+    if (changed.has('urlParam') && this.urlParam) this.readUrl();
+    if (changed.has('value') && this.value !== this.ownValue) {
+      // Set by the app (or read from the address): a pending change is no longer the visitor's.
+      this.cancel();
+      if (this.kind === 'multi' && !Array.isArray(this.value)) this.value = this.selected;
+    }
     if (!this.label.trim())
       this.warnOnce('label', 'set label: the group needs an accessible name.');
     if (!MODES.has(this.mode)) this.warnOnce('mode', 'mode must be single, multi or links.');
@@ -472,8 +497,10 @@ export class UvalibChipGroup extends UvalibElement {
 
   private numericCount(count: ChipItem['count']): number | undefined {
     if (count === undefined) return undefined;
-    const n = typeof count === 'number' ? count : Number(String(count).replace(/,/g, ''));
-    return Number.isFinite(n) ? n : undefined;
+    if (typeof count === 'number') return Number.isFinite(count) ? count : undefined;
+    // '' and ',' are not 0.
+    if (!/^\s*\d[\d,]*(\.\d+)?\s*$/.test(count)) return undefined;
+    return Number(count.replace(/,/g, ''));
   }
 
   /* ---------- the address ---------- */
@@ -483,7 +510,10 @@ export class UvalibChipGroup extends UvalibElement {
   }
 
   private urlValue(): string | string[] | null {
-    const raw = paramFromLocation(this.loc(), this.urlParam);
+    const loc = this.loc();
+    // A hash route keeps its parameter in the hash, even once the hash has no query left.
+    const raw =
+      this.hashMode && !usesHashParam(loc.hash) ? null : paramFromLocation(loc, this.urlParam);
     if (raw === null) return null;
     return this.kind === 'multi'
       ? raw
@@ -496,12 +526,14 @@ export class UvalibChipGroup extends UvalibElement {
   /** On connect (and a new `url-param`): the address wins over the markup, quietly. */
   private readUrl(): void {
     this.initial ??= Array.isArray(this.value) ? [...this.value] : this.value;
+    this.hashMode ??= usesHashParam(location.hash);
     const v = this.urlValue();
     if (v !== null) this.value = v;
   }
 
   private onPop = (): void => {
     if (!this.urlParam || this.kind === 'links') return;
+    this.cancel();
     this.initial ??= Array.isArray(this.value) ? [...this.value] : this.value;
     const v = this.urlValue() ?? this.initial ?? '';
     const before = this.selected.join('\u0000');
@@ -510,22 +542,33 @@ export class UvalibChipGroup extends UvalibElement {
     this.emitChange(true);
   };
 
+  /** The value as it is written in the address. */
+  private encode(v: string | string[] | undefined): string {
+    if (Array.isArray(v)) return v.join(',');
+    if (this.kind === 'multi')
+      return String(v ?? '')
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .join(',');
+    return String(v ?? '');
+  }
+
+  /**
+   * Push the value into the address. The markup's value is the address without the
+   * parameter; any other value is written, an empty one as `?year=`.
+   */
   private writeUrl(): void {
     if (!this.urlParam) return;
     this.initial ??= '';
-    const value = this.kind === 'multi' ? this.selected.join(',') : (this.selected[0] ?? '');
-    const next = hrefWithParam(
-      this.loc(),
-      this.urlParam,
-      value || null,
-      usesHashParam(location.hash),
-    );
+    this.hashMode ??= usesHashParam(location.hash);
+    const value = this.encode(this.selected);
+    const id = value === this.encode(this.initial) ? null : value;
+    const next = hrefWithParam(this.loc(), this.urlParam, id, this.hashMode, true);
     const now = location.pathname + location.search + location.hash;
     if (next === now) return;
-    const recent = Date.now() - this.lastWrite < chipGroupTiming.settle;
-    this.lastWrite = Date.now();
     try {
-      history[recent ? 'replaceState' : 'pushState'](history.state, '', next);
+      history.pushState(history.state, '', next);
     } catch {
       // A sandboxed document (an iframe srcdoc) cannot change its address.
     }
@@ -546,20 +589,35 @@ export class UvalibChipGroup extends UvalibElement {
     trackEvent(this, count === undefined ? [TAG, 'change', name] : [TAG, 'change', name, count]);
   }
 
-  /** Multi: report the toggled chip now. Single: report the chip selected once changes settle. */
+  /**
+   * Multi: report the toggled chip and write the address now. Single: once changes settle
+   * (arrowing through a year rail), report the chip then selected and push one history entry,
+   * unless the visitor ended where they started.
+   */
   private track(item: ChipItem, from: string): void {
-    if (this.kind === 'multi') return this.send(item);
+    if (this.kind === 'multi') {
+      this.writeUrl();
+      this.send(item);
+      return;
+    }
     this.pending = { from: this.pending?.from ?? from, item };
     clearTimeout(this.timer);
     this.timer = setTimeout(() => this.flush(), chipGroupTiming.settle);
   }
 
-  /** Send the single-select change that is waiting, unless it ended where it started. */
   private flush(): void {
-    clearTimeout(this.timer);
     const p = this.pending;
+    this.cancel();
+    if (!p || p.item.value === p.from || this.selected[0] !== p.item.value) return;
+    this.writeUrl();
+    this.send(p.item);
+  }
+
+  /** Forget a single-select change that has not settled, without reporting it. */
+  private cancel(): void {
+    clearTimeout(this.timer);
+    this.timer = undefined;
     this.pending = undefined;
-    if (p && p.item.value !== p.from) this.send(p.item);
   }
 
   private onRadio(e: Event, item: ChipItem): void {
@@ -569,8 +627,7 @@ export class UvalibChipGroup extends UvalibElement {
     const input = e.target as HTMLInputElement;
     if (!input.checked) return;
     const from = this.selected[0] ?? '';
-    this.value = item.value;
-    this.writeUrl();
+    this.value = this.ownValue = item.value;
     this.track(item, from);
     this.emitChange();
   }
@@ -578,8 +635,7 @@ export class UvalibChipGroup extends UvalibElement {
   private onToggle(item: ChipItem): void {
     const now = this.selected;
     const on = now.includes(item.value);
-    this.value = on ? now.filter((v) => v !== item.value) : [...now, item.value];
-    this.writeUrl();
+    this.value = this.ownValue = on ? now.filter((v) => v !== item.value) : [...now, item.value];
     this.track(item, '');
     this.emitChange();
   }
@@ -641,19 +697,23 @@ export class UvalibChipGroup extends UvalibElement {
       </button>`;
     }
     if (item.disabled)
-      return html`<span class="chip" aria-disabled="true">${this.face(item, false)}</span>`;
-    if (item.href !== undefined) {
-      if (safeHref(item.href, this.ownerDocument.baseURI))
+      return html`<span class="chip" role="link" aria-disabled="true"
+        >${this.face(item, false)}</span
+      >`;
+    const href = item.href?.trim();
+    if (href) {
+      if (safeHref(href, this.ownerDocument.baseURI))
         return html`<a
           class="chip"
-          href=${item.href}
+          href=${item.href!}
           @click=${(e: MouseEvent) => this.onSelect(e, item, true)}
           >${this.face(item, false)}</a
         >`;
       this.warnOnce(
         'href',
-        'showing a chip as a button: its href is not http(s), mailto, tel or relative.',
+        'showing a chip as text: its href is not http(s), mailto, tel or relative.',
       );
+      return html`<span class="chip">${this.face(item, false)}</span>`;
     }
     return html`<button
       type="button"

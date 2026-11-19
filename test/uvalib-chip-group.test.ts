@@ -40,6 +40,14 @@ const YEARS = `<button value="">All Years</button>
   <button value="2006" data-count="12" disabled>2006</button>`;
 
 const clean = () => history.replaceState(null, '', location.pathname);
+/** Longer than the shortened settle time. */
+const settle = () => new Promise((r) => setTimeout(r, 150));
+async function back(): Promise<void> {
+  const popped = new Promise((r) => window.addEventListener('popstate', r, { once: true }));
+  history.back();
+  await popped;
+  await new Promise((r) => setTimeout(r, 0));
+}
 
 for (const mode of ['shadow', 'no-shadow-dom'] as const) {
   describe(`uvalib-chip-group (${mode})`, () => {
@@ -169,7 +177,7 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       expect(a!.localName).to.equal('a');
       expect(a!.getAttribute('href')).to.equal('#snow');
       expect(b!.localName).to.equal('button');
-      expect(bad!.localName).to.equal('button');
+      expect(bad!.localName).to.equal('span');
       expect(chips(el).some((c) => c.hasAttribute('aria-pressed'))).to.equal(false);
       const seen: { detail: unknown; cancelable: boolean }[] = [];
       const route = (e: Event) => {
@@ -264,29 +272,98 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       }
     });
 
-    it('url-param: read on connect, pushed on change, followed on Back', async () => {
+    it('url-param: read on connect, one push once settled, followed on Back', async () => {
       history.replaceState(null, '', `${location.pathname}?year=2005`);
-      const el = await make('label="Year" url-param="year" value="2004"');
+      const el = await make('label="Year" url-param="year"');
       expect(el.value).to.equal('2005');
       const length = history.length;
+      // Arrowing through: one entry for where the visitor stops, after they settle.
+      chips(el)[0]!.click();
       chips(el)[1]!.click();
       await el.updateComplete;
-      expect(location.search).to.equal('?year=2004');
+      expect(location.search).to.equal('?year=2005');
+      await waitUntil(() => location.search === '?year=2004', 'not written once settled');
       expect(history.length).to.equal(length + 1);
-      // A second change straight after replaces that entry.
-      chips(el)[0]!.click();
-      await el.updateComplete;
-      expect(location.search).to.equal('');
+      // Out and back within the settle time: no entry.
+      chips(el)[2]!.click();
+      chips(el)[1]!.click();
+      await settle();
       expect(history.length).to.equal(length + 1);
       const seen: unknown[] = [];
       el.addEventListener('change', (e) => seen.push((e as CustomEvent).detail));
-      const popped = new Promise((r) => window.addEventListener('popstate', r, { once: true }));
-      history.back();
-      await popped;
+      await back();
       await el.updateComplete;
       expect(el.value).to.equal('2005');
       expect(radios(el)[2]!.checked).to.equal(true);
       expect(seen).to.deep.equal([{ value: '2005', restored: true }]);
+    });
+
+    it('url-param: the markup value is the bare address; any other value is written, empty too', async () => {
+      const el = await make('label="Year" url-param="year" value="2004"');
+      chips(el)[0]!.click(); // All Years: value ""
+      await waitUntil(() => location.search === '?year=', 'empty value not written');
+      // A reload at that address keeps All Years.
+      const again = await make('label="Year" url-param="year" value="2004"');
+      expect(again.value).to.equal('');
+      again.remove();
+      chips(el)[1]!.click(); // back to the markup's 2004: the parameter goes
+      await waitUntil(() => location.search === '', 'default not removed');
+      // Back to ?year= selects All Years, and Back again to the bare address the markup's 2004.
+      await back();
+      expect(el.value).to.equal('');
+      await back();
+      expect(el.value).to.equal('2004');
+      const multi = await make('mode="multi" label="Category" url-param="cat" value="2004"');
+      chips(multi)[1]!.click(); // unpress the markup's only chip
+      expect(location.search).to.equal('?cat=');
+    });
+
+    it('url-param: set as a property before the first render', async () => {
+      history.replaceState(null, '', `${location.pathname}?year=2005`);
+      const el = document.createElement('uvalib-chip-group') as UvalibChipGroup;
+      if (attr) el.setAttribute(attr, '');
+      el.label = 'Year';
+      el.urlParam = 'year';
+      el.innerHTML = YEARS;
+      document.body.append(el);
+      try {
+        await el.updateComplete;
+        expect(el.value).to.equal('2005');
+        expect(radios(el)[2]!.checked).to.equal(true);
+      } finally {
+        el.remove();
+      }
+    });
+
+    it('url-param: a hash with a query keeps the parameter in the hash', async () => {
+      history.replaceState(null, '', `${location.pathname}#chapter?year=2005`);
+      const el = await make('label="Year" url-param="year" value=""');
+      expect(el.value).to.equal('2005');
+      chips(el)[0]!.click();
+      await waitUntil(() => location.hash === '#chapter', 'not cleared in the hash');
+      chips(el)[1]!.click();
+      await waitUntil(() => location.hash === '#chapter?year=2004', 'not written in the hash');
+      expect(location.search).to.equal('');
+    });
+
+    it('a pending change is dropped on removal, on Back, and when the app sets the value', async () => {
+      const rec = recordAnalytics();
+      try {
+        const removed = await make('label="Year"');
+        chips(removed)[1]!.click();
+        removed.remove();
+        history.pushState(null, '', `${location.pathname}?year=2006`);
+        const popped = await make('label="Year" url-param="year"');
+        chips(popped)[1]!.click();
+        await back();
+        const set = await make('label="Year"');
+        chips(set)[1]!.click();
+        set.value = '';
+        await settle();
+        expect(rec.of('uvalib-analytics-event')).to.deep.equal([]);
+      } finally {
+        rec.restore();
+      }
     });
 
     it('url-param: multi values comma-separated, inside the hash on a hash route', async () => {
@@ -361,6 +438,8 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         const g = group(row);
         expect(document.documentElement.scrollWidth).to.be.at.most(320);
         expect(getComputedStyle(g).overflowX).to.equal('auto');
+        // Room inside the scroll box for the 3px ring 2px out, so it is never clipped.
+        expect(parseFloat(getComputedStyle(g).paddingTop)).to.be.at.least(5);
         expect(g.scrollWidth).to.be.greaterThan(g.clientWidth);
         const tops2 = new Set(chips(row).map((c) => Math.round(c.getBoundingClientRect().top)));
         expect(tops2.size).to.equal(1);
@@ -389,6 +468,102 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       expect(chips(el)[0]!.getBoundingClientRect().height).to.be.at.least(44);
       const hidden = chips(el)[1]!.querySelector('.visually-hidden')!;
       expect(getComputedStyle(hidden).position).to.equal('absolute');
+    });
+
+    it('keeps a visible focus ring on a radio chip with no-style', async () => {
+      const el = await make('no-style label="Year" value="2004"');
+      const before = document.createElement('button');
+      before.textContent = 'before';
+      el.before(before);
+      before.focus();
+      await sendKeys({ press: 'Tab' });
+      const f = getComputedStyle(face(chips(el)[1]!));
+      expect([f.outlineStyle, f.outlineWidth]).to.deep.equal(['solid', '3px']);
+      before.remove();
+    });
+
+    it('a selected disabled chip keeps the selected text colour on its fill', async () => {
+      const el = await make('label="Year" value="2006"');
+      const f = getComputedStyle(face(chips(el)[3]!));
+      expect(f.color).to.equal('rgb(255, 255, 255)');
+      expect(f.backgroundColor).to.equal('rgb(35, 45, 75)');
+      const multi = await make('mode="multi" label="Category" value="2006"');
+      expect(getComputedStyle(face(chips(multi)[3]!)).color).to.equal('rgb(255, 255, 255)');
+    });
+
+    it('links: a disabled chip is a disabled link, an unsafe href is text, an empty href a button', async () => {
+      let el!: UvalibChipGroup;
+      await warnings(async () => {
+        el = await make(
+          'mode="links" label="Try"',
+          '<a href="#a" aria-disabled="true">off</a><a href="javascript:alert(1)">bad</a><a href="">empty</a>',
+        );
+      });
+      const [off, bad, empty] = chips(el);
+      expect([
+        off!.localName,
+        off!.getAttribute('role'),
+        off!.getAttribute('aria-disabled'),
+      ]).to.deep.equal(['span', 'link', 'true']);
+      expect([
+        bad!.localName,
+        bad!.hasAttribute('role'),
+        bad!.hasAttribute('tabindex'),
+      ]).to.deep.equal(['span', false, false]);
+      expect(empty!.localName).to.equal('button');
+      const rec = recordAnalytics();
+      try {
+        bad!.click();
+        expect(rec.events).to.deep.equal([]);
+      } finally {
+        rec.restore();
+      }
+      await expectNoAxeViolations(el);
+    });
+
+    it('counts that are not numbers send no value; a multi value attribute becomes an array', async () => {
+      const rec = recordAnalytics();
+      try {
+        const el = await make(
+          'mode="multi" label="Category" value="a, b"',
+          '<button value="a" data-count=",">A</button><button value="b">B</button>',
+        );
+        expect(el.value).to.deep.equal(['a', 'b']);
+        chips(el)[0]!.click();
+        expect(rec.of('uvalib-analytics-event').map((d) => d.event)).to.deep.equal([
+          ['uvalib-chip-group', 'change', 'Category: A'],
+        ]);
+      } finally {
+        rec.restore();
+      }
+    });
+
+    it('segmented does not overflow 320px, and wrapped rows keep a gap', async () => {
+      await setViewport({ width: 320, height: 640 });
+      try {
+        const segs = ['Most photos', 'Date taken', 'Title A–Z', 'Photographer', 'Location']
+          .map((t, i) => `<button value="${i}">${t}</button>`)
+          .join('');
+        const el = await make('label="Sort by" segmented value="0"', segs);
+        expect(document.documentElement.scrollWidth).to.be.at.most(320);
+        expect(group(el).getBoundingClientRect().right).to.be.at.most(320);
+        await expectNoAxeViolations(el);
+        const wrap = await make('label="Year"');
+        expect(parseFloat(getComputedStyle(group(wrap)).rowGap)).to.be.greaterThan(0);
+      } finally {
+        await setViewport({ width: 800, height: 600 });
+      }
+    });
+
+    it('forced colors: no light fade over the scrolling row', async () => {
+      await emulateMedia({ forcedColors: 'active' });
+      try {
+        const el = await make('label="Year" scroll');
+        const rail = root(el).querySelector('.rail')!;
+        expect(getComputedStyle(rail, '::after').display).to.equal('none');
+      } finally {
+        await emulateMedia({ forcedColors: 'none' });
+      }
     });
   });
 }
