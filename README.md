@@ -7,7 +7,7 @@ Reusable web components for UVA Library sites, built with Lit and TypeScript:
 - **Cards:** `<uvalib-card>`, `<uvalib-card-grid>` and `<uvalib-pager>`.
 - **Records:** `<uvalib-metadata>` (a record's details, credit, rights and how to cite).
 - **Images:** `<uvalib-lightbox>` (an image viewer over plain links) and `<uvalib-photo-grid>` (justified rows of thumbnails).
-- **Search:** `<uvalib-filter>`, `<uvalib-date-range>` and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
+- **Search:** `<uvalib-filter>`, `<uvalib-date-range>`, `<uvalib-date-histogram>` and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
 - **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
 - **Library events:** `<events-section>`.
 - **Search results:** `<bento-box>` (library.virginia.edu/search), with its `<catalog-section>`, `<articles-section>`, `<libguides-section>` and `<website-section>`.
@@ -144,7 +144,7 @@ npm i @uvalib/web-components
 import '@uvalib/web-components/site-page.js'; // registers site-page, site-header, site-main-nav and site-footer
 ```
 
-The define entries are `site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`, `events-section.js`, `bento-box.js` and `uvalib-pagefind-search.js`. The package root (`import '@uvalib/web-components'`) exports the classes only and registers nothing. To use a class such as `SitePage` directly, also import the define entries. CSS is available as `@uvalib/web-components/tokens.css`, `base.css` and `pagefind.css` (the Pagefind theme, see [Static-site search](#static-site-search-pagefind)). Do not load the same component from both the CDN and npm on one page.
+The define entries are `site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `uvalib-date-histogram.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`, `events-section.js`, `bento-box.js` and `uvalib-pagefind-search.js`. The package root (`import '@uvalib/web-components'`) exports the classes only and registers nothing. To use a class such as `SitePage` directly, also import the define entries. CSS is available as `@uvalib/web-components/tokens.css`, `base.css` and `pagefind.css` (the Pagefind theme, see [Static-site search](#static-site-search-pagefind)). Do not load the same component from both the CDN and npm on one page.
 
 ## Quick start
 
@@ -561,7 +561,7 @@ Dark mode is **off by default**. Without it nothing changes: no control, no dark
 
 ## Search and filter components
 
-`<uvalib-filter>` (a checkbox facet with optional scope chips and See more / See less) and `<uvalib-date-range>` (a year slider plus date inputs) are for search results pages. They are not page chrome, so use them inside `<site-page>`. Each has its own entry: `uvalib-filter.js` and `uvalib-date-range.js` on the CDN, `@uvalib/web-components/uvalib-filter.js` and `.../uvalib-date-range.js` on npm.
+`<uvalib-filter>` (a checkbox facet with optional scope chips and See more / See less), `<uvalib-date-range>` (a year slider plus date inputs) and `<uvalib-date-histogram>` (counts as bars) are for search results pages. They are not page chrome, so use them inside `<site-page>`. Each has its own entry: `uvalib-filter.js`, `uvalib-date-range.js` and `uvalib-date-histogram.js` on the CDN, `@uvalib/web-components/uvalib-filter.js` and the same path for the others on npm.
 
 ```html
 <script
@@ -590,7 +590,42 @@ Dark mode is **off by default**. Without it nothing changes: no control, no dark
 </script>
 ```
 
-Both are controlled: set `value` (and `scopeValue`) from your own state after each event. `min` and `max` are required for the date range; without valid ones it renders nothing and warns once in the console. Both support `no-shadow-dom` and `no-style`. See the [Search facets](https://uvalib.github.io/reusable-web-library/#search-facets) example in the playground and the generated reference below.
+The filter and the date range are controlled: set `value` (and `scopeValue`) from your own state after each event. `min` and `max` are required for the date range; without valid ones it renders nothing and warns once in the console. All three support `no-shadow-dom` and `no-style`. See the [Search facets](https://uvalib.github.io/reusable-web-library/#search-facets) example in the playground and the generated reference below.
+
+`<uvalib-date-histogram>` draws one button per month (grouped by year) or per year. Give it `items` (`{ date: 'YYYY' | 'YYYY-MM', count }`) or a child `<table>` (two columns, or a year-by-month grid). The table stays in the page for assistive technology and for visitors without JavaScript, and "Show as table" shows it again. `unit="photos"` names a bar "October 2015: 5,311 photos". Arrow keys move between bars. `selected` is one bucket or a range (`2015-10` or `2015-10/2016-03`); the pressed bars also get a ring and a stripe. A choice fires `select` with `{ from, to }` as ISO dates. `range-for="dates"` keeps a `<uvalib-date-range id="dates">` in step: a bar sets its `value`, and `date-range-change` highlights the overlapping bars. Setting `selected` in script updates the date range and does not fire `select`. Setting the date range's `value` in script does not update the histogram unless the histogram connects afterwards or the range fires `date-range-change`. `scale="log"` sizes bars by log(count + 1). On a narrow screen each year row scrolls inside the component ("Scroll sideways to see more."); year bars wrap. `variant="strip"` is a non-interactive per-year row (`role="img"`) for a card. A date that is not a bucket at the current granularity (a bare year on a month chart, a day, "undated") is a chip.
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-date-histogram.js"
+></script>
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-date-range.js"
+></script>
+
+<uvalib-date-range
+  id="dates"
+  min="2005-01-01"
+  max="2017-12-31"
+  label="Photo dates"
+></uvalib-date-range>
+<uvalib-date-histogram
+  id="hist"
+  range-for="dates"
+  granularity="month"
+  unit="photos"
+  label="Photos by date"
+></uvalib-date-histogram>
+<script type="module">
+  const hist = document.querySelector('#hist');
+  hist.items = [
+    { date: '2015-10', count: 5311 },
+    { date: '2015-11', count: 842 },
+  ];
+  hist.addEventListener('select', (e) => console.log(e.detail)); // { from, to }
+</script>
+```
 
 ## Library hours
 
@@ -758,6 +793,7 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
   | `uvalib-filter`                              | `scope-change`                                                                                                       | the scope's label                                                                                                                         | 1 pressed, 0 not              |
   | `uvalib-filter`                              | `see-more`, `see-less`                                                                                               | the filter's title                                                                                                                        |                               |
   | `uvalib-date-range`                          | `range-change` (1 s after the last change, and only if the years differ)                                             | `<from year>–<to year>`                                                                                                                   |                               |
+  | `uvalib-date-histogram`                      | `select` (not when the selection is cleared, set in script, or restored from a date range)                           | `<from>–<to>` (ISO dates, or the odd token, joined with an en dash)                                                                       |                               |
   | `bento-box`                                  | `result-click`                                                                                                       | the section (`Virgo catalog`, `Virgo articles`, `Subject guides`, `Library website`)                                                      | the result's position, from 1 |
   | `bento-box`                                  | `see-all-click`, `retry`                                                                                             | the section                                                                                                                               |                               |
   | `bento-box`                                  | `error`                                                                                                              | `section-load: <section>`                                                                                                                 |                               |
@@ -1501,6 +1537,65 @@ Sub-navigation or a table of contents, as library.virginia.edu's sub-navigation:
 | `--uva-color-border` |  | Dark-mode role token: dividers (else #dadada). |
 | `--uva-color-control-border` |  | Dark-mode role token: the button's border (else #808080). |
 | `--uva-color-surface-raised` |  | Dark-mode role token: the button's background (else #fff). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+
+### `<uvalib-date-histogram>`
+
+Monthly or yearly counts as bars: a date distribution for a search page, an archive timeline or a card. Give `items` (`{ date, count }`, `date` a `YYYY` or `YYYY-MM`) or a child `<table>` (the no-JS fallback). `granularity="month"` draws twelve bars for every year from the first date to the last, including months with a count of zero. A year-only count in a month chart, a day, or any other date is a chip beside the chart. Each bar is a button named like "October 2015: 5,311 photos". Arrow keys move between bars; Enter or Space selects. `selected` is one bucket (`2015-10`, `2015`) or a range (`2015-03/2016-01`, also `..` or an en dash). The selection is `aria-pressed`, an inset ring and a stripe, not colour alone. Choosing a bar fires `select` with `{ from, to }` as ISO dates (a month runs from its first day to its last). Choosing the selected bar again clears it (`from` and `to` are empty strings). `range-for` is the id of a `<uvalib-date-range>`. A bar click sets that element's `value`. Its `date-range-change` (and its `value` when this element connects) highlights the buckets that overlap the range. Setting `selected` here updates the date range; setting the date range's `value` in script does not, unless this element connects afterwards or the range fires `date-range-change`. `variant="strip"` is the small per-year row for a card: not interactive, `role="img"`, one bar per year whatever `granularity` is. The bars sit in a track of fixed height (`--uvalib-date-histogram-bar-size`, 8rem), so filling them in does not move the page. On a narrow screen a month row scrolls inside the component; "Scroll sideways to see more." shows while it overflows. Years wrap.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `items` | `HistogramItem[]` | `[]` | Counts to draw. When non-empty, wins over the child table. Set a new array to update. |
+| `granularity` | `'year' \| 'month'` | `'month'` | `month` (twelve bars per year) or `year`. Anything else is month, with one console warning. |
+| `scale` | `'linear' \| 'log'` | `'linear'` | `log` scales bar height by log(count + 1). Anything else is linear. |
+| `selected` | `string` | `''` | One bucket (`2015-10` or `2015`) or a range (`2015-03/2016-01`). A linked date range writes a range here. Empty when nothing is selected. |
+| `range-for` | `string` | `''` | Id of a `<uvalib-date-range>` to keep in step with, both ways. |
+| `variant` | `string` | `''` | `strip`: a non-interactive per-year row (`role="img"`). Anything else is the bar chart. |
+| `unit` | `string` | `'items'` | Word after the count in each bar's name. Plural; a count of one drops a trailing s. |
+| `label` | `string` | `'Dates'` | Accessible name of the bar group, and the start of the strip's summary. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Slots
+
+| Slot | Description |
+|---|---|
+| (default) | A `<table>` of dates and counts: two columns (date, count) or a year-by-month grid. Without JavaScript it is the fallback. With JavaScript it supplies the counts when `items` is empty, and it is shown in Show as table (shadow DOM uses the same element; light DOM shows a table built from the same counts). |
+
+#### CSS parts
+
+| Part | Description |
+|---|---|
+| `chart` | The bar chart (shadow mode). |
+| `bar` | A bar button, or a strip segment (shadow mode). |
+| `table` | The generated table in Show as table (shadow mode). |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `select` | A bar or an odd-date chip was chosen, or the current one chosen again to clear it. `detail` is `{ from, to }` (ISO dates, or the odd token). Empty strings clear the selection. Not fired when `selected` is set in script or when a linked date range changes. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-date-histogram', 'select', '<from>–<to>']` when a bar or chip is chosen (not when the selection is cleared, set in script, or restored from a date range). Bubbles and is composed. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uvalib-date-histogram-bar-size` | `8rem` | Height of each bar track. The bars never change it, so the page does not move as counts arrive. |
+| `--uvalib-date-histogram-strip-size` | `1.5rem` | Height of `variant="strip"`. |
+| `--uva-brand-blue` | `#232d4b` | Bar fill. |
+| `--uva-brand-orange` | `#e57200` | Focus ring. |
+| `--uva-font-family` | `inherit` | Font family. |
+| `--uva-color-accent-bg` |  | Dark-mode role token: bar fill (else `--uva-brand-blue`). |
+| `--uva-color-on-accent` |  | Dark-mode role token: the selection stripe (else #fff). |
+| `--uva-color-text` |  | Dark-mode role token: labels and the selection ring (else #2b2b2b). |
+| `--uva-color-text-muted` |  | Dark-mode role token: the scroll hint (else #4b5563). |
+| `--uva-color-track` |  | Dark-mode role token: the empty part of a bar (else #e5e7eb). |
+| `--uva-color-surface` |  | Dark-mode role token: the sticky year label (else #fff). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: odd-date chips (else #fff). |
+| `--uva-color-control-border` |  | Dark-mode role token: bar, chip and table borders (else #808080). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ### `<uvalib-date-range>`
