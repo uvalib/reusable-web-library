@@ -9,6 +9,7 @@ import '../src/components/site-main-nav/site-main-nav.js';
 import '../src/components/site-footer/site-footer.js';
 import '../src/components/site-page/site-page.js';
 import '../src/components/uvalib-breadcrumbs/uvalib-breadcrumbs.js';
+import '../src/components/uvalib-lightbox/uvalib-lightbox.js';
 import '../src/components/events-section/events-section.js';
 import '../src/components/site-hours-section/site-hours-section.js';
 import '../src/components/library-weekly-hours/library-weekly-hours.js';
@@ -199,6 +200,49 @@ describe('analytics catalogue', () => {
           ['uvalib-breadcrumbs', 'link-click', 'level 2', 2],
           ['uvalib-breadcrumbs', 'link-click', 'level 1', 1],
         ]);
+      });
+    });
+
+    describe(`uvalib-lightbox (${mode})`, () => {
+      const PNG =
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAEUlEQVR4AWP4z8Dwn4Hh/38AD/kD/dtv74kAAAAASUVORK5CYII=';
+      const shot = (caption: string, id: string) =>
+        `<a href="${PNG}" data-caption="${caption}" data-id="${id}"><img alt="${caption}" width="2" height="1"></a>`;
+      const clean = () => history.replaceState(null, '', location.pathname);
+
+      beforeEach(clean);
+      afterEach(clean);
+
+      it('open, next, previous and full-size by position, never the URL or caption; nothing on render', async () => {
+        const el = await fixture<HTMLElement & { updateComplete: Promise<unknown> }>(
+          `<uvalib-lightbox ${attr(mode)}>${shot('Page one', '1')}${shot('Page two', '2')}</uvalib-lightbox>`,
+        );
+        await quietRender(el);
+        const links = [...el.querySelectorAll('a')];
+        links[0]!.click();
+        await el.updateComplete;
+        const r = root(el);
+        r.querySelector<HTMLButtonElement>('button.next')!.click();
+        r.querySelector<HTMLButtonElement>('button.prev')!.click();
+        r.querySelector<HTMLAnchorElement>('a.full')!.click();
+        expect(events()).to.deep.equal([
+          ['uvalib-lightbox', 'open', 'image 1', 1],
+          ['uvalib-lightbox', 'next', 'image 2', 2],
+          ['uvalib-lightbox', 'previous', 'image 1', 1],
+          ['uvalib-lightbox', 'full-size', 'image 1', 1],
+        ]);
+        expect(JSON.stringify(events())).to.not.match(/data:|Page|http/);
+      });
+
+      it('a viewer restored from the URL reports nothing', async () => {
+        history.replaceState(null, '', `${location.pathname}?photo=2`);
+        const el = await fixture<HTMLElement & { updateComplete: Promise<unknown> }>(
+          `<uvalib-lightbox ${attr(mode)} url-param="photo">${shot('Page one', '1')}${shot('Page two', '2')}</uvalib-lightbox>`,
+        );
+        await el.updateComplete;
+        await nextFrame();
+        expect((el.shadowRoot ?? el).querySelector('dialog')!.open).to.equal(true);
+        expect(events(), 'reported on restore').to.deep.equal([]);
       });
     });
 
