@@ -1,11 +1,11 @@
 ---
 name: uvalib-web-components
-description: Use when building or editing UVA Library web pages or sites, adding the UVA Library header, footer or page wrapper to a page, using <site-page>, <site-header>, <site-main-nav>, <site-footer>, <site-analytics>, <uvalib-analytics>, <site-style>, <uvalib-breadcrumbs>, <uvalib-card>, <uvalib-card-grid>, <uvalib-pager>, <uvalib-contents>, <uvalib-metadata>, <site-alerts>, <uvalib-filter>, <uvalib-date-range>, <site-hours-section>, <library-weekly-hours>, <library-hours-setup>, <events-section>, <bento-box>, <uvalib-pagefind-search>, <uvalib-lightbox> or <uvalib-photo-grid>, Pagefind site search (pagefind.css), working with the @uvalib/web-components npm package, or editing script/link URLs on unpkg.internal.lib.virginia.edu (including migrating old /web-components/latest/ or cdn-v URLs). Covers CDN vs npm, version pinning, shadow vs light DOM, theming with --uva-* tokens, WCAG 2.2 AA accessibility testing (axe-core in Playwright matched to Lighthouse, Lighthouse CI, manual checks), and a verification checklist.
+description: Use when building or editing UVA Library web pages or sites, adding the UVA Library header, footer or page wrapper to a page, using <site-page>, <site-header>, <site-main-nav>, <site-footer>, <site-analytics>, <uvalib-analytics>, <site-style>, <uvalib-breadcrumbs>, <uvalib-card>, <uvalib-card-grid>, <uvalib-pager>, <uvalib-contents>, <uvalib-metadata>, <site-alerts>, <uvalib-filter>, <uvalib-date-range>, <site-hours-section>, <library-weekly-hours>, <library-hours-setup>, <events-section>, <bento-box>, <uvalib-pagefind-search>, <uvalib-lightbox>, <uvalib-photo-grid> or <uvalib-chip-group>, Pagefind site search (pagefind.css), working with the @uvalib/web-components npm package, or editing script/link URLs on unpkg.internal.lib.virginia.edu (incl. migrating old /web-components/latest/ or cdn-v URLs). Covers CDN vs npm, version pinning, shadow vs light DOM, theming with --uva-* tokens, WCAG 2.2 AA testing (axe-core in Playwright, Lighthouse CI, manual checks), and a verification checklist.
 ---
 
 # UVA Library web components
 
-`@uvalib/web-components` provides the UVA Library page chrome as custom elements: `<site-page>` (skip link, header with the library main navigation, one `<main>`, footer), `<site-header>`, `<site-main-nav>` (the main navigation, rendered by the header), `<site-footer>`, `<site-analytics>` (Matomo; also registered as `<uvalib-analytics>`) and `<site-style>` (legacy compatibility), plus `<uvalib-breadcrumbs>` (the breadcrumb trail), `<uvalib-contents>` (sub-navigation or a table of contents) and `<uvalib-metadata>` (a record's details, credit, rights and how to cite), all in section 2, `<uvalib-card>`, `<uvalib-card-grid>` and `<uvalib-pager>` (cards and paging, section 5) and `<site-alerts>` (the live library alerts, which `<site-page>` shows itself). It also ships two search-page components, `<uvalib-filter>` and `<uvalib-date-range>` (section 6), and three library-hours elements for library.virginia.edu, `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`, `<events-section>` for upcoming library events and `<bento-box>` for the library's search results page (section 7), and `pagefind.css` with `<uvalib-pagefind-search>` for a static site's Pagefind search (section 6), and `<uvalib-lightbox>` and `<uvalib-photo-grid>` for images (section 8). Tag names are stable.
+`@uvalib/web-components` provides the UVA Library page chrome as custom elements: `<site-page>` (skip link, header with the library main navigation, one `<main>`, footer), `<site-header>`, `<site-main-nav>` (the main navigation, rendered by the header), `<site-footer>`, `<site-analytics>` (Matomo; also registered as `<uvalib-analytics>`) and `<site-style>` (legacy compatibility), plus `<uvalib-breadcrumbs>` (the breadcrumb trail), `<uvalib-contents>` (sub-navigation or a table of contents) and `<uvalib-metadata>` (a record's details, credit, rights and how to cite), all in section 2, `<uvalib-card>`, `<uvalib-card-grid>` and `<uvalib-pager>` (cards and paging, section 5) and `<site-alerts>` (the live library alerts, which `<site-page>` shows itself). It also ships two search-page components, `<uvalib-filter>` and `<uvalib-date-range>`, and `<uvalib-chip-group>` for segmented controls, filter chips and suggestion chips (section 6), and three library-hours elements for library.virginia.edu, `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`, `<events-section>` for upcoming library events and `<bento-box>` for the library's search results page (section 7), and `pagefind.css` with `<uvalib-pagefind-search>` for a static site's Pagefind search (section 6), and `<uvalib-lightbox>` and `<uvalib-photo-grid>` for images (section 8). Tag names are stable.
 
 Authority rule: https://www.library.virginia.edu and the UVA Library design system are the source of truth for how the chrome looks and what it says. Do not re-create, copy or restyle the header, footer, logo or links by hand. Use the components, and change appearance only through the theming surface below.
 
@@ -31,7 +31,7 @@ Loading rules:
 
 - One script is enough for the page chrome: `site-page.js` also loads the header (with its main navigation) and footer. For Matomo, give `<site-page>` a `matomo-id` (it loads the analytics code itself), or add `site-analytics.js` and a `<site-analytics>` (or `uvalib-analytics.js` and `<uvalib-analytics>`) element; never both, and never alongside a hand-written Matomo snippet.
 - Also link `.../v1/base.css` in `<head>` (npm: `@uvalib/web-components/base.css`), unless the page sets `no-global-styles`. `<site-page>` installs the same base styles only after the first paint, so without the link the page shifts once (the default body margin goes away, and a heading's margin stops collapsing through the not-yet-defined `<site-page>`). The link also keeps `<site-page>` invisible until it is defined, with a two-second fallback.
-- npm: the define entries (`@uvalib/web-components/site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-breadcrumbs.js`, `uvalib-card.js`, `uvalib-card-grid.js`, `uvalib-pager.js`, `uvalib-contents.js`, `uvalib-metadata.js`, `site-alerts.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`, `events-section.js`, `bento-box.js`, `uvalib-pagefind-search.js`, `uvalib-lightbox.js`, `uvalib-photo-grid.js`) register the element (`bento-box.js` also registers its four sections). Importing the package root (`@uvalib/web-components`) gives the classes only and registers nothing. If you use the `SitePage` class directly, also import the header and footer define entries.
+- npm: the define entries (`@uvalib/web-components/site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-breadcrumbs.js`, `uvalib-card.js`, `uvalib-card-grid.js`, `uvalib-pager.js`, `uvalib-contents.js`, `uvalib-metadata.js`, `site-alerts.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`, `events-section.js`, `bento-box.js`, `uvalib-pagefind-search.js`, `uvalib-lightbox.js`, `uvalib-photo-grid.js`, `uvalib-chip-group.js`) register the element (`bento-box.js` also registers its four sections). Importing the package root (`@uvalib/web-components`) gives the classes only and registers nothing. If you use the `SitePage` class directly, also import the header and footer define entries.
 - Do not load the same component from both the CDN and npm on one page.
 
 ## 2. Required page structure
@@ -464,6 +464,58 @@ For a search results page that needs a checkbox facet or a date-range picker, us
       });
       document.querySelector('#dates').addEventListener('date-range-change', (e) => {
         console.log(e.detail.value); // [start, end] as YYYY-MM-DD
+      });
+    </script>
+  </body>
+</html>
+```
+
+### Chips
+
+A year rail, a category filter, a sort or view toggle, or "Try:" suggestions are one `<uvalib-chip-group>` (`uvalib-chip-group.js`), never hand-built pill buttons or a `role="tablist"` (it is not tabs).
+
+- `label` (required) names the group. `mode="single"` (default): one value, radios drawn as chips; arrow keys select. `mode="multi"`: toggles with `aria-pressed`, `value` an array. `mode="links"`: `<a href>` children (or buttons) that fire `select`, with no selected state.
+- Chips are children (`<button value="2005" data-count="213">2005</button>`, `<a href>` for links) or the `items` property (`[{ value, label, count?, href?, disabled? }]`). Counts go in `data-count`/`count`, not in the label text; `count-label` is the word read after them ("2005, 213 shoots").
+- Listen for `change` (`detail: { value }`); setting `value` from your state fires nothing. In a single-page app cancel `select` to route a link chip in place.
+- `segmented` for a short sort or view toggle (one row), `scroll` for a long rail such as years (one scrolling row). `url-param="year"` keeps the value in the address and follows Back and Forward (then `change` has `restored: true`).
+- It reports `change` (`<label>: <chip label>`, with the count) and `select` (the label only) to analytics itself: do not add your own tracking.
+
+```html snippet
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Browse by year</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.internal.lib.virginia.edu/web-components/v1/base.css"
+    />
+    <script
+      type="module"
+      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/site-page.js"
+    ></script>
+    <script
+      type="module"
+      src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-chip-group.js"
+    ></script>
+  </head>
+  <body>
+    <site-page>
+      <h1>Browse by year</h1>
+      <uvalib-chip-group id="years" label="Year" count-label="shoots" value="" scroll>
+        <button value="" data-count="3694">All Years</button>
+        <button value="2004" data-count="213">2004</button>
+        <button value="2005" data-count="461">2005</button>
+      </uvalib-chip-group>
+      <uvalib-chip-group label="Sort by" segmented value="photos">
+        <button value="photos">Most photos</button>
+        <button value="date">Date</button>
+      </uvalib-chip-group>
+    </site-page>
+    <script type="module">
+      document.querySelector('#years').addEventListener('change', (e) => {
+        console.log(e.detail.value); // re-run your search for that year
       });
     </script>
   </body>

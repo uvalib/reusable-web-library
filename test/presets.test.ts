@@ -45,6 +45,7 @@ describe('playground presets', function () {
       'photo-card',
       'section-pager',
       'numbered-pager',
+      'chip-groups',
       'contents-sidebar',
       'record-metadata',
       'photo-grid',
@@ -66,6 +67,7 @@ describe('playground presets', function () {
       'Alerts',
       'Breadcrumbs',
       'Cards',
+      'Chips',
       'Contents',
       'Metadata',
       'Images',
@@ -100,6 +102,7 @@ describe('playground presets', function () {
       Alerts: ['alerts'],
       Breadcrumbs: ['breadcrumbs', 'breadcrumbs-standalone'],
       Cards: ['collection-cards', 'photo-card', 'section-pager', 'numbered-pager'],
+      Chips: ['chip-groups'],
       Contents: ['contents-sidebar'],
       Metadata: ['record-metadata'],
       Images: ['photo-grid', 'page-images'],
@@ -284,6 +287,34 @@ describe('playground presets', function () {
       } finally {
         iframe.remove();
       }
+    }
+  });
+
+  it('chip-groups: picking a year fires change, and the page passes axe', async () => {
+    const p = presets.find((x) => x.id === 'chip-groups')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    try {
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(iframe.contentWindow!, ['site-page', 'uvalib-chip-group']);
+      await new Promise((r) => setTimeout(r, 100));
+      const years = doc.querySelector('#years') as HTMLElement & {
+        updateComplete: Promise<unknown>;
+        shadowRoot: ShadowRoot;
+      };
+      const radios = [...years.shadowRoot.querySelectorAll<HTMLInputElement>('input')];
+      expect(radios[0]!.checked).to.equal(true);
+      radios[2]!.click();
+      await years.updateComplete;
+      expect(doc.querySelector('#status')!.textContent).to.equal('Showing 2005.');
+      const groups = [...doc.querySelectorAll('uvalib-chip-group')].map((g) =>
+        g.shadowRoot!.querySelector('.chips')!.getAttribute('role'),
+      );
+      expect(groups).to.deep.equal(['radiogroup', 'radiogroup', 'group', 'group']);
+      expect(countMain(doc)).to.equal(1);
+      await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
     }
   });
 
