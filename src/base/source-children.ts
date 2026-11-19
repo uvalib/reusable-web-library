@@ -44,10 +44,23 @@ export class SourceChildren implements ReactiveController {
     this.observer?.disconnect();
   }
 
+  /**
+   * Light mode, before each render: adopt any author children still on the host, so that
+   * after it every other child of the host is the element's own output.
+   */
+  hostUpdate(): void {
+    if (this.light()) this.adopt();
+  }
+
+  /**
+   * Light mode, after each render: mark everything on the host but the holder as the
+   * element's own (Lit's markers and whatever it rendered, also on later renders), so its
+   * output is never adopted as author content.
+   */
   hostUpdated(): void {
+    if (this.light()) for (const n of this.host.childNodes) if (n !== this.holder) this.own.add(n);
     if (this.marked) return;
     this.marked = true;
-    if (this.light()) for (const n of this.host.childNodes) if (n !== this.holder) this.own.add(n);
     this.sync();
     this.watch();
   }
