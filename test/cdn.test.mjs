@@ -17,6 +17,7 @@ const TAGS = [
   'site-style',
   'uvalib-filter',
   'uvalib-date-range',
+  'uvalib-date-histogram',
   'uvalib-breadcrumbs',
   'uvalib-card',
   'uvalib-card-grid',

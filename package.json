@@ -71,6 +71,10 @@
       "types": "./dist/components/uvalib-date-range/uvalib-date-range.d.ts",
       "default": "./dist/components/uvalib-date-range/uvalib-date-range.js"
     },
+    "./uvalib-date-histogram.js": {
+      "types": "./dist/components/uvalib-date-histogram/uvalib-date-histogram.d.ts",
+      "default": "./dist/components/uvalib-date-histogram/uvalib-date-histogram.js"
+    },
     "./uvalib-breadcrumbs.js": {
       "types": "./dist/components/uvalib-breadcrumbs/uvalib-breadcrumbs.d.ts",
       "default": "./dist/components/uvalib-breadcrumbs/uvalib-breadcrumbs.js"
