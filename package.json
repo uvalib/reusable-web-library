@@ -95,6 +95,10 @@
       "types": "./dist/components/uvalib-metadata/uvalib-metadata.d.ts",
       "default": "./dist/components/uvalib-metadata/uvalib-metadata.js"
     },
+    "./uvalib-pagefind-search.js": {
+      "types": "./dist/components/uvalib-pagefind-search/uvalib-pagefind-search.d.ts",
+      "default": "./dist/components/uvalib-pagefind-search/uvalib-pagefind-search.js"
+    },
     "./site-alerts.js": {
       "types": "./dist/components/site-alerts/site-alerts.d.ts",
       "default": "./dist/components/site-alerts/site-alerts.js"
@@ -121,6 +125,7 @@
     },
     "./tokens.css": "./dist/tokens.css",
     "./base.css": "./dist/base.css",
+    "./pagefind.css": "./dist/pagefind.css",
     "./custom-elements.json": "./dist/custom-elements.json",
     "./manifest.json": "./dist-cdn/manifest.json",
     "./package.json": "./package.json",

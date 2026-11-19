@@ -22,6 +22,7 @@ const TAGS = [
   'uvalib-pager',
   'uvalib-contents',
   'uvalib-metadata',
+  'uvalib-pagefind-search',
   'site-alerts',
   'site-hours-section',
   'library-weekly-hours',
@@ -33,6 +34,6 @@ const TAGS = [
 const manifest = {
   version: pkg.version,
   elements: Object.fromEntries(TAGS.map((t) => [t, `${t}.js`])),
-  styles: ['tokens.css', 'base.css'],
+  styles: ['tokens.css', 'base.css', 'pagefind.css'],
 };
 writeFileSync(join(root, 'dist-cdn/manifest.json'), JSON.stringify(manifest, null, 2) + '\n');

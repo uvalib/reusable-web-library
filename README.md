@@ -1512,6 +1512,35 @@ A record's details as a description list, as on the library's digital collection
 | `--uva-color-surface-raised` |  | Dark-mode role token: the button's background (else #fff). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
+### `<uvalib-pagefind-search>`
+
+Pagefind's default search UI (`PagefindUI`, from the site's own Pagefind bundle) with the library's defaults and the accessibility fixes that need script. Use it with pagefind.css, in place of Pagefind's pagefind-ui.css. It renders in light DOM, so the page's styles reach Pagefind's markup. It loads `<bundle-path>pagefind-ui.js` unless `window.PagefindUI` already exists. What it adds to the stock UI: a visible `<label>` for the field (the stock field is named only by its title); a polite status region that announces the result count ("12 results for virginia") once results settle (the stock message is not a live region); focus kept in the field after Clear or Escape (the stock UI blurs it, dropping focus to the page) and moved to the first new result after "Load more results"; the loading placeholders' dots hidden from screen readers; `?q=` read at start and the settled query written back with `history.replaceState`, so a search can be shared; and reports to `<site-analytics>`. The `ui` property is the `PagefindUI` instance (for `triggerFilters`), and `ready` resolves with it. Attributes are read once, when the element is first connected.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `bundle-path` | `string` | `/pagefind/` | The Pagefind bundle's URL path, ending in `/`. |
+| `merge-index` | `string` |  | JSON array of more indexes to search together: `[{"bundlePath": "/pagefind/s1/"}]`. |
+| `page-size` | `number` | `10` | Results shown before "Load more results". |
+| `excerpt-length` | `number` |  | Words per excerpt (Pagefind's default: 30, or 12 with sub-results). |
+| `show-sub-results` | `boolean` |  | Also list the matching sections of each page. |
+| `show-images` | `boolean` |  | Show each result's `image` metadata (off by default). |
+| `placeholder` | `string` | `Search` | The field's placeholder. |
+| `label` | `string` |  | The field's visible label. Empty (the default) uses the placeholder. |
+| `label-hidden` | `boolean` |  | Keep the label for screen readers only. |
+| `translations` | `string` |  | JSON of Pagefind UI strings to override (`{"zero_results": "…"}`). |
+| `options` | `string` |  | JSON of any other `PagefindUI` options (`{"openFilters": ["author"]}`), applied last. |
+| `query-param` | `string` | `q` | The URL parameter that holds the query; empty turns it off. |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `search-results` | Results settled: `detail` is `{ query, count }`. Does not bubble. |
+| `uvalib-analytics-search` | For `<site-analytics>`: the settled query, category `Pagefind` and its result count, once per query and filter set. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-pagefind-search', 'filter-change', '<filter>: <value>', 1 \| 0]` (checked or unchecked), and `['uvalib-pagefind-search', 'error', 'load']` if Pagefind cannot be loaded. Bubbles and is composed. |
+
 ### `<uvalib-pager>`
 
 Previous/next section links, as on a reading page, or a numbered page list. Previous/next: set `prev-href` and `next-href` (either may be omitted). Each link shows a “Previous” or “Next” kicker and, when `prev-label` or `next-label` is set, that title. A visually hidden “: ” sits between them, so the accessible name is punctuated even when CSS is off. A long title truncates visually; the full text stays in the accessible name. The links use `rel="prev"` and `rel="next"`. With neither href, nothing is rendered. Numbered pages: set `pages` (a positive count). `page` is the current page, clamped to `1…pages`. Each link’s href comes from `href-template`, which must contain `{page}` (the default is `?page={page}`). The current page is text with `aria-current="page"`, not a link. Long ranges collapse to the first page, a window around the current page, the last page, and an ellipsis where numbers are skipped. `pages` wins when previous/next attributes are also set, with one console warning. The landmark’s accessible name is `label`, or “Sections” for previous/next and “Pagination” for numbered pages. An empty `label` uses that default. Two pagers on one page need different labels: a repeated landmark name fails the accessibility check.

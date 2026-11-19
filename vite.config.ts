@@ -16,6 +16,7 @@ const tags = [
   'uvalib-pager',
   'uvalib-contents',
   'uvalib-metadata',
+  'uvalib-pagefind-search',
   'site-alerts',
   'site-hours-section',
   'library-weekly-hours',
