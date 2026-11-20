@@ -34,7 +34,9 @@ async function settle(el: SitePage): Promise<void> {
 for (const mode of ['shadow', 'light'] as const) {
   const light = mode === 'light' ? 'no-shadow-dom' : '';
 
-  describe(`site-page main navigation (${mode})`, () => {
+  describe(`site-page main navigation (${mode})`, function () {
+    // Full-page axe runs take longer than the 5s default while the whole suite runs in parallel.
+    this.timeout(20000);
     const make = async (attrs = '', children = '<p>content</p>'): Promise<SitePage> => {
       const el = await fixture<SitePage>(
         `<site-page ${light} no-alerts ${attrs}>${children}</site-page>`,

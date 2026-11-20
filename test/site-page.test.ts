@@ -27,7 +27,9 @@ const globalSheets = () =>
   );
 
 for (const mode of ['shadow', 'light'] as const) {
-  describe(`site-page (${mode})`, () => {
+  describe(`site-page (${mode})`, function () {
+    // Full-page axe runs take longer than the 5s default while the whole suite runs in parallel.
+    this.timeout(20000);
     const make = (attrs = '', children = ''): Promise<SitePage> =>
       fixture<SitePage>(
         `<site-page ${mode === 'light' ? 'no-shadow-dom' : ''} ${attrs}>${children}</site-page>`,
