@@ -10,6 +10,7 @@ export const GROUPS = [
   'Alerts',
   'Breadcrumbs',
   'Cards',
+  'Chips',
   'Contents',
   'Metadata',
   'Images',
@@ -168,6 +169,63 @@ const PHOTOS = [
 /** Page links as Electronic Text Collections renders them (page images on IIIF). */
 const pageLink = (id: string, n: number) =>
   `        <a class="page" href="${iiif(id, '!1600,1600')}" data-caption="Page ${n}" data-id="${n}">p. ${n}</a>`;
+
+/** One shoot in the results example: a photo with its count badge, a title and badges. */
+const shoot = (
+  id: string,
+  title: string,
+  photos: number,
+  category: string,
+  decade: string,
+  status = '',
+) =>
+  `          <li data-category="${category}" data-decade="${decade}">
+            <div class="uvalib-media">
+              <img src="${iiif(id, '!480,320')}" alt="" width="480" height="320" loading="lazy" />
+              <span class="uvalib-badge uvalib-badge--count">${photos} photos</span>
+            </div>
+            <h2>${title}</h2>
+            <p class="shoot-badges">
+              <span class="uvalib-badge uvalib-badge--category">${category}</span>${status}
+            </p>
+          </li>`;
+const SHOOTS = [
+  shoot(
+    '1042806',
+    'Rotunda in snow',
+    13,
+    'Architecture',
+    '1910',
+    '\n              <span class="uvalib-badge uvalib-badge--status uvalib-badge--info">Largest</span>',
+  ),
+  shoot('1049095', 'The Lawn', 8, 'Architecture', '1910'),
+  shoot(
+    '1043731',
+    'Rotunda and Lawn',
+    21,
+    'Architecture',
+    '1920',
+    '\n              <span class="uvalib-badge uvalib-badge--new">New</span>',
+  ),
+  shoot('1040162', 'Lawn games', 5, 'Student life', '1920'),
+  shoot(
+    '1039613',
+    'Rotunda from the south',
+    3,
+    'Architecture',
+    '1920',
+    '\n              <span class="uvalib-badge uvalib-badge--status uvalib-badge--warning">Processing</span>',
+  ),
+  shoot('1049095', 'Students on the Lawn', 9, 'Student life', '1910'),
+].join('\n');
+/** Placeholders the size of a shoot: a 3:2 image and two lines. */
+const SKELETONS = Array.from(
+  { length: 3 },
+  () => `          <div>
+            <div class="uvalib-skeleton uvalib-skeleton--media"></div>
+            <p><span class="uvalib-skeleton-text"></span><span class="uvalib-skeleton-text"></span></p>
+          </div>`,
+).join('\n');
 
 export const presets: Preset[] = [
   {
@@ -677,6 +735,191 @@ site-footer footer {
     },
   },
   {
+    id: 'chip-groups',
+    group: 'Chips',
+    title: 'Year rail, sort and suggestions',
+    description:
+      'Three uvalib-chip-group modes. A year rail (mode="single", the default): radios drawn as chips in a radio group named by label, one row that scrolls sideways (scroll), each count read as part of the name ("2005, 461 shoots", from count-label). Tab enters at the selected year and the arrow keys move and select. A sort toggle (segmented): the same radios joined into one bar. Category filters (mode="multi"): toggle buttons with aria-pressed and an array value. Suggestions (mode="links"): plain links that fire a cancelable select. A selected chip is filled and ticked, never colour alone. Each fires change with { value }; the line under the rail shows it. url-param="year" would keep the year in the address.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Browse the archive',
+          components: ['uvalib-chip-group'],
+          body: `    <site-page>
+      <h1>Browse the archive</h1>
+      <h2>Year</h2>
+      <uvalib-chip-group id="years" label="Year" count-label="shoots" value="" scroll>
+        <button value="" data-count="3694">All Years</button>
+        <button value="2004" data-count="213">2004</button>
+        <button value="2005" data-count="461">2005</button>
+        <button value="2006" data-count="388">2006</button>
+        <button value="2007" data-count="520">2007</button>
+        <button value="2008" data-count="297">2008</button>
+        <button value="2009" data-count="344">2009</button>
+        <button value="2010" data-count="412">2010</button>
+        <button value="2011" data-count="276">2011</button>
+        <button value="2012" data-count="301">2012</button>
+        <button value="2013" data-count="482">2013</button>
+      </uvalib-chip-group>
+      <p id="status" role="status">Showing all years.</p>
+      <h2>Sort</h2>
+      <uvalib-chip-group label="Sort by" segmented value="photos">
+        <button value="photos">Most photos</button>
+        <button value="date">Date</button>
+        <button value="title">Title A–Z</button>
+      </uvalib-chip-group>
+      <h2>Category</h2>
+      <uvalib-chip-group mode="multi" label="Category" count-label="series" value="traditions">
+        <button value="traditions" data-count="9">Traditions</button>
+        <button value="architecture" data-count="14">Architecture</button>
+        <button value="sports" data-count="21">Sports</button>
+        <button value="people" data-count="6">People</button>
+      </uvalib-chip-group>
+      <h2>Try a search</h2>
+      <uvalib-chip-group mode="links" label="Suggested searches">
+        <a href="#q=snow-on-the-lawn">snow on the Lawn</a>
+        <a href="#q=rotunda-fire">Rotunda fire</a>
+        <a href="#q=graduation">graduation</a>
+      </uvalib-chip-group>
+    </site-page>
+    <script>
+      document.querySelector('#years').addEventListener('change', (e) => {
+        document.querySelector('#status').textContent = e.detail.value
+          ? \`Showing \${e.detail.value}.\`
+          : 'Showing all years.';
+      });
+    </script>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'tabs',
+    group: 'Cards',
+    title: 'Tabs',
+    description:
+      'uvalib-tabs builds the tablist from each section’s data-tab label. Arrow keys move and select; Home and End jump. url-param="tab" puts the panel id in the address, and Back restores the previous tab. The first panel is visible before the element upgrades.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Tabs',
+          components: ['uvalib-tabs'],
+          body: `    <site-page>
+      <h1>The archive</h1>
+      <uvalib-tabs url-param="tab">
+        <section data-tab="Events" id="events">
+          <h2>Events</h2>
+          <p>Talks and exhibitions this month.</p>
+        </section>
+        <section data-tab="Stories" id="stories">
+          <h2>Stories</h2>
+          <p>Essays from the collections.</p>
+        </section>
+        <section data-tab="People" id="people">
+          <h2>People</h2>
+          <p>Staff and the people in the photographs.</p>
+        </section>
+      </uvalib-tabs>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'person-cards',
+    group: 'Cards',
+    title: 'Person cards',
+    description:
+      'media-shape="circle" crops each portrait to a circle and keeps the image alt. The count badge still sits on the picture. The heading is the card’s one link.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'People',
+          components: ['uvalib-card', 'uvalib-card-grid'],
+          body: `    <site-page>
+      <h1>People</h1>
+      <uvalib-card-grid>
+        <uvalib-card media-shape="circle" href="#ada">
+          <img slot="media" alt="Portrait of Ada Lovelace" src="${iiif('1043731', ',440')}" width="5820" height="4668">
+          <span slot="badge">3</span>
+          <span slot="heading">Ada Lovelace</span>
+        </uvalib-card>
+        <uvalib-card media-shape="circle" href="#alan">
+          <img slot="media" alt="Portrait of Alan Turing" src="${iiif('1039613', ',440')}" width="5882" height="4307">
+          <span slot="heading">Alan Turing</span>
+        </uvalib-card>
+      </uvalib-card-grid>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'story-card',
+    group: 'Cards',
+    title: 'Story card',
+    description:
+      'A static card (no href) can hold an actions row: “Read the story” and “Photos (132)”. A clickable card must not contain those controls, because its link covers the whole card.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Stories',
+          components: ['uvalib-card'],
+          body: `    <site-page>
+      <h1>Stories</h1>
+      <uvalib-card>
+        <img slot="media" alt="" src="${iiif('1049095', ',800')}" width="5867" height="4668">
+        <span slot="heading">The Lawn in winter</span>
+        <a slot="actions" href="#story">Read the story</a>
+        <a slot="actions" href="#photos">Photos (132)</a>
+        Snow on the Lawn, looking toward the Rotunda.
+      </uvalib-card>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'load-more',
+    group: 'Cards',
+    title: 'Load more',
+    description:
+      'mode="load-more" is a Load more button and “Showing N of M”. The click fires load-more with the next page. This page appends a story and calls loaded() so focus moves to it. for names the list.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Load more',
+          components: ['uvalib-pager'],
+          body: `    <site-page>
+      <h1>All stories</h1>
+      <ul id="stories">
+        <li><a href="#story-1">Story 1</a></li>
+        <li><a href="#story-2">Story 2</a></li>
+        <li><a href="#story-3">Story 3</a></li>
+      </ul>
+      <uvalib-pager mode="load-more" for="stories" shown="3" total="6" page="1" label="Stories"></uvalib-pager>
+    </site-page>
+    <script type="module">
+      const pager = document.querySelector('uvalib-pager');
+      const list = document.getElementById('stories');
+      pager.addEventListener('load-more', (e) => {
+        const n = list.children.length + 1;
+        const a = document.createElement('a');
+        a.href = '#story-' + n;
+        a.textContent = 'Story ' + n;
+        const li = document.createElement('li');
+        li.append(a);
+        list.append(li);
+        pager.shown = n;
+        pager.page = e.detail.page;
+        pager.loaded(a);
+      });
+    </script>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'contents-sidebar',
     group: 'Contents',
     title: 'Contents sidebar',
@@ -830,6 +1073,36 @@ ${PHOTOS}
           Library, University of Virginia. Shown from the Library's IIIF image server.
         </p>
       </uvalib-lightbox>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'photo-grid-badges',
+    group: 'Images',
+    title: 'Photo grid badges',
+    description:
+      'data-badge draws a label over the thumbnail (“seq”, “3 photos”) and includes it in the link’s accessible name. The alt caption is unchanged. A span slot="badge" inside the link does the same.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Photo grid badges',
+          components: ['uvalib-photo-grid'],
+          body: `    <site-page>
+      <h1>Sequences</h1>
+      <uvalib-photo-grid>
+        <a href="${iiif('1042806', '!1600,1600')}" data-badge="seq">
+          <img src="${iiif('1042806', ',440')}" alt="Rotunda in snow" width="5805" height="4729" loading="lazy">
+        </a>
+        <a href="${iiif('1049095', '!1600,1600')}" data-badge="3 photos">
+          <img src="${iiif('1049095', ',440')}" alt="The Lawn" width="5867" height="4668" loading="lazy">
+        </a>
+        <a href="${iiif('1039613', '!1600,1600')}">
+          <img src="${iiif('1039613', ',440')}" alt="Rotunda" width="5882" height="4307" loading="lazy">
+          <span slot="badge">seq</span>
+        </a>
+      </uvalib-photo-grid>
     </site-page>`,
         }),
       },
@@ -997,6 +1270,347 @@ pre {
         show-sub-results
       ></uvalib-pagefind-search>
     </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'results-toolbar',
+    group: 'Search',
+    title: 'Results toolbar & badges',
+    description:
+      "A results page from base.css's classes and two small elements: .uvalib-toolbar (a filter box, a category select and a decade chip group), <uvalib-results-count> (“Showing 3 of 6 shoots”, announced politely once it settles, never on load), count badges over images (.uvalib-media, .uvalib-badge--count), category and status badges (never colour alone), <uvalib-tag-list> with Show all, .uvalib-empty-state when nothing matches, and .uvalib-skeleton placeholders while loading (no shimmer with reduced motion). Type snow, pick a category or a decade, or Reload.",
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Shoots',
+          styles: true,
+          components: ['uvalib-tag-list', 'uvalib-results-count'],
+          body: `    <site-page>
+      <h1>Shoots</h1>
+      <div class="uvalib-toolbar">
+        <div class="uvalib-toolbar__field uvalib-toolbar__field--grow">
+          <label for="filter">Filter shoots</label>
+          <input class="uvalib-input" id="filter" type="search" />
+        </div>
+        <div class="uvalib-toolbar__field">
+          <label for="category">Category</label>
+          <select class="uvalib-input" id="category">
+            <option value="">All categories</option>
+            <option>Architecture</option>
+            <option>Student life</option>
+          </select>
+        </div>
+        <div class="uvalib-toolbar__group" role="group" aria-label="Decade">
+          <button class="uvalib-button uvalib-button--small" type="button" aria-pressed="false" data-decade="1910">1910s</button>
+          <button class="uvalib-button uvalib-button--small" type="button" aria-pressed="false" data-decade="1920">1920s</button>
+        </div>
+        <uvalib-results-count class="uvalib-toolbar__summary" shown="6" total="6" noun="shoots" singular="shoot"></uvalib-results-count>
+      </div>
+      <div class="results" id="results">
+        <ul class="shoots" id="shoots">
+${SHOOTS}
+        </ul>
+        <div class="shoots" id="loading" aria-hidden="true" hidden>
+${SKELETONS}
+        </div>
+        <p class="visually-hidden" role="status" id="loading-status"></p>
+        <div class="uvalib-empty-state" id="empty" hidden>
+          <svg class="uvalib-empty-state__icon" aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2" /><path d="M16 16l5 5" stroke="currentColor" stroke-width="2" /></svg>
+          <h2>No shoots match</h2>
+          <p>Try another word, or clear the filters.</p>
+          <button class="uvalib-button uvalib-button--secondary" type="button" id="clear">Clear filters</button>
+        </div>
+      </div>
+      <p><button class="uvalib-button uvalib-button--subtle" type="button" id="reload">Reload</button></p>
+      <h2>Subjects</h2>
+      <uvalib-tag-list label="Subjects in these shoots" hide-label track-label limit="5" href-template="#subject={tag}">
+        <span>Rotunda</span>
+        <span>Lawn</span>
+        <span>Snow</span>
+        <span>Holsinger Studio</span>
+        <span>Students</span>
+        <span>Pavilions</span>
+        <span>Games</span>
+        <span>Architecture</span>
+      </uvalib-tag-list>
+      <h2>Badges</h2>
+      <p class="badges">
+        <span class="uvalib-badge">Plain</span>
+        <span class="uvalib-badge uvalib-badge--category">Faculty &amp; Staff Portraits</span>
+        <span class="uvalib-badge uvalib-badge--status uvalib-badge--success">Done</span>
+        <span class="uvalib-badge uvalib-badge--status uvalib-badge--warning">Processing</span>
+        <span class="uvalib-badge uvalib-badge--status uvalib-badge--danger">Failed</span>
+        <span class="uvalib-badge uvalib-badge--status uvalib-badge--info">Largest</span>
+        <span class="uvalib-badge uvalib-badge--new">New</span>
+        <span class="uvalib-badge uvalib-badge--body">Body size</span>
+      </p>
+      <script type="module">
+        const filter = document.querySelector('#filter');
+        const category = document.querySelector('#category');
+        const decades = [...document.querySelectorAll('button[data-decade]')];
+        const count = document.querySelector('uvalib-results-count');
+        const shoots = [...document.querySelectorAll('#shoots > li')];
+        const empty = document.querySelector('#empty');
+        function apply() {
+          const q = filter.value.trim().toLowerCase();
+          const on = decades.filter((b) => b.getAttribute('aria-pressed') === 'true');
+          let shown = 0;
+          for (const li of shoots) {
+            const match =
+              li.textContent.toLowerCase().includes(q) &&
+              (!category.value || li.dataset.category === category.value) &&
+              (!on.length || on.some((b) => b.dataset.decade === li.dataset.decade));
+            li.hidden = !match;
+            if (match) shown++;
+          }
+          count.shown = shown;
+          count.total = shoots.length;
+          empty.hidden = shown > 0;
+        }
+        filter.addEventListener('input', apply);
+        category.addEventListener('change', apply);
+        for (const b of decades)
+          b.addEventListener('click', () => {
+            b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
+            apply();
+          });
+        document.querySelector('#clear').addEventListener('click', () => {
+          filter.value = '';
+          category.value = '';
+          for (const b of decades) b.setAttribute('aria-pressed', 'false');
+          apply();
+          filter.focus();
+        });
+        document.querySelector('#reload').addEventListener('click', () => {
+          const results = document.querySelector('#results');
+          const list = document.querySelector('#shoots');
+          const loading = document.querySelector('#loading');
+          const status = document.querySelector('#loading-status');
+          results.setAttribute('aria-busy', 'true');
+          list.hidden = true;
+          loading.hidden = false;
+          status.textContent = 'Loading shoots';
+          setTimeout(() => {
+            loading.hidden = true;
+            list.hidden = false;
+            results.removeAttribute('aria-busy');
+            status.textContent = '';
+          }, 1500);
+        });
+      </script>
+    </site-page>`,
+        }),
+      },
+      'styles.css': {
+        content: `.shoots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: 1rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+.shoots [hidden] {
+  display: none;
+}
+.shoots h2 {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 1.15rem;
+}
+.shoot-badges,
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+`,
+      },
+    },
+  },
+  {
+    id: 'date-histogram',
+    group: 'Search',
+    title: 'Date histogram',
+    description:
+      'Monthly photo counts for 2005–2017, as on an archive timeline. Each bar is a button; choosing one sets the date range, and moving the date range highlights the months it covers. The strip on the card is the same counts, one bar per year, and is not a control. On a narrow screen the months scroll inside the chart.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Photos by date',
+          components: ['uvalib-date-range', 'uvalib-date-histogram', 'uvalib-card'],
+          body: `    <site-page>
+      <h1>Photos by date</h1>
+      <uvalib-date-range id="dates" min="2005-01-01" max="2017-12-31" label="Photo dates"></uvalib-date-range>
+      <uvalib-date-histogram id="hist" range-for="dates" granularity="month" unit="photos" label="Photos by date"></uvalib-date-histogram>
+      <uvalib-card>
+        <span slot="heading">Campus scenes, 2005–2017</span>
+        <uvalib-date-histogram id="strip" slot="meta" variant="strip" unit="photos" label="Photos by year"></uvalib-date-histogram>
+      </uvalib-card>
+    </site-page>
+    <script type="module">
+      const items = [
+        { date: '2005-01', count: 1 },
+        { date: '2005-02', count: 120 },
+        { date: '2005-03', count: 175 },
+        { date: '2005-04', count: 2451 },
+        { date: '2005-05', count: 3580 },
+        { date: '2005-06', count: 1443 },
+        { date: '2005-07', count: 965 },
+        { date: '2005-08', count: 720 },
+        { date: '2005-09', count: 1422 },
+        { date: '2005-10', count: 1170 },
+        { date: '2005-11', count: 1063 },
+        { date: '2005-12', count: 331 },
+        { date: '2006-01', count: 1268 },
+        { date: '2006-02', count: 716 },
+        { date: '2006-03', count: 970 },
+        { date: '2006-04', count: 1625 },
+        { date: '2006-05', count: 2094 },
+        { date: '2006-06', count: 586 },
+        { date: '2006-07', count: 104 },
+        { date: '2006-08', count: 1059 },
+        { date: '2006-09', count: 2898 },
+        { date: '2006-10', count: 1245 },
+        { date: '2006-11', count: 1260 },
+        { date: '2006-12', count: 1276 },
+        { date: '2007-01', count: 1009 },
+        { date: '2007-02', count: 1391 },
+        { date: '2007-03', count: 3064 },
+        { date: '2007-04', count: 1895 },
+        { date: '2007-05', count: 2365 },
+        { date: '2007-06', count: 1104 },
+        { date: '2007-07', count: 858 },
+        { date: '2007-08', count: 913 },
+        { date: '2007-09', count: 1431 },
+        { date: '2007-10', count: 720 },
+        { date: '2007-11', count: 899 },
+        { date: '2007-12', count: 340 },
+        { date: '2008-01', count: 181 },
+        { date: '2008-02', count: 547 },
+        { date: '2008-03', count: 676 },
+        { date: '2008-04', count: 453 },
+        { date: '2008-05', count: 527 },
+        { date: '2008-06', count: 212 },
+        { date: '2008-07', count: 203 },
+        { date: '2008-08', count: 336 },
+        { date: '2008-09', count: 447 },
+        { date: '2008-10', count: 597 },
+        { date: '2008-11', count: 428 },
+        { date: '2008-12', count: 190 },
+        { date: '2009-01', count: 67 },
+        { date: '2009-02', count: 334 },
+        { date: '2009-03', count: 456 },
+        { date: '2009-04', count: 839 },
+        { date: '2009-05', count: 1157 },
+        { date: '2009-06', count: 159 },
+        { date: '2009-07', count: 222 },
+        { date: '2009-08', count: 480 },
+        { date: '2009-09', count: 472 },
+        { date: '2009-10', count: 921 },
+        { date: '2009-11', count: 513 },
+        { date: '2009-12', count: 403 },
+        { date: '2010-01', count: 347 },
+        { date: '2010-02', count: 384 },
+        { date: '2010-03', count: 878 },
+        { date: '2010-04', count: 755 },
+        { date: '2010-05', count: 613 },
+        { date: '2010-06', count: 222 },
+        { date: '2010-07', count: 215 },
+        { date: '2010-08', count: 486 },
+        { date: '2010-09', count: 270 },
+        { date: '2010-10', count: 164 },
+        { date: '2010-11', count: 112 },
+        { date: '2010-12', count: 86 },
+        { date: '2011-01', count: 315 },
+        { date: '2011-02', count: 360 },
+        { date: '2011-03', count: 502 },
+        { date: '2011-04', count: 930 },
+        { date: '2011-05', count: 665 },
+        { date: '2011-06', count: 459 },
+        { date: '2011-07', count: 129 },
+        { date: '2011-08', count: 76 },
+        { date: '2011-09', count: 549 },
+        { date: '2011-10', count: 445 },
+        { date: '2011-11', count: 390 },
+        { date: '2011-12', count: 76 },
+        { date: '2012-01', count: 316 },
+        { date: '2012-02', count: 270 },
+        { date: '2012-03', count: 231 },
+        { date: '2012-04', count: 478 },
+        { date: '2012-05', count: 1015 },
+        { date: '2012-06', count: 148 },
+        { date: '2012-07', count: 187 },
+        { date: '2012-08', count: 441 },
+        { date: '2012-09', count: 593 },
+        { date: '2012-10', count: 646 },
+        { date: '2012-11', count: 305 },
+        { date: '2012-12', count: 218 },
+        { date: '2013-01', count: 2515 },
+        { date: '2013-02', count: 3392 },
+        { date: '2013-03', count: 1550 },
+        { date: '2013-04', count: 998 },
+        { date: '2013-05', count: 932 },
+        { date: '2013-06', count: 276 },
+        { date: '2013-07', count: 226 },
+        { date: '2013-08', count: 537 },
+        { date: '2013-09', count: 333 },
+        { date: '2013-10', count: 4199 },
+        { date: '2013-11', count: 1923 },
+        { date: '2013-12', count: 1590 },
+        { date: '2014-01', count: 2049 },
+        { date: '2014-02', count: 2015 },
+        { date: '2014-03', count: 1502 },
+        { date: '2014-04', count: 2974 },
+        { date: '2014-05', count: 2903 },
+        { date: '2014-06', count: 235 },
+        { date: '2014-07', count: 150 },
+        { date: '2014-08', count: 342 },
+        { date: '2014-09', count: 284 },
+        { date: '2014-10', count: 2155 },
+        { date: '2014-11', count: 1318 },
+        { date: '2014-12', count: 743 },
+        { date: '2015-01', count: 1666 },
+        { date: '2015-02', count: 434 },
+        { date: '2015-03', count: 267 },
+        { date: '2015-04', count: 358 },
+        { date: '2015-05', count: 879 },
+        { date: '2015-06', count: 425 },
+        { date: '2015-07', count: 231 },
+        { date: '2015-08', count: 722 },
+        { date: '2015-09', count: 414 },
+        { date: '2015-10', count: 5311 },
+        { date: '2015-11', count: 1316 },
+        { date: '2015-12', count: 327 },
+        { date: '2016-01', count: 3262 },
+        { date: '2016-02', count: 504 },
+        { date: '2016-03', count: 472 },
+        { date: '2016-04', count: 617 },
+        { date: '2016-05', count: 982 },
+        { date: '2016-06', count: 370 },
+        { date: '2016-07', count: 85 },
+        { date: '2016-08', count: 561 },
+        { date: '2016-09', count: 497 },
+        { date: '2016-10', count: 4602 },
+        { date: '2016-11', count: 435 },
+        { date: '2016-12', count: 327 },
+        { date: '2017-01', count: 245 },
+        { date: '2017-02', count: 401 },
+        { date: '2017-03', count: 390 },
+        { date: '2017-04', count: 776 },
+        { date: '2017-05', count: 902 },
+        { date: '2017-06', count: 519 },
+        { date: '2017-07', count: 240 },
+        { date: '2017-08', count: 354 },
+        { date: '2017-09', count: 355 },
+        { date: '2017-10', count: 768 },
+        { date: '2017-11', count: 408 },
+        { date: '2017-12', count: 164 },
+      ];
+      await customElements.whenDefined('uvalib-date-histogram');
+      document.querySelector('#hist').items = items;
+      document.querySelector('#strip').items = items;
+    </script>`,
         }),
       },
     },
@@ -1208,6 +1822,24 @@ const searchExamples: Preset[] = [
       `      <uvalib-date-range ${attrs} min="1819-01-01" max="2026-12-31"></uvalib-date-range>
     </site-page>`,
     description: 'A year slider plus date inputs; min and max are required.',
+  },
+  {
+    id: 'uvalib-date-histogram',
+    title: 'uvalib-date-histogram',
+    components: ['uvalib-date-histogram'],
+    body: (attrs: string) =>
+      `      <uvalib-date-histogram ${attrs} unit="photos" label="Photos by date">
+        <table>
+          <caption>Photos by month</caption>
+          <tr><th>Month</th><th>Photos</th></tr>
+          <tr><td>2015-09</td><td>1,204</td></tr>
+          <tr><td>2015-10</td><td>5,311</td></tr>
+          <tr><td>2015-11</td><td>842</td></tr>
+        </table>
+      </uvalib-date-histogram>
+    </site-page>`,
+    description:
+      'Monthly bars from a child table (the no-JS fallback). A month with no count is still a gap. Show as table opens the same counts.',
   },
 ].flatMap(({ id, title, components, body, description }) =>
   [false, true].map((light) => ({

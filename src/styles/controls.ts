@@ -1,4 +1,5 @@
 import { css, unsafeCSS } from 'lit';
+import { results } from './results.js';
 
 // Buttons, toggles and form fields for host content, in base.css only: no component
 // installs them, so no component bundle carries them. Like the rest of base.css they are
@@ -202,4 +203,5 @@ export const controls = css`
       color: GrayText;
     }
   }
+  ${results}
 `;

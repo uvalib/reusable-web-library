@@ -550,7 +550,17 @@ export class UvalibLightbox extends UvalibElement {
     const parts: string[] = [];
     const walk = (n: Node) => {
       if (n instanceof HTMLImageElement) return;
-      if (n instanceof HTMLElement && (n.hidden || n.getAttribute('slot') === 'details')) return;
+      if (
+        n instanceof HTMLElement &&
+        (n.hidden ||
+          n.getAttribute('slot') === 'details' ||
+          n.getAttribute('slot') === 'badge' ||
+          n.classList.contains('badge') ||
+          n.classList.contains('visually-hidden') ||
+          n.hasAttribute('data-uvalib-generated-badge') ||
+          n.hasAttribute('data-uvalib-badge-sep'))
+      )
+        return;
       if (n.nodeType === Node.TEXT_NODE) {
         parts.push(n.textContent ?? '');
         return;

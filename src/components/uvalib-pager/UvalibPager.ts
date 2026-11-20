@@ -62,6 +62,34 @@ const structuralRules = (host: string) => `
     box-sizing: border-box;
     text-decoration: none;
   }
+  ${host} .more {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    min-width: 0;
+    max-width: 100%;
+  }
+  ${host} .status { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  ${host} .uvalib-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 44px;
+    min-height: 44px;
+    margin: 0;
+    padding: 0.5rem 1.25rem;
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1.2;
+    text-align: center;
+    cursor: pointer;
+  }
+  ${host} .uvalib-button:focus-visible {
+    outline: 3px solid var(--uva-color-focus, var(--uva-brand-orange, #e57200));
+    outline-offset: 2px;
+  }
   ${host} .visually-hidden {
     position: absolute;
     width: 1px;
@@ -74,6 +102,10 @@ const structuralRules = (host: string) => `
     border: 0;
   }
   ${host}[hidden], ${host} [hidden] { display: none !important; }
+  @media (forced-colors: active) {
+    ${host} .uvalib-button { border: 2px solid ButtonText; }
+    ${host} .uvalib-button:focus-visible { outline: 3px solid Highlight; }
+  }
 `;
 const shadowStructure = unsafeCSS(structuralRules(':host'));
 
@@ -96,12 +128,23 @@ type WindowItem = number | 'gap';
  * the last page, and an ellipsis where numbers are skipped. `pages` wins when previous/next
  * attributes are also set, with one console warning.
  *
+ * Load more: `mode="load-more"` shows a “Load more” button and “Showing N of M” (`shown`
+ * of `total`). It wins over numbered pages and previous/next, with one warning when those
+ * are also set. The button is not a link and the control is a group, not a navigation
+ * landmark. The button hides once `shown` has reached a positive `total`. `page` is the
+ * last loaded page (default 1). A click fires `load-more` with `{ page }` set to the next
+ * page and reports `['uvalib-pager', 'load-more', '', page]`. Nothing is reported on
+ * render. Call `loaded(firstNewElement)`, or set `for` to a list id and call `loaded()`,
+ * and focus moves to that new item.
+ *
  * The landmark’s accessible name is `label`, or “Sections” for previous/next and
- * “Pagination” for numbered pages. An empty `label` uses that default. Two pagers on one
- * page need different labels: a repeated landmark name fails the accessibility check.
+ * “Pagination” for numbered pages. Load more uses `label` or “More results”. An empty
+ * `label` uses that default. Two pagers on one page need different labels: a repeated
+ * landmark name fails the accessibility check.
  *
  * @tagname uvalib-pager
- * @fires uvalib-analytics-event - For `<site-analytics>`: a primary-button click that was not already canceled, including a modified click, on a page link `['uvalib-pager', 'page-change', 'number', <n>]`, or on a section link `['uvalib-pager', 'page-change', 'next'|'previous']` (no page number: that mode has none). Never the label or URL. Bubbles and is composed.
+ * @fires uvalib-analytics-event - For `<site-analytics>`: a primary-button click that was not already canceled, including a modified click, on a page link `['uvalib-pager', 'page-change', 'number', <n>]`, on a section link `['uvalib-pager', 'page-change', 'next'|'previous']`, or on Load more `['uvalib-pager', 'load-more', '', <next page>]`. Never the label or URL. Nothing on render. Bubbles and is composed.
+ * @fires load-more - A primary click on Load more: `detail` is `{ page }` (the next page). Bubbles and is composed.
  * @fires uvalib-pager-navigate - A plain click on a pager link: `detail` is `{ href, kind, page? }` (`kind` is `'next'`, `'previous'` or `'number'`; `page` is set for `'number'`). Cancel it (`preventDefault()`) to route in the app; the click’s default is then prevented. Bubbles and is composed.
  * @cssprop --uva-color-link - Dark-mode role token: link colour (else `--uva-brand-blue`).
  * @cssprop --uva-color-text - Dark-mode role token: current page (else `--uva-grey-darkest`).
@@ -109,6 +152,9 @@ type WindowItem = number | 'gap';
  * @cssprop --uva-color-focus - Dark-mode role token: focus ring (else `--uva-brand-orange`).
  * @cssprop --uva-color-accent-bg - Dark-mode role token: current page background (else `--uva-brand-blue`).
  * @cssprop --uva-color-on-accent - Text on the current page background (else #fff).
+ * @cssprop --uva-color-button-bg - Load more background (else `--uva-blue-alt`).
+ * @cssprop --uva-color-button-text - Load more text (else #fff). Dark mode’s own text is dark on the light button.
+ * @cssprop --uva-color-button-hover-bg - Load more hover background (else `--uva-blue-alt-A`).
  */
 export class UvalibPager extends UvalibElement {
   static styles = [
@@ -140,6 +186,23 @@ export class UvalibPager extends UvalibElement {
         min-height: 2.75rem;
         padding-inline: 0.25rem;
       }
+      .status {
+        color: var(--uva-color-text, var(--uva-grey-darkest, #2b2b2b));
+      }
+      .uvalib-button {
+        border: 2px solid var(--uva-color-button-bg, var(--uva-blue-alt, #007bac));
+        border-radius: 5px;
+        background: var(--uva-color-button-bg, var(--uva-blue-alt, #007bac));
+        color: var(--uva-color-button-text, #ffffff);
+      }
+      .uvalib-button:hover {
+        border-color: var(--uva-color-button-hover-bg, var(--uva-blue-alt-A, #005679));
+        background: var(--uva-color-button-hover-bg, var(--uva-blue-alt-A, #005679));
+      }
+      .uvalib-button:active {
+        border-color: var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
+        background: var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
+      }
       @media (forced-colors: active) {
         .page[aria-current='page'] {
           background: CanvasText;
@@ -148,6 +211,15 @@ export class UvalibPager extends UvalibElement {
         }
         a {
           color: LinkText;
+        }
+        .uvalib-button {
+          background: ButtonFace;
+          color: ButtonText;
+          border: 2px solid ButtonText;
+          forced-color-adjust: none;
+        }
+        .uvalib-button:focus-visible {
+          outline: 3px solid Highlight;
         }
       }
     `,
@@ -165,7 +237,25 @@ export class UvalibPager extends UvalibElement {
   /** Title of the next section, under the “Next” kicker. */
   @property({ type: String, attribute: 'next-label' }) nextLabel?: string;
 
-  /** Current page, from 1. Clamped to `pages`. Used when `pages` is set. */
+  /**
+   * `load-more` shows a Load more button instead of previous/next or numbered pages.
+   * Any other value, including empty, leaves the pager in its other modes.
+   */
+  @property({ type: String }) mode?: string;
+
+  /** How many results are already shown. Used by `mode="load-more"` as N in “Showing N of M”. */
+  @property({ type: Number }) shown?: number;
+
+  /** How many results there are. Used by `mode="load-more"` as M in “Showing N of M”. */
+  @property({ type: Number }) total?: number;
+
+  /**
+   * Id of the list Load more appends to. `loaded()` focuses the first child added after
+   * the click. Ignored when `loaded` is passed an element.
+   */
+  @property({ type: String, attribute: 'for' }) listFor?: string;
+
+  /** Current page, from 1. Clamped to `pages`. Used when `pages` is set. In load-more, the last loaded page (default 1); a click asks for the next one. */
   @property({ type: Number }) page?: number;
 
   /**
@@ -191,6 +281,9 @@ export class UvalibPager extends UvalibElement {
   private warnedBoth = false;
   private warnedPages = false;
   private warnedTemplate = false;
+  private warnedLoad = false;
+  /** Child count of the `for` list at the last Load more click, or -1 when there was no list. */
+  private pendingCount = -1;
 
   protected override createRenderRoot(): HTMLElement | DocumentFragment {
     const root = super.createRenderRoot();
@@ -226,6 +319,10 @@ export class UvalibPager extends UvalibElement {
     return this.pageCount > 0;
   }
 
+  private get loadMore(): boolean {
+    return (this.mode ?? '').trim().toLowerCase() === 'load-more';
+  }
+
   private get currentPage(): number {
     const total = this.pageCount;
     const n = Math.trunc(this.page ?? 1);
@@ -236,20 +333,47 @@ export class UvalibPager extends UvalibElement {
   private get navLabel(): string {
     const text = this.label?.trim() ?? '';
     if (text) return text;
+    if (this.loadMore) return 'More results';
     return this.numbered ? 'Pagination' : 'Sections';
   }
 
+  /** A non-negative integer, or 0 when the value is missing or not a positive count. */
+  private count(value: number | undefined): number {
+    const n = Math.trunc(value ?? Number.NaN);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
+  /** The page a Load more click asks for. `page` is the last loaded page and defaults to 1. */
+  private nextPage(): number {
+    const n = Math.trunc(this.page ?? Number.NaN);
+    const current = Number.isFinite(n) && n >= 1 ? n : 1;
+    return current + 1;
+  }
+
+  private hasPrevNext(): boolean {
+    return (
+      (this.prevHref ?? '').trim() !== '' ||
+      (this.nextHref ?? '').trim() !== '' ||
+      (this.prevLabel ?? '').trim() !== '' ||
+      (this.nextLabel ?? '').trim() !== ''
+    );
+  }
+
   protected override willUpdate(): void {
+    if (this.loadMore) {
+      if ((this.numbered || this.hasPrevNext()) && !this.warnedLoad) {
+        this.warnedLoad = true;
+        console.warn(
+          `${this.localName}: mode="load-more" is set, so previous/next and numbered pages are not shown.`,
+        );
+      }
+      return;
+    }
     if (this.hasAttribute('pages') && !this.numbered && !this.warnedPages) {
       this.warnedPages = true;
       console.warn(`${this.localName}: pages must be a positive number to show numbered pages.`);
     }
-    const prevNext =
-      (this.prevHref ?? '').trim() !== '' ||
-      (this.nextHref ?? '').trim() !== '' ||
-      (this.prevLabel ?? '').trim() !== '' ||
-      (this.nextLabel ?? '').trim() !== '';
-    if (this.numbered && prevNext && !this.warnedBoth) {
+    if (this.numbered && this.hasPrevNext() && !this.warnedBoth) {
       this.warnedBoth = true;
       console.warn(
         `${this.localName}: pages is set, so numbered pages are shown and previous/next are ignored.`,
@@ -405,7 +529,121 @@ export class UvalibPager extends UvalibElement {
     </nav>`;
   }
 
+  private listEl(): HTMLElement | null {
+    const id = (this.listFor ?? '').trim();
+    if (!id) return null;
+    const node = this.getRootNode();
+    const root = node instanceof Document || node instanceof ShadowRoot ? node : null;
+    const found = root?.getElementById(id) ?? this.ownerDocument.getElementById(id);
+    return found instanceof HTMLElement ? found : null;
+  }
+
+  /** Cards in a grid live in its `<ul>`, not as host children once light DOM has placed them. */
+  private entries(list: HTMLElement): HTMLElement[] {
+    if (list.localName === 'uvalib-card-grid') {
+      const ul = (list.shadowRoot ?? list).querySelector('ul');
+      if (ul) return [...ul.children].filter((n): n is HTMLElement => n instanceof HTMLElement);
+    }
+    return [...list.children].filter((n): n is HTMLElement => n instanceof HTMLElement);
+  }
+
+  private firstNew(): HTMLElement | null {
+    const list = this.listEl();
+    if (!list || this.pendingCount < 0) return null;
+    return this.entries(list)[this.pendingCount] ?? null;
+  }
+
+  private isDisabled(el: HTMLElement): boolean {
+    return (
+      (el instanceof HTMLButtonElement ||
+        el instanceof HTMLInputElement ||
+        el instanceof HTMLSelectElement ||
+        el instanceof HTMLTextAreaElement) &&
+      el.disabled
+    );
+  }
+
+  private canFocus(el: HTMLElement): boolean {
+    if (this.isDisabled(el)) return false;
+    if (el.hasAttribute('tabindex')) return true;
+    if (el instanceof HTMLAnchorElement) return el.hasAttribute('href');
+    if (el instanceof HTMLButtonElement) return true;
+    return (
+      el.localName === 'summary' ||
+      el instanceof HTMLInputElement ||
+      el instanceof HTMLSelectElement ||
+      el instanceof HTMLTextAreaElement
+    );
+  }
+
+  /** A link or control inside a new list item, including one slotted into a card grid. */
+  private focusIn(el: HTMLElement): HTMLElement | null {
+    const roots: Element[] = [];
+    const slot = el.querySelector('slot');
+    if (slot) roots.push(...slot.assignedElements({ flatten: true }));
+    else roots.push(el);
+    for (const root of roots) {
+      if (!(root instanceof HTMLElement)) continue;
+      if (root !== el && this.canFocus(root)) return root;
+      const inner = root.querySelector<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary',
+      );
+      if (inner && this.canFocus(inner)) return inner;
+    }
+    return null;
+  }
+
+  /**
+   * Move focus to `firstNew`, or to the first item added to the `for` list since the
+   * click. A card grid counts the items in its list. An element that cannot take focus
+   * gets `tabindex="-1"`. A disabled field is not treated as focusable. The target is
+   * focused so its ring shows.
+   */
+  loaded(firstNew?: HTMLElement): void {
+    const given = firstNew instanceof HTMLElement && firstNew.isConnected ? firstNew : null;
+    let target = given ?? this.firstNew();
+    if (!(target instanceof HTMLElement)) return;
+    if (!given) target = this.focusIn(target) ?? target;
+    if (this.isDisabled(target)) {
+      target.tabIndex = -1;
+      this.pendingCount = -1;
+      return;
+    }
+    if (!this.canFocus(target)) target.tabIndex = -1;
+    // lib.dom in this project has no focusVisible; the option is what draws the ring.
+    target.focus({ focusVisible: true } as FocusOptions);
+    this.pendingCount = -1;
+  }
+
+  private onLoadMore(e: MouseEvent): void {
+    if (e.defaultPrevented || e.button !== 0) return;
+    const page = this.nextPage();
+    const list = this.listEl();
+    this.pendingCount = list ? this.entries(list).length : -1;
+    trackEvent(this, ['uvalib-pager', 'load-more', '', page]);
+    this.dispatchEvent(
+      new CustomEvent('load-more', { detail: { page }, bubbles: true, composed: true }),
+    );
+  }
+
+  private renderLoadMore() {
+    const shown = this.count(this.shown);
+    const total = this.count(this.total);
+    const done = total > 0 && shown >= total;
+    return html`<div class="more" role="group" aria-label=${this.navLabel}>
+      <div class="status" role="status">Showing ${shown} of ${total}</div>
+      ${
+        done
+          ? nothing
+          : html`<button type="button" class="uvalib-button" @click=${this.onLoadMore}>
+              Load more
+            </button>`
+      }
+    </div>`;
+  }
+
   protected override render() {
+    if (this.loadMore) return this.renderLoadMore();
     return this.numbered ? this.renderNumbered() : this.renderSections();
   }
 }

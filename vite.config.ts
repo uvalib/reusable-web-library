@@ -10,6 +10,7 @@ const tags = [
   'site-style',
   'uvalib-filter',
   'uvalib-date-range',
+  'uvalib-date-histogram',
   'uvalib-breadcrumbs',
   'uvalib-card',
   'uvalib-card-grid',
@@ -19,12 +20,16 @@ const tags = [
   'uvalib-pagefind-search',
   'uvalib-lightbox',
   'uvalib-photo-grid',
+  'uvalib-chip-group',
+  'uvalib-tag-list',
+  'uvalib-results-count',
   'site-alerts',
   'site-hours-section',
   'library-weekly-hours',
   'library-hours-setup',
   'events-section',
   'bento-box',
+  'uvalib-tabs',
 ];
 
 // Library mode, ES output: one self-contained entry per component, with Lit and shared

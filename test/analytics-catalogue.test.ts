@@ -20,6 +20,7 @@ import '../src/components/site-hours-section/site-hours-section.js';
 import '../src/components/library-weekly-hours/library-weekly-hours.js';
 import '../src/components/uvalib-filter/uvalib-filter.js';
 import '../src/components/uvalib-date-range/uvalib-date-range.js';
+import '../src/components/uvalib-tabs/uvalib-tabs.js';
 import '../src/components/bento-box/bento-box.js';
 import type { SiteHeader } from '../src/components/site-header/SiteHeader.js';
 import type { SiteMainNav } from '../src/components/site-main-nav/SiteMainNav.js';
@@ -472,6 +473,57 @@ describe('analytics catalogue', () => {
           ['uvalib-date-range', 'range-change', '1960–1990'],
           ['uvalib-date-range', 'range-change', '1940–1990'],
         ]);
+      });
+    });
+
+    describe(`uvalib-tabs (${mode})`, () => {
+      const tabs = (el: Element) => [
+        ...root(el).querySelectorAll<HTMLButtonElement>('[role="tab"]'),
+      ];
+
+      it('a click reports the tab label, capped, and nothing on render', async () => {
+        const el = await fixture<HTMLElement & { updateComplete: Promise<unknown> }>(
+          `<uvalib-tabs ${attr(mode)}>
+            <section data-tab="Events" id="events"><p>Events</p></section>
+            <section data-tab="News" id="news"><p>News</p></section>
+          </uvalib-tabs>`,
+        );
+        await quietRender(el);
+        tabs(el)[1]!.click();
+        await el.updateComplete;
+        const long = 'L'.repeat(120);
+        const named = await fixture<HTMLElement & { updateComplete: Promise<unknown> }>(
+          `<uvalib-tabs ${attr(mode)}>
+            <section data-tab="Other" id="other"><p>Other</p></section>
+            <section data-tab="${long}" id="long"><p>Long</p></section>
+          </uvalib-tabs>`,
+        );
+        await named.updateComplete;
+        tabs(named)[1]!.click();
+        await named.updateComplete;
+        const quiet = await fixture(
+          `<uvalib-tabs ${attr(mode)} no-analytics>
+            <section data-tab="Events" id="quiet-events"><p>Events</p></section>
+            <section data-tab="News" id="quiet-news"><p>News</p></section>
+          </uvalib-tabs>`,
+        );
+        tabs(quiet)[1]!.click();
+        expect(events()).to.deep.equal([
+          ['uvalib-tabs', 'change', 'News'],
+          ['uvalib-tabs', 'change', long.slice(0, 100)],
+        ]);
+      });
+    });
+
+    describe(`uvalib-pager load-more (${mode})`, () => {
+      it('Load more reports the next page and not the label', async () => {
+        const el = await fixture<HTMLElement & { updateComplete: Promise<unknown> }>(
+          `<uvalib-pager ${attr(mode)} mode="load-more" shown="2" total="9" page="2" label="Stories about the Lawn"></uvalib-pager>`,
+        );
+        await quietRender(el);
+        root(el).querySelector('button')!.click();
+        expect(events()).to.deep.equal([['uvalib-pager', 'load-more', '', 3]]);
+        expect(JSON.stringify(rec.events)).to.not.include('Stories about the Lawn');
       });
     });
   }

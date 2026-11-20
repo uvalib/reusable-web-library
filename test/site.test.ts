@@ -467,6 +467,15 @@ describe('examples page', function () {
   }
 
   describe('at 390px', () => {
+    // A fresh page: the tests above add an entry per example, and Chromium keeps at most 50
+    // session history entries, so on the old page this push could drop the oldest instead
+    // of moving the current index on by one.
+    before(async () => {
+      ({ win, doc } = await open('index.html'));
+      ide = doc.querySelector<Ide>('playground-ide')!;
+      await chromeReady(doc);
+    });
+
     it('lists the groups as accordions in the Menu; choosing one closes the Menu', async () => {
       await atWidth(390, async () => {
         expect(bar(doc).checkVisibility()).to.equal(false);

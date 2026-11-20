@@ -39,11 +39,45 @@ export const base = css`
   uvalib-card-grid:not(:defined),
   uvalib-pager:not(:defined),
   uvalib-contents:not(:defined),
-  uvalib-metadata:not(:defined) {
+  uvalib-metadata:not(:defined),
+  uvalib-tag-list:not(:defined) {
     display: block;
     line-height: 1.5;
     visibility: hidden;
     animation: uvalib-site-page-reveal 0s 2s forwards;
+  }
+  /* A chip row: hidden, one 44px row tall (with the scrolling row's padding), the raw
+     children kept on one line so they cannot make it taller. */
+  uvalib-chip-group:not(:defined) {
+    display: block;
+    min-height: 44px;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    visibility: hidden;
+    animation: uvalib-site-page-reveal 0s 2s forwards;
+  }
+  uvalib-chip-group[scroll]:not(:defined) {
+    min-height: calc(44px + 0.75rem);
+  }
+  /* Its text is drawn from attributes: hold one line until it upgrades. */
+  uvalib-results-count:not(:defined) {
+    display: block;
+    min-block-size: 1.5em;
+  }
+  uvalib-tag-list:not(:defined)[hidden],
+  uvalib-results-count:not(:defined)[hidden] {
+    display: none;
+  }
+  /* Tabs stay readable before the script runs: a block, one panel, and a gap the
+     size of the tab row (44px) plus its 1rem margin, so the first panel does not
+     jump when the element upgrades. Later data-tab panels stay hidden. */
+  uvalib-tabs:not(:defined) {
+    display: block;
+    padding-block-start: calc(44px + 1rem);
+  }
+  uvalib-tabs:not(:defined) > [data-tab] ~ [data-tab] {
+    display: none;
   }
   @keyframes uvalib-site-page-reveal {
     to {

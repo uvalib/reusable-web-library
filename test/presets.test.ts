@@ -45,13 +45,21 @@ describe('playground presets', function () {
       'photo-card',
       'section-pager',
       'numbered-pager',
+      'chip-groups',
+      'tabs',
+      'person-cards',
+      'story-card',
+      'load-more',
       'contents-sidebar',
       'record-metadata',
       'photo-grid',
+      'photo-grid-badges',
       'page-images',
       'search-facets',
       'search-results',
       'pagefind-search',
+      'results-toolbar',
+      'date-histogram',
       'todays-hours',
       'weekly-hours',
       'events',
@@ -66,6 +74,7 @@ describe('playground presets', function () {
       'Alerts',
       'Breadcrumbs',
       'Cards',
+      'Chips',
       'Contents',
       'Metadata',
       'Images',
@@ -99,18 +108,32 @@ describe('playground presets', function () {
       ],
       Alerts: ['alerts'],
       Breadcrumbs: ['breadcrumbs', 'breadcrumbs-standalone'],
-      Cards: ['collection-cards', 'photo-card', 'section-pager', 'numbered-pager'],
+      Cards: [
+        'collection-cards',
+        'photo-card',
+        'section-pager',
+        'numbered-pager',
+        'tabs',
+        'person-cards',
+        'story-card',
+        'load-more',
+      ],
+      Chips: ['chip-groups'],
       Contents: ['contents-sidebar'],
       Metadata: ['record-metadata'],
-      Images: ['photo-grid', 'page-images'],
+      Images: ['photo-grid', 'photo-grid-badges', 'page-images'],
       Search: [
         'search-facets',
         'search-results',
         'pagefind-search',
+        'results-toolbar',
+        'date-histogram',
         'uvalib-filter-shadow',
         'uvalib-filter-light',
         'uvalib-date-range-shadow',
         'uvalib-date-range-light',
+        'uvalib-date-histogram-shadow',
+        'uvalib-date-histogram-light',
       ],
       Hours: ['todays-hours', 'weekly-hours'],
       Events: ['events'],
@@ -284,6 +307,34 @@ describe('playground presets', function () {
       } finally {
         iframe.remove();
       }
+    }
+  });
+
+  it('chip-groups: picking a year fires change, and the page passes axe', async () => {
+    const p = presets.find((x) => x.id === 'chip-groups')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    try {
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(iframe.contentWindow!, ['site-page', 'uvalib-chip-group']);
+      await new Promise((r) => setTimeout(r, 100));
+      const years = doc.querySelector('#years') as HTMLElement & {
+        updateComplete: Promise<unknown>;
+        shadowRoot: ShadowRoot;
+      };
+      const radios = [...years.shadowRoot.querySelectorAll<HTMLInputElement>('input')];
+      expect(radios[0]!.checked).to.equal(true);
+      radios[2]!.click();
+      await years.updateComplete;
+      expect(doc.querySelector('#status')!.textContent).to.equal('Showing 2005.');
+      const groups = [...doc.querySelectorAll('uvalib-chip-group')].map((g) =>
+        g.shadowRoot!.querySelector('.chips')!.getAttribute('role'),
+      );
+      expect(groups).to.deep.equal(['radiogroup', 'radiogroup', 'group', 'group']);
+      expect(countMain(doc)).to.equal(1);
+      await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
     }
   });
 
@@ -557,6 +608,50 @@ describe('playground presets', function () {
       });
     });
   }
+
+  it('results-toolbar filters, counts, shows the empty state and loading, and passes axe', async () => {
+    const p = presets.find((x) => x.id === 'results-toolbar')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    iframe.style.width = '1000px';
+    iframe.style.height = '900px';
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-page', 'uvalib-tag-list', 'uvalib-results-count']);
+      await new Promise((r) => setTimeout(r, 100));
+      const count = doc.querySelector('uvalib-results-count')!;
+      const text = () => count.shadowRoot!.querySelector('.text')!.textContent;
+      expect(text()).to.equal('Showing all 6 shoots');
+      const filter = doc.querySelector<HTMLInputElement>('#filter')!;
+      filter.value = 'snow';
+      filter.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 50));
+      expect(text()).to.equal('Showing 1 of 6 shoots');
+      expect(doc.querySelector<HTMLElement>('#empty')!.hidden).to.equal(true);
+      expect(win.getComputedStyle(doc.querySelector('#empty')!).display).to.equal('none');
+      filter.value = 'nothing like this';
+      filter.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 50));
+      expect(doc.querySelector<HTMLElement>('#empty')!.hidden).to.equal(false);
+      expect(win.getComputedStyle(doc.querySelector('#empty')!).display).to.equal('flex');
+      expect(text()).to.equal('No shoots');
+      await expectNoPageAxeViolations(doc);
+      doc.querySelector<HTMLButtonElement>('#clear')!.click();
+      await new Promise((r) => setTimeout(r, 50));
+      expect(text()).to.equal('Showing all 6 shoots');
+      expect(doc.activeElement === filter).to.equal(true);
+      doc.querySelector<HTMLButtonElement>('#reload')!.click();
+      expect(doc.querySelector('#results')!.getAttribute('aria-busy')).to.equal('true');
+      expect(doc.querySelector<HTMLElement>('#loading')!.hidden).to.equal(false);
+      await expectNoPageAxeViolations(doc);
+      const tags = doc.querySelector('uvalib-tag-list')!;
+      expect(tags.shadowRoot!.querySelector('button.toggle')!.textContent).to.include('Show all 8');
+      expect(countMain(doc)).to.equal(1);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  }).timeout(15000);
 
   it('pagefind-search searches the demo index and passes axe', async () => {
     const p = presets.find((x) => x.id === 'pagefind-search')!;

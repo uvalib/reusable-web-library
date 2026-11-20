@@ -23,6 +23,8 @@ export type {
   FilterScopeOption,
 } from './components/uvalib-filter/UvalibFilter.js';
 export { UvalibDateRange } from './components/uvalib-date-range/UvalibDateRange.js';
+export { UvalibDateHistogram } from './components/uvalib-date-histogram/UvalibDateHistogram.js';
+export type { HistogramItem } from './components/uvalib-date-histogram/UvalibDateHistogram.js';
 export { UvalibBreadcrumbs } from './components/uvalib-breadcrumbs/UvalibBreadcrumbs.js';
 export type { BreadcrumbItem } from './components/uvalib-breadcrumbs/UvalibBreadcrumbs.js';
 export { UvalibCard } from './components/uvalib-card/UvalibCard.js';
@@ -41,6 +43,11 @@ export { UvalibPagefindSearch } from './components/uvalib-pagefind-search/Uvalib
 export type { PagefindUIInstance } from './components/uvalib-pagefind-search/UvalibPagefindSearch.js';
 export { UvalibLightbox } from './components/uvalib-lightbox/UvalibLightbox.js';
 export { UvalibPhotoGrid } from './components/uvalib-photo-grid/UvalibPhotoGrid.js';
+export { UvalibChipGroup } from './components/uvalib-chip-group/UvalibChipGroup.js';
+export type { ChipItem, ChipGroupMode } from './components/uvalib-chip-group/UvalibChipGroup.js';
+export { UvalibTagList } from './components/uvalib-tag-list/UvalibTagList.js';
+export type { TagItem } from './components/uvalib-tag-list/UvalibTagList.js';
+export { UvalibResultsCount } from './components/uvalib-results-count/UvalibResultsCount.js';
 export { SiteAlerts } from './components/site-alerts/SiteAlerts.js';
 export type { SiteAlert, SiteAlertsShow } from './components/site-alerts/SiteAlerts.js';
 export { SiteHoursSection } from './components/site-hours-section/SiteHoursSection.js';
@@ -64,3 +71,4 @@ export type {
   VirgoItem,
   WebsiteItem,
 } from './components/bento-box/bento-data.js';
+export { UvalibTabs } from './components/uvalib-tabs/UvalibTabs.js';

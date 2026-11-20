@@ -17,6 +17,7 @@ const TAGS = [
   'site-style',
   'uvalib-filter',
   'uvalib-date-range',
+  'uvalib-date-histogram',
   'uvalib-breadcrumbs',
   'uvalib-card',
   'uvalib-card-grid',
@@ -26,12 +27,16 @@ const TAGS = [
   'uvalib-pagefind-search',
   'uvalib-lightbox',
   'uvalib-photo-grid',
+  'uvalib-chip-group',
+  'uvalib-tag-list',
+  'uvalib-results-count',
   'site-alerts',
   'site-hours-section',
   'library-weekly-hours',
   'library-hours-setup',
   'events-section',
   'bento-box',
+  'uvalib-tabs',
 ];
 
 const walk = (dir) =>

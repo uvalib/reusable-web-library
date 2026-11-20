@@ -1,9 +1,10 @@
 import { expect, fixture, nextFrame } from '@open-wc/testing';
-import { setViewport } from '@web/test-runner-commands';
+import { emulateMedia, sendKeys, setViewport } from '@web/test-runner-commands';
 import '../src/components/uvalib-photo-grid/uvalib-photo-grid.js';
 import '../src/components/uvalib-lightbox/uvalib-lightbox.js';
 import { recordAnalytics } from './helpers/analytics.js';
 import { expectNoAxeViolations } from './helpers/axe.js';
+import { inDarkMode } from './helpers/dark.js';
 
 const PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAEUlEQVR4AWP4z8Dwn4Hh/38AD/kD/dtv74kAAAAASUVORK5CYII=';
@@ -239,6 +240,128 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       } finally {
         rec.restore();
       }
+    });
+
+    it('draws a data-badge over the thumbnail and keeps the alt caption', async () => {
+      const el = await make(
+        `<a id="lawn" href="#lawn" data-badge="3 photos"><img alt="The Lawn" width="80" height="40"></a>`,
+      );
+      const link = el.querySelector('a')!;
+      const badge = link.querySelector('.badge')!;
+      expect(badge.textContent).to.equal('3 photos');
+      expect(badge.hasAttribute('data-uvalib-generated-badge')).to.equal(true);
+      expect(link.querySelector('.caption')!.textContent).to.equal('The Lawn');
+      expect(link.hasAttribute('aria-label')).to.equal(false);
+      expect(link.innerText).to.contain('3 photos');
+      expect(link.innerText).to.contain('The Lawn');
+      const cs = getComputedStyle(badge);
+      expect(cs.position).to.equal('absolute');
+      expect(cs.pointerEvents).to.equal('none');
+      expect(px(link, 'min-height')).to.be.at.least(44);
+      expect(link.style.getPropertyValue('--ar')).to.equal('2.0000');
+      const rect = badge.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      const href = hit instanceof Element ? hit.closest('a')?.getAttribute('href') : '';
+      expect(href).to.equal('#lawn');
+      link.setAttribute('data-badge', '9 photos');
+      await nextFrame();
+      expect(link.querySelector('.badge')!.textContent).to.equal('9 photos');
+      link.removeAttribute('data-badge');
+      await nextFrame();
+      expect(link.querySelector('.badge')).to.equal(null);
+      expect(link.querySelector('.caption')!.textContent).to.equal('The Lawn');
+      await expectNoAxeViolations(el);
+    });
+
+    it('uses an authored badge, including one beside an aria-label', async () => {
+      const el = await make(
+        `<a id="seq" href="#seq" aria-label="Rotunda sequence"><img alt="Rotunda sequence" width="40" height="40"><span slot="badge">seq</span></a>
+         <button id="both" type="button" data-badge="3 photos"><span slot="badge">seq</span><img alt="Both" width="40" height="40"></button>`,
+      );
+      const link = el.querySelector('a')!;
+      expect(link.querySelector('[data-uvalib-generated-badge]')).to.equal(null);
+      expect(link.querySelector('[slot="badge"]')!.textContent).to.equal('seq');
+      expect(link.getAttribute('data-uvalib-label')).to.equal('Rotunda sequence');
+      expect(link.getAttribute('aria-label')).to.equal('Rotunda sequence, seq');
+      expect(link.querySelector('.caption')).to.equal(null);
+      const button = el.querySelector('button')!;
+      expect(button.querySelector('[data-uvalib-generated-badge]')).to.equal(null);
+      expect(button.querySelector('[slot="badge"]')!.textContent).to.equal('seq');
+      expect(button.hasAttribute('aria-label')).to.equal(false);
+      (document.activeElement as HTMLElement | null)?.blur();
+      await sendKeys({ press: 'Tab' });
+      expect(document.activeElement?.id).to.equal('seq');
+      expect(document.activeElement?.querySelector('[slot="badge"]') !== null).to.equal(true);
+      await expectNoAxeViolations(el);
+    });
+
+    it('keeps the badge readable in dark mode, forced colors, at 320px, and with no-style', async () => {
+      await inDarkMode(async () => {
+        const el = await make(
+          `<a href="#lawn" data-badge="3 photos"><img alt="The Lawn" width="80" height="40"></a>`,
+        );
+        const badge = el.querySelector('.badge')!;
+        expect(getComputedStyle(badge).color).to.equal('rgb(16, 23, 43)');
+        await expectNoAxeViolations(el);
+      });
+      await emulateMedia({ forcedColors: 'active' });
+      try {
+        const el = await make(
+          `<a href="#lawn" data-badge="seq"><img alt="The Lawn" width="80" height="40"></a>`,
+        );
+        const cs = getComputedStyle(el.querySelector('.badge')!);
+        expect(cs.borderTopStyle).to.equal('solid');
+        expect(parseFloat(cs.borderTopWidth)).to.be.at.least(1);
+      } finally {
+        await emulateMedia({ forcedColors: 'none' });
+      }
+      await setViewport({ width: 320, height: 640 });
+      try {
+        const el = await make(
+          `<a href="#lawn" data-badge="Supercalifragilisticexpialidocious sequence"><img alt="The Lawn" width="80" height="40"></a>`,
+        );
+        expect(document.documentElement.scrollWidth).to.be.at.most(320);
+        expect(el.getBoundingClientRect().right).to.be.at.most(320);
+      } finally {
+        await setViewport({ width: 800, height: 600 });
+      }
+      const bare = await make(
+        `<a href="#lawn" data-badge="3 photos"><img alt="The Lawn" width="80" height="40"></a>`,
+        'no-style',
+      );
+      const bareBadge = bare.querySelector('.badge')!;
+      expect(getComputedStyle(bareBadge).position).to.equal('absolute');
+      expect(bare.querySelector('.caption')!.textContent).to.equal('The Lawn');
+      await expectNoAxeViolations(bare);
+    });
+
+    it('reads the caption before the badge and clears an alt that repeats the label', async () => {
+      const el = await make(
+        `<a id="lawn" href="#lawn" data-badge="3 photos"><img alt="The Lawn" width="80" height="40"></a>
+         <a id="seq" href="#seq" aria-label="Rotunda sequence"><img alt="Rotunda sequence" width="40" height="40"><span slot="badge">seq</span></a>`,
+      );
+      const lawn = el.querySelector<HTMLAnchorElement>('#lawn')!;
+      const text = lawn.innerText.replace(/\s+/g, ' ').trim();
+      expect(text.indexOf('The Lawn') < text.indexOf('3 photos')).to.equal(true);
+      expect(text.includes(',')).to.equal(true);
+      const seq = el.querySelector<HTMLAnchorElement>('#seq')!;
+      expect(seq.querySelector('img')!.getAttribute('alt')).to.equal('');
+      expect(seq.querySelector('img')!.getAttribute('data-uvalib-alt')).to.equal(
+        'Rotunda sequence',
+      );
+      const host = await fixture<HTMLElement>(
+        `<uvalib-lightbox ${attr}><uvalib-photo-grid ${attr}>
+          <a id="plain" href="${PNG}" data-badge="3 photos"><img width="40" height="40"></a>
+        </uvalib-photo-grid></uvalib-lightbox>`,
+      );
+      host.querySelector<HTMLAnchorElement>('#plain')!.click();
+      await (host as HTMLElement & { updateComplete: Promise<unknown> }).updateComplete;
+      await nextFrame();
+      const dialog = (host.shadowRoot ?? host).querySelector('dialog')!;
+      expect(dialog.open).to.equal(true);
+      const caption = dialog.querySelector('.caption')!.textContent ?? '';
+      expect(caption.includes('3 photos')).to.equal(false);
+      expect(caption).to.equal('Photo 1');
     });
   });
 }

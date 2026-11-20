@@ -10,6 +10,7 @@ describe('index', () => {
     await new Promise((r) => setTimeout(r, 50)); // let any dynamic import settle
     expect(lib.UvalibFilter).to.be.a('function');
     expect(lib.UvalibDateRange).to.be.a('function');
+    expect(lib.UvalibDateHistogram).to.be.a('function');
     expect(lib.SiteHoursSection).to.be.a('function');
     expect(lib.LibraryWeeklyHours).to.be.a('function');
     expect(lib.LibraryHoursSetup).to.be.a('function');
@@ -24,6 +25,9 @@ describe('index', () => {
     expect(lib.UvalibPagefindSearch).to.be.a('function');
     expect(lib.UvalibLightbox).to.be.a('function');
     expect(lib.UvalibPhotoGrid).to.be.a('function');
+    expect(lib.UvalibChipGroup).to.be.a('function');
+    expect(lib.UvalibTagList).to.be.a('function');
+    expect(lib.UvalibResultsCount).to.be.a('function');
     expect(lib.SiteAlerts).to.be.a('function');
     expect(lib.UvalibAnalytics).to.be.a('function');
     expect(lib.SiteAnalyticsMixin).to.be.a('function');
@@ -47,6 +51,7 @@ describe('index', () => {
       'site-style',
       'uvalib-filter',
       'uvalib-date-range',
+      'uvalib-date-histogram',
       'uvalib-breadcrumbs',
       'uvalib-card',
       'uvalib-card-grid',
@@ -56,6 +61,9 @@ describe('index', () => {
       'uvalib-pagefind-search',
       'uvalib-lightbox',
       'uvalib-photo-grid',
+      'uvalib-chip-group',
+      'uvalib-tag-list',
+      'uvalib-results-count',
       'site-alerts',
       'site-hours-section',
       'library-weekly-hours',
@@ -66,6 +74,7 @@ describe('index', () => {
       'articles-section',
       'libguides-section',
       'website-section',
+      'uvalib-tabs',
     ]) {
       expect(customElements.get(tag) === undefined, `${tag} is defined`).to.equal(true);
     }

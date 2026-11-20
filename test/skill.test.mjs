@@ -20,8 +20,41 @@ test('SKILL.md frontmatter has the right name and a description of at most 1024 
   const description = m[1].match(/^description:\s*(.+)$/m)?.[1].trim();
   assert.equal(name, 'uvalib-web-components');
   assert.ok(description && description.length <= 1024, `description length ${description?.length}`);
-  for (const needle of ['<site-page>', '@uvalib/web-components', 'unpkg.internal.lib.virginia.edu'])
+  // The description names the page chrome and groups the rest, so it stays short as tags are
+  // added; every tag must still appear somewhere in SKILL.md (the next test).
+  for (const needle of [
+    '<site-page>',
+    '<site-header>',
+    '<site-main-nav>',
+    '<site-footer>',
+    '<site-alerts>',
+    '<site-analytics>',
+    '<uvalib-analytics>',
+    '<site-style>',
+    '@uvalib/web-components',
+    'unpkg.internal.lib.virginia.edu',
+    '/web-components/latest/',
+    'cdn-v',
+    'CDN vs npm',
+    'pinning',
+    'shadow vs light DOM',
+    '--uva-*',
+    'WCAG 2.2 AA',
+    'GitHub issues',
+    'verification checklist',
+  ])
     assert.ok(description.includes(needle), `description lacks ${needle}`);
+});
+
+test('SKILL.md mentions every tag in the manifest', () => {
+  const m = JSON.parse(readFileSync(join(root, 'dist/custom-elements.json'), 'utf8'));
+  const tags = m.modules
+    .flatMap((x) => x.declarations ?? [])
+    .map((d) => d.tagName)
+    .filter(Boolean);
+  assert.ok(tags.length >= 5);
+  const text = readFileSync(join(skillDir, 'SKILL.md'), 'utf8');
+  for (const tag of tags) assert.ok(text.includes(`<${tag}`), `SKILL.md lacks <${tag}>`);
 });
 
 test('SKILL.md never recommends the legacy CDN paths', () => {
