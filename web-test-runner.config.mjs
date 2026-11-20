@@ -1,4 +1,5 @@
 import { esbuildPlugin } from '@web/dev-server-esbuild';
+import { defaultReporter } from '@web/test-runner';
 import { playwrightLauncher } from '@web/test-runner-playwright';
 import { interceptAlerts } from './test/helpers/alerts-intercept.mjs';
 import { interceptAnalytics } from './test/helpers/analytics-intercept.mjs';
@@ -8,6 +9,7 @@ import { hoursClockPlugin, interceptHours } from './test/helpers/hours-intercept
 import { interceptMainNav } from './test/helpers/main-nav-intercept.mjs';
 import { interceptStatic } from './test/helpers/static-intercept.mjs';
 import { pagefindFixturePlugin } from './test/helpers/pagefind-fixture.mjs';
+import { jsonReporter } from './scripts/report/wtr-reporter.mjs';
 
 const TZ_FILES = 'test/**/*-tz.test.ts';
 const NEW_YORK_TZ_FILES = [
@@ -47,6 +49,8 @@ const chromium = (options = {}) =>
 
 export default {
   nodeResolve: true,
+  // The usual output, plus reports/browser.json for the test report (scripts/test-report.mjs).
+  reporters: [defaultReporter(), jsonReporter()],
   filterBrowserLogs: (log) =>
     !log.args.some((a) => typeof a === 'string' && a.includes('Lit is in dev mode')),
   plugins: [

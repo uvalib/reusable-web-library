@@ -1,5 +1,7 @@
 # Builds and deploys the playground site (site/) to GitHub Pages:
-# https://uvalib.github.io/reusable-web-library/ (spec §9a). PRs run ci.yml; releases run in AWS CodePipeline.
+# https://uvalib.github.io/reusable-web-library/ (spec §9a), with the test report at /report/
+# (scripts/test-report.mjs, linked from the README's badges). PRs run ci.yml; releases run in
+# AWS CodePipeline.
 # One-time repo setting: Settings > Pages > Source: "GitHub Actions".
 name: Pages
 
@@ -16,7 +18,44 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Lighthouse CI over one standalone page per example (scripts/lhci.mjs, lighthouserc.json;
+  # about 10 minutes). A failure fails this job, so the run shows red, but the site is still
+  # published: the report then shows which pages are over budget.
+  lighthouse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      # See ci.yml: Chrome started by Lighthouse needs unprivileged user namespaces.
+      - run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - run: pnpm lhci
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-summary
+          path: reports/lighthouse.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
+          include-hidden-files: true
+          retention-days: 14
+
   build:
+    needs: lighthouse
+    # Publish even when Lighthouse failed (the report says so), but not when it was cancelled.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -31,6 +70,13 @@ jobs:
       - run: pnpm test
       # Rebuild only the site, with the production base (/reusable-web-library/).
       - run: pnpm build:site
+      # The test report (dist-site/report/): the test results above and Lighthouse's summary.
+      - uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: lighthouse-summary
+          path: reports
+      - run: pnpm report
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist-site

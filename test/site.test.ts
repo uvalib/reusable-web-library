@@ -272,7 +272,7 @@ describe('examples page', function () {
   });
   after(() => iframe?.remove());
 
-  it('has the site chrome, with Examples current and README, and no footer', () => {
+  it('has the site chrome, with Examples current, Test results and README, and no footer', () => {
     // One <main>, the one site-page renders; the page has no chrome of its own.
     expect(deepAll(doc, 'main').length).to.equal(1);
     expect(doc.querySelectorAll('main, header, .skip-link').length).to.equal(0);
@@ -282,9 +282,10 @@ describe('examples page', function () {
       expect(
         links.map((a) => a.textContent!.trim()),
         selector,
-      ).to.deep.equal(['Examples', 'README']);
+      ).to.deep.equal(['Examples', 'Test results', 'README']);
       expect(links[0]!.getAttribute('aria-current')).to.equal('page');
-      expect(links[1]!.href).to.equal('https://github.com/uvalib/reusable-web-library#readme');
+      expect(links[1]!.getAttribute('href')).to.equal('./report/');
+      expect(links[2]!.href).to.equal('https://github.com/uvalib/reusable-web-library#readme');
     }
     expect(header.querySelector('nav[aria-label="Utility"]')).to.equal(null);
     // The example's heading lands in that single <main>.

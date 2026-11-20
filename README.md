@@ -1,5 +1,7 @@
 # @uvalib/web-components
 
+[![Tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fuvalib.github.io%2Freusable-web-library%2Freport%2Fbadges%2Ftests.json)](https://uvalib.github.io/reusable-web-library/report/) [![Accessibility](https://img.shields.io/endpoint?url=https%3A%2F%2Fuvalib.github.io%2Freusable-web-library%2Freport%2Fbadges%2Faccessibility.json)](https://uvalib.github.io/reusable-web-library/report/) [![Lighthouse](https://img.shields.io/endpoint?url=https%3A%2F%2Fuvalib.github.io%2Freusable-web-library%2Freport%2Fbadges%2Flighthouse.json)](https://uvalib.github.io/reusable-web-library/report/#lighthouse)
+
 Reusable web components for UVA Library sites, built with Lit and TypeScript:
 
 - **Page chrome:** `<site-page>` (skip link, header with the library main navigation and live library alerts, one `<main>`, footer), `<site-alerts>` (the alerts, also usable alone), `<site-header>`, `<site-main-nav>`, `<site-footer>`, `<site-analytics>` and `<uvalib-analytics>` (Matomo, one element under two names) and `<site-style>` (legacy compatibility).
@@ -109,6 +111,16 @@ To do it by hand, read on.
 ## Requests and bug reports
 
 Ask for a new component, a feature or change in an existing one, or report a bug through [the repository's issues](https://github.com/uvalib/reusable-web-library/issues/new/choose). Each has a form: **New component**, **Feature or change request** and **Bug report**. The repository is public, so leave out passwords, tokens, internal-only hostnames and personal data. The agent skill knows the forms too: ask your agent to search the existing issues, draft one, and file it once you approve it (it uses the GitHub CLI, `gh`, or gives you the form's link).
+
+## Test results
+
+Every push to `main` is tested before the examples site is published, and the results go up with it: **[test report](https://uvalib.github.io/reusable-web-library/report/)**. It lists:
+
+- **Tests:** every build and package test (Node) and every component test (Chromium), file by file, with each test's outcome.
+- **Accessibility:** the axe-core checks, in shadow and light DOM, light and dark, held to WCAG 2.2 AA plus the extra rules Lighthouse enables. Lighthouse must also score 100 for accessibility on every example.
+- **Lighthouse:** each example page's median performance, accessibility, best-practices, layout-shift and blocking-time results, against the budgets in [Quality checks](#quality-checks).
+
+The badges above read the same report ([`report/results.json`](https://uvalib.github.io/reusable-web-library/report/results.json) has the numbers for scripts). Locally, `pnpm test`, `pnpm lhci` and `pnpm report` write it to `dist-site/report/`.
 
 ## Playground
 
@@ -2278,7 +2290,7 @@ The library website's first pages (pages, people, libraries, news) matching `que
 
 ### Quality checks
 
-Three automated checks guard accessibility, best practice and performance. The first two run in `pnpm test`; Lighthouse is slower and runs on its own (`pnpm lhci`, and the `lighthouse` job in the `CI` workflow).
+Three automated checks guard accessibility, best practice and performance. The first two run in `pnpm test`; Lighthouse is slower and runs on its own (`pnpm lhci`, the `lighthouse` job in the `CI` workflow on pull requests, and the `Pages` workflow on `main`). The results of the last build of `main` are in the [test report](#test-results).
 
 - **axe, at every impact level, at least as strict as Lighthouse.** `expectNoAxeViolations` (`test/helpers/axe.ts`) fails on minor, moderate, serious and critical violations, so best-practice rules such as `heading-order`, `region` and the landmark rules count. It runs every axe rule and also turns on the ones Lighthouse's accessibility audit enables that a default axe run leaves off (`target-size`, `identical-links-same-purpose`, `table-fake-caption`, `td-has-header`), so a component that passes here cannot lose Lighthouse accessibility points to axe. Sites built with the components get the same setup for Playwright in the skill's [accessibility testing guide](skills/uvalib-web-components/reference/accessibility-testing.md). Every visual component is audited in shadow and light DOM, and in the states people use: menus and groups open (the header Menu popover at 390px, `site-main-nav` at 1280px and 390px), `uvalib-filter` expanded with a scope pressed and a box checked, `uvalib-date-range` with the sliders on one year and dates typed, the hours elements loading, loaded and failing, and `events-section` loading, loaded, empty and failing, on its own and in home-page markup in light and dark. Full-page tests use `expectNoPageAxeViolations`, which audits the whole document so the rules that only match `<html>` (`landmark-one-main`, `page-has-heading-one`) run too; it gives the test runner's bare page a `<title>` and `lang` first, and disables no rule. Tests never reach the network: `test/helpers/*-intercept.mjs` route the alerts, hours, events and main-nav hosts to fixtures.
 - **Bundle-size budgets.** `test/size-budget.test.mjs` gzips (level 9) every entry in `dist-cdn/manifest.json` together with every chunk it imports, statically or with `import()` (site-page's lazy site-footer), each counted once, and fails if one exceeds its budget in `test/size-budgets.json` (about 12% over the sizes below). `node scripts/bundle-sizes.mjs` prints today's sizes against the budgets. When a change has to grow a bundle, raise its budget in the same PR and say why.
@@ -2321,7 +2333,7 @@ pnpm release <patch|minor|major>             # lint, test, build, bump, tag vX.Y
 
 The first release must be `pnpm release major` (0.0.0 → 1.0.0).
 
-Pull requests to `main` run `.github/workflows/ci.yml` in GitHub Actions (install, lint, test, Lighthouse) with a read-only token and no secrets. Pushes to `main` are linted and tested by `.github/workflows/pages.yml` and run the same workflow's Lighthouse job, which can also be started by hand (Actions → CI → Run workflow).
+Pull requests to `main` run `.github/workflows/ci.yml` in GitHub Actions (install, lint, test, Lighthouse) with a read-only token and no secrets. Pushes to `main` are linted, tested and audited with Lighthouse by `.github/workflows/pages.yml`, which publishes the examples site with the [test report](#test-results); a Lighthouse failure fails the run but still publishes, so the report shows what is over budget. The CI workflow's Lighthouse job can also be started by hand (Actions → CI → Run workflow).
 
 One `v*` tag starts two independent releases. Each can be re-run on its own, and no npm token is stored anywhere:
 

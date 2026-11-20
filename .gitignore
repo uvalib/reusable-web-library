@@ -13,5 +13,6 @@ test/baseline/bovweb-*/
 .claude/worktrees/
 .claude/launch.json
 
-# Lighthouse CI reports (pnpm lhci)
+# Lighthouse CI reports (pnpm lhci) and the test results the test report reads
 .lighthouseci
+reports/
