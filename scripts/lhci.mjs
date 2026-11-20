@@ -278,14 +278,76 @@ const lhci = (args) =>
     ),
   );
 
-const urls = pages.map((p) => `${base}/${p.id}/`);
+const pagesAudited = pages.map((p) => p.id);
+const urls = pagesAudited.map((id) => `${base}/${id}/`);
 console.log(`Auditing ${urls.length} example pages from ${dir}`);
 let code = await lhci([
   'collect',
   `--collect.chromePath=${chromium.executablePath()}`,
   ...urls.map((u) => `--collect.url=${u}`),
 ]);
+const collected = code;
 if (code === 0) code = await lhci(['assert']);
 server.close();
+if (collected === 0) summarize(code === 0);
 rmSync(dir, { recursive: true, force: true });
 process.exit(code);
+
+/**
+ * reports/lighthouse.json, for the test report (scripts/test-report.mjs): each page's
+ * median scores over its runs, the failed assertions, and the budgets from lighthouserc.json.
+ */
+function summarize(passed) {
+  const out = join(root, '.lighthouseci');
+  const runs = readdirSync(out)
+    .filter((f) => /^lhr-.*\.json$/.test(f))
+    .map((f) => JSON.parse(readFileSync(join(out, f), 'utf8')));
+  const assertionsFile = join(out, 'assertion-results.json');
+  const failures = existsSync(assertionsFile)
+    ? JSON.parse(readFileSync(assertionsFile, 'utf8')).filter(
+        (a) => !a.passed && a.level === 'error',
+      )
+    : [];
+  const median = (xs) => {
+    const s = xs.filter((x) => typeof x === 'number').sort((a, b) => a - b);
+    return s.length ? s[Math.floor(s.length / 2)] : null;
+  };
+  const pages = pagesAudited.map((id) => {
+    const url = `${base}/${id}/`;
+    const mine = runs.filter((r) => r.requestedUrl === url);
+    const pick = (fn) => median(mine.map(fn));
+    return {
+      id,
+      runs: mine.length,
+      performance: pick((r) => r.categories.performance?.score),
+      accessibility: pick((r) => r.categories.accessibility?.score),
+      bestPractices: pick((r) => r.categories['best-practices']?.score),
+      cls: pick((r) => r.audits['cumulative-layout-shift']?.numericValue),
+      tbt: pick((r) => r.audits['total-blocking-time']?.numericValue),
+      failures: failures
+        .filter((a) => a.url === url)
+        .map((a) => ({
+          audit: a.auditId,
+          property: a.auditProperty ?? null,
+          actual: a.actual,
+          expected: a.expected,
+        })),
+    };
+  });
+  const rc = JSON.parse(readFileSync(join(root, 'lighthouserc.json'), 'utf8')).ci;
+  mkdirSync(join(root, 'reports'), { recursive: true });
+  writeFileSync(
+    join(root, 'reports/lighthouse.json'),
+    JSON.stringify(
+      {
+        passed,
+        lighthouse: runs[0]?.lighthouseVersion ?? null,
+        runsPerPage: rc.collect.numberOfRuns,
+        assertions: rc.assert.assertions,
+        pages,
+      },
+      null,
+      1,
+    ),
+  );
+}

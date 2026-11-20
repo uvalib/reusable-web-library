@@ -1,12 +1,11 @@
-# Lint and test pull requests to main, and run Lighthouse CI on pull requests, pushes to main
-# and on demand. Unprivileged: read-only token, no secrets, publishes nothing. Pushes to main
-# are linted and tested by pages.yml; releases run in AWS CodePipeline.
+# Lint and test pull requests to main, and run Lighthouse CI on pull requests and on demand.
+# Unprivileged: read-only token, no secrets, publishes nothing. Pushes to main are linted,
+# tested and audited by pages.yml, which publishes the results as the test report; releases
+# run in AWS CodePipeline.
 name: CI
 
 on:
   pull_request:
-    branches: [main]
-  push:
     branches: [main]
   workflow_dispatch:
 
