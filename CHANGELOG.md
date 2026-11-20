@@ -1,5 +1,58 @@
 # Changelog
 
+## v1.2.0 — 2026-11-20
+
+### Features
+
+- publish test results with the examples site, with README badges
+- load-more mode
+- thumbnail badges
+- circle media and actions slot
+- register the element in the package and CDN build
+- add the bar chart for date counts
+- add uvalib-tabs
+- hold uvalib-chip-group's row before it upgrades
+- Results toolbar & badges example
+- a Chips example with a year rail, a sort toggle, filters and suggestions
+- a results summary with a debounced polite announcement
+- a labelled, wrapping list of keyword links or plain tags
+- badges, a results toolbar, an empty state and loading skeletons
+- segmented controls, filter chips and suggestion chips
+
+### Fixes
+
+- describe the person-card portraits in their alt
+- keep selection stable and reserve the tab row
+- read the badge after the caption
+- focus the new load-more item
+- center circle avatars in shadow
+- correct focus, selection, sync, and parsing
+- keep the table caption to its label
+- review round — focus, disabled, history, links, overflow
+- source children, lang/dir and inline copies, 2rem targets, positional analytics names
+- re-announce a recurring count; No … for 0 shown; blank attributes unset
+- hidden hides the results classes; phone toolbar wins; opaque count badge in forced colors
+- keep the toggle's words on one line in its text
+- edge fades for the scrolling row, a one-row segmented bar
+- real Library images in the photo grid, page images and photo card examples
+
+### Other
+
+- poll for the two-second reveal instead of a fixed wait
+- Merge branch 'feat/report-split'
+- deploy as soon as the tests pass, then again with Lighthouse
+- Merge branch 'feat/test-report'
+- give the full-page axe suites 20s under a parallel run
+- Merge branch 'integrate/addison2': chips, results bar, date histogram, tabs and card extras
+- open a fresh page for the 390px menu test
+- Merge branch 'feat/tabs-card-extras' into integrate/addison2
+- Merge branch 'feat/date-histogram' into integrate/addison2
+- Merge branch 'feat/badges-results' into integrate/addison2
+- Merge branch 'feat/chip-group'
+- register the chip group
+- register uvalib-tag-list and uvalib-results-count
+- Merge branch 'fix/example-images'
+
 ## v1.1.1 — 2026-11-19
 
 ### Features
