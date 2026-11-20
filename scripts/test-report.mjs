@@ -9,6 +9,8 @@
 //   - index.html       the report page, in the library's own header and styles
 //   - results.json     the same numbers, for scripts
 //   - badges/*.json    shields.io endpoint badges for the README (tests, accessibility, lighthouse)
+//   - lighthouse.json  the Lighthouse summary it used, with its commit (the next build's first
+//                      deploy shows it until that build's own Lighthouse run finishes)
 // A missing input is reported as "not run", never as a pass.
 //
 // Run after `pnpm build:site` (the page loads ../cdn/ from the built site): `pnpm report`.
@@ -38,6 +40,10 @@ try {
 } catch {
   sha = null;
 }
+// Lighthouse runs after the first deploy (pages.yml), so until it finishes the report shows
+// the published results of an earlier commit. A fresh summary carries no commit: it is this one.
+if (lighthouse && !lighthouse.commit) lighthouse.commit = sha;
+const lhEarlier = Boolean(lighthouse && sha && lighthouse.commit !== sha);
 const runUrl = process.env.GITHUB_RUN_ID
   ? `${repoUrl}/actions/runs/${process.env.GITHUB_RUN_ID}`
   : null;
@@ -137,6 +143,13 @@ function summaryCard(heading, value, detail, ok) {
 
 function lighthouseSection() {
   if (!lighthouse) return notRun;
+  const earlier = lhEarlier
+    ? `<p class="notice">
+          <strong>From an earlier commit:</strong> these are the Lighthouse results of commit
+          <a href="${repoUrl}/commit/${esc(lighthouse.commit)}"><code>${esc(String(lighthouse.commit).slice(0, 7))}</code></a>.
+          This commit's audit runs after the site is published and replaces them when it finishes${runUrl ? ` (<a href="${runUrl}">its progress</a>)` : ''}.
+        </p>`
+    : '';
   const rows = lhPages
     .map((p) => {
       const failed = new Set(p.failures.map((f) => f.audit));
@@ -158,7 +171,8 @@ function lighthouseSection() {
             </tr>`;
     })
     .join('\n');
-  return `<p>
+  return `${earlier}
+        <p>
           Each example on the examples site is audited as its own page, ${lighthouse.runsPerPage} times, with
           Lighthouse ${esc(lighthouse.lighthouse ?? '')}; the table shows the medians. The budgets every page
           must meet:
@@ -264,6 +278,7 @@ const html = `<!doctype html>
       .tests li.passed { list-style: '✓  '; }
       .tests li.skipped { list-style: '–  '; color: var(--uva-color-text-muted, #4a4a4a); }
       .not-run { font-style: italic; }
+      .notice { border-inline-start: 4px solid var(--uva-color-alert-warning-border, #d58c00); background: var(--uva-color-alert-warning-bg, #fff4dc); color: var(--uva-color-alert-text, inherit); padding: 0.75rem 1rem; }
       .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     </style>
   </head>
@@ -278,15 +293,16 @@ const html = `<!doctype html>
           From the build of commit <a href="${repoUrl}/commit/${esc(sha ?? '')}"><code>${esc(short)}</code></a>
           (version ${esc(pkg.version)} in package.json), run
           <time datetime="${generated.toISOString()}">${generated.toUTCString()}</time>${runUrl ? ` in <a href="${runUrl}">GitHub Actions</a>` : ''}.
-          Every push to main runs these checks before the examples site is published.
+          Every push to main is tested before the examples site is published. Lighthouse runs alongside,
+          and its results are added here when it finishes, about half an hour later.
         </p>
 
         <h2 id="summary">Summary</h2>
         <ul class="cards">
         ${summaryCard('Tests', testsRan ? fmt(testsPassed) : '—', testsRan ? `passed of ${fmt(testsPassed + testsFailed)}: ${fmt(nodeCount.total)} build and package tests, ${fmt(browserCount.total)} component tests in Chromium` : 'not run', testsRan ? !testsFailed : null)}
         ${summaryCard('axe-core tests', browser ? fmt(axeCount.passed) : '—', browser ? `passed of ${fmt(axeCount.total)}, in shadow and light DOM, light and dark, WCAG 2.2 AA plus Lighthouse’s extra rules` : 'not run', browser ? !axeCount.failed : null)}
-        ${summaryCard('Lighthouse accessibility', lighthouse ? `${lhA11yPerfect} / ${lhPages.length}` : '—', lighthouse ? 'example pages scoring 100' : 'not run', lighthouse ? lhA11yPerfect === lhPages.length : null)}
-        ${summaryCard('Lighthouse budgets', lighthouse ? `${lhPassing} / ${lhPages.length}` : '—', lighthouse ? 'example pages within every budget' : 'not run', lighthouse ? lhPassing === lhPages.length : null)}
+        ${summaryCard('Lighthouse accessibility', lighthouse ? `${lhA11yPerfect} / ${lhPages.length}` : '—', lighthouse ? `example pages scoring 100${lhEarlier ? ' (earlier commit)' : ''}` : 'not run', lighthouse ? lhA11yPerfect === lhPages.length : null)}
+        ${summaryCard('Lighthouse budgets', lighthouse ? `${lhPassing} / ${lhPages.length}` : '—', lighthouse ? `example pages within every budget${lhEarlier ? ' (earlier commit)' : ''}` : 'not run', lighthouse ? lhPassing === lhPages.length : null)}
         </ul>
 
         <h2 id="lighthouse">Lighthouse</h2>
@@ -310,6 +326,8 @@ const html = `<!doctype html>
 
 mkdirSync(join(outDir, 'badges'), { recursive: true });
 writeFileSync(join(outDir, 'index.html'), html);
+// Lighthouse's summary as read, with its commit: the next build's first deploy shows it.
+if (lighthouse) writeFileSync(join(outDir, 'lighthouse.json'), JSON.stringify(lighthouse, null, 1));
 for (const [name, b] of Object.entries(badges))
   writeFileSync(join(outDir, 'badges', `${name}.json`), JSON.stringify(b));
 writeFileSync(
@@ -322,6 +340,7 @@ writeFileSync(
       run: runUrl,
       tests: { node: nodeCount, browser: browserCount, axe: axeCount },
       lighthouse: lighthouse && {
+        commit: lighthouse.commit,
         passed: lhPassing,
         pages: lhPages.length,
         accessibility100: lhA11yPerfect,

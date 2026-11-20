@@ -114,7 +114,7 @@ Ask for a new component, a feature or change in an existing one, or report a bug
 
 ## Test results
 
-Every push to `main` is tested before the examples site is published, and the results go up with it: **[test report](https://uvalib.github.io/reusable-web-library/report/)**. It lists:
+Every push to `main` is tested before the examples site is published, and the results go up with it: **[test report](https://uvalib.github.io/reusable-web-library/report/)**. Lighthouse takes about half an hour, so it runs alongside: the site goes up as soon as the tests pass, showing the previous Lighthouse results (marked as from an earlier commit), and is published again with this commit's when the audit finishes. It lists:
 
 - **Tests:** every build and package test (Node) and every component test (Chromium), file by file, with each test's outcome.
 - **Accessibility:** the axe-core checks, in shadow and light DOM, light and dark, held to WCAG 2.2 AA plus the extra rules Lighthouse enables. Lighthouse must also score 100 for accessibility on every example.
@@ -2333,7 +2333,7 @@ pnpm release <patch|minor|major>             # lint, test, build, bump, tag vX.Y
 
 The first release must be `pnpm release major` (0.0.0 → 1.0.0).
 
-Pull requests to `main` run `.github/workflows/ci.yml` in GitHub Actions (install, lint, test, Lighthouse) with a read-only token and no secrets. Pushes to `main` are linted, tested and audited with Lighthouse by `.github/workflows/pages.yml`, which publishes the examples site with the [test report](#test-results); a Lighthouse failure fails the run but still publishes, so the report shows what is over budget. The CI workflow's Lighthouse job can also be started by hand (Actions → CI → Run workflow).
+Pull requests to `main` run `.github/workflows/ci.yml` in GitHub Actions (install, lint, test, Lighthouse) with a read-only token and no secrets. Pushes to `main` are tested and audited with Lighthouse by `.github/workflows/pages.yml`, which publishes the examples site with the [test report](#test-results) twice: as soon as the tests pass, then again with the Lighthouse results. A Lighthouse failure fails the run but still publishes, so the report shows what is over budget; a newer push cancels an older run. The CI workflow's Lighthouse job can also be started by hand (Actions → CI → Run workflow).
 
 One `v*` tag starts two independent releases. Each can be re-run on its own, and no npm token is stored anywhere:
 

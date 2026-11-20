@@ -3,6 +3,14 @@
 # (scripts/test-report.mjs, linked from the README's badges). PRs run ci.yml; releases run in
 # AWS CodePipeline.
 # One-time repo setting: Settings > Pages > Source: "GitHub Actions".
+#
+# Two deploys per push, so the site isn't held up by Lighthouse (about 30 minutes):
+#   1. build → deploy: the tests, the site, and the report with this commit's test
+#      results and the previous build's Lighthouse results (marked as such). A few minutes.
+#   2. lighthouse → report → deploy-report: the same site again, the report now with this
+#      commit's Lighthouse results. A Lighthouse failure fails the run but still publishes,
+#      so the report shows which pages are over budget.
+# A newer push cancels an older run, so an older Lighthouse result never overwrites a newer site.
 name: Pages
 
 on:
@@ -15,12 +23,60 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
+
+env:
+  REPORT_URL: https://uvalib.github.io/reusable-web-library/report/
 
 jobs:
-  # Lighthouse CI over one standalone page per example (scripts/lhci.mjs, lighthouserc.json;
-  # about 10 minutes). A failure fails this job, so the run shows red, but the site is still
-  # published: the report then shows which pages are over budget.
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      # Builds dist/ and dist-cdn/, plus dist-site/ with the test base (/dist-site/), and
+      # records the results in reports/.
+      - run: pnpm test
+      # Rebuild only the site, with the production base (/reusable-web-library/).
+      - run: pnpm build:site
+      # Until this commit's Lighthouse run finishes, the report shows the published one.
+      - run: curl -fsS "${REPORT_URL}lighthouse.json" -o reports/lighthouse.json || echo "No published Lighthouse results yet"
+      - run: pnpm report
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist-site
+      # The site and the test results again, for the report job to add Lighthouse's.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: site
+          path: |
+            dist-site
+            reports/node.json
+            reports/browser.json
+          retention-days: 1
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
+
+  # Lighthouse CI over one standalone page per example (scripts/lhci.mjs, lighthouserc.json).
   lighthouse:
     runs-on: ubuntu-latest
     steps:
@@ -52,37 +108,38 @@ jobs:
           include-hidden-files: true
           retention-days: 14
 
-  build:
-    needs: lighthouse
-    # Publish even when Lighthouse failed (the report says so), but not when it was cancelled.
-    if: ${{ !cancelled() }}
+  # The report again, with this commit's Lighthouse results. Runs when Lighthouse failed too
+  # (the report says so), but only after the first deploy, and not when cancelled.
+  report:
+    needs: [deploy, lighthouse]
+    if: ${{ !cancelled() && needs.deploy.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
-      # Builds dist/ and dist-cdn/, plus dist-site/ with the test base (/dist-site/).
-      - run: pnpm test
-      # Rebuild only the site, with the production base (/reusable-web-library/).
-      - run: pnpm build:site
-      # The test report (dist-site/report/): the test results above and Lighthouse's summary.
+      - uses: actions/download-artifact@v8
+        with:
+          name: site
+      # Without a summary (Lighthouse failed before auditing), the report keeps the
+      # published results, marked as from an earlier commit.
       - uses: actions/download-artifact@v8
         continue-on-error: true
         with:
           name: lighthouse-summary
           path: reports
-      - run: pnpm report
+      - run: test -f reports/lighthouse.json || cp dist-site/report/lighthouse.json reports/ || true
+      - run: node --disable-warning=ExperimentalWarning scripts/test-report.mjs
       - uses: actions/upload-pages-artifact@v5
         with:
+          name: github-pages-report
           path: dist-site
 
-  deploy:
-    needs: build
+  deploy-report:
+    needs: report
     runs-on: ubuntu-latest
     permissions:
       pages: write
@@ -93,3 +150,5 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v5
+        with:
+          artifact_name: github-pages-report
