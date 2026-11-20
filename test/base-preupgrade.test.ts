@@ -18,8 +18,23 @@ async function frame(): Promise<HTMLIFrameElement> {
   return iframe;
 }
 
+/**
+ * Resolves with the element's visibility once it is 'visible', or after `ms` with what it is
+ * then. base.css reveals the content with a 2s CSS animation, which lands late when the whole
+ * suite runs in parallel, so the tests poll for it rather than sleep a fixed time.
+ */
+async function visibilityAfter(win: Window, el: Element, ms = 5000): Promise<string> {
+  const end = performance.now() + ms;
+  let v = win.getComputedStyle(el).visibility;
+  while (v !== 'visible' && performance.now() < end) {
+    await new Promise((r) => setTimeout(r, 100));
+    v = win.getComputedStyle(el).visibility;
+  }
+  return v;
+}
+
 describe('base.css before <site-page> is defined', function () {
-  this.timeout(6000);
+  this.timeout(10000);
 
   it('keeps the heading margin inside, stays invisible, and shows after two seconds', async () => {
     const iframe = await frame();
@@ -32,8 +47,10 @@ describe('base.css before <site-page> is defined', function () {
       // The heading's margin stays inside <site-page>: <body> starts at the very top.
       expect(doc.body.getBoundingClientRect().top).to.equal(0);
       expect(win.getComputedStyle(doc.getElementById('h')!).visibility).to.equal('hidden');
-      await new Promise((r) => setTimeout(r, 2300));
-      expect(win.getComputedStyle(doc.getElementById('h')!).visibility).to.equal('visible');
+      // Still hidden well before the two seconds are up, then shown.
+      await new Promise((r) => setTimeout(r, 1000));
+      expect(win.getComputedStyle(doc.getElementById('h')!).visibility).to.equal('hidden');
+      expect(await visibilityAfter(win, doc.getElementById('h')!)).to.equal('visible');
     } finally {
       iframe.remove();
     }
@@ -57,7 +74,7 @@ describe('base.css before <site-page> is defined', function () {
  * nothing below it moves), and shown after two seconds if the script never loads.
  */
 describe('base.css before <uvalib-chip-group> is defined', function () {
-  this.timeout(8000);
+  this.timeout(12000);
   const chips =
     '<button value="">All Years</button><button value="2004">2004</button><button value="2005">2005</button>';
   const rows = [
@@ -116,8 +133,9 @@ describe('base.css before <uvalib-chip-group> is defined', function () {
     try {
       const doc = iframe.contentDocument!;
       const win = iframe.contentWindow!;
-      await new Promise((r) => setTimeout(r, 2300));
-      expect(win.getComputedStyle(doc.querySelector('#links a')!).visibility).to.equal('visible');
+      await new Promise((r) => setTimeout(r, 1000));
+      expect(win.getComputedStyle(doc.querySelector('#links a')!).visibility).to.equal('hidden');
+      expect(await visibilityAfter(win, doc.querySelector('#links a')!)).to.equal('visible');
     } finally {
       iframe.remove();
     }
