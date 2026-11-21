@@ -480,6 +480,7 @@ describe('playground presets', function () {
             'Subjects',
             'Download',
             'Page images',
+            'Participants',
             'Rights',
             'How to cite',
           ]);
@@ -490,6 +491,50 @@ describe('playground presets', function () {
       } finally {
         iframe.remove();
       }
+    }
+  });
+
+  it('record-metadata: the long Participants list shows 8 and a Show all 34 button', async () => {
+    const p = presets.find((x) => x.id === 'record-metadata')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-page', 'uvalib-metadata']);
+      await new Promise((r) => setTimeout(r, 100));
+      const el = doc.querySelector('uvalib-metadata')! as HTMLElement & {
+        updateComplete: Promise<unknown>;
+      };
+      const dd = [...el.shadowRoot!.querySelectorAll('.row')]
+        .find((r) => r.querySelector('dt')!.textContent === 'Participants')!
+        .querySelector('dd')!;
+      const shown = () => [...dd.querySelectorAll('li')].filter((li) => !li.hidden).length;
+      expect(shown()).to.equal(8);
+      const b = dd.querySelector('button')!;
+      expect(b.textContent!.replace(/\s+/g, ' ').trim()).to.equal('Show all 34 participants');
+      b.click();
+      await el.updateComplete;
+      expect(shown()).to.equal(34);
+      expect(b.getAttribute('aria-expanded')).to.equal('true');
+      await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  });
+
+  it('chip-groups: the sort toggle has a description that describes its radio group', async () => {
+    const p = presets.find((x) => x.id === 'chip-groups')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    try {
+      await whenAllDefined(iframe.contentWindow!, ['site-page', 'uvalib-chip-group']);
+      const sort = iframe.contentDocument!.querySelector('uvalib-chip-group[label="Sort by"]')!;
+      const g = sort.shadowRoot!.querySelector('[role="radiogroup"]')!;
+      const id = g.getAttribute('aria-describedby')!;
+      expect(sort.shadowRoot!.getElementById(id)!.textContent).to.contain('Most photos');
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
     }
   });
 

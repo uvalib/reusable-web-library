@@ -348,6 +348,23 @@ describe('analytics catalogue', () => {
           else delete (navigator as { clipboard?: unknown }).clipboard;
         }
       });
+
+      it('show-all / show-fewer with the row’s place, never its label or values', async () => {
+        const el = await fixture<HTMLElement & { updateComplete: Promise<unknown> }>(
+          `<uvalib-metadata ${attr(mode)} list-limit="1"><dl><dt>Date</dt><dd>1836</dd><dt>Secret people</dt><dd><ul><li>Jane Roe</li><li>John Doe</li></ul></dd></dl></uvalib-metadata>`,
+        );
+        await quietRender(el);
+        const b = root(el).querySelector<HTMLButtonElement>('dl .more')!;
+        b.click();
+        await el.updateComplete;
+        b.click();
+        await el.updateComplete;
+        expect(events()).to.deep.equal([
+          ['uvalib-metadata', 'show-all', 'row 2'],
+          ['uvalib-metadata', 'show-fewer', 'row 2'],
+        ]);
+        expect(JSON.stringify(rec.events)).to.not.match(/Secret|Jane|John|people/);
+      });
     });
 
     describe(`uvalib-lightbox (${mode})`, () => {
