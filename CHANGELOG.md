@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.4.0 — 2026-11-21
+
+### Features
+
+- group markers whose targets would overlap; zoom or ring to part them
+- data-regions-list lends the page's own region list to the viewer (issue #22)
+
+### Fixes
+
+- group only markers that would overlap, not ones within 24px
+
+### Other
+
+- Merge branch 'integrate/addison-followups': lightbox page region lists (#22), map marker groups (#23)
+- Merge branch 'feat/map-colocated' into integrate/addison-followups
+- Merge branch 'feat/lightbox-regions-list' into integrate/addison-followups
+- no this-alias in lendList (issue #22)
+
 ## v1.3.0 — 2026-11-21
 
 ### Features
