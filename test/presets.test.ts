@@ -60,6 +60,7 @@ describe('playground presets', function () {
       'pagefind-search',
       'results-toolbar',
       'date-histogram',
+      'combobox',
       'todays-hours',
       'weekly-hours',
       'events',
@@ -128,6 +129,7 @@ describe('playground presets', function () {
         'pagefind-search',
         'results-toolbar',
         'date-histogram',
+        'combobox',
         'uvalib-filter-shadow',
         'uvalib-filter-light',
         'uvalib-date-range-shadow',
@@ -307,6 +309,42 @@ describe('playground presets', function () {
       } finally {
         iframe.remove();
       }
+    }
+  });
+
+  it('combobox: choosing a person and a subject fills the form, and the page passes axe', async () => {
+    const p = presets.find((x) => x.id === 'combobox')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    try {
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(iframe.contentWindow!, ['site-page', 'uvalib-combobox']);
+      await new Promise((r) => setTimeout(r, 100));
+      type Box = HTMLElement & { updateComplete: Promise<unknown>; shadowRoot: ShadowRoot };
+      const pick = async (id: string, text: string) => {
+        const el = doc.querySelector(id) as Box;
+        await el.updateComplete;
+        const input = el.shadowRoot.querySelector<HTMLInputElement>('[role="combobox"]')!;
+        input.focus();
+        input.value = text;
+        input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+        await el.updateComplete;
+        const options = [...el.shadowRoot.querySelectorAll<HTMLElement>('[role="option"]')];
+        expect(options.length, `${id} suggestions`).to.be.greaterThan(0);
+        options[0]!.click();
+        await el.updateComplete;
+        return el;
+      };
+      await pick('#person', 'nunez');
+      await pick('#subject', 'snow');
+      doc.querySelector<HTMLButtonElement>('#find button[type="submit"]')!.click();
+      expect(doc.querySelector('#sent')!.textContent).to.equal(
+        'The form would send person=person-261 and subject=snow.',
+      );
+      expect(countMain(doc)).to.equal(1);
+      await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
     }
   });
 
