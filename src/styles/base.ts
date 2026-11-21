@@ -159,6 +159,26 @@ export const base = css`
     line-height: 1.5;
     color: var(--uva-color-text-muted, #4b5563);
   }
+  /* Printing a <site-page> (issue #20; its own styles leave out the chrome): a dark scheme
+     prints light (the role tokens resolve to their light values), and the content's links
+     are black and underlined, so they are told apart without colour. Content is <main> in
+     light DOM and the unslotted children in shadow DOM. print-chrome keeps the page as it is
+     shown, apart from the light scheme. */
+  @media print {
+    :root[data-uva-color-scheme]:has(site-page) {
+      color-scheme: light;
+      --uva-color-scheme: light;
+    }
+    /* Light DOM's trail, here too, as the pre-upgrade rule above (unlayered) would win. */
+    site-page:not([print-chrome]) > [slot='breadcrumbs'] {
+      display: none;
+    }
+    site-page:not([print-chrome]) > :not([slot], site-header, site-footer, .alerts-list) :any-link,
+    site-page:not([print-chrome]) > :any-link:not([slot], .skip-link) {
+      color: #000;
+      text-decoration: underline;
+    }
+  }
   @keyframes uvalib-site-page-reveal {
     to {
       visibility: visible;
