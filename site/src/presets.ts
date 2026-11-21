@@ -686,6 +686,30 @@ site-footer footer {
     },
   },
   {
+    id: 'breadcrumbs-search',
+    group: 'Breadcrumbs',
+    title: 'Back to the search',
+    description:
+      'On a record reached from search results, data-return-from on the Search crumb names the search page\'s path (or several, separated by spaces). When the visitor came from that page on the same site with a query string, the crumb links back to that search (/?q=budget&date_start=2023) instead of a blank search; its text stays "Search". Opened in a new tab, or from anywhere else, it keeps its href. Only document.referrer is read: nothing is stored or sent, and hash routes cannot be returned to (referrers never carry the hash).',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Back to the search',
+          components: ['uvalib-breadcrumbs'],
+          body: `    <site-page>
+      <uvalib-breadcrumbs slot="breadcrumbs">
+        <a href="./" data-return-from="./">Search</a>
+        <a href="#2023">2023</a>
+        <span>Meeting minutes, June 2023</span>
+      </uvalib-breadcrumbs>
+      <h1>Meeting minutes, June 2023</h1>
+      <p>Reached from a search such as <code>/?q=budget</code> on this site, the Search crumb above links back to it. Here, opened directly, it links to the search page as written.</p>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'collection-cards',
     group: 'Cards',
     title: 'Collection cards',
@@ -1098,6 +1122,74 @@ article h2 {
 }
 article p {
   min-height: 20rem;
+}
+`,
+      },
+    },
+  },
+  {
+    id: 'contents-headings',
+    group: 'Contents',
+    title: 'Contents from headings',
+    description:
+      'For a long document, uvalib-contents headings-from="#report" builds the table of contents from the headings in that element: levels="2-3" (the default) lists the h2s with their h3s nested; min="3" shows nothing for a document with fewer than three top-level sections. A heading without an id gets one from its text (the-year-in-numbers, -2 for a repeat); existing ids (#gifts) are kept, so links to sections keep working. It follows headings added or retitled; call refresh() after other changes. Without JavaScript there is no list, so a site that can render the list at build time, as children, should.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Contents from headings',
+          styles: true,
+          components: ['uvalib-contents'],
+          body: `    <site-page>
+      <h1>Friends of the Library: annual report</h1>
+      <div class="reader">
+        <uvalib-contents sticky headings-from="#report" levels="2-3" min="3"></uvalib-contents>
+        <article id="report">
+          <h2>Letter from the chair</h2>
+          <p>This report is made up for the example. Scroll it: the contents stay in view on wide screens and mark the section in the address bar.</p>
+          <h2>The year in numbers</h2>
+          <p>Each h2 is a top-level entry; the h3s under it are nested beneath it.</p>
+          <h3>Visits and loans</h3>
+          <p>Visits and loans are a made-up h3, nested under the year in numbers.</p>
+          <h3>Digital collections</h3>
+          <p>Headings without an id get one from their text: this one is #digital-collections.</p>
+          <h2 id="gifts">Gifts and acquisitions</h2>
+          <p>This heading had its own id, #gifts, and keeps it.</p>
+          <h3>Manuscripts</h3>
+          <p>Select an entry in the contents: its link becomes the current location.</p>
+          <h3>Rare books</h3>
+          <p>Rare books, another nested entry.</p>
+          <h3>Photographs</h3>
+          <p>Photographs, the last entry in this group.</p>
+          <h2>Events</h2>
+          <p>Events, a top-level section.</p>
+          <h3>Lectures</h3>
+          <p>Lectures, nested under events.</p>
+          <h3>Exhibitions</h3>
+          <p>Exhibitions, nested under events.</p>
+          <h2>Volunteers</h2>
+          <p>Volunteers, a section with no sub-sections.</p>
+          <h2>Looking ahead</h2>
+          <p>Narrow the preview below 64rem: the contents collapse into a Contents button, closed until opened.</p>
+          <h2>Appendix: Financial summary</h2>
+          <p>Links to sections are stable: the ids come from the headings' text.</p>
+        </article>
+      </div>
+    </site-page>`,
+        }),
+      },
+      'styles.css': {
+        content: `/* The reader's layout is your own CSS: a sidebar on wide screens, stacked below 64rem. */
+.reader {
+  display: grid;
+  gap: 2rem;
+}
+@media (width > 64rem) {
+  .reader {
+    grid-template-columns: 18rem minmax(0, 1fr);
+  }
+}
+article p {
+  min-height: 12rem;
 }
 `,
       },
