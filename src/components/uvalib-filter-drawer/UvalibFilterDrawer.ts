@@ -549,9 +549,10 @@ export class UvalibFilterDrawer extends UvalibElement {
             ? html`<span class="fd-vh">, </span><span class="fd-count" part="count">${count}</span
                 ><span class="fd-vh"> active</span>`
             : nothing
-        }</button
-      ><div class="fd-sidebar" part="sidebar"></div
-      ><dialog
+        }
+      </button>
+      <div class="fd-sidebar" part="sidebar"></div>
+      <dialog
         id=${dialogId}
         class="fd-dialog"
         part="dialog"
@@ -567,7 +568,13 @@ export class UvalibFilterDrawer extends UvalibElement {
               Close
             </button>
           </div>
-          <div class="fd-mirror" role="status" aria-live="polite" aria-atomic="true" style=${HIDDEN_STYLE}></div>
+          <div
+            class="fd-mirror"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            style=${HIDDEN_STYLE}
+          ></div>
         </div>
       </dialog>`;
   }

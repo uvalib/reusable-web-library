@@ -100,7 +100,8 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       await scrollDown(el);
       const calls: unknown[] = [];
       const orig = window.scrollTo;
-      window.scrollTo = ((opts: ScrollToOptions) => void calls.push(opts)) as typeof window.scrollTo;
+      window.scrollTo = ((opts: ScrollToOptions) =>
+        void calls.push(opts)) as typeof window.scrollTo;
       try {
         button(el).click();
         await emulateMedia({ reducedMotion: 'no-preference' });

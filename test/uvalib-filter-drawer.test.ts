@@ -221,9 +221,9 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       expect(wrap.querySelector('uvalib-filter') === filter).to.equal(true);
       expect(input.value).to.equal('tuition');
       expect(filter.value).to.deep.equal(['Minutes']);
-      expect(root(filter).querySelector<HTMLInputElement>('input[type=checkbox]')!.checked).to.equal(
-        true,
-      );
+      expect(
+        root(filter).querySelector<HTMLInputElement>('input[type=checkbox]')!.checked,
+      ).to.equal(true);
       expect(visible(input)).to.equal(true);
       (form as HTMLFormElement).requestSubmit();
       expect(submits).to.equal(1);

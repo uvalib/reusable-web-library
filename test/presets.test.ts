@@ -387,7 +387,9 @@ describe('playground presets', function () {
         await drawer.updateComplete;
         const count = doc.querySelector('uvalib-results-count') as Lit;
         await count.updateComplete;
-        expect(count.shadowRoot.querySelector('.text')!.textContent).to.equal('Showing all 61 meetings');
+        expect(count.shadowRoot.querySelector('.text')!.textContent).to.equal(
+          'Showing all 61 meetings',
+        );
         if (width < 768) expect(toggle.textContent).to.include('1');
         expect(countMain(doc)).to.equal(1);
         await expectNoPageAxeViolations(doc);

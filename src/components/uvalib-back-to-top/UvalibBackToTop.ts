@@ -7,7 +7,8 @@ const TAG = 'uvalib-back-to-top';
 const DEFAULT_LABEL = 'Back to top';
 const DEFAULT_OFFSET = 400;
 /** Natively focusable: no tabindex needed to take focus. */
-const FOCUSABLE = 'a[href], button, input, select, textarea, summary, [tabindex], [contenteditable]';
+const FOCUSABLE =
+  'a[href], button, input, select, textarea, summary, [tabindex], [contenteditable]';
 
 const squash = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').trim();
 
