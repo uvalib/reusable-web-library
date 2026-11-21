@@ -207,10 +207,11 @@ export class UvalibImageRegions extends UvalibElement {
    * example a IIIF derivative of a larger original: the original's width and height).
    */
   @property({ type: Number, attribute: 'image-width' }) imageWidth?: number;
+  /** The height pixel regions are measured in (with `image-width`). */
   @property({ type: Number, attribute: 'image-height' }) imageHeight?: number;
 
   /** The list's heading, and the analytics name. */
-  @property({ type: String }) label = DEFAULT_LABEL;
+  @property({ type: String }) label = 'Regions';
 
   /** The heading's level (2 to 6). Default: one below the heading before the element. */
   @property({ type: Number, attribute: 'heading-level' }) headingLevel?: number;
