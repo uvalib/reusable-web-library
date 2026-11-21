@@ -99,7 +99,7 @@ function returnHref(
  * several, separated by spaces), as in `<a href="/" data-return-from="/">Search</a>`. When the
  * visitor came from that page on this site with a query string (`document.referrer`; a
  * trailing slash or `index.html` does not matter), the step links back to that search
- * (path, query and hash) instead; its text stays the same. Otherwise, as when the result
+ * (path and query) instead; its text stays the same. Otherwise, as when the result
  * was opened in a new tab or the site sends no referrer, it keeps its href. Nothing is
  * stored or sent. In `items`, the same is `returnFrom`.
  *
