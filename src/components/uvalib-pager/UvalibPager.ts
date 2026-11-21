@@ -11,6 +11,15 @@ const SAFE_SCHEMES = new Set(['http:', 'https:', 'mailto:', 'tel:']);
 const DEFAULT_TEMPLATE = '?page={page}';
 
 /**
+ * `has-more` is a boolean attribute that can also say no: present is true, and removing it
+ * or `has-more="false"` (what many templates print for a false value) is false.
+ */
+const hasMoreConverter = {
+  fromAttribute: (value: string | null): boolean =>
+    value !== null && value.trim().toLowerCase() !== 'false',
+};
+
+/**
  * Kept with `no-style`: the previous/next row, the truncation of a long section title (the
  * full text stays in the accessible name), the page list, the “Page ” prefix hidden
  * visually, and a target at least 24px. `host` is `:host` or the tag.
@@ -129,9 +138,13 @@ type WindowItem = number | 'gap';
  * attributes are also set, with one console warning.
  *
  * Load more: `mode="load-more"` shows a “Load more” button and “Showing N of M” (`shown`
- * of `total`). It wins over numbered pages and previous/next, with one warning when those
+ * of `total`), or “Showing N” when `total` is unset or 0 (ranked search often cannot know
+ * it). It wins over numbered pages and previous/next, with one warning when those
  * are also set. The button is not a link and the control is a group, not a navigation
- * landmark. The button hides once `shown` has reached a positive `total`. `page` is the
+ * landmark. Once `has-more` has been set (the attribute, or the `hasMore` property), it
+ * alone decides whether the button shows: present (or `hasMore = true`) shows it; removed,
+ * `has-more="false"` or `hasMore = false` hides it. Left unset, the button hides once
+ * `shown` has reached a positive `total`, and stays with no total. `page` is the
  * last loaded page (default 1). A click fires `load-more` with `{ page }` set to the next
  * page and reports `['uvalib-pager', 'load-more', '', page]`. Nothing is reported on
  * render. Call `loaded(firstNewElement)`, or set `for` to a list id and call `loaded()`,
@@ -246,8 +259,16 @@ export class UvalibPager extends UvalibElement {
   /** How many results are already shown. Used by `mode="load-more"` as N in “Showing N of M”. */
   @property({ type: Number }) shown?: number;
 
-  /** How many results there are. Used by `mode="load-more"` as M in “Showing N of M”. */
+  /** How many results there are. Used by `mode="load-more"` as M in “Showing N of M”. Unset or 0 (an unknown total), the count reads “Showing N”. */
   @property({ type: Number }) total?: number;
+
+  /**
+   * Whether `mode="load-more"` has more to load, for when `total` is not known. Unset
+   * (the default), the button follows `total`. Set, it decides: the attribute present
+   * means true; removing it, `has-more="false"` or `hasMore = false` means false.
+   * `hasMore = undefined` returns to following `total`.
+   */
+  @property({ attribute: 'has-more', converter: hasMoreConverter }) hasMore?: boolean;
 
   /**
    * Id of the list Load more appends to. `loaded()` focuses the first child added after
@@ -284,6 +305,8 @@ export class UvalibPager extends UvalibElement {
   private warnedLoad = false;
   /** Child count of the `for` list at the last Load more click, or -1 when there was no list. */
   private pendingCount = -1;
+  /** Load more had focus just before this update. */
+  private buttonHadFocus = false;
 
   protected override createRenderRoot(): HTMLElement | DocumentFragment {
     const root = super.createRenderRoot();
@@ -360,6 +383,7 @@ export class UvalibPager extends UvalibElement {
   }
 
   protected override willUpdate(): void {
+    this.buttonHadFocus = !!this.renderRoot?.querySelector?.('.more button')?.matches(':focus');
     if (this.loadMore) {
       if ((this.numbered || this.hasPrevNext()) && !this.warnedLoad) {
         this.warnedLoad = true;
@@ -383,6 +407,25 @@ export class UvalibPager extends UvalibElement {
       this.warnedTemplate = true;
       console.warn(`${this.localName}: href-template must contain {page}.`);
     }
+  }
+
+  /**
+   * When Load more goes away while it has focus (the last page came in and `loaded()` was
+   * not called first), focus would fall to the page. Move it to the first new item of the
+   * `for` list, or else to the count.
+   */
+  protected override updated(): void {
+    if (!this.buttonHadFocus) return;
+    this.buttonHadFocus = false;
+    if (this.renderRoot.querySelector('.more button')) return;
+    if (this.firstNew()) {
+      this.loaded();
+      return;
+    }
+    const status = this.renderRoot.querySelector<HTMLElement>('.more .status');
+    if (!status) return;
+    status.tabIndex = -1;
+    status.focus();
   }
 
   private template(): string {
@@ -629,9 +672,9 @@ export class UvalibPager extends UvalibElement {
   private renderLoadMore() {
     const shown = this.count(this.shown);
     const total = this.count(this.total);
-    const done = total > 0 && shown >= total;
+    const done = typeof this.hasMore === 'boolean' ? !this.hasMore : total > 0 && shown >= total;
     return html`<div class="more" role="group" aria-label=${this.navLabel}>
-      <div class="status" role="status">Showing ${shown} of ${total}</div>
+      <div class="status" role="status">Showing ${shown}${total > 0 ? ` of ${total}` : ''}</div>
       ${
         done
           ? nothing

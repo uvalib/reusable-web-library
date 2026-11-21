@@ -920,6 +920,51 @@ site-footer footer {
     },
   },
   {
+    id: 'load-more-unknown-total',
+    group: 'Cards',
+    title: 'Load more, unknown total',
+    description:
+      'Ranked search often cannot know the total. With no total the count reads “Showing N”. has-more keeps the button; after the last page the app sets hasMore = false and calls loaded(), so the button goes away and focus stays on the first new result.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Load more, unknown total',
+          components: ['uvalib-pager'],
+          body: `    <site-page>
+      <h1>Best matches</h1>
+      <ul id="matches">
+        <li><a href="#match-1">Match 1</a></li>
+        <li><a href="#match-2">Match 2</a></li>
+      </ul>
+      <uvalib-pager mode="load-more" for="matches" shown="2" has-more label="Matches"></uvalib-pager>
+    </site-page>
+    <script type="module">
+      const pager = document.querySelector('uvalib-pager');
+      const list = document.getElementById('matches');
+      pager.addEventListener('load-more', (e) => {
+        let first;
+        for (let i = 0; i < 2; i++) {
+          const n = list.children.length + 1;
+          const a = document.createElement('a');
+          a.href = '#match-' + n;
+          a.textContent = 'Match ' + n;
+          const li = document.createElement('li');
+          li.append(a);
+          list.append(li);
+          first ??= a;
+        }
+        pager.shown = list.children.length;
+        pager.page = e.detail.page;
+        // This demo's candidate pool runs out after three pages.
+        pager.hasMore = e.detail.page < 3;
+        pager.loaded(first);
+      });
+    </script>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'contents-sidebar',
     group: 'Contents',
     title: 'Contents sidebar',
