@@ -26,23 +26,29 @@ let nextId = 0;
 const NOT_LABEL = 'button, input, select, textarea, ol, ul, [hidden], [aria-hidden="true"]';
 
 /**
- * Kept with `no-style`: the layout (the list beside the image from 40rem, under it below),
- * the image scaling inside its column, the overlay over it, and the double outlines and
- * number badges (without them the regions are not visible). `host` is `:host` (shadow) or
- * the tag (light DOM).
+ * Kept with `no-style`: the layout (the image at its own width, at most the element's, and
+ * the list beside it when at least 14rem is left, else under it: the same wrapping flex row
+ * base.css gives the children before the element upgrades, so nothing moves), the overlay
+ * over the image, and the double outlines and number badges (without them the regions are
+ * not visible). `host` is `:host` (shadow) or the tag (light DOM).
  */
 const structuralRules = (host: string) => `
-  ${host} { display: block; container-type: inline-size; }
+  ${host} { display: block; }
   ${host} .layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
+    display: flex;
+    flex-wrap: wrap;
     gap: 1rem;
-    align-items: start;
+    align-items: flex-start;
   }
-  @container (min-width: 40rem) {
-    ${host} .layout { grid-template-columns: minmax(0, 2fr) minmax(12rem, 1fr); }
+  ${host} .media {
+    position: relative;
+    flex: 0 1 auto;
+    width: fit-content;
+    min-width: 0;
+    max-width: 100%;
+    margin: 0;
   }
-  ${host} .media { position: relative; width: fit-content; max-width: 100%; margin: 0; }
+  ${host} .list { flex: 1 1 14rem; min-width: 0; }
   ${host} .media img, ${host} .img-host > picture${
     host === ':host' ? ', ::slotted(img), ::slotted(picture)' : ''
   } { display: block; max-width: 100%; height: auto; }

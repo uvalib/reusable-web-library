@@ -107,6 +107,25 @@ export const base = css`
     font: inherit;
     line-height: 1.2;
   }
+  /* Image regions: the image at its own width and the list beside it (or under it), the
+     layout the element keeps once it upgrades, so the image does not move. */
+  uvalib-image-regions:not(:defined) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  uvalib-image-regions:not(:defined) > :is(img, picture) {
+    display: block;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    height: auto;
+  }
+  uvalib-image-regions:not(:defined) > :is(ol, ul) {
+    flex: 1 1 14rem;
+    min-width: 0;
+  }
   @keyframes uvalib-site-page-reveal {
     to {
       visibility: visible;
