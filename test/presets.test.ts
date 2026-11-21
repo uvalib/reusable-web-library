@@ -41,6 +41,7 @@ describe('playground presets', function () {
       'alerts',
       'breadcrumbs',
       'breadcrumbs-standalone',
+      'breadcrumbs-search',
       'collection-cards',
       'photo-card',
       'section-pager',
@@ -52,6 +53,7 @@ describe('playground presets', function () {
       'load-more',
       'load-more-unknown-total',
       'contents-sidebar',
+      'contents-headings',
       'record-metadata',
       'photo-grid',
       'photo-grid-badges',
@@ -112,7 +114,7 @@ describe('playground presets', function () {
         'header-vendor-light',
       ],
       Alerts: ['alerts'],
-      Breadcrumbs: ['breadcrumbs', 'breadcrumbs-standalone'],
+      Breadcrumbs: ['breadcrumbs', 'breadcrumbs-standalone', 'breadcrumbs-search'],
       Cards: [
         'collection-cards',
         'photo-card',
@@ -125,7 +127,7 @@ describe('playground presets', function () {
         'load-more-unknown-total',
       ],
       Chips: ['chip-groups'],
-      Contents: ['contents-sidebar'],
+      Contents: ['contents-sidebar', 'contents-headings'],
       Metadata: ['record-metadata'],
       Images: ['photo-grid', 'photo-grid-badges', 'page-images', 'image-regions'],
       Maps: ['places-map'],
@@ -483,6 +485,47 @@ describe('playground presets', function () {
             'Rights',
             'How to cite',
           ]);
+        }
+        expect(countMain(doc)).to.equal(1);
+        await expectNoPageAxeViolations(doc);
+        expect(errors).to.deep.equal([]);
+      } finally {
+        iframe.remove();
+      }
+    }
+  });
+
+  it('contents-headings builds the contents from the report headings; breadcrumbs-search renders', async function () {
+    this.timeout(10000);
+    for (const id of ['contents-headings', 'breadcrumbs-search']) {
+      const p = presets.find((x) => x.id === id)!;
+      const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+      iframe.style.width = '1200px';
+      iframe.style.height = '800px';
+      try {
+        const win = iframe.contentWindow!;
+        const doc = iframe.contentDocument!;
+        const tag = id === 'contents-headings' ? 'uvalib-contents' : 'uvalib-breadcrumbs';
+        await whenAllDefined(win, ['site-page', tag]);
+        await new Promise((r) => setTimeout(r, 100));
+        const el = doc.querySelector(tag)! as HTMLElement & { updateComplete: Promise<unknown> };
+        if (id === 'contents-headings') {
+          const top = [...el.shadowRoot!.querySelectorAll('.panel > ol > li > a')];
+          expect(top.map((a) => a.getAttribute('href'))).to.deep.equal([
+            '#letter-from-the-chair',
+            '#the-year-in-numbers',
+            '#gifts',
+            '#events',
+            '#volunteers',
+            '#looking-ahead',
+            '#appendix-financial-summary',
+          ]);
+          expect(el.shadowRoot!.querySelectorAll('.panel li li > a').length).to.equal(7);
+          expect(doc.getElementById('digital-collections')!.localName).to.equal('h3');
+        } else {
+          const first = el.shadowRoot!.querySelector('li > a')!;
+          expect(first.textContent).to.equal('Search');
+          expect(first.getAttribute('href')).to.equal('./');
         }
         expect(countMain(doc)).to.equal(1);
         await expectNoPageAxeViolations(doc);
