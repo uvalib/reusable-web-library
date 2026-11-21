@@ -24,6 +24,8 @@ import '../src/components/uvalib-tabs/uvalib-tabs.js';
 import '../src/components/uvalib-combobox/uvalib-combobox.js';
 import '../src/components/uvalib-image-regions/uvalib-image-regions.js';
 import '../src/components/uvalib-map/uvalib-map.js';
+import '../src/components/uvalib-filter-drawer/uvalib-filter-drawer.js';
+import '../src/components/uvalib-back-to-top/uvalib-back-to-top.js';
 import * as Leaflet from 'leaflet/dist/leaflet-src.esm.js';
 import '../src/components/bento-box/bento-box.js';
 import type { SiteHeader } from '../src/components/site-header/SiteHeader.js';
@@ -42,6 +44,8 @@ import type { BentoSection } from '../src/components/bento-box/BentoSection.js';
 import type { UvalibCombobox } from '../src/components/uvalib-combobox/UvalibCombobox.js';
 import type { UvalibImageRegions } from '../src/components/uvalib-image-regions/UvalibImageRegions.js';
 import type { UvalibMap } from '../src/components/uvalib-map/UvalibMap.js';
+import type { UvalibFilterDrawer } from '../src/components/uvalib-filter-drawer/UvalibFilterDrawer.js';
+import type { UvalibBackToTop } from '../src/components/uvalib-back-to-top/UvalibBackToTop.js';
 import { recordAnalytics } from './helpers/analytics.js';
 import { resetEvents, useEventsHost } from './helpers/events.js';
 import { resetHours, setClock, settled, useHoursHost } from './helpers/hours.js';
@@ -348,6 +352,23 @@ describe('analytics catalogue', () => {
           else delete (navigator as { clipboard?: unknown }).clipboard;
         }
       });
+
+      it('show-all / show-fewer with the row’s place, never its label or values', async () => {
+        const el = await fixture<HTMLElement & { updateComplete: Promise<unknown> }>(
+          `<uvalib-metadata ${attr(mode)} list-limit="1"><dl><dt>Date</dt><dd>1836</dd><dt>Secret people</dt><dd><ul><li>Jane Roe</li><li>John Doe</li></ul></dd></dl></uvalib-metadata>`,
+        );
+        await quietRender(el);
+        const b = root(el).querySelector<HTMLButtonElement>('dl .more')!;
+        b.click();
+        await el.updateComplete;
+        b.click();
+        await el.updateComplete;
+        expect(events()).to.deep.equal([
+          ['uvalib-metadata', 'show-all', 'row 2'],
+          ['uvalib-metadata', 'show-fewer', 'row 2'],
+        ]);
+        expect(JSON.stringify(rec.events)).to.not.match(/Secret|Jane|John|people/);
+      });
     });
 
     describe(`uvalib-lightbox (${mode})`, () => {
@@ -589,6 +610,39 @@ describe('analytics catalogue', () => {
         const sent = JSON.stringify(rec.events);
         for (const text of ['Rotunda', 'Stadium', '38.0', '/rotunda'])
           expect(sent).to.not.include(text);
+      });
+    });
+
+    describe(`uvalib-filter-drawer (${mode})`, () => {
+      afterEach(() => setViewport({ width: 800, height: 600 }));
+
+      it('open and close by the visitor, with the drawer label; never what is typed', async () => {
+        await setViewport({ width: 390, height: 700 });
+        const el = await fixture<UvalibFilterDrawer>(
+          `<uvalib-filter-drawer ${attr(mode)} label="Search and filters"><input aria-label="Search" value="Ada Marsh" /></uvalib-filter-drawer>`,
+        );
+        await quietRender(el);
+        root(el).querySelector<HTMLButtonElement>('button.fd-toggle')!.click();
+        await el.updateComplete;
+        root(el).querySelector<HTMLButtonElement>('button.fd-close')!.click();
+        expect(events()).to.deep.equal([
+          ['uvalib-filter-drawer', 'open', 'Search and filters'],
+          ['uvalib-filter-drawer', 'close', 'Search and filters'],
+        ]);
+        expect(JSON.stringify(rec.events)).to.not.include('Ada');
+      });
+    });
+
+    describe(`uvalib-back-to-top (${mode})`, () => {
+      it('a click reports the fixed verb only', async () => {
+        const wrap = await fixture<HTMLDivElement>(
+          `<div><h1>Minutes</h1><uvalib-back-to-top ${attr(mode)}></uvalib-back-to-top></div>`,
+        );
+        const el = wrap.querySelector<UvalibBackToTop>('uvalib-back-to-top')!;
+        await quietRender(el);
+        root(el).querySelector<HTMLButtonElement>('button.btt-button')!.click();
+        expect(events()).to.deep.equal([['uvalib-back-to-top', 'click']]);
+        (document.activeElement as HTMLElement | null)?.blur();
       });
     });
 

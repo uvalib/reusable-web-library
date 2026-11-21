@@ -1,5 +1,5 @@
 import { expect, fixture, nextFrame } from '@open-wc/testing';
-import { sendKeys, setViewport } from '@web/test-runner-commands';
+import { emulateMedia, sendKeys, setViewport } from '@web/test-runner-commands';
 import '../src/components/uvalib-metadata/uvalib-metadata.js';
 import type { UvalibMetadata } from '../src/components/uvalib-metadata/UvalibMetadata.js';
 import { rightsName } from '../src/components/uvalib-metadata/rights.js';
@@ -62,6 +62,20 @@ const RECORD = `<dl>
 </dl>`;
 
 const IN_C = 'http://rightsstatements.org/vocab/InC/1.0/';
+
+const NAMES = Array.from({ length: 34 }, (_, i) => `Person ${i + 1}`);
+/** A Participants row of 34 names (plain text) and a Links row of 5 links. */
+const LONG = (ddAttrs = '', ulAttrs = '') => `<dl>
+  <div><dt>Date</dt><dd>1902</dd></div>
+  <div><dt>Participants</dt><dd ${ddAttrs}><ul ${ulAttrs}>${NAMES.map((n) => `<li>${n}</li>`).join('')}</ul></dd></div>
+  <div><dt>Links</dt><dd><ul>${[1, 2, 3, 4, 5].map((i) => `<li><a href="#l${i}">Link ${i}</a></li>`).join('')}</ul></dd></div>
+</dl>`;
+/** The visible items of a value's list. */
+const visible = (d: Element) =>
+  [...d.querySelectorAll<HTMLElement>(':scope > :is(ul, ol) > li')].filter(
+    (li) => li.getClientRects().length > 0,
+  );
+const more = (d: Element) => d.querySelector<HTMLButtonElement>(':scope > .more');
 
 for (const mode of ['shadow', 'no-shadow-dom'] as const) {
   describe(`uvalib-metadata (${mode})`, () => {
@@ -369,6 +383,198 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       const d = row(el, 'Date');
       expect(d.querySelector('dt')!.hasAttribute('lang')).to.equal(false);
       expect(d.querySelector('dd')!.hasAttribute('dir')).to.equal(false);
+    });
+
+    it('list-limit: the first N, a Show all N button, focus to the first revealed value, Show fewer', async () => {
+      const rec = recordAnalytics();
+      try {
+        const el = await make(LONG(), 'list-limit="8"');
+        const dd = row(el, 'Participants').querySelector('dd')!;
+        expect(visible(dd)).to.have.length(8);
+        const all = [...dd.querySelectorAll('li')];
+        expect(all).to.have.length(34);
+        // Hidden values are hidden (not read), yet still in the markup.
+        expect(all.slice(8).every((li) => li.hidden)).to.equal(true);
+        const b = more(dd)!;
+        expect(b.localName).to.equal('button');
+        expect(b.type).to.equal('button');
+        expect(text(b)).to.equal('Show all 34 participants');
+        expect(b.getAttribute('aria-expanded')).to.equal('false');
+        const list = dd.querySelector('ul')!;
+        expect(b.getAttribute('aria-controls')).to.equal(list.id);
+        expect(
+          (list.getRootNode() as Document | ShadowRoot).getElementById(list.id) === list,
+        ).to.equal(true);
+        // 5 links fit no limit of 8.
+        expect(more(row(el, 'Links').querySelector('dd')!)).to.equal(null);
+        expect(rec.events, 'reported on render').to.deep.equal([]);
+
+        b.focus();
+        await sendKeys({ press: 'Enter' });
+        await settle(el);
+        expect(visible(dd)).to.have.length(34);
+        expect(b.getAttribute('aria-expanded')).to.equal('true');
+        expect(text(b)).to.equal('Show fewer participants');
+        expect(b.querySelector('.visually-hidden')!.textContent!.trim()).to.equal('participants');
+        const active = (el.shadowRoot ?? document).activeElement as HTMLElement;
+        expect(active === all[8]).to.equal(true);
+        expect(active.getAttribute('tabindex')).to.equal('-1');
+        expect(active.matches(':focus-visible')).to.equal(true);
+
+        b.click();
+        await settle(el);
+        expect(visible(dd)).to.have.length(8);
+        expect(((el.shadowRoot ?? document).activeElement as HTMLElement) === b).to.equal(true);
+        expect(text(b)).to.equal('Show all 34 participants');
+
+        expect(rec.of('uvalib-analytics-event').map((d) => d.event)).to.deep.equal([
+          ['uvalib-metadata', 'show-all', 'row 2'],
+          ['uvalib-metadata', 'show-fewer', 'row 2'],
+        ]);
+        expect(JSON.stringify(rec.events)).to.not.include('articipant');
+        expect(JSON.stringify(rec.events)).to.not.include('Person');
+      } finally {
+        rec.restore();
+      }
+    });
+
+    it('list-limit: focus goes to the first revealed link', async () => {
+      const el = await make(LONG(), 'list-limit="3"');
+      const dd = row(el, 'Links').querySelector('dd')!;
+      expect(text(more(dd)!)).to.equal('Show all 5 links');
+      more(dd)!.click();
+      await settle(el);
+      const active = (el.shadowRoot ?? document).activeElement as HTMLElement;
+      expect(active.localName).to.equal('a');
+      expect(active.textContent).to.equal('Link 4');
+      expect(active.closest('li')!.hasAttribute('tabindex')).to.equal(false);
+    });
+
+    it('data-limit on the <dd> or its list wins; data-limit="0" is no limit; data-limit-label names it', async () => {
+      let el = await make(LONG('data-limit="10" data-limit-label="people"'), 'list-limit="3"');
+      let dd = row(el, 'Participants').querySelector('dd')!;
+      expect(visible(dd)).to.have.length(10);
+      expect(text(more(dd)!)).to.equal('Show all 34 people');
+      // The other row still follows list-limit.
+      expect(visible(row(el, 'Links').querySelector('dd')!)).to.have.length(3);
+      // The author's attributes are not copied into the rendered list.
+      expect(dd.querySelector('ul')!.hasAttribute('data-limit-label')).to.equal(false);
+      el.remove();
+      el = await make(LONG('', 'data-limit="5"'));
+      dd = row(el, 'Participants').querySelector('dd')!;
+      expect(visible(dd)).to.have.length(5);
+      expect(more(row(el, 'Links').querySelector('dd')!)).to.equal(null);
+      el.remove();
+      el = await make(LONG('data-limit="0"'), 'list-limit="3"');
+      dd = row(el, 'Participants').querySelector('dd')!;
+      expect(visible(dd)).to.have.length(34);
+      expect(more(dd)).to.equal(null);
+    });
+
+    it('no limit without list-limit, with 0 or junk; changing it shows the hidden values again', async () => {
+      for (const a of ['', 'list-limit="0"', 'list-limit="x"']) {
+        const el = await make(LONG(), a);
+        expect(visible(row(el, 'Participants').querySelector('dd')!), a).to.have.length(34);
+        el.remove();
+      }
+      const el = await make(LONG(), 'list-limit="8"');
+      el.listLimit = 0;
+      await settle(el);
+      const dd = row(el, 'Participants').querySelector('dd')!;
+      expect(visible(dd)).to.have.length(34);
+      expect(more(dd)).to.equal(null);
+      el.listLimit = 30;
+      await settle(el);
+      expect(visible(dd)).to.have.length(30);
+    });
+
+    it('keeps an acronym in the noun, and the label as written otherwise lowercased once', async () => {
+      const el = await make(
+        `<dl><dt>ORCID iDs</dt><dd><ul><li>a</li><li>b</li><li>c</li></ul></dd><dt>Related UVA records</dt><dd><ol><li>a</li><li>b</li><li>c</li></ol></dd></dl>`,
+        'list-limit="2"',
+      );
+      expect(text(more(row(el, 'ORCID iDs').querySelector('dd')!)!)).to.equal(
+        'Show all 3 ORCID iDs',
+      );
+      expect(text(more(row(el, 'Related UVA records').querySelector('dd')!)!)).to.equal(
+        'Show all 3 related UVA records',
+      );
+    });
+
+    it('list-limit applies to items lists too, with limit and limitLabel', async () => {
+      const el = await make('', 'list-limit="2"');
+      el.items = [
+        { label: 'Subjects', value: ['a', 'b', 'c', 'd'] },
+        { label: 'Names', value: ['a', 'b', 'c', 'd'], limit: 3, limitLabel: 'people' },
+        { label: 'Tags', value: ['a', 'b', 'c'], limit: 0 },
+      ];
+      await settle(el);
+      const s = row(el, 'Subjects').querySelector('dd')!;
+      expect(visible(s)).to.have.length(2);
+      expect(text(more(s)!)).to.equal('Show all 4 subjects');
+      const n = row(el, 'Names').querySelector('dd')!;
+      expect(visible(n)).to.have.length(3);
+      expect(text(more(n)!)).to.equal('Show all 4 people');
+      expect(more(row(el, 'Tags').querySelector('dd')!)).to.equal(null);
+      more(s)!.click();
+      await settle(el);
+      expect(visible(s)).to.have.length(4);
+    });
+
+    it('list-limit: a 2rem toggle (24px with no-style), forced colors, axe light and dark, 320px', async () => {
+      let el = await make(LONG(), 'list-limit="8"');
+      let b = more(row(el, 'Participants').querySelector('dd')!)!;
+      expect(b.getBoundingClientRect().height).to.be.at.least(32);
+      expect(b.getBoundingClientRect().width).to.be.at.least(32);
+      expect(getComputedStyle(b).textDecorationLine).to.equal('underline');
+      expect(getComputedStyle(b).transitionDuration).to.equal('0s');
+      await expectNoAxeViolations(el);
+      b.click();
+      await settle(el);
+      await expectNoAxeViolations(el);
+      el.remove();
+      await inDarkMode(async () => {
+        const d = await make(LONG(), 'list-limit="8"');
+        await expectNoAxeViolations(d);
+        d.remove();
+      });
+      await emulateMedia({ forcedColors: 'active' });
+      try {
+        el = await make(LONG(), 'list-limit="8"');
+        b = more(row(el, 'Participants').querySelector('dd')!)!;
+        expect(getComputedStyle(b).color).to.not.equal('rgba(0, 0, 0, 0)');
+        expect(b.getBoundingClientRect().height).to.be.at.least(32);
+        el.remove();
+      } finally {
+        await emulateMedia({ forcedColors: 'none' });
+      }
+      el = await make(LONG(), 'list-limit="8" no-style');
+      b = more(row(el, 'Participants').querySelector('dd')!)!;
+      expect(b.getBoundingClientRect().height).to.be.at.least(24);
+      expect(visible(row(el, 'Participants').querySelector('dd')!)).to.have.length(8);
+      el.remove();
+      await setViewport({ width: 320, height: 640 });
+      try {
+        await make(
+          LONG('data-limit-label="participants-with-a-very-long-unbroken-noun"'),
+          'list-limit="8"',
+        );
+        expect(document.documentElement.scrollWidth).to.be.at.most(320);
+      } finally {
+        await setViewport({ width: 800, height: 600 });
+      }
+    });
+
+    it('list-limit: a new source starts collapsed again', async () => {
+      const el = await make(LONG(), 'list-limit="8"');
+      more(row(el, 'Participants').querySelector('dd')!)!.click();
+      await settle(el);
+      const source = [...el.querySelectorAll('dd')].find(
+        (d) => !dl(el).contains(d) && d.textContent === '1902',
+      )!;
+      source.textContent = '1903';
+      await settle(el);
+      expect(visible(row(el, 'Participants').querySelector('dd')!)).to.have.length(8);
     });
 
     it('keeps only the structural rules with no-style', async () => {

@@ -220,6 +220,59 @@ const SHOOTS = [
   shoot('1049095', 'Students on the Lawn', 9, 'Student life', '1910'),
 ].join('\n');
 /** Placeholders the size of a shoot: a 3:2 image and two lines. */
+/**
+ * The results-list example's rows: made-up committee reports, twelve a year for ten years,
+ * newest first, grouped by year (a heading and a list each), as plain base.css rows.
+ */
+const REPORT_TOPICS = [
+  'opening hours',
+  'the map collection',
+  'digitization',
+  'group study rooms',
+  'rare books',
+  'accessible entrances',
+  'the reading room lights',
+  'interlibrary loan',
+];
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+const REPORT_YEARS = Array.from({ length: 10 }, (_, i) => 2024 - i)
+  .map((year) => {
+    const rows = Array.from({ length: 12 }, (_, i) => {
+      const month = 11 - i;
+      const n = (year - 2015) * 12 + month + 1;
+      const date = `${MONTHS[month]} ${(n % 27) + 1}, ${year}`;
+      const a = REPORT_TOPICS[n % REPORT_TOPICS.length];
+      const b = REPORT_TOPICS[(n * 3 + 1) % REPORT_TOPICS.length];
+      const title = `Reading Room Committee, meeting ${n}`;
+      return `          <li class="uvalib-result">
+            <p class="uvalib-result__meta"><span class="uvalib-badge uvalib-badge--category">${date}</span><span>${(n % 9) + 2} pages</span></p>
+            <h3 class="uvalib-result__title"><a href="#report-${n}">${title}</a></h3>
+            <p class="uvalib-result__snippet">The committee discussed ${a} and agreed to report on ${b} at its next meeting.</p>
+            <div class="uvalib-result__actions"><a class="uvalib-button uvalib-button--secondary uvalib-button--small" href="#report-${n}-pdf">PDF<span class="visually-hidden"> of ${title}, ${date}</span></a></div>
+          </li>`;
+    }).join('\n');
+    return `      <section class="year" aria-labelledby="y${year}">
+        <h2 id="y${year}">${year}</h2>
+        <ul class="uvalib-result-list">
+${rows}
+        </ul>
+      </section>`;
+  })
+  .join('\n');
+
 const SKELETONS = Array.from(
   { length: 3 },
   () => `          <div>
@@ -460,6 +513,38 @@ site-footer footer {
     },
   },
   {
+    id: 'back-to-top',
+    group: 'Page',
+    title: 'Back to top',
+    description:
+      'uvalib-back-to-top, last in a long page: hidden until the top 400px scroll away (an IntersectionObserver, not a scroll listener), then a 44px “Back to top” button in the bottom corner. It scrolls to the top (smoothly unless you prefer reduced motion) and moves focus to the h1, so keyboard and screen reader users land there too. Hidden, it is not a tab stop. It keeps its own space at the end of the content and sits in it there, so it never covers the last lines or the footer. Hidden in print.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Minutes of the Board of Visitors',
+          components: ['uvalib-back-to-top'],
+          body: `    <site-page>
+      <h1>Minutes of the Board of Visitors</h1>
+${Array.from(
+  { length: 8 },
+  (_, i) => `      <h2>Session ${i + 1}</h2>
+      <p>
+        The Board met at the Rotunda. The minutes of the previous session were read and approved.
+        The committee on the library reported on the purchase of books and the care of the
+        collection, and the Proctor reported on the accounts of the University.
+      </p>
+      <p>
+        Resolved, that the report be received and entered on the journal, and that the Proctor
+        be directed to settle the accounts before the next meeting of the Board.
+      </p>`,
+).join('\n')}
+      <uvalib-back-to-top></uvalib-back-to-top>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'vendor-header',
     group: 'Header',
     title: 'Vendor header',
@@ -633,6 +718,30 @@ site-footer footer {
     },
   },
   {
+    id: 'breadcrumbs-search',
+    group: 'Breadcrumbs',
+    title: 'Back to the search',
+    description:
+      'On a record reached from search results, data-return-from on the Search crumb names the search page\'s path (or several, separated by spaces). When the visitor came from that page on the same site with a query string, the crumb links back to that search (/?q=budget&date_start=2023) instead of a blank search; its text stays "Search". Opened in a new tab, or from anywhere else, it keeps its href. Only document.referrer is read: nothing is stored or sent, and hash routes cannot be returned to (referrers never carry the hash).',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Back to the search',
+          components: ['uvalib-breadcrumbs'],
+          body: `    <site-page>
+      <uvalib-breadcrumbs slot="breadcrumbs">
+        <a href="./" data-return-from="./">Search</a>
+        <a href="#2023">2023</a>
+        <span>Meeting minutes, June 2023</span>
+      </uvalib-breadcrumbs>
+      <h1>Meeting minutes, June 2023</h1>
+      <p>Reached from a search such as <code>/?q=budget</code> on this site, the Search crumb above links back to it. Here, opened directly, it links to the search page as written.</p>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'collection-cards',
     group: 'Cards',
     title: 'Collection cards',
@@ -740,7 +849,7 @@ site-footer footer {
     group: 'Chips',
     title: 'Year rail, sort and suggestions',
     description:
-      'Three uvalib-chip-group modes. A year rail (mode="single", the default): radios drawn as chips in a radio group named by label, one row that scrolls sideways (scroll), each count read as part of the name ("2005, 461 shoots", from count-label). Tab enters at the selected year and the arrow keys move and select. A sort toggle (segmented): the same radios joined into one bar. Category filters (mode="multi"): toggle buttons with aria-pressed and an array value. Suggestions (mode="links"): plain links that fire a cancelable select. A colour key (data-swatch): the category chips with a decorative colour square each, as the legend of a chart or map; the name stays the label. A selected chip is filled and ticked, never colour alone. Each fires change with { value }; the line under the rail shows it. url-param="year" would keep the year in the address.',
+      'Three uvalib-chip-group modes. A year rail (mode="single", the default): radios drawn as chips in a radio group named by label, one row that scrolls sideways (scroll), each count read as part of the name ("2005, 461 shoots", from count-label). Tab enters at the selected year and the arrow keys move and select. A sort toggle (segmented): the same radios joined into one bar. Its description, the hint under it, is tied to the radio group with aria-describedby, so it is read when focus enters the group. Category filters (mode="multi"): toggle buttons with aria-pressed and an array value. Suggestions (mode="links"): plain links that fire a cancelable select. A colour key (data-swatch): the category chips with a decorative colour square each, as the legend of a chart or map; the name stays the label. A selected chip is filled and ticked, never colour alone. Each fires change with { value }; the line under the rail shows it. url-param="year" would keep the year in the address.',
     files: {
       'index.html': {
         content: page({
@@ -764,7 +873,12 @@ site-footer footer {
       </uvalib-chip-group>
       <p id="status" role="status">Showing all years.</p>
       <h2>Sort</h2>
-      <uvalib-chip-group label="Sort by" segmented value="photos">
+      <uvalib-chip-group
+        label="Sort by"
+        segmented
+        value="photos"
+        description="Most photos puts the largest series first. Date runs from the oldest shoot to the newest."
+      >
         <button value="photos">Most photos</button>
         <button value="date">Date</button>
         <button value="title">Title A–Z</button>
@@ -1046,11 +1160,79 @@ article p {
     },
   },
   {
+    id: 'contents-headings',
+    group: 'Contents',
+    title: 'Contents from headings',
+    description:
+      'For a long document, uvalib-contents headings-from="#report" builds the table of contents from the headings in that element: levels="2-3" (the default) lists the h2s with their h3s nested; min="3" shows nothing for a document with fewer than three top-level sections. A heading without an id gets one from its text (the-year-in-numbers, -2 for a repeat); existing ids (#gifts) are kept, so links to sections keep working. It follows headings added or retitled; call refresh() after other changes. Without JavaScript there is no list, so a site that can render the list at build time, as children, should.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Contents from headings',
+          styles: true,
+          components: ['uvalib-contents'],
+          body: `    <site-page>
+      <h1>Friends of the Library: annual report</h1>
+      <div class="reader">
+        <uvalib-contents sticky headings-from="#report" levels="2-3" min="3"></uvalib-contents>
+        <article id="report">
+          <h2>Letter from the chair</h2>
+          <p>This report is made up for the example. Scroll it: the contents stay in view on wide screens and mark the section in the address bar.</p>
+          <h2>The year in numbers</h2>
+          <p>Each h2 is a top-level entry; the h3s under it are nested beneath it.</p>
+          <h3>Visits and loans</h3>
+          <p>Visits and loans are a made-up h3, nested under the year in numbers.</p>
+          <h3>Digital collections</h3>
+          <p>Headings without an id get one from their text: this one is #digital-collections.</p>
+          <h2 id="gifts">Gifts and acquisitions</h2>
+          <p>This heading had its own id, #gifts, and keeps it.</p>
+          <h3>Manuscripts</h3>
+          <p>Select an entry in the contents: its link becomes the current location.</p>
+          <h3>Rare books</h3>
+          <p>Rare books, another nested entry.</p>
+          <h3>Photographs</h3>
+          <p>Photographs, the last entry in this group.</p>
+          <h2>Events</h2>
+          <p>Events, a top-level section.</p>
+          <h3>Lectures</h3>
+          <p>Lectures, nested under events.</p>
+          <h3>Exhibitions</h3>
+          <p>Exhibitions, nested under events.</p>
+          <h2>Volunteers</h2>
+          <p>Volunteers, a section with no sub-sections.</p>
+          <h2>Looking ahead</h2>
+          <p>Narrow the preview below 64rem: the contents collapse into a Contents button, closed until opened.</p>
+          <h2>Appendix: Financial summary</h2>
+          <p>Links to sections are stable: the ids come from the headings' text.</p>
+        </article>
+      </div>
+    </site-page>`,
+        }),
+      },
+      'styles.css': {
+        content: `/* The reader's layout is your own CSS: a sidebar on wide screens, stacked below 64rem. */
+.reader {
+  display: grid;
+  gap: 2rem;
+}
+@media (width > 64rem) {
+  .reader {
+    grid-template-columns: 18rem minmax(0, 1fr);
+  }
+}
+article p {
+  min-height: 12rem;
+}
+`,
+      },
+    },
+  },
+  {
     id: 'record-metadata',
     group: 'Metadata',
     title: 'Record metadata',
     description:
-      'uvalib-metadata shows a record\'s details from a plain <dl>: label and value side by side when there is room, stacked when narrow. Values can be text, links or lists; a download link with data-size shows its size ("EPUB · 184 KB") and keeps its download attribute. Its attributes add the credit and rights rows Special Collections asks for: creator, organization, rights (a rightsstatements.org or Creative Commons URL, shown by its short name), a link about rights and permissions, and How to cite with a Copy citation button.',
+      'uvalib-metadata shows a record\'s details from a plain <dl>: label and value side by side when there is room, stacked when narrow. Values can be text, links or lists; a download link with data-size shows its size ("EPUB · 184 KB") and keeps its download attribute. Its attributes add the credit and rights rows Special Collections asks for: creator, organization, rights (a rightsstatements.org or Creative Commons URL, shown by its short name), a link about rights and permissions, and How to cite with a Copy citation button. list-limit="8" shortens the long Participants list (made-up names) to eight and a "Show all 34 participants" button that reveals the rest in place and moves focus to the first one revealed.',
     files: {
       'index.html': {
         content: page({
@@ -1064,6 +1246,7 @@ article p {
         rights="http://rightsstatements.org/vocab/NoC-US/1.0/"
         rights-info="https://www.library.virginia.edu/policies/use-of-materials"
         citation-title="The actress of Padua, and other tales"
+        list-limit="8"
       >
         <dl>
           <div>
@@ -1097,6 +1280,47 @@ article p {
           <div>
             <dt>Page images</dt>
             <dd>Available: select a page number in the text</dd>
+          </div>
+          <div>
+            <dt>Participants</dt>
+            <dd>
+              <ul>
+                <li>Ada Whitcombe</li>
+                <li>Bernard Ashford</li>
+                <li>Clara Penrose</li>
+                <li>Desmond Hale</li>
+                <li>Eleanor Briggs</li>
+                <li>Franklin Moreau</li>
+                <li>Grace Talbot</li>
+                <li>Henry Calloway</li>
+                <li>Iris Dunmore</li>
+                <li>Julian Pryce</li>
+                <li>Katherine Vance</li>
+                <li>Lionel Mercer</li>
+                <li>Margaret Holloway</li>
+                <li>Nathaniel Brooke</li>
+                <li>Olivia Strand</li>
+                <li>Percival Lane</li>
+                <li>Quentin Ashby</li>
+                <li>Rosalind Keene</li>
+                <li>Silas Thornbury</li>
+                <li>Theodora Wren</li>
+                <li>Ulysses Fairfax</li>
+                <li>Vivian Lockhart</li>
+                <li>Walter Endicott</li>
+                <li>Xavier Dalton</li>
+                <li>Yvonne Marsh</li>
+                <li>Zachary Pell</li>
+                <li>Amelia Crane</li>
+                <li>Benedict Royce</li>
+                <li>Cecilia Hartwell</li>
+                <li>Dorian Sayre</li>
+                <li>Evangeline Moss</li>
+                <li>Frederick Garland</li>
+                <li>Georgiana Tate</li>
+                <li>Harold Winslow</li>
+              </ul>
+            </dd>
           </div>
         </dl>
       </uvalib-metadata>
@@ -1574,6 +1798,75 @@ ${SKELETONS}
     },
   },
   {
+    id: 'results-list',
+    group: 'Search',
+    title: 'Results list',
+    description:
+      "120 made-up committee reports as base.css's lightweight result rows: .uvalib-result-list and .uvalib-result with a date badge, the title as the row's one link, a snippet and a PDF action with a unique hidden name, grouped by year. Type a word (lights, maps): rows that do not match are hidden, and the word is marked in each snippet in bold on --uva-color-highlight. Rows off screen skip rendering (content-visibility), so thousands stay fast. On a phone the PDF button wraps below the text. The note at the top is a .uvalib-message.",
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Committee reports',
+          components: ['uvalib-results-count'],
+          body: `    <site-page>
+      <h1>Committee reports</h1>
+      <div class="uvalib-message uvalib-message--notice">
+        <strong class="uvalib-message__label">Note:</strong> these reports are made up for this example.
+      </div>
+      <div class="uvalib-toolbar">
+        <div class="uvalib-toolbar__field uvalib-toolbar__field--grow">
+          <label for="filter">Search the reports</label>
+          <input class="uvalib-input" id="filter" type="search" />
+        </div>
+        <uvalib-results-count class="uvalib-toolbar__summary" shown="120" total="120" noun="reports" singular="report"></uvalib-results-count>
+      </div>
+      <div id="reports">
+${REPORT_YEARS}
+      </div>
+      <div class="uvalib-empty-state" id="empty" hidden>
+        <h2>No reports match</h2>
+        <p>Try another word.</p>
+      </div>
+      <script type="module">
+        const filter = document.querySelector('#filter');
+        const count = document.querySelector('uvalib-results-count');
+        const rows = [...document.querySelectorAll('.uvalib-result')];
+        const snippets = new Map(rows.map((r) => [r, r.querySelector('.uvalib-result__snippet')]));
+        const original = new Map(rows.map((r) => [r, snippets.get(r).textContent]));
+        /** The snippet's text with each match of q in a <mark>, built as nodes, never HTML. */
+        function mark(p, text, q) {
+          const parts = q ? text.split(new RegExp('(' + q.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&') + ')', 'i')) : [text];
+          p.replaceChildren(
+            ...parts.map((t, i) => {
+              if (i % 2 === 0) return document.createTextNode(t);
+              const m = document.createElement('mark');
+              m.textContent = t;
+              return m;
+            }),
+          );
+        }
+        filter.addEventListener('input', () => {
+          const q = filter.value.trim();
+          let shown = 0;
+          for (const row of rows) {
+            const match = !q || row.textContent.toLowerCase().includes(q.toLowerCase());
+            row.hidden = !match;
+            if (match) shown++;
+            mark(snippets.get(row), original.get(row), match ? q : '');
+          }
+          for (const year of document.querySelectorAll('.year'))
+            year.hidden = !year.querySelector('.uvalib-result:not([hidden])');
+          document.querySelector('#empty').hidden = shown > 0;
+          count.shown = shown;
+          count.total = rows.length;
+        });
+      </script>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'date-histogram',
     group: 'Search',
     title: 'Date histogram',
@@ -1761,6 +2054,41 @@ ${SKELETONS}
     },
   },
   {
+    id: 'date-histogram-decades',
+    group: 'Search',
+    title: 'Date histogram: decades over a long span',
+    description:
+      'Made-up meeting counts for 1817–2026, one bar per decade (granularity="decade"), five decades to a labelled row. Each bar is named like "1810s: 22 meetings"; choosing one selects the whole decade and sets the date range to its first and last day. A decade with no meetings is a gap. Clear sets the date range in script, and the chart follows it. granularity="auto" picks months, years or decades from the span.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Meetings by decade',
+          components: ['uvalib-date-range', 'uvalib-date-histogram'],
+          body: `    <site-page>
+      <h1>Meetings by decade</h1>
+      <uvalib-date-range id="meeting-dates" min="1817-01-01" max="2026-12-31" label="Meeting dates"></uvalib-date-range>
+      <p><button type="button" class="uvalib-button uvalib-button--secondary" id="clear-dates">Clear dates</button></p>
+      <uvalib-date-histogram id="decades" range-for="meeting-dates" granularity="decade" unit="meetings" label="Meetings by decade"></uvalib-date-histogram>
+    </site-page>
+    <script type="module">
+      // Made-up counts: a few meetings a year, none in the 1860s, more after 1900.
+      const items = [];
+      for (let year = 1817; year <= 2026; year++) {
+        const count = year >= 1860 && year < 1870 ? 0 : (year > 1900 ? 6 : 3) + ((year * 7) % 5);
+        items.push({ date: String(year), count });
+      }
+      await customElements.whenDefined('uvalib-date-histogram');
+      document.querySelector('#decades').items = items;
+      const range = document.querySelector('#meeting-dates');
+      document.querySelector('#clear-dates').addEventListener('click', () => {
+        range.value = [range.min, range.max];
+      });
+    </script>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'combobox',
     group: 'Search',
     title: 'Combobox: person and subject pickers',
@@ -1817,6 +2145,91 @@ ${SKELETONS}
       });
     </script>`,
         }),
+      },
+    },
+  },
+  {
+    id: 'filter-drawer',
+    group: 'Search',
+    title: 'Filter drawer: search and filters',
+    description:
+      'uvalib-filter-drawer around a search form and uvalib-filter: a plain sidebar on wide screens; at 48rem and below a “Search and filters” button (with the number of filters set) that opens them in a modal panel from the side. Close takes focus, Escape, Close and the backdrop close it, and focus returns to the button. The rest of the page, the library header included, is inert while it is open; the results count outside is named in live, so its announcements are repeated inside the panel. Typed text and checked filters stay when the panel closes or the window is resized. Narrow the preview to see the button.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Search the minutes',
+          styles: true,
+          components: ['uvalib-filter-drawer', 'uvalib-filter', 'uvalib-results-count'],
+          body: `    <site-page>
+      <h1>Search the minutes</h1>
+      <div class="search-layout">
+        <uvalib-filter-drawer id="drawer" label="Search and filters" live="count">
+          <form class="uvalib-search-form" role="search" id="search">
+            <label for="q">Search the minutes</label>
+            <input class="uvalib-input" id="q" name="q" type="search" />
+            <button class="uvalib-button" type="submit">Search</button>
+          </form>
+          <uvalib-filter id="decade"></uvalib-filter>
+        </uvalib-filter-drawer>
+        <section aria-labelledby="results-heading">
+          <h2 id="results-heading">Results</h2>
+          <uvalib-results-count id="count" total="1204" noun="meetings" singular="meeting"></uvalib-results-count>
+          <p id="sent">Choose a decade or search to narrow the meetings.</p>
+        </section>
+      </div>
+    </site-page>
+    <script type="module">
+      const counts = { '1820s': 61, '1830s': 74, '1840s': 69, '1850s': 80, '1860s': 52 };
+      const drawer = document.querySelector('#drawer');
+      const decade = document.querySelector('#decade');
+      const count = document.querySelector('#count');
+      await customElements.whenDefined('uvalib-filter');
+      decade.filter = {
+        name: 'decade',
+        title: 'Decade',
+        position: 0,
+        buckets: Object.entries(counts).map(([key, doc_count]) => ({ key, doc_count, selected: false })),
+      };
+      decade.addEventListener('filter-change', (e) => {
+        const chosen = e.detail.value;
+        drawer.count = chosen.length;
+        count.total = chosen.length ? chosen.reduce((n, k) => n + counts[k], 0) : 1204;
+      });
+      document.querySelector('#search').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const q = new FormData(e.target).get('q');
+        document.querySelector('#sent').textContent = q
+          ? 'The page would search for what you typed.'
+          : 'Type something to search.';
+        drawer.close();
+      });
+    </script>`,
+        }),
+      },
+      'styles.css': {
+        content: `/* Two columns above the drawer's breakpoint (48rem); one below, where the drawer is a button. */
+.search-layout {
+  display: grid;
+  gap: 1.5rem;
+  padding-block: 1rem;
+}
+
+@media (width > 48rem) {
+  .search-layout {
+    grid-template-columns: 18rem minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+uvalib-filter-drawer .uvalib-search-form,
+uvalib-filter-drawer uvalib-filter {
+  margin-block-end: 1.5rem;
+}
+
+.search-layout h2 {
+  margin-block-start: 0;
+}
+`,
       },
     },
   },

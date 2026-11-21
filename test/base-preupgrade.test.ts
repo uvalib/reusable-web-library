@@ -290,3 +290,85 @@ describe('base.css before <uvalib-map> is defined', function () {
     }
   });
 });
+
+/**
+ * base.css before <uvalib-filter-drawer> is defined: on a phone (at and below the default 48rem
+ * breakpoint) the filters stay out of sight and the button's 44px is held, so nothing moves
+ * when the element upgrades. Wide screens, a custom breakpoint and `hidden` are left alone.
+ */
+describe('base.css before <uvalib-filter-drawer> is defined', function () {
+  this.timeout(12000);
+  const filters = '<form><label>Search <input name="q"></label></form><p>Decade</p>';
+  const rows = [
+    `<uvalib-filter-drawer id="shadow">${filters}</uvalib-filter-drawer>`,
+    `<uvalib-filter-drawer id="light" no-shadow-dom count="2">${filters}</uvalib-filter-drawer>`,
+    `<uvalib-filter-drawer id="hid" hidden>${filters}</uvalib-filter-drawer>`,
+    `<uvalib-filter-drawer id="custom" breakpoint="10rem">${filters}</uvalib-filter-drawer>`,
+  ];
+
+  async function drawerFrame(width: number): Promise<HTMLIFrameElement> {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = `width: ${width}px; height: 600px; border: 0`;
+    iframe.srcdoc = `<!doctype html><html lang="en"><head>
+      <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+      </head><body><p>Before</p>${rows.join('')}<p id="after">After</p></body></html>`;
+    document.body.append(iframe);
+    await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+    return iframe;
+  }
+
+  it('on a phone hides the filters, holds the 44px button, and nothing moves on upgrade', async () => {
+    const iframe = await drawerFrame(375);
+    try {
+      const doc = iframe.contentDocument!;
+      const win = iframe.contentWindow!;
+      const el = (id: string) => doc.getElementById(id)!;
+      expect(win.customElements.get('uvalib-filter-drawer')).to.equal(undefined);
+      for (const id of ['shadow', 'light']) {
+        expect(el(id).querySelector('form')!.getClientRects().length, id).to.equal(0);
+        expect(el(id).getBoundingClientRect().height, id).to.equal(44);
+      }
+      expect(win.getComputedStyle(el('hid')).display).to.equal('none');
+      // A custom breakpoint is the page's to hold: base.css leaves it as written.
+      expect(el('custom').querySelector('form')!.getClientRects().length).to.be.greaterThan(0);
+      const tops = () =>
+        ['shadow', 'light', 'custom', 'after'].map((id) => el(id).getBoundingClientRect().top);
+      const heights = () => ['shadow', 'light'].map((id) => el(id).getBoundingClientRect().height);
+      const before = tops();
+      const script = doc.createElement('script');
+      script.type = 'module';
+      script.src = `${location.origin}/dist-cdn/uvalib-filter-drawer.js`;
+      doc.head.append(script);
+      await new Promise((r) => script.addEventListener('load', r, { once: true }));
+      await Promise.all(
+        ['shadow', 'light'].map(
+          (id) => (el(id) as unknown as { updateComplete: Promise<unknown> }).updateComplete,
+        ),
+      );
+      await new Promise((r) => setTimeout(r, 50));
+      // The upgraded element shows only its button, at the same height and place.
+      const toggle = el('shadow').shadowRoot!.querySelector('.fd-toggle')!;
+      expect(toggle.getClientRects().length).to.equal(1);
+      expect(heights()).to.deep.equal([44, 44]);
+      expect(tops().slice(0, 2)).to.deep.equal(before.slice(0, 2));
+      expect(el('light').querySelector('form')!.getClientRects().length).to.equal(0);
+      expect(win.getComputedStyle(el('hid')).display).to.equal('none');
+    } finally {
+      iframe.remove();
+    }
+  });
+
+  it('on a wide screen shows the filters as written', async () => {
+    const iframe = await drawerFrame(1000);
+    try {
+      const doc = iframe.contentDocument!;
+      for (const id of ['shadow', 'light', 'custom'])
+        expect(doc.querySelector(`#${id} form`)!.getClientRects().length, id).to.be.greaterThan(0);
+      expect(iframe.contentWindow!.getComputedStyle(doc.getElementById('hid')!).display).to.equal(
+        'none',
+      );
+    } finally {
+      iframe.remove();
+    }
+  });
+});

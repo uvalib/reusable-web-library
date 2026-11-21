@@ -33,6 +33,7 @@ const clamp = (iso: string, lo: string, hi: string): string =>
  *
  * @tagname uvalib-date-range
  * @fires date-range-change - The range changed from a slider or a date input. `detail` is `{ value: [start, end] }` (ISO dates). Bubbles and is composed.
+ * @fires uvalib-date-range-value - The selected range changed for any reason: a slider, a date input, or `value`, `min` or `max` set in script (a Clear button, Back/Forward, a restored URL). `detail` is `{ value: [start, end] }`, the range as shown (ISO dates inside `min`..`max`). For keeping other components in step; it is not a visitor action, so it is never sent to analytics. Not fired for the first render or when the shown range is unchanged. Bubbles and is composed.
  * @fires uvalib-analytics-event - For `<site-analytics>`: `['uvalib-date-range', 'range-change', '<from year>–<to year>']`, 1 s after the visitor's last change (not when the range ends where it started). Bubbles and is composed.
  * @cssprop [--uva-brand-blue=#232d4b] - Selected slider range, thumbs, legend and focused date input border.
  * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour (focus-visible outline).
@@ -221,7 +222,31 @@ export class UvalibDateRange extends UvalibElement {
     return start <= end ? [start, end] : [end, end];
   }
 
+  /** The range last reported by `uvalib-date-range-value` (or first rendered). */
+  private shown = '';
+  private pendingReport: [string, string] | null = null;
+
+  /** Reported once the inputs show the new range. */
+  protected override updated(): void {
+    const range = this.pendingReport;
+    if (!range) return;
+    this.pendingReport = null;
+    this.dispatchEvent(
+      new CustomEvent('uvalib-date-range-value', {
+        detail: { value: range },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
   protected override willUpdate(changed: PropertyValues<this>) {
+    if (changed.has('value') || changed.has('min') || changed.has('max')) {
+      const range = this.valid ? this.range : null;
+      const key = range ? range.join('/') : '';
+      if (this.hasUpdated && range && key !== this.shown) this.pendingReport = range;
+      this.shown = key;
+    }
     if (!this.warned && (changed.has('min') || changed.has('max')) && !this.valid) {
       this.warned = true;
       console.warn(

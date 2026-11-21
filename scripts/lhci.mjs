@@ -211,8 +211,12 @@ const server = createServer((req, res) => {
   if (url.pathname.endsWith('/')) file = join(file, 'index.html');
   if (!existsSync(file)) return res.writeHead(404).end('not found');
   const type = TYPES[extname(file)] ?? 'application/octet-stream';
-  // The local Leaflet copy compressed, as unpkg serves it.
-  if (url.pathname.startsWith(LEAFLET_COPY) && /gzip/.test(req.headers['accept-encoding'] ?? '')) {
+  // Text compressed, as the library CDN, GitHub Pages and unpkg (the local Leaflet copy) serve
+  // it: uncompressed CSS and JS would overstate every byte under Lighthouse's throttling.
+  if (
+    /^(text\/|application\/(json|javascript)|image\/svg)/.test(type) &&
+    /gzip/.test(req.headers['accept-encoding'] ?? '')
+  ) {
     res.writeHead(200, {
       'content-type': type,
       'content-encoding': 'gzip',

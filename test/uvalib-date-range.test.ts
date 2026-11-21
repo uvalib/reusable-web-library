@@ -270,6 +270,33 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       await expectNoAxeViolations(el);
     });
 
+    it('fires uvalib-date-range-value for every change, in script too, but not on first render', async () => {
+      const el = await make();
+      const seen: string[][] = [];
+      let changes = 0;
+      el.addEventListener('uvalib-date-range-value', (e) =>
+        seen.push((e as CustomEvent<{ value: string[] }>).detail.value),
+      );
+      el.addEventListener('date-range-change', () => changes++);
+      await el.updateComplete;
+      expect(seen).to.have.length(0);
+      el.value = ['1950-01-01', '1960-12-31'];
+      await el.updateComplete;
+      expect(seen).to.deep.equal([['1950-01-01', '1960-12-31']]);
+      expect(changes).to.equal(0);
+      el.value = ['1950-01-01', '1960-12-31'];
+      await el.updateComplete;
+      expect(seen).to.have.length(1);
+      el.value = [];
+      await el.updateComplete;
+      expect(seen[1]).to.deep.equal(['1900-01-01', '2000-12-31']);
+      type(dates(el)[0]!, '1910-02-03', 'change');
+      await el.updateComplete;
+      expect(changes).to.equal(1);
+      expect(seen[2]).to.deep.equal(['1910-02-03', '2000-12-31']);
+      expect(seen).to.have.length(3);
+    });
+
     it('works as BOV search-main.js drives it', async () => {
       const host = await fixture<HTMLElement>('<div></div>');
       const dr = document.createElement('uvalib-date-range') as UvalibDateRange;

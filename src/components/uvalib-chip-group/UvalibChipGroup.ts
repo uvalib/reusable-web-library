@@ -146,6 +146,7 @@ const structuralRules = (host: string) => `
     white-space: nowrap;
     border: 0;
   }
+  ${host} .description { margin: 0.25rem 0 0; }
   ${host}[hidden], ${host} [hidden] { display: none !important; }
 `;
 const shadowStructure = unsafeCSS(structuralRules(':host'));
@@ -200,6 +201,10 @@ const FOCUSED = unsafeCSS('.chip:focus-visible > .face, .chip input:focus-visibl
  * is a target at least 44px square. `segmented` joins the chips into one bar that does not
  * wrap (a long label wraps inside its segment), like the header's Light / Dark / System control.
  *
+ * `description` is a hint shown under the chips and tied to the group with
+ * `aria-describedby`, so it is read when focus enters the group (“Keyword matches your
+ * words…”). It is plain text in the element's own root, so it works in a closed shadow root.
+ *
  * `url-param` (for example `year`) keeps the value in the address (`?year=2005`, a multi
  * value comma-separated, inside the hash on a hash route). It is read on connect; the
  * markup's `value` stands for the address without the parameter, and any other value is
@@ -216,7 +221,7 @@ const FOCUSED = unsafeCSS('.chip:focus-visible > .face, .chip input:focus-visibl
  * @cssprop --uva-color-surface-raised - Dark-mode role token: chip background (else #fff).
  * @cssprop --uva-color-control-border - Dark-mode role token: chip border (else `--uva-grey`, #808080).
  * @cssprop --uva-color-link - Dark-mode role token: chip text and hover border (else `--uva-brand-blue`).
- * @cssprop --uva-color-text-muted - Dark-mode role token: the count (else #4f4f4f).
+ * @cssprop --uva-color-text-muted - Dark-mode role token: the count and the description (else #4f4f4f).
  * @cssprop --uva-color-accent-bg - Dark-mode role token: selected chip background and border (else `--uva-brand-blue`).
  * @cssprop --uva-color-on-accent - Dark-mode role token: selected chip text (else #fff).
  * @cssprop --uva-color-focus - Dark-mode role token: focus ring (else `--uva-brand-orange`).
@@ -248,6 +253,11 @@ export class UvalibChipGroup extends UvalibElement {
       .segmented > .chip:last-child .face {
         border-start-end-radius: 0.3rem;
         border-end-end-radius: 0.3rem;
+      }
+      .description {
+        color: var(--uva-color-text-muted, #4f4f4f);
+        font-size: 0.875rem;
+        line-height: 1.5;
       }
       .count {
         color: var(--uva-color-text-muted, #4f4f4f);
@@ -340,6 +350,12 @@ export class UvalibChipGroup extends UvalibElement {
 
   /** The group's accessible name (required), also the first part of the analytics name. */
   @property({ type: String }) label = '';
+
+  /**
+   * A hint shown under the chips and read with the group when focus enters it
+   * (`aria-describedby` on the group). Plain text.
+   */
+  @property({ type: String }) description = '';
 
   /**
    * The selection: a chip's value in `single`, an array of values in `multi` (as an
@@ -807,22 +823,29 @@ export class UvalibChipGroup extends UvalibElement {
     const classes = ['chips', this.scrollRow ? 'scroll' : '', this.segmented ? 'segmented' : '']
       .filter(Boolean)
       .join(' ');
+    const description = normalize(this.description);
+    const descId = `${this.uid}-description`;
+    const hint = description
+      ? html`<p class="description" id=${descId} ?hidden=${!chips.length}>${description}</p>`
+      : nothing;
     const row = html`<div
       class=${classes}
       role=${this.kind === 'single' ? 'radiogroup' : 'group'}
       aria-label=${this.label.trim() || nothing}
+      aria-describedby=${description ? descId : nothing}
       ?hidden=${!chips.length}
       @scroll=${this.scrollRow ? this.measure : nothing}
     >
       ${chips.map((item) => this.renderChip(item))}
     </div>`;
-    if (!this.scrollRow) return row;
+    if (!this.scrollRow) return html`${row}${hint}`;
     return html`<div
-      class="rail"
-      ?data-more-left=${this.more.left}
-      ?data-more-right=${this.more.right}
-    >
-      ${row}
-    </div>`;
+        class="rail"
+        ?data-more-left=${this.more.left}
+        ?data-more-right=${this.more.right}
+      >
+        ${row}
+      </div>
+      ${hint}`;
   }
 }

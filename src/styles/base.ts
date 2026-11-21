@@ -60,6 +60,10 @@ export const base = css`
   uvalib-chip-group[scroll]:not(:defined) {
     min-height: calc(44px + 0.75rem);
   }
+  /* A description: one line of it (0.875rem at 1.5, 0.25rem below the row). */
+  uvalib-chip-group[description]:not(:defined) {
+    padding-block-end: 1.5625rem;
+  }
   /* Its text is drawn from attributes: hold one line until it upgrades. */
   uvalib-results-count:not(:defined) {
     display: block;
@@ -67,6 +71,26 @@ export const base = css`
   }
   uvalib-tag-list:not(:defined)[hidden],
   uvalib-results-count:not(:defined)[hidden] {
+    display: none;
+  }
+  /* The pre-upgrade rules here set display, which beats the hidden attribute's (issue #7).
+     More specific than each of them (two pseudo-classes or attributes), so it needs no importance flag. */
+  :where(
+      site-page,
+      uvalib-breadcrumbs,
+      uvalib-card,
+      uvalib-card-grid,
+      uvalib-pager,
+      uvalib-contents,
+      uvalib-metadata,
+      uvalib-chip-group,
+      uvalib-tabs,
+      uvalib-combobox,
+      uvalib-image-regions,
+      uvalib-map,
+      uvalib-filter-drawer
+    ):not(:defined)[hidden],
+  :where(uvalib-combobox, uvalib-image-regions):not(:defined) > [hidden] {
     display: none;
   }
   /* Tabs stay readable before the script runs: a block, one panel, and a gap the
@@ -139,6 +163,40 @@ export const base = css`
     font-size: 0.875rem;
     line-height: 1.5;
     color: var(--uva-color-text-muted, #4b5563);
+  }
+  /* A filter drawer on a phone (the default 48rem breakpoint): once it upgrades only its 44px
+     "Search and filters" button shows, so hold that height and keep the form and filters out
+     of sight meanwhile; nothing moves when it upgrades. A page with its own breakpoint adds the
+     same two rules in a media query of that width (see the README). Low specificity, so the
+     [hidden] rule above still wins. */
+  @media (max-width: 48rem) {
+    :where(uvalib-filter-drawer:not([breakpoint])):not(:defined) {
+      display: block;
+      min-block-size: 44px;
+    }
+    :where(uvalib-filter-drawer:not([breakpoint])):not(:defined) > * {
+      display: none;
+    }
+  }
+  /* Printing a <site-page> (issue #20; its own styles leave out the chrome): a dark scheme
+     prints light (the role tokens resolve to their light values), and the content's links
+     are black and underlined, so they are told apart without colour. Content is <main> in
+     light DOM and the unslotted children in shadow DOM. print-chrome keeps the page as it is
+     shown, apart from the light scheme. */
+  @media print {
+    :root[data-uva-color-scheme]:has(site-page) {
+      color-scheme: light;
+      --uva-color-scheme: light;
+    }
+    /* Light DOM's trail, here too, as the pre-upgrade rule above (unlayered) would win. */
+    site-page:not([print-chrome]) > [slot='breadcrumbs'] {
+      display: none;
+    }
+    site-page:not([print-chrome]) > :not([slot], site-header, site-footer, .alerts-list) :any-link,
+    site-page:not([print-chrome]) > :any-link:not([slot], .skip-link) {
+      color: #000;
+      text-decoration: underline;
+    }
   }
   @keyframes uvalib-site-page-reveal {
     to {

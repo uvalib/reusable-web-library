@@ -25,6 +25,10 @@ export type MetadataValue = string | number | MetadataLink;
 export interface MetadataItem {
   label: string;
   value: MetadataValue | MetadataValue[];
+  /** A list value: show this many and a “Show all N” button (0: no limit). Wins over `list-limit`. */
+  limit?: number;
+  /** The noun in “Show all 34 participants”, instead of the label with a lowercase first letter. */
+  limitLabel?: string;
 }
 
 /**
@@ -37,6 +41,12 @@ interface Value {
   source?: Node[];
   lang?: string;
   dir?: string;
+  /** A list value: how many `<li>` it has. */
+  count?: number;
+  /** The row's own limit (`data-limit`), winning over `list-limit`. */
+  limit?: number;
+  /** The noun in the toggle (`data-limit-label`). */
+  limitLabel?: string;
 }
 
 /** A row as drawn; `lang`/`dir` come from the source `<dt>`. */
@@ -49,6 +59,19 @@ interface Row {
 
 const RIGHTS_INFO_TEXT = 'More about rights and permissions';
 const STATUS_MS = 5000;
+/** The list in a value: a `<ul>` or `<ol>` that is a direct child of the `<dd>`. */
+const LIST = ':scope > ul, :scope > ol';
+/** What takes focus inside a revealed value, before the value itself. */
+const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+/** A limit: a whole number of at least 0, else undefined. */
+const limitOf = (v: unknown): number | undefined => {
+  if (v === null || v === undefined || (typeof v === 'string' && !v.trim())) return undefined;
+  const n = Math.trunc(Number(v));
+  return Number.isFinite(n) ? Math.max(0, n) : undefined;
+};
+
+let instances = 0;
 
 /**
  * The rules kept with `no-style`: unmarked value lists, the terms and values stacked, the
@@ -58,6 +81,14 @@ const structuralRules = (host: string) => `
   ${host} { display: block; }
   ${host} dl, ${host} dd { margin: 0; }
   ${host} dd :is(ul, ol) { list-style: none; margin: 0; padding: 0; }
+  ${host} :where(.more) {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    min-height: 24px;
+    min-width: 24px;
+    margin-top: 0.25rem;
+  }
   ${host}[hidden], ${host} [hidden] { display: none !important; }
 `;
 const shadowStructure = unsafeCSS(structuralRules(':host'));
@@ -81,15 +112,22 @@ const shadowStructure = unsafeCSS(structuralRules(':host'));
  * Special Collections citation, "<title>, Albert and Shirley Small Special Collections
  * Library, University of Virginia".
  *
+ * Long lists: `list-limit="8"` shortens every value that is a list (a `<ul>`/`<ol>` in the
+ * `<dd>`) of more than 8 items to its first 8 and a “Show all 34 participants” button
+ * (`aria-expanded`, `aria-controls`) that reveals the rest in place and moves focus to the
+ * first one; it then reads “Show fewer”. `data-limit` on a `<dd>` or its list sets that row's
+ * own limit (`0`: none); the noun is the label with a lowercase first letter, or
+ * `data-limit-label`. Every value stays in the markup (the hidden ones `hidden`).
+ *
  * @tagname uvalib-metadata
- * @fires uvalib-analytics-event - For `<site-analytics>`: the Copy citation button, `['uvalib-metadata', 'copy-citation']`. Downloads are left to Matomo's own download tracking. Bubbles and is composed.
+ * @fires uvalib-analytics-event - For `<site-analytics>`: the Copy citation button, `['uvalib-metadata', 'copy-citation']`, and a list's toggle, `['uvalib-metadata', 'show-all'|'show-fewer', 'row N']` (N from 1, the row's place in the list; never its label or values). Downloads are left to Matomo's own download tracking. Bubbles and is composed.
  * @cssprop [--uva-blue-alt-dark=#005679] - Link colour.
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Value colour.
  * @cssprop --uva-color-utility-link - Dark-mode role token: link colour (else `--uva-blue-alt-dark`).
  * @cssprop --uva-color-text - Dark-mode role token: value colour (else `--uva-grey-darkest`).
  * @cssprop --uva-color-text-muted - Dark-mode role token: label and status colour (else #4b5563).
  * @cssprop --uva-color-border - Dark-mode role token: row dividers (else #dadada).
- * @cssprop --uva-color-link - Dark-mode role token: the button's text and border (else `--uva-brand-blue`).
+ * @cssprop --uva-color-link - Dark-mode role token: the buttons' text and the Copy citation button's border (else `--uva-brand-blue`).
  * @cssprop --uva-color-surface-raised - Dark-mode role token: the button's background (else #fff).
  * @cssprop --uva-color-focus - Dark-mode role token: focus ring (else `--uva-brand-orange`).
  */
@@ -161,6 +199,24 @@ export class UvalibMetadata extends UvalibElement {
       .status {
         color: var(--uva-color-text-muted, #4b5563);
       }
+      /* As <uvalib-tag-list>'s Show all: an underlined text button, 2rem square at least. */
+      .more {
+        min-height: 2rem;
+        min-width: 2rem;
+        padding: 0.15rem 0;
+        border: 0;
+        background: none;
+        color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
+        font: inherit;
+        text-align: start;
+        text-decoration: underline;
+        cursor: pointer;
+      }
+      @media (forced-colors: active) {
+        .more {
+          color: ButtonText;
+        }
+      }
     `,
   ];
 
@@ -202,7 +258,18 @@ export class UvalibMetadata extends UvalibElement {
    */
   @property({ attribute: false }) items?: MetadataItem[];
 
+  /**
+   * Shorten every list value of more than this many items to its first ones and a “Show all
+   * N” button. Zero or empty shows every item. A row's `data-limit` wins.
+   */
+  @property({ type: Number, attribute: 'list-limit' }) listLimit?: number;
+
   @state() private childRows: Row[] = [];
+  /** The list values shown in full (after Show all), by `row-value` place. */
+  private open = new Set<string>();
+  /** The items this element hid, so that only those are shown again. */
+  private hid = new WeakSet<Element>();
+  private readonly uid = `uvalib-metadata-${++instances}`;
   /** The Copy citation button's result, announced politely. */
   @state() private status = '';
 
@@ -286,7 +353,18 @@ export class UvalibMetadata extends UvalibElement {
           this.warnOnce('dd', 'ignoring a <dd> with no <dt> before it.');
           continue;
         }
-        row.values.push({ source: [...c.childNodes].map((n) => this.copy(n)), ...langDir(c) });
+        const value: Value = { source: [...c.childNodes].map((n) => this.copy(n)), ...langDir(c) };
+        const list = c.querySelector(LIST);
+        if (list) {
+          value.count = list.querySelectorAll(':scope > li').length;
+          const limit = limitOf(c.getAttribute('data-limit') ?? list.getAttribute('data-limit'));
+          if (limit !== undefined) value.limit = limit;
+          const noun = normalize(
+            c.getAttribute('data-limit-label') ?? list.getAttribute('data-limit-label'),
+          );
+          if (noun) value.limitLabel = noun;
+        }
+        row.values.push(value);
       }
     }
     return rows.filter((r) => r.values.length);
@@ -304,6 +382,8 @@ export class UvalibMetadata extends UvalibElement {
     const unsafe: Element[] = [];
     for (const el of [clone, ...clone.querySelectorAll('*')]) {
       if (this.lightDom) el.removeAttribute('id');
+      el.removeAttribute('data-limit');
+      el.removeAttribute('data-limit-label');
       if (el.localName !== 'a') continue;
       const href = el.getAttribute('href');
       if (href !== null && !safeHref(href, base)) {
@@ -381,7 +461,15 @@ export class UvalibMetadata extends UvalibElement {
             ${i.value.map((v) => html`<li>${this.renderValue(v)}</li>`)}
           </ul>`
         : this.renderValue(i.value);
-      rows.push({ label, values: [{ content: value }] });
+      const v: Value = { content: value };
+      if (Array.isArray(i.value)) {
+        v.count = i.value.length;
+        const limit = limitOf(i.limit);
+        if (limit !== undefined) v.limit = limit;
+        const noun = normalize(i.limitLabel);
+        if (noun) v.limitLabel = noun;
+      }
+      rows.push({ label, values: [v] });
     }
     return rows;
   }
@@ -476,6 +564,122 @@ export class UvalibMetadata extends UvalibElement {
   protected override updated(changed: PropertyValues): void {
     super.updated(changed);
     this.toggleAttribute('data-empty', !this.renderRoot.querySelector('.row'));
+    this.applyLimits();
+  }
+
+  /** The rendered `<dl>` (in light DOM, not the author's source). */
+  private get list(): HTMLElement | null {
+    const root = this.renderRoot;
+    return root instanceof ShadowRoot
+      ? root.querySelector('dl')
+      : (root as HTMLElement).querySelector(':scope > dl');
+  }
+
+  /**
+   * Hide the items past each shortened list's limit (until Show all), and show again the
+   * ones this element hid when the list is open or no longer shortened.
+   */
+  private applyLimits(): void {
+    const dl = this.list;
+    if (!dl) return;
+    for (const dd of dl.querySelectorAll<HTMLElement>(':scope > .row > dd')) {
+      const list = dd.querySelector(LIST);
+      if (!list) continue;
+      const key = dd.dataset.key;
+      const limit = key === undefined ? Infinity : Number(dd.dataset.limit);
+      const open = key !== undefined && this.open.has(key);
+      [...list.children].forEach((li, i) => {
+        if (!(li instanceof HTMLElement) || li.localName !== 'li') return;
+        if (!open && i >= limit) {
+          if (!li.hidden) this.hid.add(li);
+          li.hidden = true;
+        } else if (this.hid.has(li)) {
+          li.hidden = false;
+          this.hid.delete(li);
+        }
+      });
+      if (key === undefined) continue;
+      if (!list.id) list.id = `${this.uid}-list-${key}`;
+      dd.querySelector(':scope > .more')?.setAttribute('aria-controls', list.id);
+    }
+  }
+
+  /** A value's limit: its own, else `list-limit`; 0 for none. */
+  private limitFor(v: Value): number {
+    return v.limit ?? limitOf(this.listLimit) ?? 0;
+  }
+
+  private get locale(): string {
+    return this.closest('[lang]')?.getAttribute('lang') || 'en';
+  }
+
+  /** The toggle's noun: `data-limit-label`, else the label with a lowercase first letter
+   * (kept as written when it starts with an acronym, “ORCID iDs”). */
+  private noun(r: Row, v: Value): TemplateResult | string {
+    if (v.limitLabel) return v.limitLabel;
+    const l = r.label;
+    let lower = l;
+    if (!/^\p{Lu}{2}/u.test(l)) {
+      const first = l.charAt(0);
+      try {
+        lower = first.toLocaleLowerCase(r.lang || this.locale) + l.slice(1);
+      } catch {
+        lower = first.toLowerCase() + l.slice(1);
+      }
+    }
+    return r.lang || r.dir
+      ? html`<span lang=${r.lang ?? nothing} dir=${r.dir ?? nothing}>${lower}</span>`
+      : lower;
+  }
+
+  private formatCount(n: number): string {
+    try {
+      return n.toLocaleString(this.locale);
+    } catch {
+      return n.toLocaleString('en');
+    }
+  }
+
+  private async toggleList(e: Event, key: string, limit: number): Promise<void> {
+    const button = e.currentTarget as HTMLElement;
+    const open = !this.open.has(key);
+    if (open) this.open.add(key);
+    else this.open.delete(key);
+    const row = button.closest('.row');
+    const place = row?.parentElement ? [...row.parentElement.children].indexOf(row) + 1 : 1;
+    trackEvent(this, ['uvalib-metadata', open ? 'show-all' : 'show-fewer', `row ${place}`]);
+    this.requestUpdate();
+    await this.updateComplete;
+    if (!button.isConnected) return;
+    if (!open) {
+      button.focus();
+      return;
+    }
+    const li = button.parentElement?.querySelector(LIST)?.children[limit];
+    if (!(li instanceof HTMLElement)) return;
+    let target = li.querySelector<HTMLElement>(FOCUSABLE);
+    if (!target) {
+      li.tabIndex = -1;
+      target = li;
+    }
+    target.focus();
+  }
+
+  private renderToggle(r: Row, v: Value, key: string, limit: number) {
+    const open = this.open.has(key);
+    const noun = this.noun(r, v);
+    return html`<button
+      type="button"
+      class="more"
+      aria-expanded=${open ? 'true' : 'false'}
+      @click=${(e: Event) => this.toggleList(e, key, limit)}
+    >
+      ${
+        open
+          ? html`Show fewer<span class="visually-hidden"> ${noun}</span>`
+          : html`Show all ${this.formatCount(v.count ?? 0)} ${noun}`
+      }
+    </button>`;
   }
 
   protected override render() {
@@ -492,19 +696,28 @@ export class UvalibMetadata extends UvalibElement {
     if (shownFrom !== this.clonedFor) {
       this.clonedFor = shownFrom;
       this.clones = new WeakMap();
+      this.open = new Set();
     }
     return html`<dl>
       ${text('Creator', this.creator)}${text('Organization', this.organization)}
       ${this.rows.map(
-        (r) =>
+        (r, ri) =>
           html`<div class="row">
             <dt lang=${r.lang ?? nothing} dir=${r.dir ?? nothing}>${r.label}</dt>
-            ${r.values.map(
-              (v) =>
-                html`<dd lang=${v.lang ?? nothing} dir=${v.dir ?? nothing}>
-                  ${v.source ? this.nodesOf(v.source) : v.content}
-                </dd>`,
-            )}
+            ${r.values.map((v, vi) => {
+              const limit = this.limitFor(v);
+              const key = limit > 0 && (v.count ?? 0) > limit ? `${ri}-${vi}` : undefined;
+              return html`<dd
+                lang=${v.lang ?? nothing}
+                dir=${v.dir ?? nothing}
+                data-key=${key ?? nothing}
+                data-limit=${key ? limit : nothing}
+              >
+                ${v.source ? this.nodesOf(v.source) : v.content}${
+                  key ? this.renderToggle(r, v, key, limit) : nothing
+                }
+              </dd>`;
+            })}
           </div>`,
       )}
       ${this.renderRights()}${this.renderCitation()}

@@ -22,6 +22,13 @@ export interface AnalyticsState {
   booted: boolean;
   /** `spa="auto"`: the URL of the last page view, so a route change to it is not counted again. */
   pageUrl?: string;
+  /**
+   * `downloads="event"`: Matomo's link tracking is off, downloads are sent as `download`
+   * events, and (`outlinks`) clicks on links to other sites are sent with `trackLink`.
+   */
+  downloads?: 'event';
+  /** With `downloads`: this library sends the outlinks Matomo's link tracking would have. */
+  outlinks?: boolean;
 }
 
 const STATE = Symbol.for('@uvalib/web-components/analytics');

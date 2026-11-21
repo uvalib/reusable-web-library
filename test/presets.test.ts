@@ -34,6 +34,7 @@ describe('playground presets', function () {
       'light-dom-host-css',
       'dark-mode',
       'buttons-forms',
+      'back-to-top',
       'vendor-header',
       'site-navigation',
       'site-name',
@@ -41,6 +42,7 @@ describe('playground presets', function () {
       'alerts',
       'breadcrumbs',
       'breadcrumbs-standalone',
+      'breadcrumbs-search',
       'collection-cards',
       'photo-card',
       'section-pager',
@@ -52,6 +54,7 @@ describe('playground presets', function () {
       'load-more',
       'load-more-unknown-total',
       'contents-sidebar',
+      'contents-headings',
       'record-metadata',
       'photo-grid',
       'photo-grid-badges',
@@ -62,8 +65,11 @@ describe('playground presets', function () {
       'search-results',
       'pagefind-search',
       'results-toolbar',
+      'results-list',
       'date-histogram',
+      'date-histogram-decades',
       'combobox',
+      'filter-drawer',
       'todays-hours',
       'weekly-hours',
       'events',
@@ -100,6 +106,7 @@ describe('playground presets', function () {
         'light-dom-host-css',
         'dark-mode',
         'buttons-forms',
+        'back-to-top',
       ],
       Header: [
         'vendor-header',
@@ -112,7 +119,7 @@ describe('playground presets', function () {
         'header-vendor-light',
       ],
       Alerts: ['alerts'],
-      Breadcrumbs: ['breadcrumbs', 'breadcrumbs-standalone'],
+      Breadcrumbs: ['breadcrumbs', 'breadcrumbs-standalone', 'breadcrumbs-search'],
       Cards: [
         'collection-cards',
         'photo-card',
@@ -125,7 +132,7 @@ describe('playground presets', function () {
         'load-more-unknown-total',
       ],
       Chips: ['chip-groups'],
-      Contents: ['contents-sidebar'],
+      Contents: ['contents-sidebar', 'contents-headings'],
       Metadata: ['record-metadata'],
       Images: ['photo-grid', 'photo-grid-badges', 'page-images', 'image-regions'],
       Maps: ['places-map'],
@@ -134,8 +141,11 @@ describe('playground presets', function () {
         'search-results',
         'pagefind-search',
         'results-toolbar',
+        'results-list',
         'date-histogram',
+        'date-histogram-decades',
         'combobox',
+        'filter-drawer',
         'uvalib-filter-shadow',
         'uvalib-filter-light',
         'uvalib-date-range-shadow',
@@ -318,6 +328,40 @@ describe('playground presets', function () {
     }
   });
 
+  it('date-histogram-decades: a decade sets the date range, Clear clears the chart, and the page passes axe', async () => {
+    const p = presets.find((x) => x.id === 'date-histogram-decades')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    try {
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(iframe.contentWindow!, [
+        'site-page',
+        'uvalib-date-range',
+        'uvalib-date-histogram',
+      ]);
+      await new Promise((r) => setTimeout(r, 100));
+      type Lit = HTMLElement & { updateComplete: Promise<unknown> };
+      const hist = doc.querySelector('#decades') as Lit & { selected: string };
+      const range = doc.querySelector('#meeting-dates') as Lit & { value: string[] };
+      const buttons = () => [...hist.shadowRoot!.querySelectorAll<HTMLButtonElement>('button.bar')];
+      expect(buttons()).to.have.length(22);
+      expect(buttons()[0]!.getAttribute('aria-label')).to.match(/^1810s: \d+ meetings$/);
+      expect(buttons()[5]!.classList.contains('is-empty')).to.equal(true);
+      buttons()[1]!.click();
+      await hist.updateComplete;
+      await range.updateComplete;
+      expect(range.value).to.deep.equal(['1820-01-01', '1829-12-31']);
+      doc.querySelector<HTMLButtonElement>('#clear-dates')!.click();
+      await range.updateComplete;
+      await hist.updateComplete;
+      expect(hist.selected).to.equal('');
+      expect(buttons().some((b) => b.getAttribute('aria-pressed') === 'true')).to.equal(false);
+      await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  });
+
   it('combobox: choosing a person and a subject fills the form, and the page passes axe', async () => {
     const p = presets.find((x) => x.id === 'combobox')!;
     const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
@@ -348,6 +392,82 @@ describe('playground presets', function () {
       );
       expect(countMain(doc)).to.equal(1);
       await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  });
+
+  for (const width of [1000, 400]) {
+    it(`filter-drawer: a sidebar at 1000px, a modal panel at 400px; filters and the count work, axe passes (${width}px)`, async () => {
+      const p = presets.find((x) => x.id === 'filter-drawer')!;
+      const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+      iframe.style.width = `${width}px`;
+      iframe.style.height = '900px';
+      try {
+        const doc = iframe.contentDocument!;
+        const win = iframe.contentWindow!;
+        await whenAllDefined(win, ['site-page', 'uvalib-filter-drawer', 'uvalib-filter']);
+        await new Promise((r) => setTimeout(r, 200));
+        type Lit = HTMLElement & { updateComplete: Promise<unknown>; shadowRoot: ShadowRoot };
+        const drawer = doc.querySelector('uvalib-filter-drawer') as Lit;
+        const filter = doc.querySelector('uvalib-filter') as Lit;
+        await drawer.updateComplete;
+        const toggle = drawer.shadowRoot.querySelector<HTMLButtonElement>('button.fd-toggle')!;
+        const dialog = drawer.shadowRoot.querySelector<HTMLDialogElement>('dialog')!;
+        expect(toggle.hidden).to.equal(width > 768);
+        if (width < 768) {
+          toggle.click();
+          await drawer.updateComplete;
+          expect(dialog.open).to.equal(true);
+          expect(drawer.shadowRoot.activeElement?.classList.contains('fd-close')).to.equal(true);
+        }
+        await filter.updateComplete;
+        filter.shadowRoot.querySelector<HTMLInputElement>('input[type=checkbox]')!.click();
+        await drawer.updateComplete;
+        const count = doc.querySelector('uvalib-results-count') as Lit;
+        await count.updateComplete;
+        expect(count.shadowRoot.querySelector('.text')!.textContent).to.equal(
+          'Showing all 61 meetings',
+        );
+        if (width < 768) expect(toggle.textContent).to.include('1');
+        expect(countMain(doc)).to.equal(1);
+        await expectNoPageAxeViolations(doc);
+        if (width < 768) {
+          drawer.shadowRoot.querySelector<HTMLButtonElement>('button.fd-close')!.click();
+          expect(dialog.open).to.equal(false);
+        }
+        expect(errors).to.deep.equal([]);
+      } finally {
+        iframe.remove();
+      }
+    }).timeout(10000);
+  }
+
+  it('back-to-top: shown after scrolling, back to the h1, and axe passes', async () => {
+    const p = presets.find((x) => x.id === 'back-to-top')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    iframe.style.width = '400px';
+    iframe.style.height = '600px';
+    try {
+      const doc = iframe.contentDocument!;
+      const win = iframe.contentWindow!;
+      await whenAllDefined(win, ['site-page', 'uvalib-back-to-top']);
+      type Lit = HTMLElement & { updateComplete: Promise<unknown>; shadowRoot: ShadowRoot };
+      const el = doc.querySelector('uvalib-back-to-top') as Lit;
+      await el.updateComplete;
+      const button = el.shadowRoot.querySelector<HTMLButtonElement>('button')!;
+      const shown = () => win.getComputedStyle(button).visibility === 'visible';
+      await new Promise((r) => setTimeout(r, 300));
+      expect(shown()).to.equal(false);
+      win.scrollTo(0, 1500);
+      const end = Date.now() + 2000;
+      while (!shown() && Date.now() < end) await new Promise((r) => setTimeout(r, 20));
+      expect(shown()).to.equal(true);
+      await new Promise((r) => setTimeout(r, 300)); // the 0.2s fade in
+      await expectNoPageAxeViolations(doc);
+      button.click();
+      expect(doc.activeElement === doc.querySelector('h1')).to.equal(true);
       expect(errors).to.deep.equal([]);
     } finally {
       iframe.remove();
@@ -480,9 +600,95 @@ describe('playground presets', function () {
             'Subjects',
             'Download',
             'Page images',
+            'Participants',
             'Rights',
             'How to cite',
           ]);
+        }
+        expect(countMain(doc)).to.equal(1);
+        await expectNoPageAxeViolations(doc);
+        expect(errors).to.deep.equal([]);
+      } finally {
+        iframe.remove();
+      }
+    }
+  });
+
+  it('record-metadata: the long Participants list shows 8 and a Show all 34 button', async () => {
+    const p = presets.find((x) => x.id === 'record-metadata')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-page', 'uvalib-metadata']);
+      await new Promise((r) => setTimeout(r, 100));
+      const el = doc.querySelector('uvalib-metadata')! as HTMLElement & {
+        updateComplete: Promise<unknown>;
+      };
+      const dd = [...el.shadowRoot!.querySelectorAll('.row')]
+        .find((r) => r.querySelector('dt')!.textContent === 'Participants')!
+        .querySelector('dd')!;
+      const shown = () => [...dd.querySelectorAll('li')].filter((li) => !li.hidden).length;
+      expect(shown()).to.equal(8);
+      const b = dd.querySelector('button')!;
+      expect(b.textContent!.replace(/\s+/g, ' ').trim()).to.equal('Show all 34 participants');
+      b.click();
+      await el.updateComplete;
+      expect(shown()).to.equal(34);
+      expect(b.getAttribute('aria-expanded')).to.equal('true');
+      await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  });
+
+  it('chip-groups: the sort toggle has a description that describes its radio group', async () => {
+    const p = presets.find((x) => x.id === 'chip-groups')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    try {
+      await whenAllDefined(iframe.contentWindow!, ['site-page', 'uvalib-chip-group']);
+      const sort = iframe.contentDocument!.querySelector('uvalib-chip-group[label="Sort by"]')!;
+      const g = sort.shadowRoot!.querySelector('[role="radiogroup"]')!;
+      const id = g.getAttribute('aria-describedby')!;
+      expect(sort.shadowRoot!.getElementById(id)!.textContent).to.contain('Most photos');
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  });
+
+  it('contents-headings builds the contents from the report headings; breadcrumbs-search renders', async function () {
+    this.timeout(10000);
+    for (const id of ['contents-headings', 'breadcrumbs-search']) {
+      const p = presets.find((x) => x.id === id)!;
+      const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+      iframe.style.width = '1200px';
+      iframe.style.height = '800px';
+      try {
+        const win = iframe.contentWindow!;
+        const doc = iframe.contentDocument!;
+        const tag = id === 'contents-headings' ? 'uvalib-contents' : 'uvalib-breadcrumbs';
+        await whenAllDefined(win, ['site-page', tag]);
+        await new Promise((r) => setTimeout(r, 100));
+        const el = doc.querySelector(tag)! as HTMLElement & { updateComplete: Promise<unknown> };
+        if (id === 'contents-headings') {
+          const top = [...el.shadowRoot!.querySelectorAll('.panel > ol > li > a')];
+          expect(top.map((a) => a.getAttribute('href'))).to.deep.equal([
+            '#letter-from-the-chair',
+            '#the-year-in-numbers',
+            '#gifts',
+            '#events',
+            '#volunteers',
+            '#looking-ahead',
+            '#appendix-financial-summary',
+          ]);
+          expect(el.shadowRoot!.querySelectorAll('.panel li li > a').length).to.equal(7);
+          expect(doc.getElementById('digital-collections')!.localName).to.equal('h3');
+        } else {
+          const first = el.shadowRoot!.querySelector('li > a')!;
+          expect(first.textContent).to.equal('Search');
+          expect(first.getAttribute('href')).to.equal('./');
         }
         expect(countMain(doc)).to.equal(1);
         await expectNoPageAxeViolations(doc);
@@ -803,6 +1009,53 @@ describe('playground presets', function () {
       await expectNoPageAxeViolations(doc);
       const tags = doc.querySelector('uvalib-tag-list')!;
       expect(tags.shadowRoot!.querySelector('button.toggle')!.textContent).to.include('Show all 8');
+      expect(countMain(doc)).to.equal(1);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  }).timeout(15000);
+
+  it('results-list hides rows that do not match, marks the word, and passes axe', async () => {
+    const p = presets.find((x) => x.id === 'results-list')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    iframe.style.width = '1000px';
+    iframe.style.height = '900px';
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-page', 'uvalib-results-count']);
+      await new Promise((r) => setTimeout(r, 100));
+      const rows = [...doc.querySelectorAll<HTMLElement>('.uvalib-result')];
+      expect(rows.length).to.equal(120);
+      expect(doc.querySelectorAll('ul.uvalib-result-list').length).to.equal(10);
+      expect(win.getComputedStyle(rows[0]!).contentVisibility).to.equal('auto');
+      for (const r of rows.slice(0, 3))
+        expect(r.querySelectorAll('.uvalib-result__title a').length).to.equal(1);
+      const filter = doc.querySelector<HTMLInputElement>('#filter')!;
+      filter.value = 'lights';
+      filter.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 50));
+      const shown = rows.filter((r) => win.getComputedStyle(r).display !== 'none');
+      expect(shown.length).to.be.greaterThan(0);
+      expect(shown.length).to.be.below(120);
+      for (const r of shown) {
+        const m = r.querySelector('.uvalib-result__snippet mark')!;
+        expect(m.textContent!.toLowerCase()).to.equal('lights');
+        expect(win.getComputedStyle(m).fontWeight).to.equal('700');
+      }
+      const count = doc.querySelector('uvalib-results-count')!;
+      expect(count.shadowRoot!.querySelector('.text')!.textContent).to.equal(
+        `Showing ${shown.length} of 120 reports`,
+      );
+      await expectNoPageAxeViolations(doc);
+      filter.value = 'nothing like this';
+      filter.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 50));
+      expect(win.getComputedStyle(doc.querySelector('#empty')!).display).to.equal('flex');
+      expect([...doc.querySelectorAll('.year')].every((y) => (y as HTMLElement).hidden)).to.equal(
+        true,
+      );
       expect(countMain(doc)).to.equal(1);
       expect(errors).to.deep.equal([]);
     } finally {

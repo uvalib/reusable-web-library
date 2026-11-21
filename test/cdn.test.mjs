@@ -40,6 +40,8 @@ const TAGS = [
   'uvalib-combobox',
   'uvalib-image-regions',
   'uvalib-map',
+  'uvalib-filter-drawer',
+  'uvalib-back-to-top',
 ];
 
 const manifest = () => JSON.parse(readFileSync(join(cdn, 'manifest.json'), 'utf8'));
@@ -53,6 +55,15 @@ test('manifest lists every element and style, and each file exists', () => {
     assert.ok(existsSync(join(cdn, file)), `missing ${file}`);
   }
   for (const file of m.styles) assert.ok(existsSync(join(cdn, file)), `missing ${file}`);
+});
+
+test('manifest lists the plain modules (analytics.js), each built with its helpers', () => {
+  const m = manifest();
+  assert.deepEqual(m.modules, ['analytics.js']);
+  for (const file of m.modules) assert.ok(existsSync(join(cdn, file)), `missing ${file}`);
+  const text = readFileSync(join(cdn, 'analytics.js'), 'utf8');
+  assert.match(text, /export\s*\{[^}]*createSearchTracker/);
+  assert.match(text, /export\s*\{[^}]*trackSearch/);
 });
 
 test('manifest version equals the package.json version', () => {

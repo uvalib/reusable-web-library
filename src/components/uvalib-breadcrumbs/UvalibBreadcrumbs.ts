@@ -9,6 +9,12 @@ import { accessible } from '../../styles/accessible.js';
 export interface BreadcrumbItem {
   label: string;
   href?: string;
+  /**
+   * The search page(s) this step returns to: a path, or several separated by spaces
+   * (`data-return-from` on a child link). When the visitor came from one of them with a query
+   * string, the step links back to that search.
+   */
+  returnFrom?: string;
 }
 
 const DEFAULT_LABEL = 'Breadcrumb';
@@ -30,7 +36,7 @@ const shadowStructure = unsafeCSS(structuralRules(':host'));
 /** What the observer watches in the author's trail: the links, their hrefs and text. */
 const CONTENT: MutationObserverInit = {
   attributes: true,
-  attributeFilter: ['href'],
+  attributeFilter: ['href', 'data-return-from'],
   characterData: true,
   childList: true,
   subtree: true,
@@ -43,6 +49,36 @@ const normalize = (s: unknown) =>
   String(s ?? '')
     .replace(/\s+/g, ' ')
     .trim();
+
+/** A comparable path: without `index.html` and a trailing slash (`/search/` is `/search`). */
+const pathKey = (p: string) => p.replace(/\/index\.html?$/i, '/').replace(/(.)\/$/, '$1') || '/';
+
+/**
+ * The search the visitor came from, for a step with `returnFrom`: the referrer's path, query
+ * and hash when it is on this site, at one of the given paths (resolved against `base`) and
+ * has a query string; else undefined (`origin` is the page's). Nothing is stored or sent.
+ */
+function returnHref(
+  returnFrom: string | undefined,
+  referrer: string,
+  base: string,
+  origin = new URL(base).origin,
+): string | undefined {
+  const paths = normalize(returnFrom).split(' ').filter(Boolean);
+  if (!paths.length || !referrer) return undefined;
+  try {
+    const from = new URL(referrer);
+    if (from.origin !== origin || from.search.length < 2) return undefined;
+    const key = pathKey(from.pathname);
+    const match = paths.some((p) => {
+      const u = new URL(p, base);
+      return u.origin === origin && pathKey(u.pathname) === key;
+    });
+    return match ? from.pathname + from.search + from.hash : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * A breadcrumb trail, as on library.virginia.edu: links separated by slashes, ending with the
@@ -58,6 +94,14 @@ const normalize = (s: unknown) =>
  *
  * Apps that build the trail in JavaScript set the `items` property instead (it then wins
  * over any children); assigning a new array re-renders.
+ *
+ * A step back to a search: give its link `data-return-from` with the search page's path (or
+ * several, separated by spaces), as in `<a href="/" data-return-from="/">Search</a>`. When the
+ * visitor came from that page on this site with a query string (`document.referrer`; a
+ * trailing slash or `index.html` does not matter), the step links back to that search
+ * (path and query) instead; its text stays the same. Otherwise, as when the result
+ * was opened in a new tab or the site sends no referrer, it keeps its href. Nothing is
+ * stored or sent. In `items`, the same is `returnFrom`.
  *
  * Inside `<site-page>`, give it `slot="breadcrumbs"`: it is placed between the header (and
  * alerts band) and `<main>`, with the page's gutters. It works anywhere else too.
@@ -210,7 +254,10 @@ export class UvalibBreadcrumbs extends UvalibElement {
         continue;
       }
       const href = n instanceof HTMLAnchorElement ? n.getAttribute('href') : null;
-      items.push(href === null ? { label } : { label, href });
+      const item: BreadcrumbItem = href === null ? { label } : { label, href };
+      const from = n.getAttribute('data-return-from');
+      if (from !== null && href !== null) item.returnFrom = from;
+      items.push(item);
     }
     if (invalid) this.warn();
     // Only a real change re-renders.
@@ -237,9 +284,23 @@ export class UvalibBreadcrumbs extends UvalibElement {
     const items = this.items
       ? this.items
           .filter((i) => normalize(i?.label))
-          .map((i) => ({ label: normalize(i.label), href: i.href ?? undefined }))
+          .map((i) => ({
+            label: normalize(i.label),
+            href: i.href ?? undefined,
+            returnFrom: i.href == null ? undefined : (i.returnFrom ?? undefined),
+          }))
       : this.childItems;
-    return items.map((i) => (i.href === undefined || this.safe(i.href) ? i : { label: i.label }));
+    const doc = this.ownerDocument;
+    const origin = doc.defaultView?.location.origin;
+    return items.map(({ label, href, returnFrom }) => {
+      if (href === undefined || !this.safe(href)) return { label };
+      // A step back to the search: the same-origin search the visitor came from, if any.
+      const back =
+        returnFrom && origin
+          ? returnHref(returnFrom, doc.referrer, doc.baseURI, origin)
+          : undefined;
+      return { label, href: back ?? href };
+    });
   }
 
   /**

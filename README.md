@@ -8,10 +8,11 @@ Reusable web components for UVA Library sites, built with Lit and TypeScript:
 - **Navigation:** `<uvalib-breadcrumbs>` (the breadcrumb trail) and `<uvalib-contents>` (sub-navigation or a table of contents).
 - **Cards:** `<uvalib-card>`, `<uvalib-card-grid>` and `<uvalib-pager>`.
 - **Tabs:** `<uvalib-tabs>`.
+- **Long pages:** `<uvalib-back-to-top>` (a “Back to top” button that appears once the top has scrolled away).
 - **Records:** `<uvalib-metadata>` (a record's details, credit, rights and how to cite).
 - **Images:** `<uvalib-lightbox>` (an image viewer over plain links), `<uvalib-photo-grid>` (justified rows of thumbnails) and `<uvalib-image-regions>` (numbered region outlines on an image, with their list).
 - **Maps:** `<uvalib-map>` (places on the page's own Leaflet map, sized by a count, with a linked list).
-- **Search:** `<uvalib-filter>`, `<uvalib-date-range>`, `<uvalib-date-histogram>`, `<uvalib-combobox>` (a text field that suggests values as you type) and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
+- **Search:** `<uvalib-filter>`, `<uvalib-date-range>`, `<uvalib-date-histogram>`, `<uvalib-combobox>` (a text field that suggests values as you type), `<uvalib-filter-drawer>` (the filters as a sidebar, or a modal panel on phones) and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
 - **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
 - **Library events:** `<events-section>`.
 - **Search results:** `<bento-box>` (library.virginia.edu/search), with its `<catalog-section>`, `<articles-section>`, `<libguides-section>` and `<website-section>`.
@@ -143,7 +144,7 @@ The page is built with the library itself. Its header's main navigation is the e
 
 - `https://unpkg.internal.lib.virginia.edu/web-components/v1/<tag>.js` is the major alias. It follows releases within major 1 and is cached for about 5 minutes.
 - `https://unpkg.internal.lib.virginia.edu/web-components/vX.Y.Z/<tag>.js` is an exact, immutable version. Use it to pin.
-- `tokens.css` and `base.css` live at the same prefix (`.../v1/tokens.css`).
+- `tokens.css` and `base.css` live at the same prefix (`.../v1/tokens.css`), and so does `analytics.js`, the analytics helpers for a page's own scripts (`trackEvent`, `trackSearch`, `createSearchTracker`; no element, no Lit; see [Analytics](#analytics)).
 - Never use the legacy `/web-components/latest/` or `/web-components/cdn-v*` paths; they belong to the old components. See [migration](docs/migration.md).
 - `site-page.js` also loads the header and footer. For Matomo, give `<site-page>` a `matomo-id` (it then loads the analytics code itself), or add `site-analytics.js` and a `<site-analytics>` element; see [Analytics](#analytics).
 - Link `base.css` in `<head>` too. `<site-page>` installs the same page-level base styles itself, but only after the first paint, so without the link the page jumps once: the browser's default body margin goes away, and a heading's top margin stops collapsing through the not-yet-upgraded `<site-page>` (layout shifts Lighthouse counts on every page). With the link, `<site-page>` also stays invisible until its script has run, so its content never paints above where the header goes; if the script fails to load, the content appears anyway after two seconds. Sites with `no-global-styles` skip `base.css`, as that attribute turns those styles off.
@@ -158,7 +159,7 @@ npm i @uvalib/web-components
 import '@uvalib/web-components/site-page.js'; // registers site-page, site-header, site-main-nav and site-footer
 ```
 
-The define entries are `site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `uvalib-date-histogram.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`, `events-section.js`, `bento-box.js` and `uvalib-pagefind-search.js`. The package root (`import '@uvalib/web-components'`) exports the classes only and registers nothing. To use a class such as `SitePage` directly, also import the define entries. CSS is available as `@uvalib/web-components/tokens.css`, `base.css` and `pagefind.css` (the Pagefind theme, see [Static-site search](#static-site-search-pagefind)). Do not load the same component from both the CDN and npm on one page.
+The define entries are `site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `uvalib-date-histogram.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`, `events-section.js`, `bento-box.js` and `uvalib-pagefind-search.js`. The package root (`import '@uvalib/web-components'`) exports the classes only and registers nothing. To use a class such as `SitePage` directly, also import the define entries. CSS is available as `@uvalib/web-components/tokens.css`, `base.css` and `pagefind.css` (the Pagefind theme, see [Static-site search](#static-site-search-pagefind)). `@uvalib/web-components/analytics.js` has the analytics helpers on their own (`base.js` exports them too). Do not load the same component from both the CDN and npm on one page.
 
 ## Quick start
 
@@ -288,6 +289,19 @@ connect-src https://d2q6t6fdv76k7r.cloudfront.net wss://*.appsync-realtime-api.u
 
 (Use the staging host, or your `alerts-src` host, instead where that applies.) Alert bodies can include images, so allow their hosts in `img-src` too. Alert bodies are inserted as HTML, so a page that enforces Trusted Types (`require-trusted-types-for 'script'`) is incompatible with the alerts; use `no-alerts` there.
 
+### Printing
+
+When a visitor prints a page (meeting minutes, a finding aid, an article), `<site-page>` prints only the content: the skip link, the header (with the main navigation and the header alert), the alert list band, the regional alerts, the breadcrumbs, the pre-footer band and the footer are left out, and `<main>` loses its side gutters. The content prints black on white, a dark scheme prints light, and the content's links are black and underlined, so they are told apart without colour. A short line above the content says where the page came from: “UVA Library — ” followed by the `site-name` (or else the page's `<title>`) and the page's URL, refreshed just before printing so a single-page app prints its current route. It is CSS generated content in a print-only rule, so screen readers never meet it on screen.
+
+```html
+<!-- Print the page as it is shown, header and footer included. -->
+<site-page print-chrome> … </site-page>
+```
+
+- **`print-chrome`** keeps the header, alerts, breadcrumbs and footer in print (the scheme still prints light).
+- **Both modes:** the rules are in `<site-page>`'s own styles (shadow or `no-shadow-dom`); the link colours and the light scheme come from the page-level base styles, so with `no-global-styles` the links keep your own print colours. With `no-style` none of this applies: print styles are yours.
+- **Your own print rules** still apply: hide a sidebar or a back-to-top button of your own with `@media print { … }`. Browsers print the title and URL in the page margins too unless the visitor turns that off.
+
 ## Breadcrumbs
 
 `<uvalib-breadcrumbs>` is the breadcrumb trail, with library.virginia.edu's look (slash separators, underlined `--uva-blue-alt-dark` links) at body size (1rem), as the design system asks. Entry: `uvalib-breadcrumbs.js` on the CDN, `@uvalib/web-components/uvalib-breadcrumbs.js` on npm. Inside `<site-page>` give it `slot="breadcrumbs"` and load both scripts:
@@ -313,6 +327,7 @@ connect-src https://d2q6t6fdv76k7r.cloudfront.net wss://*.appsync-realtime-api.u
 
 - **Markup.** A `<nav aria-label="Breadcrumb">` (`label` changes the name) holding an `<ol>`, one `<li>` per step. The slashes are `aria-hidden` elements, so screen readers do not read them. The last step is the current page: a `<span aria-current="page">`, or a link with `aria-current="page"` when it has an href.
 - **The trail as children.** `<a href>` children, ending with the current page as a text-only element (`<span>Writing</span>`) or a link (`<a href="…" aria-current="page">`). The last child is always the current page; an earlier child without an href is shown as plain text (a level with no page of its own). Hrefs are used as written (relative, hash routes); an href with another scheme than http(s), `mailto:` or `tel:` (such as `javascript:` or `data:`) makes that step plain text, with one console warning. Children with no text, and bare text, are skipped with one console warning. The trail follows changes to the children (added, removed, href and text), so a single-page app can rewrite them on each route. An empty trail renders nothing and, in `<site-page>`, takes no space.
+- **Back to the search.** On a record reached from search results, give the Search crumb `data-return-from` with the search page's path (or several, separated by spaces): `<a href="/" data-return-from="/">Search</a>`. When the visitor came from that page on the same site with a query string (`document.referrer`; a trailing slash or `index.html` does not matter), the crumb links back to that search (`/?q=budget&date_start=2023`) instead of a blank one; its text stays the same. Otherwise (a new tab, another page, another site, no query, or a `Referrer-Policy` that sends no path) it keeps its href. Nothing is stored or sent. Referrers never carry the hash, so a hash-routed search cannot be returned to this way. In `items` the same is `returnFrom`. No inline script rewriting the crumb is needed.
 - **Single-page apps.** The trail is drawn from copies of the children, so a router's own click handlers on them don't run. A plain click on a trail link fires `uvalib-breadcrumbs-navigate` (`detail: { href, index }`, bubbling, cancelable): cancel it with `preventDefault()` and navigate in the app (the click's own navigation is then prevented). Hash links need nothing.
 - **The trail as data.** Apps that build it in JavaScript (React, Vue) set the `items` property: `el.items = [{ label: 'Home', href: '/' }, { label: 'Search' }]`. While set it wins over any children; assign a new array to change it, `undefined` to go back to the children. Entries without a label are skipped with one warning.
 - **Placement.** In `<site-page>` the trail sits where library.virginia.edu puts it: after the header and the alert list band, before `<main>` and outside it, so the skip link lands past it, lined up with `<main>`'s content (same max width and 40px side padding, 16px above). In light mode (`no-shadow-dom`) it is moved there as a real child of `<site-page>`, never into `<main>`. Without a `slot="breadcrumbs"` child the page is unchanged. Elsewhere it is an ordinary block: put it first in the page content, above the `<h1>`.
@@ -383,6 +398,15 @@ connect-src https://d2q6t6fdv76k7r.cloudfront.net wss://*.appsync-realtime-api.u
   <button value="date">Date</button>
   <button value="title">Title A–Z</button>
 </uvalib-chip-group>
+<uvalib-chip-group
+  label="Search by"
+  segmented
+  value="keyword"
+  description="Keyword matches your words. Meaning finds meetings about your topic, even when the minutes put it differently."
+>
+  <button value="keyword">Keyword</button>
+  <button value="meaning">Meaning</button>
+</uvalib-chip-group>
 <uvalib-chip-group mode="multi" label="Category" value="traditions">
   <button value="traditions" data-count="9">Traditions</button>
   <button value="sports" data-count="21">Sports</button>
@@ -404,6 +428,7 @@ A colour key: `data-swatch` (or `swatch` in `items`) draws a small square of tha
 
 - **Modes.** `single` (the default): native radios drawn as chips in a `role="radiogroup"`. Tab enters at the selected chip and the arrow keys move and select, as in any radio group; `value` is a string. `multi`: toggle buttons with `aria-pressed`; `value` is an array (comma-separated as an attribute). `links`: links (or, without `href`, buttons) that fire `select` and have no selected state.
 - **Chips.** Children: `<button value data-count>` (the value falls back to `data-value`, then the text; `disabled` disables), or `<a href>` in `links` mode (an unsafe href such as `javascript:` makes the chip plain text, with one warning; an empty one makes it a button). Or set `items` (`[{ value, label, count?, href?, disabled?, swatch? }]`), which wins over the children while set. The chips follow changes to the children.
+- **Description.** `description` is a hint shown under the chips in small muted text and tied to the group (the `radiogroup`, or the `group` in `multi` and `links`) with `aria-describedby`, so a screen reader reads it when focus enters the group. It is an attribute, not a slot, on purpose: the text lives in the element's own root next to the group, so the reference works in shadow DOM (an `aria-describedby` from the page cannot reach into a shadow root, nor out of one) and in light DOM (a unique id). It is plain text, so it cannot hold a link; put a longer explanation with links next to the element. Works in every mode, with `segmented`, `scroll` and `no-style`; before the script loads `base.css` holds a line for it.
 - **Names.** `label` names the group and is required (one console warning without it). A count is shown smaller and muted, and read as part of the chip's name: “2005, 461 shoots” with `count-label="shoots"` (default “items”). Numbers are formatted for the page's language.
 - **Swatches.** `data-swatch` / `swatch` is any CSS colour (checked with `CSS.supports`; an invalid one is ignored with one console warning) and is set as a style property, never as CSS text. The square is decorative (`aria-hidden="true"`, `part="swatch"`): the chip's name stays its label and count, so the colour is never the only cue; keep the chart's or map's own labels, and use the same label text in both. Its 1px border is the chip's text colour, so it shows against the chip unselected, selected, disabled and in dark mode (at least 3:1, WCAG 1.4.11), and the chip keeps its height. In forced colors the square keeps its real colour (`forced-color-adjust: none` on the square only, since it must match the chart or map, which forced colors leave alone in a canvas or image) with a system-colour border. It works in every mode, with `segmented` and `scroll`, and with `no-style`.
 - **Events.** `change` (`detail: { value }`) on the visitor's change only, never when the app sets `value`; `select` (`detail: { value, href? }`) in `links` mode, cancelable for a plain click on a link: cancel it to route in a single-page app. Both bubble and are composed.
@@ -495,6 +520,7 @@ Two components for Library sites with records and long texts, such as the Electr
 
 - **Markup.** A `<nav>` landmark named by `label` (default "Contents"), with the label as a visible headline (`<h2>`; `heading-level` 2 to 6), then the nested list: dividers between the top-level entries, a bar beside each nested level, links in `--uva-color-utility-link` (else #005679) and the library focus ring. Every link is at least 24px tall.
 - **The list as a child.** One `<ol>` or `<ul>` of `<li>`, each with an `<a href>` (or plain text, for a group label) and, for sub-entries, a nested `<ol>`/`<ul>`, to any depth. Other children (a heading) are ignored; entries with no text are skipped with one console warning; hrefs other than relative, http(s), `mailto:` and `tel:` become plain text. `lang` and `dir` on the links and items are kept, and so is inline markup in the text (`em`, `cite`, `code`, `abbr`…, copied element by element with only `lang`, `dir` and an `abbr` title; never parsed as HTML). It follows changes to the children. Apps set the `items` property instead: `[{ label, href?, children? }]`, winning over the children while set.
+- **From the page's headings.** For a long document (minutes, transcriptions, reports, finding aids), `headings-from="#article"` builds the list from the headings in that element: `levels` (`2-3` by default, or one level such as `2`) picks which, each lower level nested under the heading before it, and `min` (default 2) is the fewest top-level entries worth a list (fewer shows nothing). Headings with no text or hidden with `aria-hidden` (and text inside `aria-hidden`, such as a `#` permalink) are skipped. A heading without an id gets one from its text (lowercase ASCII, accents dropped, anything else as `-`: "Résumé of the budget" is `resume-of-the-budget`, a repeat `-2`, `-3`); existing ids are kept, so links to sections keep working, and opening the page at such a section goes to it. Headings added, removed or retitled are followed; call `refresh()` after other changes. A child list or `items` wins while given. Without JavaScript there is no list: where the list can be rendered at build time, give it as children instead.
 - **Current entry.** `aria-current="page"` on the link to this page and `aria-current="location"` on the link to the section in the URL's hash, drawn bold with a bar. It is found from the page URL (path, ignoring a trailing slash or `index.html`, and hash; an entry whose href has a query string, such as `?part=2`, matches only that query, one without matches whatever the query), followed through `hashchange`, `popstate` and the Navigation API, or from `current` (a URL, for apps whose route is not the page URL; hash-only entries are then places on that URL). With `current` unset, a valid `aria-current` the author put on a source link (`page`, `location`, or `true` for a page) is used, at most one of each.
 - **Narrow screens.** At and below `collapse-below` (a viewport width, default `64rem`; `0` never collapses) the headline becomes a full-width 44px button with `aria-expanded` and `aria-controls`, and the list starts closed until the reader opens it (as the Electronic Text Collections' Contents does on phones, so the text comes first; the `open` attribute starts it open), and opening it shows the current entry. It measures the viewport, not the element (no container query) on purpose: a contents sidebar is always much narrower than 64rem, so its own width cannot tell a phone from a desktop.
 - **Sidebars.** `sticky` keeps it in view on wide screens (`--uvalib-contents-sticky-top`, default 1rem); the list then scrolls within the window's height (`--uvalib-contents-max-height`) and the current entry is scrolled into view inside it, never the page.
@@ -504,6 +530,7 @@ Two components for Library sites with records and long texts, such as the Electr
 
 - **The rows as a `<dl>` child**, so the page reads the same before the script runs: `<dt>` labels and `<dd>` values, optionally a `<div>` per row; several `<dd>` are several values. Values are copied as written (links, lists such as subjects, `download` attributes, and `lang`/`dir` on the `<dt>` and `<dd>`); a link whose href is not relative, http(s), `mailto:` or `tel:` is shown as its text, with one console warning. A link with `data-size` is shown as a download, "EPUB · 184 KB", read as "EPUB, 184 KB" (not added again when the link's text already ends with the size). Apps set `items` instead: `[{ label, value }]`, a value being text, a link `{ label, href, size?, download? }` or an array of them (a list).
 - **Credit and rights**, as Special Collections asks: `creator` and `organization` rows first; `rights` last, a rightsstatements.org or Creative Commons URL shown as its short name ("In Copyright", "No Copyright – United States", "CC BY 4.0", "CC0 1.0") linked with `rel="license"`, another URL as `rights-label` (else "Rights statement"), or plain text; `rights-info` adds a "More about rights and permissions" link (the library's is `https://www.library.virginia.edu/policies/use-of-materials`).
+- **Long lists.** `list-limit="8"` on the element shortens every value that is a list (a `<ul>` or `<ol>` directly in the `<dd>`) of more than 8 items: the first 8 show, then a real button, “Show all 34 participants” (`aria-expanded`, `aria-controls`; the count in its name), reveals the rest in place and moves focus to the first one revealed (its link, or the item itself with `tabindex="-1"`); it then reads “Show fewer”, which hides them again and keeps focus on the button. `data-limit` on a `<dd>` or its list sets that row's own limit and wins (`data-limit="0"`: never shortened). The noun is the row's label with a lowercase first letter (“Participants” → “participants”; a label that starts with an acronym, “ORCID iDs”, is kept as written); set `data-limit-label="people"` when that does not read well (a singular label, say). Apps set `limit` and `limitLabel` on an `items` row. The hidden values carry `hidden`, so they are not read until shown, and every value stays in the markup: without JavaScript the whole list shows. Before the script loads the element is hidden at its full height, so content below moves up once when it upgrades. The button is an underlined text button like `<uvalib-tag-list>`'s Show all: at least 2rem (34px) square (24px with `no-style`), `ButtonText` in forced colors, no animation (nothing to reduce). Analytics: `show-all` / `show-fewer` with `row N`, the row's place, never its label or values.
 - **How to cite.** `citation` (as written), or `citation-title` for the Special Collections formula "<title or collection>, Albert and Shirley Small Special Collections Library, University of Virginia". A Copy citation button copies it and says "Copied" in a polite status; where the clipboard is unavailable it selects the citation and says so.
 - **Layout.** Label and value side by side when the element is 36rem wide or more, stacked below that (a container query: the element's own width). Labels in `--uva-color-text-muted`, rows divided by `--uva-color-border`.
 
@@ -720,12 +747,70 @@ The mode is read once, at first connect; do not toggle it afterwards.
 - **`.uvalib-input`** is a 44px text field; **`.uvalib-search-form`** puts the label, field and button in one row that wraps on phones. Keep a visible `<label>` (or at least an `aria-label`).
 - **Dark mode and forced colors:** they follow the `--uva-color-button-*` role tokens. `base.css` carries every role token it reads itself (the same values as `tokens.css`), so a page that links only `base.css` stays readable under `data-uva-color-scheme`; link `tokens.css` too for your own content's other `--uva-color-*` tokens. Turn dark mode on with `color-scheme-switch` (see [Dark mode](#dark-mode)). In Windows high-contrast mode they keep visible outlines, show hover and press as a Highlight outline (dashed while pressed), a highlighted pressed toggle, and GrayText when disabled.
 - **Cascade:** like the rest of `base.css` the rules are unlayered, so a host reset such as `button { background: none }` does not undo them; restyle with a more specific selector. They are only in `base.css`: `<site-page>` does not install them. The components' own buttons (bento-box, events-section, library-weekly-hours) keep their look, in light DOM too.
+- **`hidden` hides them.** Every `base.css` class that sets `display` (buttons, fields, the search form, badges, media, the toolbar, the empty state, skeletons, messages, the results list) is hidden by the `hidden` attribute, so `button.hidden = true` takes it out of sight, the tab order and the accessibility tree. The rule is scoped to those classes (`:where(.uvalib-button, …)[hidden] { display: none !important }`), not a global `[hidden]` reset, so a page's own `[hidden]` content behaves as it did before.
+
+## Messages
+
+An inline message for the page's own content: a search error, a notice that results are partial, a saved confirmation. It has the severity look of `<site-alerts>` (the alert background, a thick start border in the severity colour) at the size of the content around it. The class is in `base.css`.
+
+```html
+<!-- An error that appears after an action: role="alert" announces it at once. -->
+<div class="uvalib-message uvalib-message--error" role="alert">
+  <strong class="uvalib-message__label">Error:</strong> the search could not be run.
+  <a href="/search">Try again</a>
+</div>
+
+<!-- A notice: role="status" announces it politely. -->
+<div class="uvalib-message uvalib-message--notice" role="status">
+  <strong class="uvalib-message__label">Note:</strong> search by meaning isn't available right now,
+  so these are keyword results.
+</div>
+
+<div class="uvalib-message uvalib-message--warning">
+  <strong class="uvalib-message__label">Warning:</strong> some records are still being added.
+</div>
+<div class="uvalib-message uvalib-message--success" role="status">
+  <svg class="uvalib-message__icon" aria-hidden="true" viewBox="0 0 16 16">
+    <path d="M2 8l4 4 8-8" fill="none" stroke="currentColor" stroke-width="2" />
+  </svg>
+  <strong class="uvalib-message__label">Saved:</strong> your list was updated.
+</div>
+```
+
+- **Kinds:** `--error`, `--warning`, `--info` (or its alias `--notice`) and `--success`; a plain `.uvalib-message` looks like `--info`. Text and links are 7:1 or more (WCAG AAA) on every kind in light and dark (the `--uva-color-alert-*` and `--uva-color-status-success-*` role tokens, which `base.css` carries itself). Links are underlined, with a focus ring in the text colour.
+- **Never colour alone:** start the text with the severity in words (“Error:”, “Warning:”, “Note:”, “Saved:”), in `.uvalib-message__label` (bold); an icon (`.uvalib-message__icon`) is decorative, `aria-hidden="true"`, and never replaces the word. There is no CSS-generated prefix: screen readers read generated content inconsistently, it is not translated with the page, and it would double the word you wrote.
+- **Live regions:** use `role="alert"` only for an error that appears in response to what the visitor did (it interrupts); use `role="status"` for a notice or confirmation (polite). For a status to be announced reliably, put the empty `role="status"` container in the page first and fill it later, rather than inserting the whole element. A message that is there when the page loads needs no role. Do not put an alert role on a message that is always shown.
+- **Forced colors:** every message keeps a system-colour border, thicker at the start. In the flow of the page it is a block with the content's own width, its first and last child without outer margins.
+
+## Back to top
+
+`<uvalib-back-to-top>` is a “Back to top” button for long pages: minutes, finding aids, transcriptions, long result lists. Entry: `uvalib-back-to-top.js` on the CDN, `@uvalib/web-components/uvalib-back-to-top.js` on npm. See the [Back to top](https://uvalib.github.io/reusable-web-library/#back-to-top) example.
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-back-to-top.js"
+></script>
+
+<site-page>
+  <h1>Minutes of the Board of Visitors</h1>
+  …
+  <uvalib-back-to-top></uvalib-back-to-top>
+</site-page>
+```
+
+- **When it shows.** Hidden until the top `offset` pixels (default 400) have scrolled out of view, watched with an IntersectionObserver on a 1px-wide sentinel it adds to `<body>`, positioned at the top of the page (no scroll listener). Hidden means `visibility: hidden`: not a tab stop and not in the accessibility tree. If it has focus as it hides, focus moves to the target.
+- **What it does.** A real `<button>` with visible text (`label`, default “Back to top”) and an arrow. It scrolls to the top, smoothly unless the visitor prefers reduced motion, and moves focus to the page's `<h1>` (the first in `<main>`, else the first on the page, else `#top`), or to the element `target` selects, adding `tabindex="-1"` when that element is not focusable, so keyboard and screen reader users land at the top too.
+- **Where it sits.** Fixed in the bottom corner on the end side, 1rem in (or the safe-area inset), 44px tall, with the outline (`.uvalib-button--secondary`) look on a solid background. **Put it last in the page's content** (inside `<site-page>`, after everything else): the element is an empty block `--uvalib-back-to-top-space` (default 4.75rem) tall, the space the button needs, so the last lines can scroll clear of it; once that space is in view the button sits in it instead of floating, so it never covers the footer either. While scrolling it floats over content like any fixed button; it never widens the page at 320px. It is hidden in print. `<site-page>` has no attribute for it: load `uvalib-back-to-top.js` and add the element.
+- **Colours.** Dark mode follows the role tokens; in forced colors it is a ButtonFace button with a ButtonText border.
+- **Analytics.** `['uvalib-back-to-top', 'click']`.
 
 ## Tokens and theming
 
 - **Tokens:** inherited `--uva-*` custom properties (for example `--uva-brand-blue`, `--uva-font-family`), set on `:root` or an ancestor of the component. The full set is in `tokens.css`. Components read tokens with fallbacks and never set them.
 - **Parts (shadow mode):** on a page, `site-page::part(header)`, `site-page::part(footer)` and `site-page::part(main)`. For a standalone element, `site-header::part(header)` or `site-footer::part(footer)`.
 - **Light mode** has no shadow parts; use ordinary selectors, which win over the layered component styles.
+- **Highlight:** `--uva-color-highlight` and `--uva-color-on-highlight` colour highlighted search terms (`<mark>` in `.uvalib-result__snippet`): library.virginia.edu's orange-200 (`--uva-brand-orange-200`, `#ffc999`) with dark text (9.5:1) in light, `#854200` with white text (7.6:1) in dark. Read them for your own highlights, with the light values as fallbacks: `background: var(--uva-color-highlight, #ffc999); color: var(--uva-color-on-highlight, #2b2b2b)`, and keep the highlight bold (or otherwise marked) so it is not colour alone.
 
 ## Dark mode
 
@@ -764,26 +849,28 @@ Dark mode is **off by default**. Without it nothing changes: no control, no dark
 
 **Role tokens.** Defined only while dark mode is on; components fall back to the palette token or value they always used, so light mode is unchanged. Do not flip the palette tokens instead: `--uva-brand-blue` is both text on white and a background under white text. With dark mode on, the role tokens resolve on `:root`, so `--uva-brand-*` overrides set on `:root` still apply in Light, but overrides scoped below `:root` (for example `site-header { --uva-brand-blue: … }`) are ignored for the colours the role tokens cover; set them on `:root`, or override the `--uva-color-*` token there instead.
 
-| Token                         | Used for                                                    | Light                             | Dark                 |
-| ----------------------------- | ----------------------------------------------------------- | --------------------------------- | -------------------- |
-| `--uva-color-surface`         | page background                                             | `#ffffff`                         | `#10172b`            |
-| `--uva-color-surface-raised`  | header, nav bar, panels, popover, inputs, buttons, chips    | `#ffffff`                         | `#232d4b`            |
-| `--uva-color-surface-hover`   | hover and open-group background                             | `--uva-grey-100` (`#dadada`)      | `#2c3858`            |
-| `--uva-color-text`            | text                                                        | `--uva-grey-darkest` (`#2b2b2b`)  | `#e8e8e8`            |
-| `--uva-color-text-muted`      | secondary labels                                            | `#4b5563`                         | `#adadad`            |
-| `--uva-color-link`            | links, headings, accent text                                | `--uva-brand-blue` (`#232d4b`)    | `#87b9d9`            |
-| `--uva-color-utility-link`    | header utility and site links                               | `--uva-blue-alt-dark` (`#005679`) | `#91d8f2`            |
-| `--uva-color-focus`           | focus rings                                                 | `--uva-brand-orange` (`#e57200`)  | `#ffb370`            |
-| `--uva-color-current`         | current-page underline                                      | `--uva-brand-orange` (`#e57200`)  | `#e57200`            |
-| `--uva-color-accent-bg`       | pressed chip, slider range and thumbs, skip link, selection | `--uva-brand-blue` (`#232d4b`)    | `#87b9d9`            |
-| `--uva-color-on-accent`       | text on `--uva-color-accent-bg`                             | `#ffffff`                         | `#10172b`            |
-| `--uva-color-control-border`  | borders of controls (chips, inputs, the theme control)      | `--uva-grey` (`#808080`)          | `#7a84a0`            |
-| `--uva-color-input-text`      | date input text                                             | `#1f2937`                         | `#e8e8e8`            |
-| `--uva-color-border`          | decorative borders and rules (dark only)                    | each component's own (`#ccc`, …)  | `#7a84a0`            |
-| `--uva-color-track`           | slider track                                                | `#e5e7eb`                         | `#2c3858`            |
-| `--uva-color-shadow`          | panel shadow                                                | `rgba(0, 0, 0, 0.2)`              | `rgba(0, 0, 0, 0.6)` |
-| `--uva-color-pre-footer-bg`   | pre-footer band background                                  | `--uva-blue-alt-300` (`#bfe7f7`)  | `#005679`            |
-| `--uva-color-pre-footer-text` | pre-footer band text                                        | `--uva-grey-darkest` (`#2b2b2b`)  | `#ffffff`            |
+| Token                         | Used for                                                    | Light                                | Dark                 |
+| ----------------------------- | ----------------------------------------------------------- | ------------------------------------ | -------------------- |
+| `--uva-color-surface`         | page background                                             | `#ffffff`                            | `#10172b`            |
+| `--uva-color-surface-raised`  | header, nav bar, panels, popover, inputs, buttons, chips    | `#ffffff`                            | `#232d4b`            |
+| `--uva-color-surface-hover`   | hover and open-group background                             | `--uva-grey-100` (`#dadada`)         | `#2c3858`            |
+| `--uva-color-text`            | text                                                        | `--uva-grey-darkest` (`#2b2b2b`)     | `#e8e8e8`            |
+| `--uva-color-text-muted`      | secondary labels                                            | `#4b5563`                            | `#adadad`            |
+| `--uva-color-link`            | links, headings, accent text                                | `--uva-brand-blue` (`#232d4b`)       | `#87b9d9`            |
+| `--uva-color-utility-link`    | header utility and site links                               | `--uva-blue-alt-dark` (`#005679`)    | `#91d8f2`            |
+| `--uva-color-focus`           | focus rings                                                 | `--uva-brand-orange` (`#e57200`)     | `#ffb370`            |
+| `--uva-color-current`         | current-page underline                                      | `--uva-brand-orange` (`#e57200`)     | `#e57200`            |
+| `--uva-color-accent-bg`       | pressed chip, slider range and thumbs, skip link, selection | `--uva-brand-blue` (`#232d4b`)       | `#87b9d9`            |
+| `--uva-color-on-accent`       | text on `--uva-color-accent-bg`                             | `#ffffff`                            | `#10172b`            |
+| `--uva-color-control-border`  | borders of controls (chips, inputs, the theme control)      | `--uva-grey` (`#808080`)             | `#7a84a0`            |
+| `--uva-color-input-text`      | date input text                                             | `#1f2937`                            | `#e8e8e8`            |
+| `--uva-color-border`          | decorative borders and rules (dark only)                    | each component's own (`#ccc`, …)     | `#7a84a0`            |
+| `--uva-color-track`           | slider track                                                | `#e5e7eb`                            | `#2c3858`            |
+| `--uva-color-shadow`          | panel shadow                                                | `rgba(0, 0, 0, 0.2)`                 | `rgba(0, 0, 0, 0.6)` |
+| `--uva-color-pre-footer-bg`   | pre-footer band background                                  | `--uva-blue-alt-300` (`#bfe7f7`)     | `#005679`            |
+| `--uva-color-pre-footer-text` | pre-footer band text                                        | `--uva-grey-darkest` (`#2b2b2b`)     | `#ffffff`            |
+| `--uva-color-highlight`       | highlighted search terms (`<mark>` in results)              | `--uva-brand-orange-200` (`#ffc999`) | `#854200`            |
+| `--uva-color-on-highlight`    | text on `--uva-color-highlight`                             | `--uva-grey-darkest` (`#2b2b2b`)     | `#ffffff`            |
 
 `--uva-color-scheme` is the scheme the components follow (`light dark`, `light` or `dark`). See the [Dark mode](https://uvalib.github.io/reusable-web-library/#dark-mode) example in the playground.
 
@@ -818,9 +905,9 @@ Dark mode is **off by default**. Without it nothing changes: no control, no dark
 </script>
 ```
 
-The filter and the date range are controlled: set `value` (and `scopeValue`) from your own state after each event. `min` and `max` are required for the date range; without valid ones it renders nothing and warns once in the console. All three support `no-shadow-dom` and `no-style`. See the [Search facets](https://uvalib.github.io/reusable-web-library/#search-facets) example in the playground and the generated reference below.
+The filter and the date range are controlled: set `value` (and `scopeValue`) from your own state after each event. The date range also fires `uvalib-date-range-value` (`detail: { value: [start, end] }`) for every change to the range it shows, including a `value`, `min` or `max` set in script, so other components (such as a linked `<uvalib-date-histogram>`) can follow it; it is not a visitor action and is never sent to analytics. `date-range-change` stays the visitor's own change. `min` and `max` are required for the date range; without valid ones it renders nothing and warns once in the console. All three support `no-shadow-dom` and `no-style`. See the [Search facets](https://uvalib.github.io/reusable-web-library/#search-facets) example in the playground and the generated reference below.
 
-`<uvalib-date-histogram>` draws one button per month (grouped by year) or per year. Give it `items` (`{ date: 'YYYY' | 'YYYY-MM', count }`) or a child `<table>` (two columns, or a year-by-month grid). The table stays in the page for assistive technology and for visitors without JavaScript, and "Show as table" shows it again. `unit="photos"` names a bar "October 2015: 5,311 photos". Arrow keys move between bars. `selected` is one bucket or a range (`2015-10` or `2015-10/2016-03`); the pressed bars also get a ring and a stripe. A choice fires `select` with `{ from, to }` as ISO dates. `range-for="dates"` keeps a `<uvalib-date-range id="dates">` in step: a bar sets its `value`, and `date-range-change` highlights the overlapping bars. Setting `selected` in script updates the date range and does not fire `select`. Setting the date range's `value` in script does not update the histogram unless the histogram connects afterwards or the range fires `date-range-change`. A value equal to that range's own `min` and `max` selects nothing. `scale="log"` sizes bars by log(count + 1). On a narrow screen each year row scrolls inside the component ("Scroll sideways to see more."); year bars wrap. `variant="strip"` is a non-interactive per-year row (`role="img"`) for a card. A date that is not a bucket at the current granularity (a bare year on a month chart, a day, "undated") is a chip.
+`<uvalib-date-histogram>` draws one button per month (grouped by year), per year, or per decade (`granularity="decade"`, five to a row labelled 1800, 1850, …, named "1810s: 22 meetings"; choosing one selects `1810/1819`, and a linked date range gets `1810-01-01` to `1819-12-31`). `granularity="auto"` picks months when every count is a month within 3 years, years up to 30 years, and decades beyond. For a long span such as 1817–2026 use decades rather than a sideways-scrolling year row: 210 year bars at the 24px minimum would be over 5,000px wide. Give it `items` (`{ date: 'YYYY' | 'YYYY-MM', count }`) or a child `<table>` (two columns, or a year-by-month grid). The table stays in the page for assistive technology and for visitors without JavaScript, and "Show as table" shows it again. `unit="photos"` names a bar "October 2015: 5,311 photos". Arrow keys move between bars. `selected` is one bucket or a range (`2015-10` or `2015-10/2016-03`); the pressed bars also get a ring and a stripe. A choice fires `select` with `{ from, to }` as ISO dates. `range-for="dates"` keeps a `<uvalib-date-range id="dates">` in step: a bar sets its `value`, and any change to the range's value, from its controls or set in script (a Clear button, Back/Forward, a restored URL), highlights the overlapping bars; the range fires `uvalib-date-range-value` for every change, which other code can listen for too. On (re)connect the range's value wins when it holds a selection, and the histogram never writes a rounded value back. Setting `selected` in script updates the date range and does not fire `select`. A value equal to that range's own `min` and `max` selects nothing. `scale="log"` sizes bars by log(count + 1). On a narrow screen each year row scrolls inside the component ("Scroll sideways to see more."); year bars wrap. `variant="strip"` is a non-interactive per-year row (`role="img"`) for a card, per decade with `granularity="decade"`. A date that is not a bucket at the current granularity (a bare year on a month chart, a day, "undated") is a chip.
 
 ```html
 <script
@@ -918,6 +1005,58 @@ The filter and the date range are controlled: set `value` (and `scopeValue`) fro
 - **Before the script loads.** `base.css` shows the label (from the attribute) and holds the field's height, plus one line for a `description`, so nothing below moves on upgrade. A fallback `<input>` child is a working field meanwhile (with `list`, the browser's own suggestions); once upgraded it is disabled so it does not submit twice. Other children stay hidden.
 - **Analytics.** `select` with the label and the suggestion's position (from 1), and `clear` with the label. Never the typed text or a suggestion's text or value: they can be people's names.
 
+## Filter drawer
+
+`<uvalib-filter-drawer>` holds a search page's form and filters: a plain sidebar on wide screens, and at and below `breakpoint` (default `48rem`) a “Search and filters” button that opens them in a modal panel from the side, as Virgo does on phones. Entry: `uvalib-filter-drawer.js` on the CDN, `@uvalib/web-components/uvalib-filter-drawer.js` on npm. See the [Filter drawer](https://uvalib.github.io/reusable-web-library/#filter-drawer) example.
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-filter-drawer.js"
+></script>
+
+<div class="search-layout">
+  <uvalib-filter-drawer label="Search and filters" live="results-count status">
+    <form class="uvalib-search-form" role="search">…</form>
+    <uvalib-filter id="decade"></uvalib-filter>
+  </uvalib-filter-drawer>
+  <section>
+    <uvalib-results-count id="results-count" total="1204"></uvalib-results-count>
+    <p id="status" role="status"></p>
+    …
+  </section>
+</div>
+<script type="module">
+  const drawer = document.querySelector('uvalib-filter-drawer');
+  document.querySelector('#decade').addEventListener('filter-change', (e) => {
+    drawer.count = e.detail.value.length; // the number of filters set, on the button
+  });
+</script>
+```
+
+- **Wide screens.** The children are shown as written: no button, no dialog role. Lay out the sidebar column yourself (a grid with the drawer in the first column above `48rem`).
+- **Narrow screens.** Only the button is shown (44px, `aria-haspopup="dialog"`, `aria-expanded`). It opens a native `<dialog>` with `showModal()`, named by its visible heading (the `label`), with a 44px Close button that takes focus. Close, Escape and a click on the backdrop close it, and focus returns to the button. Widening the window past the breakpoint closes it and leaves focus where it was. `show()` and `close()` open and close it from script (call `close()` after a search, say); `open` says whether it is open; `open` and `close` events follow.
+- **The page behind is inert.** A modal dialog makes everything outside it inert, `<site-page>`'s shadow header, skip link and alerts included, so focus cannot reach them and no script has to send it back. The only way out is Escape, Close, the backdrop or the browser's own controls: no keyboard trap.
+- **Announcements from behind.** Inert content is not announced, so a results count or status notice outside the panel would go silent while the visitor filters. List their ids in `live`: while the panel is open the drawer watches them (also inside a component's open shadow root, such as `<uvalib-results-count>`'s live region) and repeats each new announcement in its own polite live region inside the panel, cleared after 5 seconds. Regions inside the drawer need no entry.
+- **Same nodes.** The children are moved between the sidebar and the panel (with `moveBefore()` where the browser has it), never re-created: typed text, checked boxes, listeners and each `<uvalib-filter>`'s state stay, through open, close and resizes. In shadow DOM they never move at all (the slot does). Children added later are included.
+- **Count.** `count` (a number the page sets) is shown on the button when above 0 and read as “Search and filters, 3 active”. The drawer does not count inputs itself: only the page knows which of them are filters.
+- **Look.** The panel slides in from the start side (no slide with reduced motion), `--uvalib-filter-drawer-width` wide (default `min(24rem, 100% - 3rem)`, leaving a strip of backdrop at 320px), scrolling on its own. Dark mode follows the role tokens; in forced colors the panel keeps a visible edge.
+- **Before the script loads.** On wide screens the children show as the sidebar, as they will once it upgrades. At and below the default `48rem`, `base.css` hides them and holds the button's 44px, so a phone never shows the filters in full and nothing moves when the element upgrades (no layout shift). With your own `breakpoint`, `base.css` leaves the drawer alone: add the same rule for your width to the page's CSS (`(max-width: …)`, as the element's own media query):
+
+  ```css
+  @media (max-width: 60rem) {
+    :where(uvalib-filter-drawer[breakpoint='60rem']):not(:defined) {
+      display: block;
+      min-block-size: 44px;
+    }
+    :where(uvalib-filter-drawer[breakpoint='60rem']):not(:defined) > * {
+      display: none;
+    }
+  }
+  ```
+
+- **Analytics.** `open` and `close` with the drawer's `label`, only when the visitor does it (not a resize or a script).
+
 ## Results, badges and tags
 
 For search pages, Virgo-like result lists and digital collections: badges and labels, a toolbar above the results, a results count that screen readers hear, keyword lists, an empty state and loading placeholders. The classes are in `base.css` (no script); `<uvalib-tag-list>` and `<uvalib-results-count>` are elements with their own entries (`uvalib-tag-list.js`, `uvalib-results-count.js`; npm `@uvalib/web-components/uvalib-tag-list.js`, `…/uvalib-results-count.js`). See the [Results toolbar & badges](https://uvalib.github.io/reusable-web-library/#results-toolbar) example.
@@ -1008,6 +1147,54 @@ filter.addEventListener('input', () => {
 });
 ```
 
+### Results list
+
+For long result sets (hundreds or thousands of rows that re-render as the visitor types), plain list rows from `base.css` are much lighter than a `<uvalib-card>` per result: no element per row, no script. See the [Results list](https://uvalib.github.io/reusable-web-library/#results-list) example.
+
+```html
+<h2>1999</h2>
+<ul class="uvalib-result-list">
+  <li class="uvalib-result">
+    <p class="uvalib-result__meta">
+      <span class="uvalib-badge uvalib-badge--category">March 12, 1999</span>
+      <span>14 pages</span>
+    </p>
+    <h3 class="uvalib-result__title"><a href="/minutes/1999-03-12">Meeting of the Board</a></h3>
+    <p class="uvalib-result__snippet">
+      The board approved the <mark>library</mark> renovation budget …
+    </p>
+    <div class="uvalib-result__actions">
+      <a
+        class="uvalib-button uvalib-button--secondary uvalib-button--small"
+        href="/minutes/1999-03-12.pdf"
+      >
+        PDF<span class="visually-hidden"> of Meeting of the Board, March 12, 1999</span>
+      </a>
+    </div>
+  </li>
+</ul>
+
+<!-- Loading: a skeleton row the size of a row, hidden from assistive technology. -->
+<ul class="uvalib-result-list" aria-hidden="true">
+  <li class="uvalib-result">
+    <span class="uvalib-result__meta"
+      ><span class="uvalib-skeleton-text" style="inline-size: 8rem"></span
+    ></span>
+    <span class="uvalib-result__title"><span class="uvalib-skeleton-text"></span></span>
+    <span class="uvalib-result__snippet"
+      ><span class="uvalib-skeleton-text"></span><span class="uvalib-skeleton-text"></span
+    ></span>
+  </li>
+</ul>
+```
+
+- **`.uvalib-result-list`** is a `<ul>` without bullets; **`.uvalib-result`** a row, separated by a rule. In a row: **`__meta`** (badges, a date, a format, in small muted text), **`__title`** (the row's one link: on a heading holding the `<a>`, or on the `<a>` itself; only as wide as its text), **`__snippet`** and **`__actions`** (secondary actions, at the end of the row on wide screens and below the text, wrapping, at 40em and narrower). Put meta, title and snippet first, actions last. Keep one link per row and give each action a unique name (a visually hidden “of <title>, <date>”).
+- **Highlights:** a `<mark>` in `__snippet` is bold on `--uva-color-highlight` with `--uva-color-on-highlight` text (9.5:1 light, 7.6:1 dark), and the system Highlight colours in forced colors: never colour alone. A `<mark>` elsewhere is left to the page.
+- **Groups:** for date-sorted results, a heading and one list per group (by year, say); none for relevance order.
+- **Speed:** each row has `content-visibility: auto` with `contain-intrinsic-block-size: auto 7rem`, so rows off screen are not laid out or painted until they scroll near. They stay in the DOM and the accessibility tree; find-in-page, fragment links and focus still reach them (the browser renders a row as it is found). The rows keep 0.5rem of inline padding because that property also clips painting to the row, and the focus rings need the room. Render the rows as one HTML string or a `DocumentFragment` rather than one element at a time.
+- **Phones:** actions wrap below the text, and nothing scrolls sideways at 320px. Room for a button fixed in a corner (back to top, say) is the page's to leave, for example with padding below the list.
+- **`hidden`** on a row hides it, for filtering in place.
+
 ### Tag lists
 
 ```html
@@ -1089,6 +1276,34 @@ Three elements show opening hours from the library's own data, for library.virgi
 - **States.** On the first load a polite `role="status"` says "Loading hours…". Later loads keep the current rows on screen (the weekly table gets `aria-busy="true"`) until the new data lands. If the data cannot be loaded the status says "Hours are unavailable right now."; `<library-weekly-hours>` keeps its week header and adds a Retry button, and both elements retry quietly on their timers. Only user actions (the week buttons, Retry) are announced; midnight rollovers and background refreshes are silent. Read the read-only `state` (`loading`, `ready` or `error`) from script. On the first load `<library-weekly-hours>` draws its rows straight away (Building hours and each space, as soon as the library list is in) with invisible placeholder hours, so the table has its final height in the page's own font and nothing below it moves when the hours arrive. `--library-weekly-hours-min-height` can reserve space even before the library list is in (it applies while the element has a `loading` attribute), and `library-weekly-hours:not(:defined) { display: block; min-height: … }` before it upgrades. `<site-hours-section>` has `--site-hours-list-min-height` for the same purpose.
 - **Harrison special case.** `<library-hours-setup>` adds `hide-building-hours` to `library-slug="harrison"`: Harrison's building calendar (LibCal 4114) is also the calendar of its own "Harrison/Small Building & Exhibitions" space, so the building row would repeat it.
 - **Light DOM output** keeps the class names Drupal's CSS targets (`home-hours-block`, `hours-locations`, `weekly-hours-header-section`, `weekly-hours-body-section`, `date--mobile`, `lib-space-link`, …). `<library-weekly-hours>` keeps a few layout rules even with `no-style` (the host is `display: block`, the week header is a flex row, `[hidden]` hides), scoped to the tag in `@layer uvalib`. `headinglevelstart` is still read as an alias of `heading-level`. With neither set, the week heading's `aria-level` is one below the nearest heading before the element in the page (3 under each library's `<h2>` on /hours), or 2 when there is none, while its class stays `heading-h2`, the one the library website's CSS styles; set `heading-level` to override both. `<site-hours-section>` does not infer its level: on the home page it sits in a side column after another section's cards, where the heading before it in the page is not its parent, so it keeps its explicit default.
+- **Testing a site's analytics and accessibility.** `@uvalib/web-components/testing` (npm only, for Playwright; not on the CDN) has the helpers library sites share: `stubMatomo(page, { siteId? })` (call it before `page.goto`: `…/matomo.js` gets an empty script and `…/matomo.php` a 204, so nothing reaches Matomo, and `siteId` becomes the `matomo-id` of each `<site-page>` without one), `matomoQueue(page)` (a copy of `window._paq`: the page views, site searches and events, in order), `waitForUpgrade(page, { selector?, timeout? })` (every `<site-page>`, or `selector`, defined and rendered), `strictAxe(page, { include?, exclude?, AxeBuilder? })` (axe after `waitForUpgrade`, with `LIGHTHOUSE_RULES` forced on and the WCAG 2.x A/AA and best-practice tags `STRICT_AXE_TAGS`; it needs the optional peer dependency `@axe-core/playwright`, loaded only when it runs) and `formatViolations(violations)` (one line each). See [accessibility testing](skills/uvalib-web-components/reference/accessibility-testing.md).
+
+  ```js
+  import { test, expect } from '@playwright/test';
+  import { stubMatomo, matomoQueue, waitForUpgrade } from '@uvalib/web-components/testing';
+
+  test('a search is one site search', async ({ page }) => {
+    await stubMatomo(page, { siteId: 42 });
+    await page.goto('./search/');
+    await waitForUpgrade(page);
+    await page.getByLabel('Search').fill('rotunda');
+    await page.getByRole('button', { name: 'Search' }).click();
+    await expect
+      .poll(async () => (await matomoQueue(page)).filter((c) => c[0] === 'trackSiteSearch'))
+      .toEqual([['trackSiteSearch', 'rotunda', 'Keyword', 4]]);
+  });
+
+  test('Do Not Track sends nothing', async ({ page }) => {
+    await page.addInitScript(() =>
+      Object.defineProperty(Navigator.prototype, 'doNotTrack', { get: () => '1' }),
+    );
+    await stubMatomo(page, { siteId: 42 });
+    await page.goto('./');
+    await waitForUpgrade(page);
+    expect(await matomoQueue(page)).toEqual([]);
+  });
+  ```
+
 - **Drupal switch.** Replace the old `…/web-components/cdn-vX.Y.Z/@uvalib/site-hours/<file>.js` script URLs with `https://unpkg.internal.lib.virginia.edu/web-components/v1/<tag>.js` (`site-hours-section.js` on the home page, `library-hours-setup.js` on /hours). The markup stays the same. `library-daily-hours` is not migrated.
 
 ## Library events
@@ -1176,17 +1391,56 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
 <uvalib-analytics matomoid="10"></uvalib-analytics>
 ```
 
-- **Attributes.** `matomoid`: the Matomo site id; without it, the site whose URL the page is under (the library's site registry), and with none, the element does nothing. `matomourl` (default `https://analytics.lib.virginia.edu/`, ending in `/`): the Matomo server. `spa`: no page view on load; a single-page app records each view with a pageview event. `spa="auto"`: the element records them itself, one on load and one per same-document route change (see below). `variables`: custom dimensions as a JSON object, `variables='{"1":"staff"}'`, set before the page view.
+- **Attributes.** `matomoid`: the Matomo site id; without it, the site whose URL the page is under (the library's site registry), and with none, the element does nothing. `matomourl` (default `https://analytics.lib.virginia.edu/`, ending in `/`): the Matomo server. `spa`: no page view on load; a single-page app records each view with a pageview event. `spa="auto"`: the element records them itself, one on load and one per same-document route change (see below). `variables`: custom dimensions as a JSON object, `variables='{"1":"staff"}'`, set before the page view. `downloads="event"`: count downloads without their URLs (see below).
 - **Events.** Both tags listen on `document` for both families, `uvalib-analytics-*` (the original names) and `site-analytics-*`. Fire them bubbling and composed from anywhere, or with `trackEvent(el, parts)` and `trackSearch(el, query, category?, count?)` from `@uvalib/web-components/base.js` (which follow the opt-outs below; `analyticsAllowed(el)` tells you whether `el` may report), or the mixins (`UvalibAnalyticsMixin`: `_analyticsEvent`, `_analyticsSearch`, firing `uvalib-analytics-*`; `SiteAnalyticsMixin`: `analyticsEvent`, `analyticsSearch`, firing `site-analytics-*`).
   - `…-event`: `detail: { event: [category, action, name?, value?] }` (`track` is accepted as the old name), a Matomo `trackEvent`.
   - `…-search`: `detail: { searchQuery, searchCategory?, resultCount? }`, a Matomo site search; an unknown count (null or missing) is sent as Matomo's "unknown".
   - `…-pageview`: `detail: { customTitle?, referrer? }`, a page view; the title defaults to the document's, a referrer without `http` is a path on this origin, and with none the document's referrer is used.
   - `…-content`: `detail: { name, piece, target?, interaction? }`, a Matomo content impression (`trackContentImpression`), or with `interaction` a `trackContentInteraction`; `trackContent(el, { name, piece, target?, interaction? })` from `@uvalib/web-components/base.js` fires it.
+- **Site search in your own search UI: `createSearchTracker`.** `<bento-box>` and `<uvalib-pagefind-search>` report their searches; a page with its own search box uses `createSearchTracker({ element?, debounce? })` from `analytics.js` (CDN `https://unpkg.internal.lib.virginia.edu/web-components/v1/analytics.js`, npm `@uvalib/web-components/analytics.js` or `base.js`) rather than calling `trackSearch` itself. It sends one Matomo site search per search the visitor settles on, with the result count (0 included) and a category, through `trackSearch`, so the opt-outs below apply; the query goes only into Matomo's site-search keyword, never into an event. Each method takes `{ query, count?, category?, key? }`:
+  - `typed(search)`: search-as-you-type; sent once the results have stayed the same for `debounce` ms (default 1000), and a later call replaces it.
+  - `settled(search)`: a submitted or server-backed search, when its results arrive; sent at once.
+  - `restored(search)`: the page opened from a link with a query, or Back/Forward; nothing is sent, and the same search again (Enter) is not counted.
+  - `cancel()`: the field was cleared or the search failed; a typed search still waiting is dropped. Send nothing for errors.
+  - `reset()`: forget the last search sent, so the same one counts again.
+
+  A search is never sent twice in a row for the same `key` (default: the query and the category); pass the query and the active filters as `key` when filters make a new search. `element` (default `document`) is where it reports from, so a `no-analytics` ancestor silences it.
+
+  ```html
+  <script type="module">
+    import { createSearchTracker } from 'https://unpkg.internal.lib.virginia.edu/web-components/v1/analytics.js';
+    const form = document.querySelector('#search');
+    const tracker = createSearchTracker({ element: form });
+    const fromUrl = new URLSearchParams(location.search).get('q');
+    if (fromUrl) tracker.restored({ query: fromUrl, category: 'Keyword', count: show(fromUrl) });
+    form.q.addEventListener('input', () => {
+      const query = form.q.value;
+      if (!query.trim()) return tracker.cancel();
+      tracker.typed({ query, category: 'Keyword', count: show(query) });
+    });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const results = await search(form.q.value); // your own search
+        tracker.settled({ query: form.q.value, category: 'Keyword', count: results.length });
+      } catch {
+        tracker.cancel(); // never on an error
+      }
+    });
+  </script>
+  ```
+
 - **Nothing is lost or counted twice.** Every call goes through Matomo's `_paq` queue, which matomo.js replays when it loads, so events fired before it arrives are kept (and nothing waits for it if it is blocked). However many analytics elements a page has, from any copy of this library (an npm build next to a CDN script, two CDN versions), matomo.js is loaded and the page view recorded once and only one element forwards each event; if it is removed, the next one takes over. A Matomo snippet already on the page (a `matomo.js` script, or a `_paq` that sets a site id) is used as it is: nothing is loaded or recorded again, and the element only forwards the events.
-- **Matomo's own link tracking** (`enableLinkTracking`, on unless `spa`, as in the old element) still records clicks on links to other sites and downloads with their URLs, result links included. Besides Matomo's own download types (pdf, doc*, xls*, ppt*, …), links to the library's file types count as downloads: epub, mobi, csv, tsv, json, xml, zip, tar, gz, mp3, mp4, m4a, tif, tiff, jp2, mrc, ris, bib and txt (`addDownloadExtensions`). The components' own events never carry titles or URLs.
+- **Matomo's own link tracking** (`enableLinkTracking`, on unless `spa` or `downloads="event"`, as in the old element) still records clicks on links to other sites and downloads with their URLs, result links included. Besides Matomo's own download types (pdf, doc*, xls*, ppt*, …), links to the library's file types count as downloads: epub, mobi, csv, tsv, json, xml, zip, tar, gz, mp3, mp4, m4a, tif, tiff, jp2, mrc, ris, bib and txt (`addDownloadExtensions`). The components' own events never carry titles or URLs.
+- **`downloads="event"`: downloads without their URLs.** Opt in when file URLs carry ids you do not want in analytics (`<site-analytics downloads="event">`, `<uvalib-analytics downloads="event">`, or `<site-page matomo-id="N" matomo-downloads="event">`). Matomo's link tracking is then left off (no `enableLinkTracking`, no `addDownloadExtensions`), and the element sends instead:
+  - for a left or middle click on a download, the event `['download', '<extension>']`: no URL and no file name. A download is a link with the `download` attribute (the extension of its file name, else of its URL, else `file`) or a link to a file of the types above (Matomo's and the library's), in light or shadow DOM;
+  - for a click on a light DOM link to another site, Matomo's outlink (`trackLink`, with the URL), as its link tracking would have; with `spa` there are none, as before.
+
+  Links with Matomo's `matomo_ignore` class, and links under `no-analytics`, send nothing. A `data-uvalib-track` on the link still sends its own event too, so a fixed label can go with it (`data-uvalib-track="bov,pdf-download,result"`). Default: unchanged. It has no effect when a Matomo snippet is already on the page.
+
 - **`spa="auto"`** records a page view on load and on every same-document route change (`history.replaceState`, such as a search page syncing its filters to the URL, and reloads are never page views): a hash change, Back and Forward (`popstate`), the Navigation API's `currententrychange` where the browser has it, and `history.pushState` (wrapped once per page, shared by every copy of this library, and left in place). The view is recorded on the next frame, so the title the app sets right after navigating is the one counted, with the URL as the custom URL and the previous view's URL as the referrer. A change to the URL already counted (`replaceState`, a second `pushState` to the same URL, the several events one Back fires) is not counted again. Opening `<uvalib-lightbox url-param>` pushes one history entry, so this counts that open as a page view; stepping through the images replaces the entry and is not another view. Bare `spa` keeps its meaning: no automatic views.
 - **`data-uvalib-track` for host content.** A click on an element with `data-uvalib-track="category,action[,name[,value]]"`, or on anything inside it, sends that Matomo event (the nearest tagged element wins; `value` must be a number). It works in light and shadow DOM (one capture-phase listener on `document`, reading the click's composed path) and needs an analytics element on the page. Use your site's name or the widget as the category and a fixed verb as the action, and never put titles, URLs or personal data in it: `<a href="/spaces" data-uvalib-track="home-page,banner-click,Study spaces">`.
-- **`<site-page matomo-id="N">`** (and optional `matomo-url`) adds one `<site-analytics>` for that site and loads its code only then. Off by default. While that code loads, what the components report is kept and handed over, so an early bento search is not lost. If the page already has a `<site-analytics>` or `<uvalib-analytics>` (including the old v0.0.12 one), site-page adds none and that element does the recording.
+- **`<site-page matomo-id="N">`** (and optional `matomo-url` and `matomo-downloads`) adds one `<site-analytics>` for that site and loads its code only then. Off by default. While that code loads, what the components report is kept and handed over, so an early bento search is not lost. If the page already has a `<site-analytics>` or `<uvalib-analytics>` (including the old v0.0.12 one), site-page adds none and that element does the recording.
 - **What the library's components send.** They only fire `uvalib-analytics-*` events, so nothing happens without an analytics element (the old v0.0.12 element records them too). Every event is `[category, action, name?, value?]`: the category is the component's tag, the action a fixed verb, the name a short label from the library's own chrome or data (never a URL, never typed text), the value a number. Each one follows a visitor's action or a real failure: nothing is sent on render, re-render, the initial state or a restored one (a filter value set by the app, a remembered colour scheme). Errors are sent once per element and kind of failure.
 
   | Component                                    | Action                                                                                                               | Name                                                                                                                                      | Value                             |
@@ -1205,7 +1459,8 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
   | `uvalib-tabs`                                | `change`                                                                                                             | the tab's label (capped at 100 characters; not a URL)                                                                                     |                                   |
   | `uvalib-contents`                            | `link-click`                                                                                                         | `level N` (never the label or URL)                                                                                                        | N, from 1 (the top level)         |
   | `uvalib-contents`                            | `toggle` (the narrow-screen disclosure)                                                                              | `open` or `close`                                                                                                                         |                                   |
-  | `uvalib-metadata`                            | `copy-citation` (downloads are left to Matomo's own download tracking)                                               |                                                                                                                                           |                                   |
+  | `uvalib-metadata`                            | `copy-citation` (downloads are left to Matomo's, or to `downloads="event"`)                                          |                                                                                                                                           |                                   |
+  | `uvalib-metadata`                            | `show-all`, `show-fewer` (a long list's toggle)                                                                      | `row N` (the row's place in the list; never its label or values)                                                                          |                                   |
   | `uvalib-lightbox`                            | `open`, `next`, `previous`, `full-size`                                                                              | `image N` (never the URL or the caption)                                                                                                  | N, from 1                         |
   | `uvalib-image-regions`                       | `select` (an outline clicked; nothing on hover or focus)                                                             | the list's `label` (never a region's label)                                                                                               | the region's number, from 1       |
   | `uvalib-tag-list`                            | `tag-click`                                                                                                          | `list N` (the list's place on the page), or with `track-label` the list's own fixed `label`; never the tag's text or URL                  | the tag's place, from 1           |
@@ -1223,6 +1478,8 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
   | `uvalib-combobox`                            | `select` (a suggestion chosen)                                                                                       | the field's label (never the typed text or the suggestion)                                                                                | the suggestion's position, from 1 |
   | `uvalib-combobox`                            | `clear` (the clear button, or Escape on a closed list)                                                               | the field's label                                                                                                                         |                                   |
   | `uvalib-combobox`                            | `error` (`src` failed to load)                                                                                       | `load`                                                                                                                                    |                                   |
+  | `uvalib-filter-drawer`                       | `open`, `close` (by the visitor: the button, Close, Escape or the backdrop; not a resize or a script)                | the drawer's `label`                                                                                                                      |                                   |
+  | `uvalib-back-to-top`                         | `click`                                                                                                              |                                                                                                                                           |                                   |
   | `uvalib-map`                                 | `select` (a marker chosen: click, Enter or Space)                                                                    | the map's label (never the place's name, coordinates or URL)                                                                              | the place's position, from 1      |
   | `uvalib-map`                                 | `zoom` (1 s after the last zoom-button press)                                                                        | the map's label                                                                                                                           | the zoom level                    |
   | `uvalib-filter`                              | `facet-change`                                                                                                       | `<filter title>: <value>` (the facet value as the search service returns it, such as a format, library or subject; cut at 100 characters) | 1 checked, 0 unchecked            |
@@ -1503,7 +1760,7 @@ Live UVA Library alerts, drawn as library.virginia.edu draws them. The alerts pr
 
 ### `<site-analytics>`
 
-Matomo analytics, with no visual output. Loads matomo.js for the site and records the page view, then forwards the events below, fired anywhere in the page, to Matomo. Every call goes through Matomo's `_paq` queue, so events fired before matomo.js loads are kept. One tracker per page: however many `<site-analytics>` and `<uvalib-analytics>` elements there are (from any copy of this library), matomo.js is loaded and the page view recorded once, and only one element forwards each event; if it is removed, the next takes over. A Matomo snippet already on the page is used as it is (nothing is loaded or recorded again). When the browser sends Do Not Track or Global Privacy Control, or the page has `<html data-uvalib-analytics="off">`, it loads nothing and records nothing. A click on an element with `data-uvalib-track="category,action[,name[,value]]"` (or inside one, in light or shadow DOM) sends that event, unless `<html data-uvalib-analytics="off">` or a `no-analytics` ancestor opts it out. The same element is registered as `<uvalib-analytics>` by `uvalib-analytics.js`.
+Matomo analytics, with no visual output. Loads matomo.js for the site and records the page view, then forwards the events below, fired anywhere in the page, to Matomo. Every call goes through Matomo's `_paq` queue, so events fired before matomo.js loads are kept. One tracker per page: however many `<site-analytics>` and `<uvalib-analytics>` elements there are (from any copy of this library), matomo.js is loaded and the page view recorded once, and only one element forwards each event; if it is removed, the next takes over. A Matomo snippet already on the page is used as it is (nothing is loaded or recorded again). When the browser sends Do Not Track or Global Privacy Control, or the page has `<html data-uvalib-analytics="off">`, it loads nothing and records nothing. A click on an element with `data-uvalib-track="category,action[,name[,value]]"` (or inside one, in light or shadow DOM) sends that event, unless `<html data-uvalib-analytics="off">` or a `no-analytics` ancestor opts it out. With `downloads="event"` downloads are counted as `['download', '<extension>']` events, without their URLs, instead of by Matomo's link tracking. The same element is registered as `<uvalib-analytics>` by `uvalib-analytics.js`.
 
 #### Attributes
 
@@ -1513,6 +1770,7 @@ Matomo analytics, with no visual output. Loads matomo.js for the site and record
 | `matomoid` | `number \| undefined` |  | The Matomo site id (attribute `matomoid`). Default: the site whose URL the page is under. |
 | `spa` | `boolean \| 'auto'` | `false` | A single-page app. `spa` (no value): it records its own page views (`uvalib-analytics-pageview`), none on load. `spa="auto"`: a page view on load and one per same-document route change (hash change, Back and Forward, `history.pushState`), once the title has settled, never twice in a row for the same URL, with the previous URL as the referrer. Either way Matomo's link tracking is off. |
 | `variables` | `Record<string, unknown> \| null` | `null` | Custom dimensions, a JSON object of `{ id: value }`, set before the page view. |
+| `downloads` | `string \| undefined` |  | `event`: count downloads without their URLs. Matomo's link tracking is left off; a left or middle click on a link to a file (the `download` attribute, or a download file type) sends the event `['download', '<extension>']` (no URL, no file name), and a click on a link to another site is still sent as an outlink (`trackLink`), as Matomo's link tracking would. Off by default. Read when Matomo is set up; no effect with a Matomo snippet already on the page. |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -1712,7 +1970,7 @@ The UVA Library main navigation (About, Using the Library, Research & teaching s
 
 ### `<site-page>`
 
-Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` (and its `<site-main-nav>`) and `<site-footer>`. The header shows the UVA Library main navigation by default (`no-main-nav` turns it off; `header-variant="vendor"` never shows it). Shows live UVA Library alerts by default with `<site-alerts>` (its code loads only then), placed as Virgo places them: a full-bleed `<site-alerts show="header">` banner at the top of the header landmark (after the skip link), a full-bleed band between the header and `<main>` holding `<site-alerts show="list">` (a `<section aria-label="Library alerts">` region, hidden while the list has nothing to show), and `<site-alerts show="regional">` as the first child of `<main>`, inside its padding. Their data comes from one headless `<uvalib-alerts>`, loaded once per document, with a module script, from the alerts CDN (`alerts-env`, or `alerts-src`); if it fails to load, one console warning is logged and the page works as before. `no-alerts` renders no alert elements and loads nothing. A `slot="breadcrumbs"` child (a `<uvalib-breadcrumbs>`) is placed where library.virginia.edu puts the trail: after the header and the alert list band, before `<main>` and outside it (so the skip link lands past it), with the same gutters as `<main>`.
+Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` (and its `<site-main-nav>`) and `<site-footer>`. The header shows the UVA Library main navigation by default (`no-main-nav` turns it off; `header-variant="vendor"` never shows it). Shows live UVA Library alerts by default with `<site-alerts>` (its code loads only then), placed as Virgo places them: a full-bleed `<site-alerts show="header">` banner at the top of the header landmark (after the skip link), a full-bleed band between the header and `<main>` holding `<site-alerts show="list">` (a `<section aria-label="Library alerts">` region, hidden while the list has nothing to show), and `<site-alerts show="regional">` as the first child of `<main>`, inside its padding. Their data comes from one headless `<uvalib-alerts>`, loaded once per document, with a module script, from the alerts CDN (`alerts-env`, or `alerts-src`); if it fails to load, one console warning is logged and the page works as before. `no-alerts` renders no alert elements and loads nothing. A `slot="breadcrumbs"` child (a `<uvalib-breadcrumbs>`) is placed where library.virginia.edu puts the trail: after the header and the alert list band, before `<main>` and outside it (so the skip link lands past it), with the same gutters as `<main>`. Printing leaves out the chrome: the skip link, header (with the main navigation and the header alert), alert list band, regional alerts, breadcrumbs, pre-footer and footer are not printed, `<main>` loses its gutters, and the content prints black on white (a dark scheme prints light), its links underlined. A short line above the content says where the page came from ("UVA Library — <site name or page title>" and the page's URL). `print-chrome` prints the page as it is shown instead. With `no-style` none of this applies.
 
 #### Attributes
 
@@ -1722,6 +1980,7 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 | `header-variant` | `'full' \| 'vendor'` | `'full'` |  |
 | `no-global-styles` | `boolean` | `false` |  |
 | `no-footer` | `boolean` | `false` | Hide the footer (and any pre-footer band), for tools and app-like pages where the site footer does not belong. The footer is kept hidden rather than removed, so toggling the attribute keeps pre-footer content. |
+| `print-chrome` | `boolean` | `false` | Print the header, alerts, breadcrumbs and footer too. By default printing leaves them out and prints only `<main>`, black on white. |
 | `site-links-label` | `string \| undefined` |  | Accessible name of the header navigation when site links are given (default "Site"). |
 | `site-name` | `string \| undefined` |  | The sub-site's name, forwarded to `<site-header site-name>`: shown after the logo as a link to the site's home. |
 | `site-name-href` | `string \| undefined` |  | Where the site name links, forwarded to `<site-header site-name-href>` (default `/`). |
@@ -1735,6 +1994,7 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 | `color-scheme-switch` | `boolean` | `false` | Opt in to dark mode, forwarded to `<site-header color-scheme-switch>`: the page follows the OS preference, and a Light / Dark / System control in the header lets the visitor override it (remembered per site). Off by default: the page is always light. The page's own content must support it (see the README's "Dark mode"). |
 | `matomo-id` | `number \| undefined` |  | Opt in to Matomo analytics: the site's Matomo id. The page then adds one `<site-analytics>` for it (loading its code only then), which records the page view and what the library's components report (see the README's "Analytics"). Off by default. With an analytics element or a Matomo snippet already on the page nothing is counted twice. |
 | `matomo-url` | `string \| undefined` |  | The Matomo server for `matomo-id`, ending in `/` (default: the library's). |
+| `matomo-downloads` | `string \| undefined` |  | `event`: the `<site-analytics downloads="event">` option for `matomo-id`, counting downloads as `['download', '<extension>']` events without their URLs. |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -1812,6 +2072,7 @@ Compatibility element. Light mode (`no-shadow-dom`) installs the tokens and base
 | `matomoid` | `number \| undefined` |  | The Matomo site id (attribute `matomoid`). Default: the site whose URL the page is under. |
 | `spa` | `boolean \| 'auto'` | `false` | A single-page app. `spa` (no value): it records its own page views (`uvalib-analytics-pageview`), none on load. `spa="auto"`: a page view on load and one per same-document route change (hash change, Back and Forward, `history.pushState`), once the title has settled, never twice in a row for the same URL, with the previous URL as the referrer. Either way Matomo's link tracking is off. |
 | `variables` | `Record<string, unknown> \| null` | `null` | Custom dimensions, a JSON object of `{ id: value }`, set before the page view. |
+| `downloads` | `string \| undefined` |  | `event`: count downloads without their URLs. Matomo's link tracking is left off; a left or middle click on a link to a file (the `download` attribute, or a download file type) sends the event `['download', '<extension>']` (no URL, no file name), and a click on a link to another site is still sent as an outlink (`trackLink`), as Matomo's link tracking would. Off by default. Read when Matomo is set up; no effect with a Matomo snippet already on the page. |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -1828,9 +2089,46 @@ Compatibility element. Light mode (`no-shadow-dom`) installs the tokens and base
 | `site-analytics-event` | Listened for on `document` too: the same as `uvalib-analytics-event`. |
 | `site-analytics-content` | Listened for on `document` too: the same as `uvalib-analytics-content`. |
 
+### `<uvalib-back-to-top>`
+
+A “Back to top” button for long pages: minutes, finding aids, transcriptions, long result lists. It stays hidden (`visibility: hidden`, so it is neither a tab stop nor in the accessibility tree) until the top `offset` pixels of the page (default 400) have scrolled out of view, watched with an IntersectionObserver on a small sentinel at the top of the page, never a scroll listener. If it has focus as it hides, focus moves to the target. Activating it scrolls to the top (smoothly unless the visitor prefers reduced motion) and moves focus to the page's `<h1>` (the first in `<main>`, else the first anywhere, else `#top`), or to `target` (a selector), adding `tabindex="-1"` when it is not focusable, so keyboard and screen reader users land at the top too. The button is fixed in the bottom corner (end side), inside the safe-area insets. The element itself is an empty block 4.75rem tall: put it last in the page's main content and that is the space the button needs, so the last lines can always scroll clear of it. When that space comes into view the button sits in it instead of floating, so it never covers the footer either. It is hidden in print.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `label` |  | `DEFAULT_LABEL` | The button's text. |
+| `offset` |  | `DEFAULT_OFFSET` | How many pixels at the top of the page must scroll out of view before the button shows. |
+| `target` | `string` | `''` | A selector for where focus goes (default: the page's `<h1>`, else `#top`). |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### CSS parts
+
+| Part | Description |
+|---|---|
+| `button` | The button. |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-back-to-top', 'click']` when activated. Bubbles and is composed. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uvalib-back-to-top-space` | `4.75rem` | The height the element keeps for the button at the end of the content. |
+| `--uva-color-surface-raised` |  | Dark-mode role token: button background (else #fff). |
+| `--uva-color-button-bg` |  | Dark-mode role token: button border and text (else `--uva-blue-alt`, #007bac). |
+| `--uva-color-button-hover-bg` |  | Dark-mode role token: hovered button (else `--uva-blue-alt-A`, #005679). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+| `--uva-color-shadow` |  | Dark-mode role token: the floating button's shadow. |
+
 ### `<uvalib-breadcrumbs>`
 
-A breadcrumb trail, as on library.virginia.edu: links separated by slashes, ending with the current page, at body size. A `<nav aria-label="Breadcrumb">` holding an `<ol>`; the separators are hidden from assistive technology and the last item has `aria-current="page"` (a `<span>`, or a link when it has an href). Give the trail as children: `<a href>` elements, ending with the current page as a text-only element (`<span>Hours</span>`) or a link (`<a href aria-current="page">`). The last child is always the current page. An earlier child without an href is shown as plain text. Children with no text are skipped with one console warning. Hrefs are used as written, and the trail follows changes to the children (attributes and text too). Apps that build the trail in JavaScript set the `items` property instead (it then wins over any children); assigning a new array re-renders. Inside `<site-page>`, give it `slot="breadcrumbs"`: it is placed between the header (and alerts band) and `<main>`, with the page's gutters. It works anywhere else too. Single-page apps: the trail is drawn from copies of the children, so a router's own click handlers on them do not run. Listen for `uvalib-breadcrumbs-navigate` and cancel it to route in place; hash links need nothing.
+A breadcrumb trail, as on library.virginia.edu: links separated by slashes, ending with the current page, at body size. A `<nav aria-label="Breadcrumb">` holding an `<ol>`; the separators are hidden from assistive technology and the last item has `aria-current="page"` (a `<span>`, or a link when it has an href). Give the trail as children: `<a href>` elements, ending with the current page as a text-only element (`<span>Hours</span>`) or a link (`<a href aria-current="page">`). The last child is always the current page. An earlier child without an href is shown as plain text. Children with no text are skipped with one console warning. Hrefs are used as written, and the trail follows changes to the children (attributes and text too). Apps that build the trail in JavaScript set the `items` property instead (it then wins over any children); assigning a new array re-renders. A step back to a search: give its link `data-return-from` with the search page's path (or several, separated by spaces), as in `<a href="/" data-return-from="/">Search</a>`. When the visitor came from that page on this site with a query string (`document.referrer`; a trailing slash or `index.html` does not matter), the step links back to that search (path and query) instead; its text stays the same. Otherwise, as when the result was opened in a new tab or the site sends no referrer, it keeps its href. Nothing is stored or sent. In `items`, the same is `returnFrom`. Inside `<site-page>`, give it `slot="breadcrumbs"`: it is placed between the header (and alerts band) and `<main>`, with the page's gutters. It works anywhere else too. Single-page apps: the trail is drawn from copies of the children, so a router's own click handlers on them do not run. Listen for `uvalib-breadcrumbs-navigate` and cancel it to route in place; hash links need nothing.
 
 #### Attributes
 
@@ -1936,7 +2234,7 @@ A grid of `<uvalib-card>` elements. It is a list, so a screen reader announces h
 
 ### `<uvalib-chip-group>`
 
-A row of chips: a segmented control or single-select filter (`mode="single"`), filter chips that toggle (`mode="multi"`), or suggestion chips that go somewhere (`mode="links"`), as in a year rail with counts (“2005 213”), a sort toggle (“Most photos \| Date \| Title A–Z”) or “Try: snow on the Lawn”. Give the chips as children, `<button value="2005" data-count="213">2005</button>` (the value is the `value` attribute, else `data-value`, else the text; `disabled` disables), or `<a href>` in `links` mode, or set the `items` property (`{ value, label, count?, href?, disabled?, swatch? }`), which wins over the children while set. The chips follow later changes to the children. `single`: native radios drawn as chips, in a `role="radiogroup"` named by `label`. Tab enters the group at the selected chip, the arrow keys move and select (as any radio group), and `value` is the selected chip's value. `multi`: toggle buttons with `aria-pressed`, and `value` is an array (as an attribute, comma-separated). `links`: links, or buttons that fire `select`, with no selected state; a chip whose href is unsafe (`javascript:`) is plain text, and an empty href is a button. `data-swatch` (or `swatch` in `items`) is a CSS colour drawn as a small bordered square before the label, so the chips double as a chart's or map's colour key. It is decorative (`aria-hidden`) and never the only cue: the name stays the label. An invalid colour is ignored with one warning. In forced colors the square keeps its colour. A count is shown in a smaller muted span after the label and read as part of the name: “2005, 213 items”, with `count-label` in place of “items”. A selected chip is filled, keeps its border and shows a tick. Chips wrap on a narrow screen; `scroll` keeps them on one row that scrolls sideways, with its scrollbar shown and a fade at an edge with more chips. Each chip is a target at least 44px square. `segmented` joins the chips into one bar that does not wrap (a long label wraps inside its segment), like the header's Light / Dark / System control. `url-param` (for example `year`) keeps the value in the address (`?year=2005`, a multi value comma-separated, inside the hash on a hash route). It is read on connect; the markup's `value` stands for the address without the parameter, and any other value is written, an empty one as `?year=`. Each change is one `pushState`: in `multi` at once, in `single` once the visitor settles (a second after the last change, so arrowing through a year rail adds one entry, none if it ends where it started). Back and Forward are followed and fire `change` with `restored: true`.
+A row of chips: a segmented control or single-select filter (`mode="single"`), filter chips that toggle (`mode="multi"`), or suggestion chips that go somewhere (`mode="links"`), as in a year rail with counts (“2005 213”), a sort toggle (“Most photos \| Date \| Title A–Z”) or “Try: snow on the Lawn”. Give the chips as children, `<button value="2005" data-count="213">2005</button>` (the value is the `value` attribute, else `data-value`, else the text; `disabled` disables), or `<a href>` in `links` mode, or set the `items` property (`{ value, label, count?, href?, disabled?, swatch? }`), which wins over the children while set. The chips follow later changes to the children. `single`: native radios drawn as chips, in a `role="radiogroup"` named by `label`. Tab enters the group at the selected chip, the arrow keys move and select (as any radio group), and `value` is the selected chip's value. `multi`: toggle buttons with `aria-pressed`, and `value` is an array (as an attribute, comma-separated). `links`: links, or buttons that fire `select`, with no selected state; a chip whose href is unsafe (`javascript:`) is plain text, and an empty href is a button. `data-swatch` (or `swatch` in `items`) is a CSS colour drawn as a small bordered square before the label, so the chips double as a chart's or map's colour key. It is decorative (`aria-hidden`) and never the only cue: the name stays the label. An invalid colour is ignored with one warning. In forced colors the square keeps its colour. A count is shown in a smaller muted span after the label and read as part of the name: “2005, 213 items”, with `count-label` in place of “items”. A selected chip is filled, keeps its border and shows a tick. Chips wrap on a narrow screen; `scroll` keeps them on one row that scrolls sideways, with its scrollbar shown and a fade at an edge with more chips. Each chip is a target at least 44px square. `segmented` joins the chips into one bar that does not wrap (a long label wraps inside its segment), like the header's Light / Dark / System control. `description` is a hint shown under the chips and tied to the group with `aria-describedby`, so it is read when focus enters the group (“Keyword matches your words…”). It is plain text in the element's own root, so it works in a closed shadow root. `url-param` (for example `year`) keeps the value in the address (`?year=2005`, a multi value comma-separated, inside the hash on a hash route). It is read on connect; the markup's `value` stands for the address without the parameter, and any other value is written, an empty one as `?year=`. Each change is one `pushState`: in `multi` at once, in `single` once the visitor settles (a second after the last change, so arrowing through a year rail adds one entry, none if it ends where it started). Back and Forward are followed and fire `change` with `restored: true`.
 
 #### Attributes
 
@@ -1944,6 +2242,7 @@ A row of chips: a segmented control or single-select filter (`mode="single"`), f
 |---|---|---|---|
 | `mode` | `ChipGroupMode` | `'single'` | `single` (radios: one value), `multi` (toggles: an array of values) or `links`. |
 | `label` | `string` | `''` | The group's accessible name (required), also the first part of the analytics name. |
+| `description` | `string` | `''` | A hint shown under the chips and read with the group when focus enters it (`aria-describedby` on the group). Plain text. |
 | `value` | `string \| string[]` | `''` | The selection: a chip's value in `single`, an array of values in `multi` (as an attribute, comma-separated). Setting it does not fire `change`. Unused in `links`. |
 | `count-label` | `string` | `'items'` | The word after a count in each chip's accessible name: “2005, 213 items”. |
 | `scroll` | `boolean` | `false` | One row that scrolls sideways instead of wrapping. |
@@ -1973,7 +2272,7 @@ A row of chips: a segmented control or single-select filter (`mode="single"`), f
 | `--uva-color-surface-raised` |  | Dark-mode role token: chip background (else #fff). |
 | `--uva-color-control-border` |  | Dark-mode role token: chip border (else `--uva-grey`, #808080). |
 | `--uva-color-link` |  | Dark-mode role token: chip text and hover border (else `--uva-brand-blue`). |
-| `--uva-color-text-muted` |  | Dark-mode role token: the count (else #4f4f4f). |
+| `--uva-color-text-muted` |  | Dark-mode role token: the count and the description (else #4f4f4f). |
 | `--uva-color-accent-bg` |  | Dark-mode role token: selected chip background and border (else `--uva-brand-blue`). |
 | `--uva-color-on-accent` |  | Dark-mode role token: selected chip text (else #fff). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
@@ -2038,7 +2337,7 @@ An editable text field that suggests values as you type, from a local list or a 
 
 ### `<uvalib-contents>`
 
-Sub-navigation or a table of contents, as library.virginia.edu's sub-navigation: a `<nav>` landmark (named by `label`, "Contents" by default) with the label as a visible headline, and a nested list of links with dividers between the top-level entries and a bar beside each nested level. Give the list as a child: an `<ol>` or `<ul>` of `<li>` elements, each with an `<a href>` (or plain text for a group label) and, for sub-entries, a nested `<ol>`/`<ul>`, to any depth. Other children (a heading) are ignored. The list follows changes to the children. Apps set the `items` property instead (`{ label, href?, children? }`, winning over the children while set). The current entry gets `aria-current`: `page` for the link to this page, `location` for the link to the section of it in the URL's hash. It is found from the page URL (path, and hash for in-page sections), followed through same-document navigations (`hashchange`, `popstate` and the Navigation API), or from the `current` attribute (a URL, resolved like the links). An entry whose href has a query string matches only that query (`?part=2`); one without matches the page whatever its query. Hash-only hrefs are places on that page. With `current` unset, a valid `aria-current` on a source link (`page`, `location` or `true`) is used instead, the first of each kind. `lang` and `dir` on the source links and items, and inline markup in their text (`em`, `cite`, `code`, `abbr`…, copied element by element, never as HTML), are kept. On narrow screens the list collapses into a disclosure: the headline becomes a button with `aria-expanded`, and the list starts closed (as the Electronic Text Collections' Contents does on phones, so the text comes first) until the reader opens it, or while the `open` attribute is set; opening it shows the current entry. Narrow means the viewport (`collapse-below`, 64rem by default), not the element's own width: a contents sidebar is always far narrower than 64rem, so a container query could not tell a phone from a desktop. `sticky` keeps it in view in a sidebar on wide screens; a list longer than the window then scrolls, and the current entry is scrolled into view inside it (never the page). Single-page apps: the list is drawn from copies of the children, so a router's own click handlers on them do not run. Listen for `uvalib-contents-navigate` and cancel it to route in place; hash links need nothing.
+Sub-navigation or a table of contents, as library.virginia.edu's sub-navigation: a `<nav>` landmark (named by `label`, "Contents" by default) with the label as a visible headline, and a nested list of links with dividers between the top-level entries and a bar beside each nested level. Give the list as a child: an `<ol>` or `<ul>` of `<li>` elements, each with an `<a href>` (or plain text for a group label) and, for sub-entries, a nested `<ol>`/`<ul>`, to any depth. Other children (a heading) are ignored. The list follows changes to the children. Apps set the `items` property instead (`{ label, href?, children? }`, winning over the children while set). The current entry gets `aria-current`: `page` for the link to this page, `location` for the link to the section of it in the URL's hash. It is found from the page URL (path, and hash for in-page sections), followed through same-document navigations (`hashchange`, `popstate` and the Navigation API), or from the `current` attribute (a URL, resolved like the links). An entry whose href has a query string matches only that query (`?part=2`); one without matches the page whatever its query. Hash-only hrefs are places on that page. With `current` unset, a valid `aria-current` on a source link (`page`, `location` or `true`) is used instead, the first of each kind. `lang` and `dir` on the source links and items, and inline markup in their text (`em`, `cite`, `code`, `abbr`…, copied element by element, never as HTML), are kept. On narrow screens the list collapses into a disclosure: the headline becomes a button with `aria-expanded`, and the list starts closed (as the Electronic Text Collections' Contents does on phones, so the text comes first) until the reader opens it, or while the `open` attribute is set; opening it shows the current entry. Narrow means the viewport (`collapse-below`, 64rem by default), not the element's own width: a contents sidebar is always far narrower than 64rem, so a container query could not tell a phone from a desktop. `sticky` keeps it in view in a sidebar on wide screens; a list longer than the window then scrolls, and the current entry is scrolled into view inside it (never the page). A table of contents for a long document: `headings-from="#article"` builds the list from the headings in that element (`levels`, `2-3` by default; nothing shown below `min` top-level entries, 2 by default). Headings without text or hidden with `aria-hidden` are skipped; one without an id gets one from its text (`budget-report`, then `budget-report-2`), and existing ids are kept, so links to sections keep working. It follows headings added, removed or retitled; `refresh()` reads them again after other changes. The children and `items` win while they give a list. Without JavaScript there is no list: a list rendered at build time, as children, works everywhere. Single-page apps: the list is drawn from copies of the children, so a router's own click handlers on them do not run. Listen for `uvalib-contents-navigate` and cancel it to route in place; hash links need nothing.
 
 #### Attributes
 
@@ -2050,6 +2349,9 @@ Sub-navigation or a table of contents, as library.virginia.edu's sub-navigation:
 | `collapse-below` |  | `DEFAULT_COLLAPSE` | The viewport width at and below which the list collapses into a disclosure: a CSS length (`64rem`, `800px`). `0` or `none` never collapses. |
 | `open` | `boolean` | `false` | Whether the collapsed disclosure is open (no effect on wide screens). Toggled by its button. |
 | `sticky` | `boolean` | `false` | Keep it in view while the page scrolls (a sidebar), on wide screens. |
+| `headings-from` | `string \| undefined` |  | Build the list from the headings in the element this selector names (`#article`): each heading at `levels` gets an entry linking to it (an id is added when it has none), the lower levels nested under the heading before them. The children and `items` win while they give a list. |
+| `levels` |  | `DEFAULT_LEVELS` | With `headings-from`: the heading levels to list, `2-3` (the default) or one level, `2`. |
+| `min` |  | `DEFAULT_MIN` | With `headings-from`: the fewest top-level entries worth a list (default 2). With fewer, nothing is shown. |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -2081,14 +2383,14 @@ Sub-navigation or a table of contents, as library.virginia.edu's sub-navigation:
 
 ### `<uvalib-date-histogram>`
 
-Monthly or yearly counts as bars: a date distribution for a search page, an archive timeline or a card. Give `items` (`{ date, count }`, `date` a `YYYY` or `YYYY-MM`) or a child `<table>` (the no-JS fallback). `granularity="month"` draws twelve bars for every year from the first date to the last, including months with a count of zero. A year-only count in a month chart, a day, or any other date is a chip beside the chart. Each bar is a button named like "October 2015: 5,311 photos". Arrow keys move between bars; Enter or Space selects. `selected` is one bucket (`2015-10`, `2015`) or a range (`2015-03/2016-01`, also `..` or an en dash). The selection is `aria-pressed`, an inset ring and a stripe, not colour alone. Choosing a bar fires `select` with `{ from, to }` as ISO dates (a month runs from its first day to its last). Choosing the selected bar again clears it (`from` and `to` are empty strings). `range-for` is the id of a `<uvalib-date-range>`. A bar click sets that element's `value`. Its `date-range-change` (and its `value` when this element connects, reconnects, or the range is added later) highlights the buckets that overlap the range. A value that is exactly the range's own `min` and `max` is no selection. Setting `selected` here updates the date range; setting the date range's `value` in script does not, unless this element connects afterwards or the range fires `date-range-change`. `variant="strip"` is the small per-year row for a card: not interactive, `role="img"`, one bar per year whatever `granularity` is. The chart reserves its height before the counts arrive: one bar track, or one track per year when those years are already known from the data, a linked date range or the table (`--uvalib-date-histogram-bar-size`, 8rem, plus the year-row gap). Filling the bars in does not move the page. On a narrow screen a month row scrolls inside the component; "Scroll sideways to see more." shows while it overflows. Years wrap.
+Monthly, yearly or per-decade counts as bars: a date distribution for a search page, an archive timeline or a card. Give `items` (`{ date, count }`, `date` a `YYYY` or `YYYY-MM`) or a child `<table>` (the no-JS fallback). `granularity="month"` draws twelve bars for every year from the first date to the last, including months with a count of zero. A year-only count in a month chart, a day, or any other date is a chip beside the chart. `granularity="decade"` is for a long span (two centuries of minutes): one bar per decade ("1810s: 22 meetings"), an empty decade a gap, five decades to a row labelled with its first year (1800, 1850, …), the decades lined up in columns. Choosing a decade selects its first to last year (`selected="1810/1819"`, `select` `{ from: '1810-01-01', to: '1819-12-31' }`); up and down arrows move 50 years. `granularity="auto"` draws months when every count is a month within 3 years (at most 36 bars), years up to 30 years, and decades beyond. A year row that scrolls sideways is not offered: 200 years at the 24px minimum bar is over 5,000px, so a sidebar would show ten years at a time and lose the shape that decades show whole. Each bar is a button named like "October 2015: 5,311 photos". Arrow keys move between bars; Enter or Space selects. `selected` is one bucket (`2015-10`, `2015`) or a range (`2015-03/2016-01`, also `..` or an en dash). The selection is `aria-pressed`, an inset ring and a stripe, not colour alone. Choosing a bar fires `select` with `{ from, to }` as ISO dates (a month runs from its first day to its last). Choosing the selected bar again clears it (`from` and `to` are empty strings). `range-for` is the id of a `<uvalib-date-range>`. A bar click sets that element's `value`. Whenever the range's value changes, from its controls or set in script (a Clear button, Back/Forward, a restored URL), this element highlights the buckets that overlap it (it listens for `uvalib-date-range-value`). A value that is exactly the range's own `min` and `max` is no selection. On connect or reconnect, or when the range is added later, the range's value wins when it holds a selection or changed while this element was away; otherwise `selected` is written to it. A range value is never rounded to whole buckets and written back. Setting `selected` here updates the date range. `variant="strip"` is the small per-year row for a card: not interactive, `role="img"`, one bar per year, or per decade with `decade` (or `auto` over more than 30 years). The chart reserves its height before the counts arrive: one bar track, or one track per year (per half-century for decades) when those years are already known from the data, a linked date range or the table (`--uvalib-date-histogram-bar-size`, 8rem, plus the row gap). Filling the bars in does not move the page. On a narrow screen a month row scrolls inside the component; "Scroll sideways to see more." shows while it overflows. Years wrap; a decade row fits 320px.
 
 #### Attributes
 
 | Attribute | Type | Default | Description |
 |---|---|---|---|
 | `items` | `HistogramItem[]` | `[]` | Counts to draw. When non-empty, wins over the child table. Set a new array to update. |
-| `granularity` | `'year' \| 'month'` | `'month'` | `month` (twelve bars per year) or `year`. Anything else is month, with one console warning. |
+| `granularity` | `'year' \| 'month' \| 'decade' \| 'auto'` | `'month'` | `month` (twelve bars per year), `year`, `decade` (one bar per decade, five to a row), or `auto`: months when every count is a month within 3 years, years up to 30 years, else decades. Anything else is month, with one console warning. |
 | `scale` | `'linear' \| 'log'` | `'linear'` | `log` scales bar height by log(count + 1). Anything else is linear. |
 | `selected` | `string` | `''` | One bucket (`2015-10` or `2015`) or a range (`2015-03/2016-01`). A linked date range writes a range here. Empty when nothing is selected. |
 | `range-for` | `string` | `''` | Id of a `<uvalib-date-range>` to keep in step with, both ways. |
@@ -2157,6 +2459,7 @@ A date-range picker: a two-thumb year slider plus "From" and "To" date inputs. `
 
 | Event | Description |
 |---|---|
+| `uvalib-date-range-value` | The selected range changed for any reason: a slider, a date input, or `value`, `min` or `max` set in script (a Clear button, Back/Forward, a restored URL). `detail` is `{ value: [start, end] }`, the range as shown (ISO dates inside `min`..`max`). For keeping other components in step; it is not a visitor action, so it is never sent to analytics. Not fired for the first render or when the shown range is unchanged. Bubbles and is composed. |
 | `date-range-change` | The range changed from a slider or a date input. `detail` is `{ value: [start, end] }` (ISO dates). Bubbles and is composed. |
 | `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-date-range', 'range-change', '<from year>–<to year>']`, 1 s after the visitor's last change (not when the range ends where it started). Bubbles and is composed. |
 
@@ -2220,6 +2523,61 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 | `--uva-color-link` |  | Dark-mode role token: scope chip text and hover border (else `--uva-brand-blue`). |
 | `--uva-color-accent-bg` |  | Dark-mode role token: pressed chip background and border (else `--uva-brand-blue`). |
 | `--uva-color-on-accent` |  | Dark-mode role token: pressed chip text (else #fff). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+
+### `<uvalib-filter-drawer>`
+
+A search page's form and filters: a plain sidebar on wide screens, and on narrow ones a “Search and filters” button that opens them in a modal panel from the side. Put the page's search form, `<uvalib-filter>`s and other facets inside. Above `breakpoint` (default `48rem`) they are shown as written: no button, no dialog role. At and below it only the button is shown; it opens a native `<dialog>` (`showModal()`) with a visible heading (the `label`) and a 44px Close button, which takes focus. Escape, Close and a click on the backdrop close it, and focus returns to the button; widening the window past the breakpoint closes it and keeps focus where it was. While it is open the rest of the page, including `<site-page>`'s header, skip link and alerts, is inert (the browser's modal dialog), so focus cannot leave it except to the browser itself, and nothing else is announced. The children are the same nodes in both layouts (moved, never re-created): typed text, checked boxes, listeners and each filter's state are kept. Inert content is not announced, so results counts and status notices outside the panel would go silent while the visitor filters: name them in `live` (space-separated ids) and the drawer repeats what they announce in its own polite live region while it is open. `count` (the page's number of active filters) is shown on the button when above 0. The drawer never counts by itself: only the page knows which inputs are filters.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `label` |  | `DEFAULT_LABEL` | The button's text, the panel's heading and the dialog's name. |
+| `breakpoint` |  | `DEFAULT_BREAKPOINT` | The widest viewport that gets the button and panel (`48rem`, `768px`); wider gets the sidebar. |
+| `count` | `number` | `0` | Active filters, set by the page; shown on the button when above 0. |
+| `live` | `string` | `''` | Space-separated ids of live regions outside the drawer (a results count, a status notice) to keep announcing while the panel is open. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Slots
+
+| Slot | Description |
+|---|---|
+| (default) | The search form and filters. Shown as the sidebar on wide screens and inside the panel on narrow ones. |
+
+#### CSS parts
+
+| Part | Description |
+|---|---|
+| `toggle` | The “Search and filters” button (narrow screens only). |
+| `count` | The number of active filters on the button. |
+| `sidebar` | The wrapper of the children on wide screens. |
+| `dialog` | The `<dialog>` panel. |
+| `header` | The panel's heading row. |
+| `heading` | The panel's heading. |
+| `close` | The Close button. |
+| `body` | The wrapper of the children, in the sidebar or the panel. |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `close` | The panel closed (Close, Escape, the backdrop, `close()`, or the window widening past the breakpoint). Does not bubble. |
+| `open` | The panel opened. Does not bubble. |
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-filter-drawer', 'open', '<label>']` when the visitor opens the panel, and `['uvalib-filter-drawer', 'close', '<label>']` when they close it (Close, Escape or the backdrop; not when the window widens or a script closes it). Bubbles and is composed. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uvalib-filter-drawer-width` | `min(24rem, 100% - 3rem)` | The panel's width. |
+| `--uva-color-surface` |  | Dark-mode role token: panel background (else #fff). |
+| `--uva-color-text` |  | Dark-mode role token: panel text (else #2b2b2b). |
+| `--uva-color-border` |  | Dark-mode role token: panel edge and heading rule (else #dadada). |
+| `--uva-color-button-bg` |  | Dark-mode role token: button border and text, the count's background (else `--uva-blue-alt`, #007bac). |
+| `--uva-color-button-hover-bg` |  | Dark-mode role token: hovered button (else `--uva-blue-alt-A`, #005679). |
+| `--uva-color-button-text` |  | Dark-mode role token: the count's text (else #fff). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ### `<uvalib-image-regions>`
@@ -2400,7 +2758,7 @@ A map of places with a linked list of the same places: buildings, rooms or outdo
 
 ### `<uvalib-metadata>`
 
-A record's details as a description list, as on the library's digital collections: label and value side by side on wide screens (the element's own width, 36rem and up), stacked on narrow ones. Values may be text, links or lists (subjects). Give the rows as a `<dl>` child (so the page reads the same before the script loads): `<dt>` labels and `<dd>` values, optionally wrapped in a `<div>` per row; several `<dd>` after one `<dt>` are several values. The values are copied as written (links, lists, `download` attributes kept); a link with `data-size="184 KB"` is shown as a download, "EPUB · 184 KB". The list follows changes to the children. Apps set the `items` property instead (`{ label, value }`, winning over the children while set). Built-in rows for credit and rights (as Special Collections asks): `creator` and `organization` come first; `rights` (a rightsstatements.org or Creative Commons URL, shown as its short name linked to it, or plain text) and `citation` ("How to cite", with a Copy citation button that announces "Copied" politely) come last. `citation-title` builds the Special Collections citation, "<title>, Albert and Shirley Small Special Collections Library, University of Virginia".
+A record's details as a description list, as on the library's digital collections: label and value side by side on wide screens (the element's own width, 36rem and up), stacked on narrow ones. Values may be text, links or lists (subjects). Give the rows as a `<dl>` child (so the page reads the same before the script loads): `<dt>` labels and `<dd>` values, optionally wrapped in a `<div>` per row; several `<dd>` after one `<dt>` are several values. The values are copied as written (links, lists, `download` attributes kept); a link with `data-size="184 KB"` is shown as a download, "EPUB · 184 KB". The list follows changes to the children. Apps set the `items` property instead (`{ label, value }`, winning over the children while set). Built-in rows for credit and rights (as Special Collections asks): `creator` and `organization` come first; `rights` (a rightsstatements.org or Creative Commons URL, shown as its short name linked to it, or plain text) and `citation` ("How to cite", with a Copy citation button that announces "Copied" politely) come last. `citation-title` builds the Special Collections citation, "<title>, Albert and Shirley Small Special Collections Library, University of Virginia". Long lists: `list-limit="8"` shortens every value that is a list (a `<ul>`/`<ol>` in the `<dd>`) of more than 8 items to its first 8 and a “Show all 34 participants” button (`aria-expanded`, `aria-controls`) that reveals the rest in place and moves focus to the first one; it then reads “Show fewer”. `data-limit` on a `<dd>` or its list sets that row's own limit (`0`: none); the noun is the label with a lowercase first letter, or `data-limit-label`. Every value stays in the markup (the hidden ones `hidden`).
 
 #### Attributes
 
@@ -2413,6 +2771,7 @@ A record's details as a description list, as on the library's digital collection
 | `rights-info` | `string \| undefined` |  | A "More about rights and permissions" link under the statement, such as `https://www.library.virginia.edu/policies/use-of-materials`. |
 | `citation` | `string \| undefined` |  | "How to cite": the citation, as written. Wins over `citation-title`. |
 | `citation-title` | `string \| undefined` |  | A title or collection name for the Special Collections citation: "<title>, Albert and Shirley Small Special Collections Library, University of Virginia". |
+| `list-limit` | `number \| undefined` |  | Shorten every list value of more than this many items to its first ones and a “Show all N” button. Zero or empty shows every item. A row's `data-limit` wins. |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -2420,7 +2779,7 @@ A record's details as a description list, as on the library's digital collection
 
 | Event | Description |
 |---|---|
-| `uvalib-analytics-event` | For `<site-analytics>`: the Copy citation button, `['uvalib-metadata', 'copy-citation']`. Downloads are left to Matomo's own download tracking. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: the Copy citation button, `['uvalib-metadata', 'copy-citation']`, and a list's toggle, `['uvalib-metadata', 'show-all'\|'show-fewer', 'row N']` (N from 1, the row's place in the list; never its label or values). Downloads are left to Matomo's own download tracking. Bubbles and is composed. |
 
 #### CSS custom properties
 
@@ -2432,7 +2791,7 @@ A record's details as a description list, as on the library's digital collection
 | `--uva-color-text` |  | Dark-mode role token: value colour (else `--uva-grey-darkest`). |
 | `--uva-color-text-muted` |  | Dark-mode role token: label and status colour (else #4b5563). |
 | `--uva-color-border` |  | Dark-mode role token: row dividers (else #dadada). |
-| `--uva-color-link` |  | Dark-mode role token: the button's text and border (else `--uva-brand-blue`). |
+| `--uva-color-link` |  | Dark-mode role token: the buttons' text and the Copy citation button's border (else `--uva-brand-blue`). |
 | `--uva-color-surface-raised` |  | Dark-mode role token: the button's background (else #fff). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
@@ -2718,7 +3077,7 @@ Three automated checks guard accessibility, best practice and performance. The f
   | `tokens.css` | 592 | 670 |
   | `base.css` | 226 | 260 |
 
-- **Lighthouse CI** (`pnpm lhci`, `@lhci/cli`, settings and assertions in `lighthouserc.json`). The playground's previews run in a cross-origin sandbox, so `scripts/lhci.mjs` writes each example in `site/src/presets.ts` as a plain page into a temporary folder, next to a copy of the site build's `cdn/` (the local `dist-cdn`) and `data/`, serves it from localhost and audits it with Playwright's Chromium (Lighthouse's default mobile emulation, three runs per page, about 10 minutes). Assertions use each metric's median over the three runs, since a single run's CLS depends on when the page's first paint lands. Each page must score 1.0 for accessibility, at least 0.95 for best practices and 0.9 for performance, with CLS at most 0.05 and TBT at most 200 ms. Nothing reaches the network: Typekit and the alerts CDN are blocked (site-page treats both as optional, so the pages fall back to the system font stack and show no alerts, and their font swap is not measured); the header logo and LibCal are answered locally (a same-size stand-in logo through `root-link-domain`, and every library open 8am–10pm), with the library website and LibCal also blocked as a backstop. LibCal's events are stubbed the same way on the events example (18 upcoming events, one a day from tomorrow, one over two days), so the cards render as they do live. `pnpm lhci` builds first; reports are left in `.lighthouseci/`.
+- **Lighthouse CI** (`pnpm lhci`, `@lhci/cli`, settings and assertions in `lighthouserc.json`). The playground's previews run in a cross-origin sandbox, so `scripts/lhci.mjs` writes each example in `site/src/presets.ts` as a plain page into a temporary folder, next to a copy of the site build's `cdn/` (the local `dist-cdn`) and `data/`, serves it from localhost, compressed as the CDN serves it, and audits it with Playwright's Chromium (Lighthouse's default mobile emulation, three runs per page, about 10 minutes). Assertions use each metric's median over the three runs, since a single run's CLS depends on when the page's first paint lands. Each page must score 1.0 for accessibility, at least 0.95 for best practices and for performance, with CLS at most 0.05 and TBT at most 200 ms. Nothing reaches the network: Typekit and the alerts CDN are blocked (site-page treats both as optional, so the pages fall back to the system font stack and show no alerts, and their font swap is not measured); the header logo and LibCal are answered locally (a same-size stand-in logo through `root-link-domain`, and every library open 8am–10pm), with the library website and LibCal also blocked as a backstop. LibCal's events are stubbed the same way on the events example (18 upcoming events, one a day from tomorrow, one over two days), so the cards render as they do live. `pnpm lhci` builds first; reports are left in `.lighthouseci/`.
 - `pnpm sync:main-nav` regenerates the bundled main navigation (`src/components/site-main-nav/main-nav-data.ts`) from the desktop "Main navigation" menu of the live library.virginia.edu home page. `node scripts/sync-main-nav.mjs saved.html` reads a saved page instead. It exits non-zero, writing nothing, if the menu's structure is not found or has fewer than 2 groups or 6 links. Commit the result.
 - `pnpm start` runs the Vite dev server for the playground site (`site/`) and the demos (`demo/`), rooted at the repo: open `/site/` for the examples page, or `/demo/` for the demo pages. In dev, `cdn/<tag>.js` is served straight from `src/components/`, so edits show up on reload; `cdn/tokens.css` and `base.css` come from `dist-cdn/` (run `pnpm build` first).
 - Previews run on the playground-elements sandbox at unpkg.com (never self-hosted: share links run untrusted code), which needs internet access. Locally, that public origin has to load the components from `http://localhost`; Vite's localhost-only CORS policy and Chrome's local network protections block this, so the components may not render in previews under `pnpm start` or `vite preview`. The editors, plain HTML previews and share links still work. Components render in previews on GitHub Pages, which serves `cdn/` with `Access-Control-Allow-Origin: *`.

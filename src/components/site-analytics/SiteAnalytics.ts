@@ -49,6 +49,47 @@ function matomoOnPage(paq: unknown[][]): boolean {
 /** File types Matomo's link tracking counts as downloads, besides its own (pdf, doc*, xls*, …). */
 const DOWNLOADS = 'epub|mobi|csv|tsv|json|xml|zip|tar|gz|mp3|mp4|m4a|tif|tiff|jp2|mrc|ris|bib|txt';
 
+/** Matomo's own download extensions (matomo.js `configDownloadExtensions`). */
+const MATOMO_DOWNLOADS =
+  '7z|aac|apk|arc|arj|asc|asf|asx|avi|azw3|bin|csv|deb|dmg|doc|docx|epub|exe|flv|gif|gz|gzip|' +
+  'hqx|ibooks|jar|jpg|jpeg|js|mobi|mp2|mp3|mp4|mpg|mpeg|mov|movie|msi|msp|odb|odf|odg|ods|odt|' +
+  'ogg|ogv|pdf|phps|png|ppt|pptx|qt|qtm|ra|ram|rar|rpm|rtf|sea|sit|tar|tbz|tbz2|bz|bz2|tgz|' +
+  'torrent|txt|wav|wma|wmv|wpd|xls|xlsx|xml|z|zip';
+
+/** What `downloads="event"` counts as a download: Matomo's types and the library's. */
+const DOWNLOAD_TYPES = new Set(`${MATOMO_DOWNLOADS}|${DOWNLOADS}`.split('|'));
+
+/** A file name's extension, lowercase (up to 10 letters or digits), or undefined. */
+const extensionOf = (name: string): string | undefined =>
+  /\.([a-z0-9]{1,10})$/i.exec(name)?.[1]?.toLowerCase();
+
+/**
+ * `downloads="event"`: the extension a link to a file is counted under, or undefined when it
+ * is not a download. A download is a link with the `download` attribute (named by its file
+ * name's extension, its URL's, or `file`) or to a file of a download type.
+ */
+function downloadType(link: HTMLAnchorElement | HTMLAreaElement): string | undefined {
+  let path = '';
+  try {
+    path = new URL(link.href).pathname;
+  } catch {
+    /* not a URL: only the download attribute can make it a download */
+  }
+  const ext = extensionOf(path);
+  if (ext && DOWNLOAD_TYPES.has(ext)) return ext;
+  if (!link.hasAttribute('download')) return undefined;
+  return extensionOf(link.getAttribute('download') ?? '') ?? ext ?? 'file';
+}
+
+/** Matomo's own opt-out classes for a link. */
+const ignoredLink = (link: Element) =>
+  link.classList.contains('matomo_ignore') || link.classList.contains('piwik_ignore');
+
+/** An http(s) link to another host: what Matomo's link tracking counts as an outlink. */
+function isOutlink(link: HTMLAnchorElement | HTMLAreaElement): boolean {
+  return /^https?:$/.test(link.protocol) && link.hostname !== location.hostname;
+}
+
 /** Fired on `window` after `history.pushState`, by the one wrapper on the page. */
 const PUSH_STATE = 'uvalib-analytics-pushstate';
 const WRAPPED = Symbol.for('@uvalib/web-components/analytics-pushstate');
@@ -107,6 +148,8 @@ function countOf(n: SearchDetail['resultCount']): number | false {
  * data-uvalib-analytics="off">`, it loads nothing and records nothing. A click on an element with `data-uvalib-track="category,action[,name[,value]]"`
  * (or inside one, in light or shadow DOM) sends that event, unless `<html
  * data-uvalib-analytics="off">` or a `no-analytics` ancestor opts it out.
+ * With `downloads="event"` downloads are counted as `['download', '<extension>']` events,
+ * without their URLs, instead of by Matomo's link tracking.
  *
  * The same element is registered as `<uvalib-analytics>` by `uvalib-analytics.js`.
  *
@@ -144,6 +187,15 @@ export class SiteAnalytics extends UvalibElement {
   spa: boolean | 'auto' = false;
   /** Custom dimensions, a JSON object of `{ id: value }`, set before the page view. */
   @property({ type: Object }) variables: Record<string, unknown> | null = null;
+  /**
+   * `event`: count downloads without their URLs. Matomo's link tracking is left off; a left or
+   * middle click on a link to a file (the `download` attribute, or a download file type)
+   * sends the event `['download', '<extension>']` (no URL, no file name), and a click on a
+   * link to another site is still sent as an outlink (`trackLink`), as Matomo's link tracking
+   * would. Off by default. Read when Matomo is set up; no effect with a Matomo snippet already
+   * on the page.
+   */
+  @property({ type: String }) downloads?: string;
 
   private readonly tracker: Tracker = { off: false };
 
@@ -160,9 +212,41 @@ export class SiteAnalytics extends UvalibElement {
     else this.logPageView(detail as PageViewDetail);
   };
 
-  /** `data-uvalib-track`: the nearest tagged element on the click's path sends its event. */
+  /** A click (or a middle click): `data-uvalib-track`, and with `downloads="event"` links. */
   private readonly onClick = (e: Event) => {
     if (!this.forwards()) return;
+    if (e.type === 'click') this.trackTagged(e);
+    if (shared().downloads === 'event') this.trackLink(e as MouseEvent);
+  };
+
+  /**
+   * `downloads="event"`: a click on a link to a file sends `['download', '<extension>']`; with
+   * `outlinks`, one on a light DOM link to another site sends Matomo's `trackLink` (the URL,
+   * as Matomo's own link tracking would).
+   */
+  private trackLink(e: MouseEvent) {
+    if (e.button !== (e.type === 'auxclick' ? 1 : 0)) return;
+    const link = e
+      .composedPath()
+      .find(
+        (n): n is HTMLAnchorElement | HTMLAreaElement =>
+          (n instanceof HTMLAnchorElement || n instanceof HTMLAreaElement) &&
+          n.hasAttribute('href'),
+      );
+    if (!link || ignoredLink(link)) return;
+    const type = downloadType(link);
+    if (type) trackEvent(link, ['download', type]);
+    else if (
+      shared().outlinks &&
+      link.getRootNode() === document &&
+      isOutlink(link) &&
+      analyticsAllowed(link)
+    )
+      this.paq.push(['trackLink', link.href, 'link']);
+  }
+
+  /** `data-uvalib-track`: the nearest tagged element on the click's path sends its event. */
+  private trackTagged(e: Event) {
     for (const n of e.composedPath()) {
       const spec = n instanceof Element ? n.getAttribute('data-uvalib-track') : null;
       if (spec === null) continue;
@@ -170,7 +254,7 @@ export class SiteAnalytics extends UvalibElement {
       if (event) trackEvent(n, event);
       return;
     }
-  };
+  }
 
   /** `spa="auto"`: a route change records a page view on the next frame (the new title). */
   private routeFrame = 0;
@@ -215,6 +299,7 @@ export class SiteAnalytics extends UvalibElement {
     for (const t of ANALYTICS_EVENTS) document.addEventListener(t, this.onEvent);
     // Capture: a component that stops a click's propagation does not hide a tagged ancestor.
     document.addEventListener('click', this.onClick, true);
+    document.addEventListener('auxclick', this.onClick, true);
     if (this.spa === 'auto') {
       wrapPushState();
       this.listenRoutes(true);
@@ -224,6 +309,7 @@ export class SiteAnalytics extends UvalibElement {
   override disconnectedCallback() {
     for (const t of ANALYTICS_EVENTS) document.removeEventListener(t, this.onEvent);
     document.removeEventListener('click', this.onClick, true);
+    document.removeEventListener('auxclick', this.onClick, true);
     this.listenRoutes(false);
     const { trackers } = shared();
     const i = trackers.indexOf(this.tracker);
@@ -257,12 +343,17 @@ export class SiteAnalytics extends UvalibElement {
     paq.push(['setSiteId', String(id)]);
     for (const [key, value] of Object.entries(this.variables ?? {}))
       paq.push(['setCustomDimension', key, value]);
-    paq.push(['addDownloadExtensions', DOWNLOADS]);
+    // downloads="event": no Matomo link tracking (it would log each file's URL); this
+    // element sends download events, and the outlinks Matomo would have sent.
+    const events = this.downloads === 'event';
+    if (events) state.downloads = 'event';
+    else paq.push(['addDownloadExtensions', DOWNLOADS]);
     if (this.spa === 'auto') {
       paq.push(['trackPageView']);
     } else if (!this.spa) {
       paq.push(['trackPageView']);
-      paq.push(['enableLinkTracking']);
+      if (events) state.outlinks = true;
+      else paq.push(['enableLinkTracking']);
     }
     const script = document.createElement('script');
     script.async = true;

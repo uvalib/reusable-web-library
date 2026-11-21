@@ -35,6 +35,14 @@
       "types": "./dist/base.d.ts",
       "default": "./dist/base.js"
     },
+    "./analytics.js": {
+      "types": "./dist/analytics.d.ts",
+      "default": "./dist/analytics.js"
+    },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    },
     "./site-page.js": {
       "types": "./dist/components/site-page/site-page.d.ts",
       "default": "./dist/components/site-page/site-page.js"
@@ -163,6 +171,14 @@
       "types": "./dist/components/uvalib-map/uvalib-map.d.ts",
       "default": "./dist/components/uvalib-map/uvalib-map.js"
     },
+    "./uvalib-filter-drawer.js": {
+      "types": "./dist/components/uvalib-filter-drawer/uvalib-filter-drawer.d.ts",
+      "default": "./dist/components/uvalib-filter-drawer/uvalib-filter-drawer.js"
+    },
+    "./uvalib-back-to-top.js": {
+      "types": "./dist/components/uvalib-back-to-top/uvalib-back-to-top.d.ts",
+      "default": "./dist/components/uvalib-back-to-top/uvalib-back-to-top.js"
+    },
     "./tokens.css": "./dist/tokens.css",
     "./base.css": "./dist/base.css",
     "./pagefind.css": "./dist/pagefind.css",
@@ -206,9 +222,13 @@
     "lit": "^3.2.0"
   },
   "peerDependencies": {
+    "@axe-core/playwright": "^4.10.0",
     "leaflet": "^1.9.4"
   },
   "peerDependenciesMeta": {
+    "@axe-core/playwright": {
+      "optional": true
+    },
     "leaflet": {
       "optional": true
     }

@@ -131,3 +131,33 @@ export function installLightDomStyles(
   installed.set(root, tags);
   return true;
 }
+
+const hiddenSheets = new WeakMap<Root, { sheet: CSSStyleSheet; tags: Set<string> }>();
+
+/**
+ * The `hidden` attribute for a component's host element, in every mode: a component's own
+ * `:host { display: … }` (or its light-DOM `tag { display: … }`) beats the browser's
+ * `[hidden] { display: none }`, so `<uvalib-card hidden>` stayed on screen once upgraded.
+ * Hiding is behaviour, not look, so this is installed with `no-style` too.
+ *
+ * One unlayered sheet per root (the document or the shadow root the element sits in) holds
+ * `:is(<tag>, …)[hidden] { display: none !important }` for every tag connected there. It
+ * applies to the host from outside, so it beats the shadow tree's `:host` rules and the
+ * light-DOM `@layer uvalib` rules; a page can still show a hidden element with its own more
+ * specific `!important` rule. The sheet is re-adopted if something replaced the root's list.
+ */
+export function installHiddenRule(tag: string, root: Root = document): void {
+  let entry = hiddenSheets.get(root);
+  if (!entry) {
+    entry = { sheet: new (sheetConstructor(root))(), tags: new Set() };
+    hiddenSheets.set(root, entry);
+  }
+  if (!entry.tags.has(tag)) {
+    entry.tags.add(tag);
+    entry.sheet.replaceSync(
+      `:is(${[...entry.tags].join(', ')})[hidden] { display: none !important; }`,
+    );
+  }
+  if (!root.adoptedStyleSheets.includes(entry.sheet))
+    root.adoptedStyleSheets = [...root.adoptedStyleSheets, entry.sheet];
+}
