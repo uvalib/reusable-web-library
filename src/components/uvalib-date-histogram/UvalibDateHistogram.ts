@@ -63,12 +63,35 @@ function monthIndex(token: string): number {
   return Number.isInteger(n) && n >= 1 && n <= 12 ? n : 0;
 }
 
-type DateKind = 'year' | 'month' | 'odd';
+type DateKind = 'year' | 'month' | 'decade' | 'odd';
 
-/** `YYYY` and `YYYY-MM` are buckets. A day, a month name or anything else is an odd date. */
+/** The bars drawn: one per month, year or decade. */
+type Grain = 'year' | 'month' | 'decade';
+
+/** A decade key, `1810s`. */
+const DECADE = /^(\d{3}0)s$/;
+
+const decadeKey = (year: number): string =>
+  `${String(Math.floor(year / 10) * 10).padStart(4, '0')}s`;
+
+/** The `selected` value a decade bar sets: its first and last year (`1810/1819`). */
+function decadeSelection(key: string): string {
+  const d = Number(key.slice(0, 4));
+  return `${key.slice(0, 4)}/${String(d + 9).padStart(4, '0')}`;
+}
+
+/**
+ * `granularity="auto"`: month bars when every dated count is a month and they span at most
+ * 3 years (36 bars), year bars up to 30 years, decades beyond.
+ */
+const AUTO_MONTH_YEARS = 3;
+const AUTO_YEAR_YEARS = 30;
+
+/** `YYYY`, `YYYY-MM` and `YYYYs` (a decade) are buckets. A day, a month name or anything else is an odd date. */
 function parseDate(raw: string): { key: string; kind: DateKind } | null {
   const s = raw.replace(/\s+/g, ' ').trim();
   if (!s) return null;
+  if (DECADE.test(s)) return { key: s, kind: 'decade' };
   if (ISO_DAY.test(s)) return { key: isIsoDate(s) ? s : s, kind: 'odd' };
   const month = /^(\d{4})-(\d{2})$/.exec(s);
   if (month) {
@@ -88,7 +111,7 @@ function parseDate(raw: string): { key: string; kind: DateKind } | null {
   return { key: s, kind: 'odd' };
 }
 
-/** Inclusive ISO span of a bucket key, or null when `key` is not a year, month or day. */
+/** Inclusive ISO span of a bucket key, or null when `key` is not a decade, year, month or day. */
 function keyToSpan(key: string): { from: string; to: string } | null {
   if (isIsoDate(key)) return { from: key, to: key };
   const month = /^(\d{4})-(\d{2})$/.exec(key);
@@ -96,6 +119,11 @@ function keyToSpan(key: string): { from: string; to: string } | null {
     return { from: `${key}-01`, to: lastDay(Number(month[1]), Number(month[2])) };
   }
   if (/^\d{4}$/.test(key)) return { from: `${key}-01-01`, to: `${key}-12-31` };
+  const decade = DECADE.exec(key);
+  if (decade) {
+    const last = String(Number(decade[1]) + 9).padStart(4, '0');
+    return { from: `${decade[1]}-01-01`, to: `${last}-12-31` };
+  }
   return null;
 }
 
@@ -122,6 +150,9 @@ function parseSelected(raw: string): { from: string; to: string } | null {
   }
   return keyToSpan(trimmed) ?? { from: trimmed, to: trimmed };
 }
+
+/** The first year of the half-century a year is in (decade rows are 1800–1849, 1850–1899, …). */
+const halfCentury = (year: number): number => Math.floor(year / 50) * 50;
 
 /** Years touched by two ISO dates, inclusive. */
 function yearCount(min: string, max: string): number | null {
@@ -184,21 +215,50 @@ function addOdd(odds: Map<string, number>, key: string, count: number) {
   odds.set(key, (odds.get(key) ?? 0) + count);
 }
 
-/** Continuous buckets from the earliest date to the latest, with the months or years between filled in. */
-function buildModel(items: HistogramItem[], grain: 'year' | 'month'): Model {
-  const buckets = new Map<string, number>();
-  const odds = new Map<string, number>();
+/** Each valid item as a parsed date and a count. */
+function parsedItems(items: HistogramItem[]): { key: string; kind: DateKind; count: number }[] {
+  const out: { key: string; kind: DateKind; count: number }[] = [];
   for (const item of items) {
     if (!item || typeof item.date !== 'string') continue;
     const count = typeof item.count === 'number' ? item.count : Number(item.count);
     if (!Number.isFinite(count) || count < 0) continue;
     const parsed = parseDate(item.date);
-    if (!parsed) continue;
-    if (parsed.kind === 'odd' || (grain === 'month' && parsed.kind === 'year')) {
+    if (parsed) out.push({ ...parsed, count });
+  }
+  return out;
+}
+
+/** The grain `granularity="auto"` draws. `span` is the years to cover when there are no counts yet. */
+function autoGrain(items: HistogramItem[], span: number | null): Grain {
+  const dated = parsedItems(items).filter((p) => p.kind !== 'odd');
+  if (!dated.length) return span != null && span > AUTO_YEAR_YEARS ? 'decade' : 'year';
+  const years = dated.map((p) => Number(p.key.slice(0, 4)));
+  const width = Math.max(...years) - Math.min(...years) + 1;
+  if (dated.every((p) => p.kind === 'month') && width <= AUTO_MONTH_YEARS) return 'month';
+  if (dated.some((p) => p.kind === 'decade')) return 'decade';
+  return width <= AUTO_YEAR_YEARS ? 'year' : 'decade';
+}
+
+/** Continuous buckets from the earliest date to the latest, with the months, years or decades between filled in. */
+function buildModel(items: HistogramItem[], grain: Grain): Model {
+  const buckets = new Map<string, number>();
+  const odds = new Map<string, number>();
+  for (const parsed of parsedItems(items)) {
+    const { count } = parsed;
+    if (
+      parsed.kind === 'odd' ||
+      (grain === 'month' && parsed.kind === 'year') ||
+      (grain !== 'decade' && parsed.kind === 'decade')
+    ) {
       addOdd(odds, parsed.key, count);
       continue;
     }
-    const key = grain === 'year' ? parsed.key.slice(0, 4) : parsed.key;
+    const key =
+      grain === 'year'
+        ? parsed.key.slice(0, 4)
+        : grain === 'decade'
+          ? decadeKey(Number(parsed.key.slice(0, 4)))
+          : parsed.key;
     buckets.set(key, (buckets.get(key) ?? 0) + count);
   }
   const bars: Bar[] = [];
@@ -206,8 +266,11 @@ function buildModel(items: HistogramItem[], grain: 'year' | 'month'): Model {
   if (keys.length) {
     const first = Number(keys[0]!.slice(0, 4));
     const last = Number(keys[keys.length - 1]!.slice(0, 4));
-    for (let year = first; year <= last; year++) {
-      if (grain === 'year') {
+    for (let year = first; year <= last; year += grain === 'decade' ? 10 : 1) {
+      if (grain === 'decade') {
+        const key = decadeKey(year);
+        bars.push({ key, count: buckets.get(key) ?? 0, year, month: 0 });
+      } else if (grain === 'year') {
         const key = String(year);
         bars.push({ key, count: buckets.get(key) ?? 0, year, month: 0 });
       } else {
@@ -308,7 +371,7 @@ const structuralRules = (host: string) => {
   return `
   ${host} { display: block; max-width: 100%; min-width: 0; box-sizing: border-box; }
   ${host} .scroller { overflow-x: auto; max-width: 100%; overscroll-behavior-x: contain; }
-  ${host} .by-month .scroller { scroll-padding-inline-start: 4rem; }
+  ${host} :is(.by-month, .by-decade) .scroller { scroll-padding-inline-start: 4rem; }
   ${host} .year {
     display: grid;
     grid-template-columns: 3.5rem minmax(0, 1fr);
@@ -332,6 +395,10 @@ const structuralRules = (host: string) => {
     gap: 2px;
     block-size: var(--uvalib-date-histogram-bar-size, 8rem);
     min-inline-size: calc(12 * 1.5rem + 11 * 2px);
+  }
+  ${host} .by-decade .bars {
+    grid-template-columns: repeat(5, minmax(1.5rem, 1fr));
+    min-inline-size: calc(5 * 1.5rem + 4 * 2px);
   }
   ${host} .bar {
     position: relative;
@@ -491,11 +558,21 @@ function tableCaption(text: string): TemplateResult {
 }
 
 /**
- * Monthly or yearly counts as bars: a date distribution for a search page, an archive
- * timeline or a card. Give `items` (`{ date, count }`, `date` a `YYYY` or `YYYY-MM`) or a
- * child `<table>` (the no-JS fallback). `granularity="month"` draws twelve bars for every
+ * Monthly, yearly or per-decade counts as bars: a date distribution for a search page, an
+ * archive timeline or a card. Give `items` (`{ date, count }`, `date` a `YYYY` or `YYYY-MM`)
+ * or a child `<table>` (the no-JS fallback). `granularity="month"` draws twelve bars for every
  * year from the first date to the last, including months with a count of zero. A year-only
  * count in a month chart, a day, or any other date is a chip beside the chart.
+ *
+ * `granularity="decade"` is for a long span (two centuries of minutes): one bar per decade
+ * ("1810s: 22 meetings"), an empty decade a gap, five decades to a row labelled with its
+ * first year (1800, 1850, …), the decades lined up in columns. Choosing a decade selects
+ * its first to last year (`selected="1810/1819"`, `select` `{ from: '1810-01-01', to:
+ * '1819-12-31' }`); up and down arrows move 50 years. `granularity="auto"` draws months
+ * when every count is a month within 3 years (at most 36 bars), years up to 30 years, and
+ * decades beyond. A year row that scrolls sideways is not offered: 200 years at the 24px
+ * minimum bar is over 5,000px, so a sidebar would show ten years at a time and lose the
+ * shape that decades show whole.
  *
  * Each bar is a button named like "October 2015: 5,311 photos". Arrow keys move between
  * bars; Enter or Space selects. `selected` is one bucket (`2015-10`, `2015`) or a range
@@ -514,13 +591,14 @@ function tableCaption(text: string): TemplateResult {
  * and written back. Setting `selected` here updates the date range.
  *
  * `variant="strip"` is the small per-year row for a card: not interactive, `role="img"`,
- * one bar per year whatever `granularity` is.
+ * one bar per year, or per decade with `decade` (or `auto` over more than 30 years).
  *
  * The chart reserves its height before the counts arrive: one bar track, or one track
- * per year when those years are already known from the data, a linked date range or the
- * table (`--uvalib-date-histogram-bar-size`, 8rem, plus the year-row gap). Filling the
- * bars in does not move the page. On a narrow screen a month row scrolls inside the
- * component; "Scroll sideways to see more." shows while it overflows. Years wrap.
+ * per year (per half-century for decades) when those years are already known from the
+ * data, a linked date range or the table (`--uvalib-date-histogram-bar-size`, 8rem, plus
+ * the row gap). Filling the bars in does not move the page. On a narrow screen a month row
+ * scrolls inside the component; "Scroll sideways to see more." shows while it overflows.
+ * Years wrap; a decade row fits 320px.
  *
  * @tagname uvalib-date-histogram
  * @slot - A `<table>` of dates and counts: two columns (date, count) or a year-by-month grid. Without JavaScript it is the fallback. With JavaScript it supplies the counts when `items` is empty. Show as table lists those counts, including odd dates; once `items` is set it lists `items` instead.
@@ -595,9 +673,13 @@ export class UvalibDateHistogram extends UvalibElement {
   @property({ type: Array })
   items: HistogramItem[] = [];
 
-  /** `month` (twelve bars per year) or `year`. Anything else is month, with one console warning. */
+  /**
+   * `month` (twelve bars per year), `year`, `decade` (one bar per decade, five to a row), or
+   * `auto`: months when every count is a month within 3 years, years up to 30 years, else
+   * decades. Anything else is month, with one console warning.
+   */
   @property({ type: String })
-  granularity: 'year' | 'month' = 'month';
+  granularity: 'year' | 'month' | 'decade' | 'auto' = 'month';
 
   /** `log` scales bar height by log(count + 1). Anything else is linear. */
   @property({ type: String })
@@ -646,6 +728,7 @@ export class UvalibDateHistogram extends UvalibElement {
   /** The date range's value when this element last read or wrote it, and which range that was. */
   private lastSeen?: string;
   private lastSeenEl?: RangePartner;
+  private drawnGrain?: Grain;
 
   constructor() {
     super();
@@ -710,11 +793,12 @@ export class UvalibDateHistogram extends UvalibElement {
     if (
       !this.warnedGrain &&
       changed.has('granularity') &&
-      this.granularity !== 'year' &&
-      this.granularity !== 'month'
+      !['year', 'month', 'decade', 'auto'].includes(this.granularity)
     ) {
       this.warnedGrain = true;
-      console.warn(`<${TAG}>: granularity must be "year" or "month"; using "month".`);
+      console.warn(
+        `<${TAG}>: granularity must be "month", "year", "decade" or "auto"; using "month".`,
+      );
     }
     if (changed.has('selected') && !this.choosing) this.activeKey = '';
     this.choosing = false;
@@ -732,12 +816,36 @@ export class UvalibDateHistogram extends UvalibElement {
     } else if (changed.has('selected') && !echoing) {
       this.pushPartner();
     }
+    // With `auto`, counts arriving can change the grain, so a range read before them is read again.
+    const grain = this.grain;
+    if (this.drawnGrain && grain !== this.drawnGrain && this.partner) this.pullPartner();
+    this.drawnGrain = grain;
     this.watchForPartner();
     this.measureOverflow();
   }
 
-  private get grain(): 'year' | 'month' {
-    return this.granularity === 'year' ? 'year' : 'month';
+  private get grain(): Grain {
+    const g = this.granularity;
+    if (g === 'year' || g === 'decade') return g;
+    if (g === 'auto') return autoGrain(this.data, this.partnerSpan());
+    return 'month';
+  }
+
+  /** The strip is one bar per year, or per decade for `decade` (or `auto` over a long span). */
+  private get stripGrain(): Grain {
+    if (this.granularity === 'decade') return 'decade';
+    if (this.granularity === 'auto') return this.grain === 'decade' ? 'decade' : 'year';
+    return 'year';
+  }
+
+  /** Years from the linked date range's `min` to its `max`, or null. */
+  private partnerSpan(): number | null {
+    const partner = this.partner ?? this.findPartner();
+    if (!partner) return null;
+    return yearCount(
+      partner.min || partner.getAttribute('min') || '',
+      partner.max || partner.getAttribute('max') || '',
+    );
   }
 
   private get strip(): boolean {
@@ -880,8 +988,19 @@ export class UvalibDateHistogram extends UvalibElement {
       }
       return;
     }
+    // Compared as the range shows it, so a decade from before `min` (1810–1819 with a
+    // 1817 minimum) stays as chosen.
     const cur = this.selected ? parseSelected(this.selected) : null;
-    if (cur && cur.from === from && cur.to === to) return;
+    const ends = this.partnerEnds();
+    const clamp = (iso: string) =>
+      ends && isIsoDate(ends.min) && isIsoDate(ends.max)
+        ? iso < ends.min
+          ? ends.min
+          : iso > ends.max
+            ? ends.max
+            : iso
+        : iso;
+    if (cur && clamp(cur.from) === from && clamp(cur.to) === to) return;
     const next = isoToSelected(from, to, this.grain === 'month' ? 'month' : 'year');
     if (!next || next === this.selected) return;
     this.echo = true;
@@ -932,10 +1051,12 @@ export class UvalibDateHistogram extends UvalibElement {
     this.activeKey = key;
     const token = this.selected.trim();
     const bucket = keyToSpan(key);
+    // A decade selects its first to last year, the form a linked date range writes back.
+    const pick = this.grain === 'decade' && DECADE.test(key) ? decadeSelection(key) : key;
     // A second click on the same token clears it. A stored month that only names part
     // of the linked range (October 5–20 shown as 2015-10) expands to the whole bucket
     // instead: assigning the same `selected` string would not run `pushPartner()`.
-    if (token === key) {
+    if (token === key || token === pick) {
       const value = this.partner?.value;
       const partial =
         !!bucket &&
@@ -953,8 +1074,8 @@ export class UvalibDateHistogram extends UvalibElement {
       return;
     }
     this.choosing = true;
-    this.selected = key;
-    const span = parseSelected(key);
+    this.selected = pick;
+    const span = parseSelected(pick);
     this.emit(span?.from ?? key, span?.to ?? key);
   }
 
@@ -967,7 +1088,13 @@ export class UvalibDateHistogram extends UvalibElement {
     const keys = this.flatKeys();
     const i = keys.indexOf((e.currentTarget as HTMLElement).dataset.date ?? '');
     if (i < 0) return;
-    const step = this.grain === 'month' ? 12 : 1;
+    const grain = this.grain;
+    const step = grain === 'month' ? 12 : 1;
+    // Decade rows are half-centuries that may start part-way, so up and down move 50 years.
+    const row = (dir: number) =>
+      grain === 'decade'
+        ? keys.indexOf(decadeKey(Number(keys[i]!.slice(0, 4)) + dir * 50))
+        : i + dir * step;
     let next = -1;
     switch (e.key) {
       case 'ArrowRight':
@@ -977,10 +1104,10 @@ export class UvalibDateHistogram extends UvalibElement {
         next = i - 1;
         break;
       case 'ArrowDown':
-        next = i + step;
+        next = row(1);
         break;
       case 'ArrowUp':
-        next = i - step;
+        next = row(-1);
         break;
       case 'Home':
         next = 0;
@@ -1049,7 +1176,9 @@ export class UvalibDateHistogram extends UvalibElement {
     const parts = splitSelection(trimmed);
     if (parts.length >= 2 && parts.every((p) => keyToSpan(p) !== null)) return true;
     if (parts.length !== 1) return false;
-    return this.grain === 'year' ? /^\d{4}$/.test(trimmed) : /^\d{4}-\d{2}$/.test(trimmed);
+    const grain = this.grain;
+    if (grain === 'decade') return /^\d{4}$/.test(trimmed) || DECADE.test(trimmed);
+    return grain === 'year' ? /^\d{4}$/.test(trimmed) : /^\d{4}-\d{2}$/.test(trimmed);
   }
 
   private overlaps(key: string, span: { from: string; to: string } | null): boolean {
@@ -1082,14 +1211,21 @@ export class UvalibDateHistogram extends UvalibElement {
     return selected?.key ?? keys[0] ?? '';
   }
 
-  private barTemplate(bar: Bar, tab: string, span: { from: string; to: string } | null) {
-    const pct = barPercent(bar.count, buildModel(this.data, this.grain).max, this.log);
+  private barTemplate(
+    bar: Bar,
+    tab: string,
+    span: { from: string; to: string } | null,
+    max: number,
+    column = 0,
+  ) {
+    const pct = barPercent(bar.count, max, this.log);
     const on = this.pressed(bar.key, span);
     return html`
       <button
         type="button"
         class="bar ${bar.count ? '' : 'is-empty'}"
         part="bar"
+        style=${column ? `grid-column-start: ${column}` : nothing}
         data-date=${bar.key}
         tabindex=${bar.key === tab ? '0' : '-1'}
         aria-pressed=${on ? 'true' : 'false'}
@@ -1104,14 +1240,39 @@ export class UvalibDateHistogram extends UvalibElement {
 
   private renderBars(model: Model, span: { from: string; to: string } | null): TemplateResult {
     const tab = this.focusKey(model.bars);
-    if (this.grain === 'year') {
+    const grain = this.grain;
+    if (grain === 'decade') {
+      const rows = [...new Set(model.bars.map((b) => halfCentury(b.year)))];
+      return html`
+        <div class="scroller" role="group" aria-label=${this.labelText}>
+          ${rows.map((start) => {
+            const inRow = model.bars.filter((b) => halfCentury(b.year) === start);
+            // The first decade keeps its column, so decades line up from row to row.
+            const column = (inRow[0]!.year - start) / 10 + 1;
+            return html`
+              <div class="year">
+                <span class="year-label" aria-hidden="true">${start}</span>
+                <div class="bars" role="group" aria-label=${`${start} to ${start + 49}`}>
+                  ${repeat(
+                    inRow,
+                    (b) => b.key,
+                    (b, i) => this.barTemplate(b, tab, span, model.max, i === 0 ? column : 0),
+                  )}
+                </div>
+              </div>
+            `;
+          })}
+        </div>
+      `;
+    }
+    if (grain === 'year') {
       return html`
         <div class="scroller" role="group" aria-label=${this.labelText}>
           <div class="bars">
             ${repeat(
               model.bars,
               (b) => b.key,
-              (b) => this.barTemplate(b, tab, span),
+              (b) => this.barTemplate(b, tab, span, model.max),
             )}
           </div>
         </div>
@@ -1128,7 +1289,7 @@ export class UvalibDateHistogram extends UvalibElement {
                 ${repeat(
                   model.bars.filter((b) => b.year === year),
                   (b) => b.key,
-                  (b) => this.barTemplate(b, tab, span),
+                  (b) => this.barTemplate(b, tab, span, model.max),
                 )}
               </div>
             </div>
@@ -1200,7 +1361,7 @@ export class UvalibDateHistogram extends UvalibElement {
         ${tableCaption(caption)}
         <thead>
           <tr>
-            <th scope="col">${this.grain === 'year' ? 'Year' : 'Date'}</th>
+            <th scope="col">${{ year: 'Year', decade: 'Decade', month: 'Date' }[this.grain]}</th>
             <th scope="col">Count</th>
           </tr>
         </thead>
@@ -1274,38 +1435,42 @@ export class UvalibDateHistogram extends UvalibElement {
   private reserveStyle(): string {
     const size = 'var(--uvalib-date-histogram-bar-size, 8rem)';
     if (this.grain === 'year') return `min-block-size: ${size}`;
-    return `min-block-size: calc(${this.reservedYears()} * (${size} + 0.5rem))`;
+    return `min-block-size: calc(${this.reservedRows()} * (${size} + 0.5rem))`;
   }
 
-  private reservedYears(): number {
-    const model = buildModel(this.data, this.grain);
-    if (model.bars.length) return new Set(model.bars.map((b) => b.year)).size;
+  /** Rows: one per year for months, one per half-century for decades. */
+  private reservedRows(): number {
+    const grain = this.grain;
+    const rowOf = (year: number) => (grain === 'decade' ? halfCentury(year) : year);
+    const model = buildModel(this.data, grain);
+    if (model.bars.length) return new Set(model.bars.map((b) => rowOf(b.year))).size;
     const partner = this.partner ?? this.findPartner();
     if (!partner) return 1;
-    const span = yearCount(
-      partner.min || partner.getAttribute('min') || '',
-      partner.max || partner.getAttribute('max') || '',
-    );
-    return span && span > 0 ? span : 1;
+    const a = /^(\d{4})/.exec((partner.min || partner.getAttribute('min') || '').trim());
+    const b = /^(\d{4})/.exec((partner.max || partner.getAttribute('max') || '').trim());
+    if (!a || !b) return 1;
+    const [lo, hi] = [Number(a[1]), Number(b[1])].sort((x, y) => x - y) as [number, number];
+    return grain === 'decade' ? (rowOf(hi) - rowOf(lo)) / 50 + 1 : hi - lo + 1;
   }
 
   private renderStrip(model: Model): TemplateResult {
     const years = model.bars;
     const total = years.reduce((s, b) => s + b.count, 0);
     const span = parseSelected(this.selected);
+    // A year bar's key is the year, a decade bar's is `1810s`.
     const range =
       years.length === 0
         ? ''
-        : years[0]!.year === years[years.length - 1]!.year
-          ? String(years[0]!.year)
-          : `${years[0]!.year} to ${years[years.length - 1]!.year}`;
+        : years.length === 1
+          ? years[0]!.key
+          : `${years[0]!.key} to ${years[years.length - 1]!.key}`;
     let name = years.length
       ? `${this.labelText}: ${range}, ${total.toLocaleString('en-US')} ${unitWord(total, this.unit)}`
       : `${this.labelText}: no dates`;
     if (span && years.some((b) => this.pressed(b.key, span))) {
       const on = years.filter((b) => this.pressed(b.key, span));
-      const a = on[0]!.year;
-      const b = on[on.length - 1]!.year;
+      const a = on[0]!.key;
+      const b = on[on.length - 1]!.key;
       name += a === b ? `. Selected ${a}.` : `. Selected ${a} to ${b}.`;
     }
     return html`
@@ -1324,10 +1489,10 @@ export class UvalibDateHistogram extends UvalibElement {
   }
 
   override render() {
-    const model = buildModel(this.data, this.strip ? 'year' : this.grain);
+    const model = buildModel(this.data, this.strip ? this.stripGrain : this.grain);
     if (this.strip) return this.renderStrip(model);
     const span = parseSelected(this.selected);
-    const chartClass = this.grain === 'year' ? 'by-year' : 'by-month';
+    const chartClass = `by-${this.grain}`;
     return html`
       <div class="chart ${chartClass}" part="chart">
         <p class="scroll-hint" ?hidden=${!this.overflowing}>Scroll sideways to see more.</p>
