@@ -1,6 +1,5 @@
 import { css, html, nothing, svg, unsafeCSS, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import { styleMap } from 'lit/directives/style-map.js';
 import { trackEvent } from '../../base/analytics.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
@@ -705,7 +704,7 @@ export class UvalibChipGroup extends UvalibElement {
               class="swatch"
               part="swatch"
               aria-hidden="true"
-              style=${styleMap({ backgroundColor: item.swatch })}
+              data-colour=${item.swatch}
             ></span>`
           : nothing
       }<span class="text">${item.label}</span>${
@@ -787,6 +786,9 @@ export class UvalibChipGroup extends UvalibElement {
 
   protected override updated(changed: PropertyValues<this>): void {
     super.updated(changed);
+    // The checked colour is set as a style property, never written as CSS text.
+    for (const s of this.renderRoot.querySelectorAll<HTMLElement>('.chips .swatch'))
+      s.style.backgroundColor = s.dataset.colour!;
     const g = this.renderRoot.querySelector<HTMLElement>('.chips.scroll') ?? undefined;
     if (g !== this.observed) {
       this.resize?.disconnect();
