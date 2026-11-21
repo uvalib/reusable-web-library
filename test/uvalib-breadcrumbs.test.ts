@@ -276,6 +276,81 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       }
     });
 
+    describe('data-return-from: back to the search the visitor came from', () => {
+      const fake = (referrer: string) =>
+        Object.defineProperty(document, 'referrer', { configurable: true, get: () => referrer });
+      afterEach(() => delete (document as { referrer?: string }).referrer);
+      const SEARCH = `<a href="/search/" data-return-from="/search/">Search</a><a href="/2023/">2023</a><span>Meeting</span>`;
+      const hrefs = (el: Element) => shown(el).map((s) => s[2]);
+
+      it('links to a same-origin search with a query, keeping the text', async () => {
+        fake(`${location.origin}/search/?q=budget&date_start=2023`);
+        const el = await make(SEARCH);
+        expect(shown(el)[0]).to.deep.equal(['a', 'Search', '/search/?q=budget&date_start=2023', null]);
+        expect(hrefs(el).slice(1)).to.deep.equal(['/2023/', null]);
+      });
+
+      it('ignores a trailing slash or index.html, and takes a list of paths', async () => {
+        fake(`${location.origin}/search/index.html?q=a`);
+        const el = await make(SEARCH);
+        expect(hrefs(el)[0]).to.equal('/search/index.html?q=a');
+        fake(`${location.origin}/find?q=b`);
+        const other = await make(
+          `<a href="/search/" data-return-from="/search/ /find/">Search</a><span>Here</span>`,
+        );
+        expect(hrefs(other)[0]).to.equal('/find?q=b');
+      });
+
+      it('keeps the href for another path, no query, another origin or no referrer', async () => {
+        for (const r of [
+          `${location.origin}/2023/?q=a`,
+          `${location.origin}/search/`,
+          `${location.origin}/search/?`,
+          `https://example.org/search/?q=a`,
+          '',
+        ]) {
+          fake(r);
+          const el = await make(SEARCH);
+          expect(hrefs(el)[0], r).to.equal('/search/');
+        }
+      });
+
+      it('only changes the steps that ask for it', async () => {
+        fake(`${location.origin}/search/?q=a`);
+        const el = await make(`<a href="/search/">Search</a><span>Here</span>`);
+        expect(hrefs(el)[0]).to.equal('/search/');
+      });
+
+      it('follows data-return-from added later, and works from items (returnFrom)', async () => {
+        fake(`${location.origin}/search/?q=a`);
+        const el = await make(`<a href="/search/">Search</a><span>Here</span>`);
+        const src = el.querySelector(mode === 'shadow' ? ':scope > a' : '.breadcrumbs-source a')!;
+        src.setAttribute('data-return-from', '/search/');
+        await settle(el);
+        expect(hrefs(el)[0]).to.equal('/search/?q=a');
+        el.items = [{ label: 'Search', href: '/search/', returnFrom: '/search' }, { label: 'Here' }];
+        await settle(el);
+        expect(hrefs(el)).to.deep.equal(['/search/?q=a', null]);
+      });
+
+      it('reports the returned href in uvalib-breadcrumbs-navigate', async () => {
+        fake(`${location.origin}/search/?q=a`);
+        const el = await make(SEARCH);
+        const seen: string[] = [];
+        const route = (e: Event) => {
+          seen.push((e as CustomEvent).detail.href);
+          e.preventDefault();
+        };
+        document.addEventListener('uvalib-breadcrumbs-navigate', route);
+        try {
+          nav(el).querySelector('a')!.click();
+        } finally {
+          document.removeEventListener('uvalib-breadcrumbs-navigate', route);
+        }
+        expect(seen).to.deep.equal(['/search/?q=a']);
+      });
+    });
+
     it('draws a linked current page in the text colour', async () => {
       const el = await make(`<a href="/">Home</a><a href="/here">Here</a>`);
       const [home, here] = nav(el).querySelectorAll('a');
