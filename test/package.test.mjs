@@ -38,6 +38,7 @@ const TAGS = [
   'bento-box',
   'uvalib-tabs',
   'uvalib-combobox',
+  'uvalib-map',
 ];
 
 const walk = (dir) =>

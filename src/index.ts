@@ -77,3 +77,5 @@ export type {
   ComboboxItem,
   ComboboxTransform,
 } from './components/uvalib-combobox/UvalibCombobox.js';
+export { UvalibMap } from './components/uvalib-map/UvalibMap.js';
+export type { MapItem } from './components/uvalib-map/UvalibMap.js';
