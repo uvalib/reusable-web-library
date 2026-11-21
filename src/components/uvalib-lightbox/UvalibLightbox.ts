@@ -158,7 +158,6 @@ function loadRegions(): void {
  * a link pointing at an element elsewhere on the page. Either is shown inside the dialog and
  * put back when the viewer moves on or closes.
  *
- * @tagname uvalib-lightbox
  * Optional regions (people, objects, inscriptions): `data-regions` on a link, a JSON array of
  * `{ label, x, y, w, h, unit? }` or `xywh` values each followed by its label, separated by
  * `;` (`percent:10,20,30,40 Person 1; percent:55,15,20,30 Sign`), or the `regions` callback.
@@ -175,6 +174,7 @@ function loadRegions(): void {
  * the image changes or the viewer closes it goes back where it was, `hidden` as before. It wins
  * over `data-regions`.
  *
+ * @tagname uvalib-lightbox
  * @slot - The image links. A plain click opens the viewer; without JavaScript they open the image.
  * @slot details - Details for the open image. `data-for` selects one item by its id or position (from 1); without it the details show for every image.
  * @csspart dialog - The modal dialog.
