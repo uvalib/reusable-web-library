@@ -1257,11 +1257,10 @@ export class UvalibLightbox extends UvalibElement {
     const want = this.wantedList;
     if (this.lent && this.lent.el !== want) this.returnList();
     if (!want) return;
-    let target: Element | null = this;
-    if (this.isLight) {
-      if (!rendered) return;
-      target = this.renderRoot.querySelector('uvalib-image-regions');
-    }
+    if (this.isLight && !rendered) return;
+    const target: Element | null = this.isLight
+      ? this.renderRoot.querySelector('uvalib-image-regions')
+      : this;
     if (!target || want.parentNode === target) return;
     if (!this.lent) {
       const parent = want.parentNode;
