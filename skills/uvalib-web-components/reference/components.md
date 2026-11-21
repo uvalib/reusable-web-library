@@ -968,6 +968,62 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 | `--uva-color-on-accent` |  | Dark-mode role token: pressed chip text (else #fff). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
+## `<uvalib-image-regions>`
+
+An image with numbered region outlines (people, objects, inscriptions) and a list of the same regions beside it (under it on a narrow screen). The list is the way in: the outlines are a visual aid, hidden from assistive technology and not in the tab order, so no region is a second tab stop. Hovering or focusing a list entry (or anything in it) highlights its region with a thicker double outline and its label, and dims the others; hovering a region highlights its entry. Clicking a region moves focus to its entry. The image: an `<img>` (or `<picture>`) child, which keeps its `alt`, or `src` and `alt`. Give it `width` and `height` so its space is reserved before it loads. The regions: an `<ol>` child whose `<li>` items carry `data-xywh` (IIIF / Media Fragments: `percent:10,20,30,40`, or pixels `160,120,320,240` of the image's natural size). The list is shown as written, so it works before the component loads or without JavaScript, and any links and buttons in it stay the page's own (their events are the page's). Or set the `items` property, and the component draws the list. Region numbers are the list's numbers, from 1 (or the `<ol>`'s `start`).
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `src` | `string` | `''` | Image URL, when there is no `<img>` child. |
+| `alt` | `string` | `''` | The image's alternative text (with `src`). |
+| `width` | `number \| undefined` |  | The image's width (with `src`), reserving its space. |
+| `height` | `number \| undefined` |  | The image's height (with `src`). |
+| `image-width` | `number \| undefined` |  | The size pixel regions are measured in, when it is not the image's natural size (for example a IIIF derivative of a larger original: the original's width and height). |
+| `image-height` | `number \| undefined` |  | The height pixel regions are measured in (with `image-width`). |
+| `label` | `string` | `'Regions'` | The list's heading, and the analytics name. |
+| `heading-level` | `number \| undefined` |  | The heading's level (2 to 6). Default: one below the heading before the element. |
+| `numbering` | `'numbers' \| 'none'` | `'numbers'` | `numbers` (default) shows each region's number on its outline; `none` hides them. |
+| `hide-outlines` | `boolean` | `false` | Hide the outlines (the list stays). |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### Slots
+
+| Slot | Description |
+|---|---|
+| (default) | The region list (`<ol>` with `<li data-xywh>`), shown as written. Not used with `items`. |
+| `image` | The image. A first `<img>` or `<picture>` child is put here by itself. |
+
+### CSS parts
+
+| Part | Description |
+|---|---|
+| `layout` | The grid holding the image and the list. |
+| `media` | The image and its overlay. |
+| `overlay` | The outlines over the image (`aria-hidden`). |
+| `region` | One outline. |
+| `list` | The heading and the list. |
+
+### Events
+
+| Event | Description |
+|---|---|
+| `highlight` | The highlighted region changed by hover or focus: `detail` is `{ item, index }` (`item` null and `index` -1 when none is). Bubbles and is composed. |
+| `select` | A region's outline was clicked (focus moved to its list entry): `detail` is `{ item, index }`. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-image-regions', 'select', '<label>', <number>]` when an outline is clicked (the list's `label`, and the region's number from 1). Never a region's label (it may be a person's name). Nothing on hover or focus. Bubbles and is composed. |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-text` |  | Dark-mode role token: text (else `--uva-grey-darkest`). |
+| `--uva-color-surface-hover` |  | Dark-mode role token: the highlighted entry's tint (else #f1f1f1). |
+| `--uva-color-link` |  | Dark-mode role token: entry links (else `--uva-brand-blue`). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+| `--uva-color-text-muted` |  | Dark-mode role token: descriptions (else #4b5563). |
+
 ## `<uvalib-lightbox>`
 
 An accessible image viewer over a set of plain links. With JavaScript a primary click opens a modal dialog; without it (or with a modified click) the link opens the image as before. Wrap the links, or point at them with `selector` (for example `a.pb-image` on a reading page). There is no autoplay and no carousel. The dialog is labelled by the caption (`data-caption`, else the image alt, else the link text). Focus moves to Close on open and back to the trigger on close. Escape and a click on the backdrop close it. With more than one image, Previous and Next and the arrow keys move through the set (wrapping), and a polite “3 of 13” counter is shown. Full size opens the original image in a new tab. A IIIF Image API URL keeps its region; only the size becomes `!W,H` for the viewport. TIFF and JPEG2000 URLs are left as written. `url-param` (for example `photo`) keeps `?photo=<id>` in sync, including on a hash route (`#/text?photo=<id>`): opening pushes a history entry, stepping replaces it, and Back closes. Optional details: children with `slot="details"` (and `data-for` equal to the item's id or its position from 1; without `data-for` they show for every image), or `data-details-id` on a link pointing at an element elsewhere on the page. Either is shown inside the dialog and put back when the viewer moves on or closes.
@@ -978,6 +1034,7 @@ An accessible image viewer over a set of plain links. With JavaScript a primary 
 |---|---|---|---|
 | `selector` | `string` | `''` | CSS selector for image links elsewhere in this root (the page, or the shadow root the component sits in). Combined with any links inside the component. Example: `a.pb-image`. |
 | `url-param` | `string` | `''` | Query parameter kept in sync with the open image, for example `photo` → `?photo=<id>`. The id is the link's `data-id`, else its `id`, else the IIIF identifier, else its position from 1. On a hash route the parameter is written inside the hash. Empty: no deep link. |
+| `regions-label` | `string` | `'Regions'` | The heading of the regions list (for example `People`). |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -998,6 +1055,7 @@ An accessible image viewer over a set of plain links. With JavaScript a primary 
 | `image` | The image. |
 | `controls` | Previous, Next, the counter and Full size. |
 | `details` | The details panel. |
+| `regions` | The `<uvalib-image-regions>` around an image with regions. |
 
 ### Events
 
