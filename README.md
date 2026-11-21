@@ -288,6 +288,19 @@ connect-src https://d2q6t6fdv76k7r.cloudfront.net wss://*.appsync-realtime-api.u
 
 (Use the staging host, or your `alerts-src` host, instead where that applies.) Alert bodies can include images, so allow their hosts in `img-src` too. Alert bodies are inserted as HTML, so a page that enforces Trusted Types (`require-trusted-types-for 'script'`) is incompatible with the alerts; use `no-alerts` there.
 
+### Printing
+
+When a visitor prints a page (meeting minutes, a finding aid, an article), `<site-page>` prints only the content: the skip link, the header (with the main navigation and the header alert), the alert list band, the regional alerts, the breadcrumbs, the pre-footer band and the footer are left out, and `<main>` loses its side gutters. The content prints black on white, a dark scheme prints light, and the content's links are black and underlined, so they are told apart without colour. A short line above the content says where the page came from: “UVA Library — ” followed by the `site-name` (or else the page's `<title>`) and the page's URL, refreshed just before printing so a single-page app prints its current route. It is CSS generated content in a print-only rule, so screen readers never meet it on screen.
+
+```html
+<!-- Print the page as it is shown, header and footer included. -->
+<site-page print-chrome> … </site-page>
+```
+
+- **`print-chrome`** keeps the header, alerts, breadcrumbs and footer in print (the scheme still prints light).
+- **Both modes:** the rules are in `<site-page>`'s own styles (shadow or `no-shadow-dom`); the link colours and the light scheme come from the page-level base styles, so with `no-global-styles` the links keep your own print colours. With `no-style` none of this applies: print styles are yours.
+- **Your own print rules** still apply: hide a sidebar or a back-to-top button of your own with `@media print { … }`. Browsers print the title and URL in the page margins too unless the visitor turns that off.
+
 ## Breadcrumbs
 
 `<uvalib-breadcrumbs>` is the breadcrumb trail, with library.virginia.edu's look (slash separators, underlined `--uva-blue-alt-dark` links) at body size (1rem), as the design system asks. Entry: `uvalib-breadcrumbs.js` on the CDN, `@uvalib/web-components/uvalib-breadcrumbs.js` on npm. Inside `<site-page>` give it `slot="breadcrumbs"` and load both scripts:
@@ -720,12 +733,47 @@ The mode is read once, at first connect; do not toggle it afterwards.
 - **`.uvalib-input`** is a 44px text field; **`.uvalib-search-form`** puts the label, field and button in one row that wraps on phones. Keep a visible `<label>` (or at least an `aria-label`).
 - **Dark mode and forced colors:** they follow the `--uva-color-button-*` role tokens. `base.css` carries every role token it reads itself (the same values as `tokens.css`), so a page that links only `base.css` stays readable under `data-uva-color-scheme`; link `tokens.css` too for your own content's other `--uva-color-*` tokens. Turn dark mode on with `color-scheme-switch` (see [Dark mode](#dark-mode)). In Windows high-contrast mode they keep visible outlines, show hover and press as a Highlight outline (dashed while pressed), a highlighted pressed toggle, and GrayText when disabled.
 - **Cascade:** like the rest of `base.css` the rules are unlayered, so a host reset such as `button { background: none }` does not undo them; restyle with a more specific selector. They are only in `base.css`: `<site-page>` does not install them. The components' own buttons (bento-box, events-section, library-weekly-hours) keep their look, in light DOM too.
+- **`hidden` hides them.** Every `base.css` class that sets `display` (buttons, fields, the search form, badges, media, the toolbar, the empty state, skeletons, messages, the results list) is hidden by the `hidden` attribute, so `button.hidden = true` takes it out of sight, the tab order and the accessibility tree. The rule is scoped to those classes (`:where(.uvalib-button, …)[hidden] { display: none !important }`), not a global `[hidden]` reset, so a page's own `[hidden]` content behaves as it did before.
+
+## Messages
+
+An inline message for the page's own content: a search error, a notice that results are partial, a saved confirmation. It has the severity look of `<site-alerts>` (the alert background, a thick start border in the severity colour) at the size of the content around it. The class is in `base.css`.
+
+```html
+<!-- An error that appears after an action: role="alert" announces it at once. -->
+<div class="uvalib-message uvalib-message--error" role="alert">
+  <strong class="uvalib-message__label">Error:</strong> the search could not be run.
+  <a href="/search">Try again</a>
+</div>
+
+<!-- A notice: role="status" announces it politely. -->
+<div class="uvalib-message uvalib-message--notice" role="status">
+  <strong class="uvalib-message__label">Note:</strong> search by meaning isn't available right now,
+  so these are keyword results.
+</div>
+
+<div class="uvalib-message uvalib-message--warning">
+  <strong class="uvalib-message__label">Warning:</strong> some records are still being added.
+</div>
+<div class="uvalib-message uvalib-message--success" role="status">
+  <svg class="uvalib-message__icon" aria-hidden="true" viewBox="0 0 16 16">
+    <path d="M2 8l4 4 8-8" fill="none" stroke="currentColor" stroke-width="2" />
+  </svg>
+  <strong class="uvalib-message__label">Saved:</strong> your list was updated.
+</div>
+```
+
+- **Kinds:** `--error`, `--warning`, `--info` (or its alias `--notice`) and `--success`; a plain `.uvalib-message` looks like `--info`. Text and links are 7:1 or more (WCAG AAA) on every kind in light and dark (the `--uva-color-alert-*` and `--uva-color-status-success-*` role tokens, which `base.css` carries itself). Links are underlined, with a focus ring in the text colour.
+- **Never colour alone:** start the text with the severity in words (“Error:”, “Warning:”, “Note:”, “Saved:”), in `.uvalib-message__label` (bold); an icon (`.uvalib-message__icon`) is decorative, `aria-hidden="true"`, and never replaces the word. There is no CSS-generated prefix: screen readers read generated content inconsistently, it is not translated with the page, and it would double the word you wrote.
+- **Live regions:** use `role="alert"` only for an error that appears in response to what the visitor did (it interrupts); use `role="status"` for a notice or confirmation (polite). For a status to be announced reliably, put the empty `role="status"` container in the page first and fill it later, rather than inserting the whole element. A message that is there when the page loads needs no role. Do not put an alert role on a message that is always shown.
+- **Forced colors:** every message keeps a system-colour border, thicker at the start. In the flow of the page it is a block with the content's own width, its first and last child without outer margins.
 
 ## Tokens and theming
 
 - **Tokens:** inherited `--uva-*` custom properties (for example `--uva-brand-blue`, `--uva-font-family`), set on `:root` or an ancestor of the component. The full set is in `tokens.css`. Components read tokens with fallbacks and never set them.
 - **Parts (shadow mode):** on a page, `site-page::part(header)`, `site-page::part(footer)` and `site-page::part(main)`. For a standalone element, `site-header::part(header)` or `site-footer::part(footer)`.
 - **Light mode** has no shadow parts; use ordinary selectors, which win over the layered component styles.
+- **Highlight:** `--uva-color-highlight` and `--uva-color-on-highlight` colour highlighted search terms (`<mark>` in `.uvalib-result__snippet`): library.virginia.edu's orange-200 (`--uva-brand-orange-200`, `#ffc999`) with dark text (9.5:1) in light, `#854200` with white text (7.6:1) in dark. Read them for your own highlights, with the light values as fallbacks: `background: var(--uva-color-highlight, #ffc999); color: var(--uva-color-on-highlight, #2b2b2b)`, and keep the highlight bold (or otherwise marked) so it is not colour alone.
 
 ## Dark mode
 
@@ -764,26 +812,28 @@ Dark mode is **off by default**. Without it nothing changes: no control, no dark
 
 **Role tokens.** Defined only while dark mode is on; components fall back to the palette token or value they always used, so light mode is unchanged. Do not flip the palette tokens instead: `--uva-brand-blue` is both text on white and a background under white text. With dark mode on, the role tokens resolve on `:root`, so `--uva-brand-*` overrides set on `:root` still apply in Light, but overrides scoped below `:root` (for example `site-header { --uva-brand-blue: … }`) are ignored for the colours the role tokens cover; set them on `:root`, or override the `--uva-color-*` token there instead.
 
-| Token                         | Used for                                                    | Light                             | Dark                 |
-| ----------------------------- | ----------------------------------------------------------- | --------------------------------- | -------------------- |
-| `--uva-color-surface`         | page background                                             | `#ffffff`                         | `#10172b`            |
-| `--uva-color-surface-raised`  | header, nav bar, panels, popover, inputs, buttons, chips    | `#ffffff`                         | `#232d4b`            |
-| `--uva-color-surface-hover`   | hover and open-group background                             | `--uva-grey-100` (`#dadada`)      | `#2c3858`            |
-| `--uva-color-text`            | text                                                        | `--uva-grey-darkest` (`#2b2b2b`)  | `#e8e8e8`            |
-| `--uva-color-text-muted`      | secondary labels                                            | `#4b5563`                         | `#adadad`            |
-| `--uva-color-link`            | links, headings, accent text                                | `--uva-brand-blue` (`#232d4b`)    | `#87b9d9`            |
-| `--uva-color-utility-link`    | header utility and site links                               | `--uva-blue-alt-dark` (`#005679`) | `#91d8f2`            |
-| `--uva-color-focus`           | focus rings                                                 | `--uva-brand-orange` (`#e57200`)  | `#ffb370`            |
-| `--uva-color-current`         | current-page underline                                      | `--uva-brand-orange` (`#e57200`)  | `#e57200`            |
-| `--uva-color-accent-bg`       | pressed chip, slider range and thumbs, skip link, selection | `--uva-brand-blue` (`#232d4b`)    | `#87b9d9`            |
-| `--uva-color-on-accent`       | text on `--uva-color-accent-bg`                             | `#ffffff`                         | `#10172b`            |
-| `--uva-color-control-border`  | borders of controls (chips, inputs, the theme control)      | `--uva-grey` (`#808080`)          | `#7a84a0`            |
-| `--uva-color-input-text`      | date input text                                             | `#1f2937`                         | `#e8e8e8`            |
-| `--uva-color-border`          | decorative borders and rules (dark only)                    | each component's own (`#ccc`, …)  | `#7a84a0`            |
-| `--uva-color-track`           | slider track                                                | `#e5e7eb`                         | `#2c3858`            |
-| `--uva-color-shadow`          | panel shadow                                                | `rgba(0, 0, 0, 0.2)`              | `rgba(0, 0, 0, 0.6)` |
-| `--uva-color-pre-footer-bg`   | pre-footer band background                                  | `--uva-blue-alt-300` (`#bfe7f7`)  | `#005679`            |
-| `--uva-color-pre-footer-text` | pre-footer band text                                        | `--uva-grey-darkest` (`#2b2b2b`)  | `#ffffff`            |
+| Token                         | Used for                                                    | Light                                | Dark                 |
+| ----------------------------- | ----------------------------------------------------------- | ------------------------------------ | -------------------- |
+| `--uva-color-surface`         | page background                                             | `#ffffff`                            | `#10172b`            |
+| `--uva-color-surface-raised`  | header, nav bar, panels, popover, inputs, buttons, chips    | `#ffffff`                            | `#232d4b`            |
+| `--uva-color-surface-hover`   | hover and open-group background                             | `--uva-grey-100` (`#dadada`)         | `#2c3858`            |
+| `--uva-color-text`            | text                                                        | `--uva-grey-darkest` (`#2b2b2b`)     | `#e8e8e8`            |
+| `--uva-color-text-muted`      | secondary labels                                            | `#4b5563`                            | `#adadad`            |
+| `--uva-color-link`            | links, headings, accent text                                | `--uva-brand-blue` (`#232d4b`)       | `#87b9d9`            |
+| `--uva-color-utility-link`    | header utility and site links                               | `--uva-blue-alt-dark` (`#005679`)    | `#91d8f2`            |
+| `--uva-color-focus`           | focus rings                                                 | `--uva-brand-orange` (`#e57200`)     | `#ffb370`            |
+| `--uva-color-current`         | current-page underline                                      | `--uva-brand-orange` (`#e57200`)     | `#e57200`            |
+| `--uva-color-accent-bg`       | pressed chip, slider range and thumbs, skip link, selection | `--uva-brand-blue` (`#232d4b`)       | `#87b9d9`            |
+| `--uva-color-on-accent`       | text on `--uva-color-accent-bg`                             | `#ffffff`                            | `#10172b`            |
+| `--uva-color-control-border`  | borders of controls (chips, inputs, the theme control)      | `--uva-grey` (`#808080`)             | `#7a84a0`            |
+| `--uva-color-input-text`      | date input text                                             | `#1f2937`                            | `#e8e8e8`            |
+| `--uva-color-border`          | decorative borders and rules (dark only)                    | each component's own (`#ccc`, …)     | `#7a84a0`            |
+| `--uva-color-track`           | slider track                                                | `#e5e7eb`                            | `#2c3858`            |
+| `--uva-color-shadow`          | panel shadow                                                | `rgba(0, 0, 0, 0.2)`                 | `rgba(0, 0, 0, 0.6)` |
+| `--uva-color-pre-footer-bg`   | pre-footer band background                                  | `--uva-blue-alt-300` (`#bfe7f7`)     | `#005679`            |
+| `--uva-color-pre-footer-text` | pre-footer band text                                        | `--uva-grey-darkest` (`#2b2b2b`)     | `#ffffff`            |
+| `--uva-color-highlight`       | highlighted search terms (`<mark>` in results)              | `--uva-brand-orange-200` (`#ffc999`) | `#854200`            |
+| `--uva-color-on-highlight`    | text on `--uva-color-highlight`                             | `--uva-grey-darkest` (`#2b2b2b`)     | `#ffffff`            |
 
 `--uva-color-scheme` is the scheme the components follow (`light dark`, `light` or `dark`). See the [Dark mode](https://uvalib.github.io/reusable-web-library/#dark-mode) example in the playground.
 
@@ -1007,6 +1057,54 @@ filter.addEventListener('input', () => {
   count.total = hits.length;
 });
 ```
+
+### Results list
+
+For long result sets (hundreds or thousands of rows that re-render as the visitor types), plain list rows from `base.css` are much lighter than a `<uvalib-card>` per result: no element per row, no script. See the [Results list](https://uvalib.github.io/reusable-web-library/#results-list) example.
+
+```html
+<h2>1999</h2>
+<ul class="uvalib-result-list">
+  <li class="uvalib-result">
+    <p class="uvalib-result__meta">
+      <span class="uvalib-badge uvalib-badge--category">March 12, 1999</span>
+      <span>14 pages</span>
+    </p>
+    <h3 class="uvalib-result__title"><a href="/minutes/1999-03-12">Meeting of the Board</a></h3>
+    <p class="uvalib-result__snippet">
+      The board approved the <mark>library</mark> renovation budget …
+    </p>
+    <div class="uvalib-result__actions">
+      <a
+        class="uvalib-button uvalib-button--secondary uvalib-button--small"
+        href="/minutes/1999-03-12.pdf"
+      >
+        PDF<span class="visually-hidden"> of Meeting of the Board, March 12, 1999</span>
+      </a>
+    </div>
+  </li>
+</ul>
+
+<!-- Loading: a skeleton row the size of a row, hidden from assistive technology. -->
+<ul class="uvalib-result-list" aria-hidden="true">
+  <li class="uvalib-result">
+    <span class="uvalib-result__meta"
+      ><span class="uvalib-skeleton-text" style="inline-size: 8rem"></span
+    ></span>
+    <span class="uvalib-result__title"><span class="uvalib-skeleton-text"></span></span>
+    <span class="uvalib-result__snippet"
+      ><span class="uvalib-skeleton-text"></span><span class="uvalib-skeleton-text"></span
+    ></span>
+  </li>
+</ul>
+```
+
+- **`.uvalib-result-list`** is a `<ul>` without bullets; **`.uvalib-result`** a row, separated by a rule. In a row: **`__meta`** (badges, a date, a format, in small muted text), **`__title`** (the row's one link: on a heading holding the `<a>`, or on the `<a>` itself; only as wide as its text), **`__snippet`** and **`__actions`** (secondary actions, at the end of the row on wide screens and below the text, wrapping, at 40em and narrower). Put meta, title and snippet first, actions last. Keep one link per row and give each action a unique name (a visually hidden “of <title>, <date>”).
+- **Highlights:** a `<mark>` in `__snippet` is bold on `--uva-color-highlight` with `--uva-color-on-highlight` text (9.5:1 light, 7.6:1 dark), and the system Highlight colours in forced colors: never colour alone. A `<mark>` elsewhere is left to the page.
+- **Groups:** for date-sorted results, a heading and one list per group (by year, say); none for relevance order.
+- **Speed:** each row has `content-visibility: auto` with `contain-intrinsic-block-size: auto 7rem`, so rows off screen are not laid out or painted until they scroll near. They stay in the DOM and the accessibility tree; find-in-page, fragment links and focus still reach them (the browser renders a row as it is found). The rows keep 0.5rem of inline padding because that property also clips painting to the row, and the focus rings need the room. Render the rows as one HTML string or a `DocumentFragment` rather than one element at a time.
+- **Phones:** actions wrap below the text, and nothing scrolls sideways at 320px. Room for a button fixed in a corner (back to top, say) is the page's to leave, for example with padding below the list.
+- **`hidden`** on a row hides it, for filtering in place.
 
 ### Tag lists
 
@@ -1712,7 +1810,7 @@ The UVA Library main navigation (About, Using the Library, Research & teaching s
 
 ### `<site-page>`
 
-Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` (and its `<site-main-nav>`) and `<site-footer>`. The header shows the UVA Library main navigation by default (`no-main-nav` turns it off; `header-variant="vendor"` never shows it). Shows live UVA Library alerts by default with `<site-alerts>` (its code loads only then), placed as Virgo places them: a full-bleed `<site-alerts show="header">` banner at the top of the header landmark (after the skip link), a full-bleed band between the header and `<main>` holding `<site-alerts show="list">` (a `<section aria-label="Library alerts">` region, hidden while the list has nothing to show), and `<site-alerts show="regional">` as the first child of `<main>`, inside its padding. Their data comes from one headless `<uvalib-alerts>`, loaded once per document, with a module script, from the alerts CDN (`alerts-env`, or `alerts-src`); if it fails to load, one console warning is logged and the page works as before. `no-alerts` renders no alert elements and loads nothing. A `slot="breadcrumbs"` child (a `<uvalib-breadcrumbs>`) is placed where library.virginia.edu puts the trail: after the header and the alert list band, before `<main>` and outside it (so the skip link lands past it), with the same gutters as `<main>`.
+Page wrapper: skip link (inside the header landmark in shadow mode), header, a single `<main>`, footer (unless `no-footer`), and global page styles. Side-effect free: `site-page.ts` registers `<site-header>` (and its `<site-main-nav>`) and `<site-footer>`. The header shows the UVA Library main navigation by default (`no-main-nav` turns it off; `header-variant="vendor"` never shows it). Shows live UVA Library alerts by default with `<site-alerts>` (its code loads only then), placed as Virgo places them: a full-bleed `<site-alerts show="header">` banner at the top of the header landmark (after the skip link), a full-bleed band between the header and `<main>` holding `<site-alerts show="list">` (a `<section aria-label="Library alerts">` region, hidden while the list has nothing to show), and `<site-alerts show="regional">` as the first child of `<main>`, inside its padding. Their data comes from one headless `<uvalib-alerts>`, loaded once per document, with a module script, from the alerts CDN (`alerts-env`, or `alerts-src`); if it fails to load, one console warning is logged and the page works as before. `no-alerts` renders no alert elements and loads nothing. A `slot="breadcrumbs"` child (a `<uvalib-breadcrumbs>`) is placed where library.virginia.edu puts the trail: after the header and the alert list band, before `<main>` and outside it (so the skip link lands past it), with the same gutters as `<main>`. Printing leaves out the chrome: the skip link, header (with the main navigation and the header alert), alert list band, regional alerts, breadcrumbs, pre-footer and footer are not printed, `<main>` loses its gutters, and the content prints black on white (a dark scheme prints light), its links underlined. A short line above the content says where the page came from ("UVA Library — <site name or page title>" and the page's URL). `print-chrome` prints the page as it is shown instead. With `no-style` none of this applies.
 
 #### Attributes
 
@@ -1722,6 +1820,7 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 | `header-variant` | `'full' \| 'vendor'` | `'full'` |  |
 | `no-global-styles` | `boolean` | `false` |  |
 | `no-footer` | `boolean` | `false` | Hide the footer (and any pre-footer band), for tools and app-like pages where the site footer does not belong. The footer is kept hidden rather than removed, so toggling the attribute keeps pre-footer content. |
+| `print-chrome` | `boolean` | `false` | Print the header, alerts, breadcrumbs and footer too. By default printing leaves them out and prints only `<main>`, black on white. |
 | `site-links-label` | `string \| undefined` |  | Accessible name of the header navigation when site links are given (default "Site"). |
 | `site-name` | `string \| undefined` |  | The sub-site's name, forwarded to `<site-header site-name>`: shown after the logo as a link to the site's home. |
 | `site-name-href` | `string \| undefined` |  | Where the site name links, forwarded to `<site-header site-name-href>` (default `/`). |
