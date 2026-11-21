@@ -126,6 +126,20 @@ export const base = css`
     flex: 1 1 14rem;
     min-width: 0;
   }
+  /* A map: its key instructions (the same text it shows) and the map's height held above
+     the child list, so the list does not move when the map is drawn over the page's
+     Leaflet. Padding, not margin, so it cannot collapse with the list's own top margin. */
+  uvalib-map:not(:defined) {
+    display: block;
+  }
+  uvalib-map:not(:defined)::before {
+    content: 'Tab or arrow keys move between places; Enter opens one. With the map focused, arrow keys pan and + and − zoom.';
+    display: block;
+    padding-block-end: calc(0.5rem + max(12rem, var(--uvalib-map-height, min(24rem, 75vw))));
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: var(--uva-color-text-muted, #4b5563);
+  }
   @keyframes uvalib-site-page-reveal {
     to {
       visibility: visible;

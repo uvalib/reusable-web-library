@@ -10,6 +10,7 @@ Reusable web components for UVA Library sites, built with Lit and TypeScript:
 - **Tabs:** `<uvalib-tabs>`.
 - **Records:** `<uvalib-metadata>` (a record's details, credit, rights and how to cite).
 - **Images:** `<uvalib-lightbox>` (an image viewer over plain links), `<uvalib-photo-grid>` (justified rows of thumbnails) and `<uvalib-image-regions>` (numbered region outlines on an image, with their list).
+- **Maps:** `<uvalib-map>` (places on the page's own Leaflet map, sized by a count, with a linked list).
 - **Search:** `<uvalib-filter>`, `<uvalib-date-range>`, `<uvalib-date-histogram>`, `<uvalib-combobox>` (a text field that suggests values as you type) and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
 - **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
 - **Library events:** `<events-section>`.
@@ -606,6 +607,79 @@ Both follow dark mode through the role tokens and reflow at 320px; `no-style` ke
 - **Analytics.** `select` when an outline is clicked, with the list's `label` and the region's number. Never a region's label: it may be a person's name. Nothing on hover or focus.
 - **Motion and styles.** The dimming fades only without `prefers-reduced-motion: reduce`. Shadow and light DOM; `no-style` keeps the layout and the outlines.
 
+## Maps
+
+`<uvalib-map>` shows places (buildings, rooms, outdoor spaces) as markers sized by a count, each a link to the place's page, with a list of the same places under the map. It wraps [Leaflet](https://leafletjs.com) 1.9, which **your page provides**: the library never bundles Leaflet, and its CDN entry imports nothing from it. `leaflet` is an optional peer dependency of the npm package. Entry: `uvalib-map.js` on the CDN, `@uvalib/web-components/uvalib-map.js` on npm. See the [Map](https://uvalib.github.io/reusable-web-library/#places-map) example.
+
+```html
+<!-- CDN: Leaflet first (defer keeps it before the module scripts), then the element. -->
+<script
+  defer
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-map.js"
+></script>
+
+<!-- The child list is the list of places, before the script runs and after. -->
+<uvalib-map label="Places on Grounds" count-label="photos">
+  <ul>
+    <li>
+      <a href="/places/rotunda" data-lat="38.0356" data-lng="-78.5034" data-count="2702"
+        >The Rotunda</a
+      >
+    </li>
+    <li>
+      <a
+        href="/places/alderman"
+        data-lat="38.0367"
+        data-lng="-78.5055"
+        data-count="640"
+        data-description="The main library."
+        >Alderman Library</a
+      >
+    </li>
+  </ul>
+</uvalib-map>
+```
+
+```js
+// npm: give the element the Leaflet module (npm i leaflet).
+import * as L from 'leaflet';
+import '@uvalib/web-components/uvalib-map.js';
+
+const map = document.querySelector('uvalib-map');
+map.leaflet = L;
+map.items = [
+  {
+    id: 'rotunda',
+    name: 'The Rotunda',
+    lat: 38.0356,
+    lng: -78.5034,
+    count: 2702,
+    href: '/places/rotunda',
+  },
+  { id: 'stadium', name: 'Scott Stadium', lat: 38.0311, lng: -78.5137, count: 1150 }, // no href: a button
+];
+map.addEventListener('select', (e) => console.log(e.detail.item.id));
+```
+
+- **Leaflet.** The `leaflet` property (the module namespace, or its `default`) wins; otherwise `window.L` (leaflet.js from a script tag, also loaded `async` or after the element: it looks again once the page has loaded). Without either, only the list is shown, with one console warning a second after the page loads. Leaflet's `leaflet.css` is **optional**: the element carries the layout rules the map needs (panes, tiles, controls, tooltip), in shadow DOM and light DOM alike, so there is nothing to adopt into the shadow root. A page that also loads `leaflet.css` (for its own maps) keeps the element's sizes and colours.
+- **Places.** `items` (`[{ id?, name, lat, lng, count?, href?, description? }]`) wins over the children while non-empty. Children: one `<ul>` or `<ol>` of `<li>`, each with an `<a href>` carrying `data-lat`, `data-lng` and optionally `data-count`, `data-id` and `data-description` (or those on the `<li>` itself, for a place without a page). A place without valid coordinates is listed but has no marker. Hrefs other than relative, http(s), `mailto:` and `tel:` become plain text. The list follows changes to the children.
+- **Markers.** Each is a real link (a button when there is no `href`) named “The Rotunda, 2,702 photos”: `count-label` is the noun (default “items”; a count of one drops a trailing s). The dot is 24 to 56px, by the square root of the count, in a target of at least 44px; smaller dots sit above larger ones. Tab, or the arrow keys, Home and End, move between markers; Enter (or Space) follows the link, or chooses the place. A hover or focus shows a tooltip with the name and count (it is also in the marker's name and the list, never the only source) that stays until another place is hovered or focused, the pointer leaves the map, or Escape.
+- **The list and the map are linked.** Hovering or focusing a list entry highlights its marker (a ring and a larger dot, not colour alone) and brings it into view; hovering or focusing a marker outlines its list entry.
+- **The region.** The map is `role="region"` named “<label>, map” (`label` is required: one console warning without it), after a “Skip map, go to the list” link (shown on focus; it moves focus to the list, which is named “<label>, list”) and a visible line of key instructions. With the map itself focused, Leaflet's own keys pan (arrows) and zoom (+ and −). The wheel does not zoom (no scroll trap); the zoom buttons are 44px with the library focus ring. The attribution stays, readable (13px, underlined links).
+- **Opening view.** The bounds of the places, as close as the largest marker allows (half zoom steps), moved clear of the zoom buttons and attribution when a marker would sit under them; or `center="lat,lng"` and `zoom`. It refits on resize until the visitor moves the map.
+- **Tiles.** `tile-url` (default `https://tile.openstreetmap.org/{z}/{x}/{y}.png`) and `attribution` (HTML; default “© OpenStreetMap contributors”). OpenStreetMap's tiles are for light use only: their [tile usage policy](https://operations.osmfoundation.org/policies/tiles/) asks for the attribution (kept here) and no heavy traffic. For a busy page use a library-hosted tile server or a commercial provider, and set both attributes.
+- **Dark mode.** In the page's dark mode, `dark-tile-url` gives dark tiles; without it the light tiles are inverted with a CSS filter on the tile pane only (`--uvalib-map-dark-filter`, default `invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9)`), so markers, controls, the tooltip and the attribution are never filtered. Everything else follows the role tokens.
+- **Motion, colours and layout.** `prefers-reduced-motion` turns off Leaflet's zoom, fade and marker animations, inertia and the highlight's transition, and panning to a place jumps. In forced colors the markers, controls, tooltip and list entries keep borders, and the highlight is a Highlight outline. The map is `--uvalib-map-height` tall (default `min(24rem, 75vw)`, at least 12rem); the list sits under it in as many columns as fit, one on a phone, with no sideways scroll at 320px.
+- **Before the script loads.** `base.css` shows the key instructions and holds the map's height above the child list, so the list does not move when the map is drawn.
+- **Modes.** Shadow DOM (default) or `no-shadow-dom`; `no-style` keeps Leaflet's layout, the map height, the 44px targets and the hidden marker names, and drops the colours.
+- **Events and analytics.** `select` (`detail: { item }`, bubbling, composed and cancelable) when a marker is chosen; cancel it to stay on the page for a place with an `href`. Analytics: `select` with the map's label and the place's position from 1, and `zoom` with the label and the zoom level, 1 s after the last zoom-button press. Never a place's name, coordinates or URL.
+
 ## Rendering modes
 
 | Attributes               | Rendering                                                                                                                                                   |
@@ -1149,6 +1223,8 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
   | `uvalib-combobox`                            | `select` (a suggestion chosen)                                                                                       | the field's label (never the typed text or the suggestion)                                                                                | the suggestion's position, from 1 |
   | `uvalib-combobox`                            | `clear` (the clear button, or Escape on a closed list)                                                               | the field's label                                                                                                                         |                                   |
   | `uvalib-combobox`                            | `error` (`src` failed to load)                                                                                       | `load`                                                                                                                                    |                                   |
+  | `uvalib-map`                                 | `select` (a marker chosen: click, Enter or Space)                                                                    | the map's label (never the place's name, coordinates or URL)                                                                              | the place's position, from 1      |
+  | `uvalib-map`                                 | `zoom` (1 s after the last zoom-button press)                                                                        | the map's label                                                                                                                           | the zoom level                    |
   | `uvalib-filter`                              | `facet-change`                                                                                                       | `<filter title>: <value>` (the facet value as the search service returns it, such as a format, library or subject; cut at 100 characters) | 1 checked, 0 unchecked            |
   | `uvalib-filter`                              | `scope-change`                                                                                                       | the scope's label                                                                                                                         | 1 pressed, 0 not                  |
   | `uvalib-filter`                              | `see-more`, `see-less`                                                                                               | the filter's title                                                                                                                        |                                   |
@@ -2258,6 +2334,69 @@ An accessible image viewer over a set of plain links. With JavaScript a primary 
 | `--uva-brand-blue` | `#232d4b` | Control background when `--uva-color-accent-bg` is unset. |
 | `--uva-grey-darkest` | `#2b2b2b` | Text when `--uva-color-text` is unset. |
 | `--uva-grey-100` | `#dadada` | Border when `--uva-color-border` is unset. |
+
+### `<uvalib-map>`
+
+A map of places with a linked list of the same places: buildings, rooms or outdoor spaces, each a marker sized by a count, with a link to the place's page. It wraps [Leaflet](https://leafletjs.com) 1.9, which the page provides (the library never bundles it): set the `leaflet` property to the Leaflet module (`import * as L from 'leaflet'`), or load leaflet.js so that `window.L` exists. Without Leaflet only the list is shown, with one console warning. Leaflet's leaflet.css is optional: the element carries the layout rules it needs, in shadow DOM and light DOM alike. Places come from `items` (`{ id?, name, lat, lng, count?, href?, description? }`) or from a child `<ul>`/`<ol>` of `<li><a href data-lat data-lng data-count>Name</a></li>`, which is the list before the script runs (and without it). The list always stays, under the map: it is the text equivalent. Each marker is a real link (a button when the place has no `href`) named like "The Rotunda, 2,702 photos" (`count-label` is the noun), sized by the square root of its count (a 24 to 56px dot in a hit area of at least 44px). Tab or the arrow keys move between markers, Enter follows the link (or chooses the place), and Escape hides the tooltip. Hovering or focusing a marker shows a tooltip with its name and count and highlights its list entry; hovering or focusing a list entry highlights its marker (a ring and a larger dot, not colour alone) and brings it into view. The map is a region named by `label`, after a "Skip map, go to the list" link and a line of key instructions. It opens on the bounds of the places, or on `center` and `zoom`. The zoom buttons are 44px with a visible focus ring; the attribution stays. Tiles come from `tile-url` (OpenStreetMap by default: low-traffic use only) with `attribution`. In the page's dark mode the tiles are inverted with a CSS filter (`--uvalib-map-dark-filter`) unless `dark-tile-url` gives dark tiles; markers and controls are never filtered. With `prefers-reduced-motion` nothing animates.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `items` | `MapItem[]` | `[]` | The places. When non-empty, wins over the child list. Set a new array to update. |
+| `label` | `string` | `''` | The map's name (required): the region's label, the list's label and the analytics name. |
+| `count-label` | `string` | `'items'` | The noun after each count, plural ("photos"); a count of one drops a trailing s. |
+| `tile-url` |  | `OSM_TILE_URL` | The tile URL template (`{z}/{x}/{y}`, optionally `{s}` and `{r}`). |
+| `dark-tile-url` | `string` | `''` | Tiles for the page's dark mode. Without it, dark mode filters the light tiles instead. |
+| `attribution` |  | `OSM_ATTRIBUTION` | The tiles' attribution, as HTML. Required by most tile sources; always shown. |
+| `center` | `string` | `''` | Where the map opens, `"lat,lng"`. Without it the map fits every place. |
+| `zoom` | `number \| undefined` |  | The opening zoom level (with `center`, or centred on the places). |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Slots
+
+| Slot | Description |
+|---|---|
+| (default) | A `<ul>` or `<ol>` of places: each `<li>` holds an `<a href>` (or the `<li>` itself) with `data-lat`, `data-lng` and optionally `data-count`, `data-id` and `data-description`. Used when `items` is empty; without JavaScript it is the list. |
+
+#### CSS parts
+
+| Part | Description |
+|---|---|
+| `map` | The map region (the Leaflet container). |
+| `instructions` | The line of key instructions above the map. |
+| `list` | The list of places. |
+| `place` | Each list entry. |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `select` | A marker was chosen (click, Enter or Space). `detail` is `{ item }`. Cancelable: for a place with `href`, `preventDefault()` keeps the page from following the link. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-map', 'select', '<label>', <position from 1>]` when a marker is chosen, and `['uvalib-map', 'zoom', '<label>', <zoom level>]` 1 s after the last zoom-button press. Never a place's name, coordinates or URL. Bubbles and is composed. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uvalib-map-height` | `min(24rem, 75vw)` | Height of the map. |
+| `--uvalib-map-dark-filter` | `invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9)` | The filter on the tiles in dark mode, when there is no `dark-tile-url`. |
+| `--uva-brand-blue` | `#232d4b` | Marker fill. |
+| `--uva-brand-orange` | `#e57200` | Focus ring when `--uva-color-focus` is unset. |
+| `--uva-font-family` | `inherit` | Font family. |
+| `--uva-color-accent-bg` |  | Dark-mode role token: marker fill (else `--uva-brand-blue`). |
+| `--uva-color-on-accent` |  | Dark-mode role token: marker border (else #fff). |
+| `--uva-color-text` |  | Dark-mode role token: text and the highlight ring (else #2b2b2b). |
+| `--uva-color-text-muted` |  | Dark-mode role token: instructions and descriptions (else #4b5563). |
+| `--uva-color-link` |  | Dark-mode role token: links (else `--uva-brand-blue`). |
+| `--uva-color-surface` |  | Dark-mode role token: attribution background and the highlight ring's gap (else #fff). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: zoom buttons, tooltip and list entries (else #fff). |
+| `--uva-color-surface-hover` |  | Dark-mode role token: hovered zoom button (else #dadada). |
+| `--uva-color-track` |  | Dark-mode role token: the map before tiles load, and count badges (else #e5e7eb). |
+| `--uva-color-control-border` |  | Dark-mode role token: borders (else #808080). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+| `--uva-color-shadow` |  | Dark-mode role token: control and tooltip shadow. |
 
 ### `<uvalib-metadata>`
 

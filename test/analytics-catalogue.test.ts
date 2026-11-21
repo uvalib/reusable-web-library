@@ -23,6 +23,8 @@ import '../src/components/uvalib-date-range/uvalib-date-range.js';
 import '../src/components/uvalib-tabs/uvalib-tabs.js';
 import '../src/components/uvalib-combobox/uvalib-combobox.js';
 import '../src/components/uvalib-image-regions/uvalib-image-regions.js';
+import '../src/components/uvalib-map/uvalib-map.js';
+import * as Leaflet from 'leaflet/dist/leaflet-src.esm.js';
 import '../src/components/bento-box/bento-box.js';
 import type { SiteHeader } from '../src/components/site-header/SiteHeader.js';
 import type { SiteMainNav } from '../src/components/site-main-nav/SiteMainNav.js';
@@ -39,6 +41,7 @@ import type { BentoBox } from '../src/components/bento-box/BentoBox.js';
 import type { BentoSection } from '../src/components/bento-box/BentoSection.js';
 import type { UvalibCombobox } from '../src/components/uvalib-combobox/UvalibCombobox.js';
 import type { UvalibImageRegions } from '../src/components/uvalib-image-regions/UvalibImageRegions.js';
+import type { UvalibMap } from '../src/components/uvalib-map/UvalibMap.js';
 import { recordAnalytics } from './helpers/analytics.js';
 import { resetEvents, useEventsHost } from './helpers/events.js';
 import { resetHours, setClock, settled, useHoursHost } from './helpers/hours.js';
@@ -557,6 +560,35 @@ describe('analytics catalogue', () => {
         expect(events()).to.deep.equal([['uvalib-image-regions', 'select', 'People', 2]]);
         expect(JSON.stringify(rec.events)).to.not.include('Stone');
         (document.activeElement as HTMLElement | null)?.blur();
+      });
+    });
+
+    describe(`uvalib-map (${mode})`, () => {
+      it('choosing a marker reports the label and position, a zoom button the level; never a place', async () => {
+        const el = await fixture<UvalibMap>(
+          `<uvalib-map ${attr(mode)} label="Places on Grounds" count-label="photos"></uvalib-map>`,
+        );
+        el.leaflet = Leaflet;
+        el.items = [
+          { name: 'The Rotunda', lat: 38.0356, lng: -78.5034, count: 2702, href: '/rotunda' },
+          { name: 'Scott Stadium', lat: 38.0311, lng: -78.5137, count: 40 },
+        ];
+        await quietRender(el);
+        const markers = root(el).querySelectorAll<HTMLElement>('.uvalib-map-marker .marker');
+        markers[1]!.click();
+        markers[0]!.click();
+        const zoom = el as unknown as { map: { getZoom(): number } };
+        const level = zoom.map.getZoom();
+        root(el).querySelector<HTMLAnchorElement>('.leaflet-control-zoom-in')!.click();
+        await waitUntil(() => events().length === 3, 'no zoom', { timeout: 3000 });
+        expect(events()).to.deep.equal([
+          ['uvalib-map', 'select', 'Places on Grounds', 2],
+          ['uvalib-map', 'select', 'Places on Grounds', 1],
+          ['uvalib-map', 'zoom', 'Places on Grounds', level + 1],
+        ]);
+        const sent = JSON.stringify(rec.events);
+        for (const text of ['Rotunda', 'Stadium', '38.0', '/rotunda'])
+          expect(sent).to.not.include(text);
       });
     });
 

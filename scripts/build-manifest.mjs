@@ -38,6 +38,7 @@ const TAGS = [
   'uvalib-tabs',
   'uvalib-combobox',
   'uvalib-image-regions',
+  'uvalib-map',
 ];
 
 const manifest = {
