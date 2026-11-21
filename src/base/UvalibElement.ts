@@ -1,6 +1,6 @@
 import { LitElement, css, type CSSResultGroup, type CSSResultOrNative } from 'lit';
 import { property } from 'lit/decorators.js';
-import { installLightDomStyles } from './light-dom-styles.js';
+import { installHiddenRule, installLightDomStyles } from './light-dom-styles.js';
 
 /**
  * Each component's own `color-scheme`: `light` unless the page opted in to dark mode (then
@@ -48,12 +48,11 @@ export class UvalibElement extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback(); // creates the render root
-    if (this.lightDom && !this.noStyle) {
-      const node = this.getRootNode();
-      this.installLightStyles(
-        node instanceof ShadowRoot || node instanceof Document ? node : undefined,
-      );
-    }
+    const node = this.getRootNode();
+    const root = node instanceof ShadowRoot || node instanceof Document ? node : undefined;
+    // `hidden` hides the host in every mode, `no-style` included (see installHiddenRule).
+    if (root) installHiddenRule(this.localName, root);
+    if (this.lightDom && !this.noStyle) this.installLightStyles(root);
   }
 
   /** Light mode: install `static styles` into `root`, scoped to the tag. Subclasses may override. */
