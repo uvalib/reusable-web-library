@@ -356,11 +356,16 @@ describe('examples page', function () {
 
   it('a main-nav link swaps the IDE files, sets the hash, marks it current and closes the panel', async () => {
     // This adds one session history entry per example, and Chromium keeps at most 50 (there
-    // are 50 examples), so a push past the cap would drop the oldest entry instead of moving
-    // the current index on by one. So step through them in halves, each on a fresh page.
+    // are more examples than that), so a push past the cap would drop the oldest entry instead
+    // of moving the current index on by one. So step through them in equal parts of at most
+    // 40 (halves for 56 examples, thirds past 80), each on a fresh page.
     const all = [...examples].reverse();
-    const half = Math.ceil(all.length / 2);
-    for (const chunk of [all.slice(0, half), all.slice(half)]) {
+    const parts = Math.ceil(all.length / 40);
+    const size = Math.ceil(all.length / parts);
+    const chunks = Array.from({ length: parts }, (_, i) => all.slice(i * size, (i + 1) * size));
+    expect(chunks.flat().length).to.equal(all.length);
+    for (const chunk of chunks) {
+      expect(chunk.length).to.be.at.most(40);
       ({ win, doc } = await open('index.html'));
       ide = doc.querySelector<Ide>('playground-ide')!;
       await chromeReady(doc);
