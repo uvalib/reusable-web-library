@@ -1,6 +1,5 @@
 import { css, html, nothing, svg, unsafeCSS, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
-import { live } from 'lit/directives/live.js';
 import { trackError, trackEvent } from '../../base/analytics.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
@@ -945,6 +944,9 @@ export class UvalibCombobox extends UvalibElement {
 
   protected override updated(changed: PropertyValues): void {
     super.updated(changed);
+    // The field may hold typed text the last render did not know about.
+    const field = this.input;
+    if (field && field.value !== this.value) field.value = this.value;
     if (!this.started) {
       this.started = true;
       this.updateForm();
@@ -1027,7 +1029,7 @@ export class UvalibCombobox extends UvalibElement {
           autocapitalize="off"
           spellcheck="false"
           placeholder=${this.placeholder || nothing}
-          .value=${live(this.value)}
+          .value=${this.value}
           ?disabled=${off}
           @input=${this.onInput}
           @keydown=${this.onKeydown}

@@ -79,6 +79,33 @@ export const base = css`
   uvalib-tabs:not(:defined) > [data-tab] ~ [data-tab] {
     display: none;
   }
+  /* A combobox: its label (from the attribute) and one 44px field (plus a one-line
+     description) held, so nothing moves when it upgrades. A fallback <input list> child
+     works meanwhile; the other children (options, a datalist) stay out of sight. */
+  uvalib-combobox:not(:defined) {
+    display: block;
+    min-block-size: calc(1.5em + 0.25rem + 44px);
+    line-height: 1.5;
+  }
+  uvalib-combobox[description]:not(:defined) {
+    min-block-size: calc(3em + 0.5rem + 44px);
+  }
+  uvalib-combobox:not(:defined)::before {
+    content: attr(label);
+    display: block;
+    margin-block-end: 0.25rem;
+    font-weight: 600;
+  }
+  uvalib-combobox:not(:defined) > :not(input) {
+    display: none;
+  }
+  uvalib-combobox:not(:defined) > input {
+    box-sizing: border-box;
+    inline-size: 100%;
+    min-block-size: 44px;
+    font: inherit;
+    line-height: 1.2;
+  }
   @keyframes uvalib-site-page-reveal {
     to {
       visibility: visible;

@@ -72,3 +72,8 @@ export type {
   WebsiteItem,
 } from './components/bento-box/bento-data.js';
 export { UvalibTabs } from './components/uvalib-tabs/UvalibTabs.js';
+export { UvalibCombobox } from './components/uvalib-combobox/UvalibCombobox.js';
+export type {
+  ComboboxItem,
+  ComboboxTransform,
+} from './components/uvalib-combobox/UvalibCombobox.js';
