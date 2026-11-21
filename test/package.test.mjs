@@ -38,6 +38,7 @@ const TAGS = [
   'bento-box',
   'uvalib-tabs',
   'uvalib-combobox',
+  'uvalib-image-regions',
 ];
 
 const walk = (dir) =>
