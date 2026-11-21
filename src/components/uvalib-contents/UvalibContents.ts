@@ -48,7 +48,36 @@ type Current = 'page' | 'location';
 const DEFAULT_LABEL = 'Contents';
 const DEFAULT_COLLAPSE = '64rem';
 const DEFAULT_LEVEL = 2;
+const DEFAULT_LEVELS = '2-3';
+const DEFAULT_MIN = 2;
 let uid = 0;
+
+/** What is watched in the `headings-from` element: headings added, removed or retitled. */
+const HEADINGS: MutationObserverInit = { childList: true, characterData: true, subtree: true };
+
+/**
+ * An id from a heading's text: lowercase ASCII (accents dropped), runs of anything else as
+ * one `-`, none at either end; `section` when nothing is left.
+ */
+const slugify = (text: string): string =>
+  text
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'section';
+
+/** A heading's text, leaving out what is hidden from assistive technology (a `#` permalink). */
+const headingText = (h: Element): string => {
+  let text = '';
+  const walk = (n: Node) => {
+    if (n instanceof Element && n.getAttribute('aria-hidden') === 'true') return;
+    if (n.nodeType === Node.TEXT_NODE) text += n.textContent;
+    else n.childNodes.forEach(walk);
+  };
+  walk(h);
+  return normalize(text);
+};
 
 /**
  * The rules kept with `no-style`: unmarked lists, the disclosure's closed panel hidden, and
@@ -105,6 +134,15 @@ const queryKey = (u: URL) => {
  * desktop. `sticky` keeps it in view in a sidebar on wide
  * screens; a list longer than the window then scrolls, and the current entry is scrolled
  * into view inside it (never the page).
+ *
+ * A table of contents for a long document: `headings-from="#article"` builds the list from the
+ * headings in that element (`levels`, `2-3` by default; nothing shown below `min` top-level
+ * entries, 2 by default). Headings without text or hidden with `aria-hidden` are skipped;
+ * one without an id gets one from its text (`budget-report`, then `budget-report-2`), and
+ * existing ids are kept, so links to sections keep working. It follows headings added,
+ * removed or retitled; `refresh()` reads them again after other changes. The children and
+ * `items` win while they give a list. Without JavaScript there is no list: a list rendered
+ * at build time, as children, works everywhere.
  *
  * Single-page apps: the list is drawn from copies of the children, so a router's own click
  * handlers on them do not run. Listen for `uvalib-contents-navigate` and cancel it to route in
@@ -276,6 +314,30 @@ export class UvalibContents extends UvalibElement {
    */
   @property({ attribute: false }) items?: ContentsItem[];
 
+  /**
+   * Build the list from the headings in the element this selector names (`#article`): each
+   * heading at `levels` gets an entry linking to it (an id is added when it has none), the
+   * lower levels nested under the heading before them. The children and `items` win while
+   * they give a list.
+   */
+  @property({ type: String, attribute: 'headings-from' }) headingsFrom?: string;
+
+  /** With `headings-from`: the heading levels to list, `2-3` (the default) or one level, `2`. */
+  @property({ type: String }) levels = DEFAULT_LEVELS;
+
+  /**
+   * With `headings-from`: the fewest top-level entries worth a list (default 2). With fewer,
+   * nothing is shown.
+   */
+  @property({ type: Number }) min = DEFAULT_MIN;
+
+  /** The entries built from the headings (`headings-from`). */
+  @state() private headingItems: Entry[] = [];
+  private headingsObserver?: MutationObserver;
+  private headingsScope?: Element | null;
+  private headingsQueued = false;
+  private scrolledToHash = false;
+
   /** The entries read from the children. */
   @state() private childItems: Entry[] = [];
   /** The root list's element in the source (`ol` or `ul`). */
@@ -324,10 +386,14 @@ export class UvalibContents extends UvalibElement {
     this.here = this.ownerDocument.defaultView?.location.href ?? '';
     this.listenLocation(true);
     this.watchWidth();
+    // Reconnected: the headings may have changed meanwhile (the first time, willUpdate reads).
+    if (this.hasUpdated) this.refresh();
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    this.headingsObserver?.disconnect();
+    this.headingsScope = undefined;
     this.listenLocation(false);
     this.mql?.removeEventListener('change', this.onWidth);
     this.mql = undefined;
@@ -379,6 +445,124 @@ export class UvalibContents extends UvalibElement {
     if (this.warned.has(kind)) return;
     this.warned.add(kind);
     console.warn(`${this.localName}: ${message}`);
+  }
+
+  /**
+   * With `headings-from`: read the headings again, adding ids to new ones. Headings added,
+   * removed or retitled are followed by themselves; call this after other changes (an
+   * `aria-hidden` set or a heading's level changed).
+   */
+  refresh(): void {
+    const sel = normalize(this.headingsFrom);
+    let scope: Element | null = null;
+    if (sel) {
+      const root = this.getRootNode();
+      const finder =
+        root instanceof Document || root instanceof ShadowRoot ? root : this.ownerDocument;
+      try {
+        scope = finder.querySelector(sel);
+      } catch {
+        scope = null;
+      }
+      if (!scope && this.ownerDocument.readyState === 'loading') {
+        // Still parsing: try again once the document is read.
+        this.ownerDocument.addEventListener('DOMContentLoaded', () => this.refresh(), {
+          once: true,
+        });
+      } else if (!scope) {
+        this.warnOnce('headings-from', `no element matches headings-from="${sel}".`);
+      }
+    }
+    if (scope !== this.headingsScope) {
+      this.headingsScope = scope;
+      this.headingsObserver?.disconnect();
+      if (scope) {
+        this.headingsObserver ??= new MutationObserver(() => this.queueHeadings());
+        this.headingsObserver.observe(scope, HEADINGS);
+      }
+    }
+    const items = scope ? this.fromHeadings(scope) : [];
+    if (entriesKey(items) !== entriesKey(this.headingItems)) this.headingItems = items;
+  }
+
+  /** Several changes at once read the headings once. */
+  private queueHeadings(): void {
+    if (this.headingsQueued) return;
+    this.headingsQueued = true;
+    queueMicrotask(() => {
+      this.headingsQueued = false;
+      if (this.isConnected) this.refresh();
+    });
+  }
+
+  /** The heading levels to list, from `levels`. */
+  private get headingRange(): [number, number] {
+    const m = /^\s*([1-6])\s*(?:-\s*([1-6]))?\s*$/.exec(String(this.levels ?? ''));
+    if (!m) {
+      this.warnOnce(
+        'levels',
+        `ignoring levels="${this.levels}" (use a level, 2, or a range, 2-3).`,
+      );
+      return [2, 3];
+    }
+    const a = Number(m[1]);
+    const b = m[2] ? Number(m[2]) : a;
+    return [Math.min(a, b), Math.max(a, b)];
+  }
+
+  /**
+   * The entries for the headings in `scope`, in document order: empty and `aria-hidden` ones
+   * and those inside this element skipped; an id added to each without one (a slug of its
+   * text, unique with `-2`, `-3`…); each nested under the previous higher-level heading.
+   * Fewer than `min` top-level entries: none.
+   */
+  private fromHeadings(scope: Element): Entry[] {
+    const [lo, hi] = this.headingRange;
+    const selector = Array.from({ length: hi - lo + 1 }, (_, i) => `h${lo + i}`).join(', ');
+    const root = scope.getRootNode() as Document | ShadowRoot;
+    const top: Entry[] = [];
+    const open: { level: number; entry: Entry }[] = [];
+    const added: Element[] = [];
+    for (const h of scope.querySelectorAll(selector)) {
+      if (this.contains(h) || h.closest('[aria-hidden="true"]')) continue;
+      const label = headingText(h);
+      if (!label) continue;
+      if (!h.id) {
+        const base = slugify(label);
+        let id = base;
+        for (let n = 2; root.getElementById(id); n++) id = `${base}-${n}`;
+        h.id = id;
+        added.push(h);
+      }
+      const level = Number(h.localName.slice(1));
+      const entry: Entry = { label, href: `#${h.id}`, children: [] };
+      while (open.length && open[open.length - 1]!.level >= level) open.pop();
+      (open.length ? open[open.length - 1]!.entry.children : top).push(entry);
+      open.push({ level, entry });
+    }
+    this.scrollToAdded(added);
+    const min = Number.isFinite(Number(this.min)) ? Math.trunc(Number(this.min)) : DEFAULT_MIN;
+    return top.length >= min ? top : [];
+  }
+
+  /**
+   * The page was opened at a section whose heading had no id until now: go there, as the
+   * browser would have (once).
+   */
+  private scrollToAdded(added: Element[]): void {
+    if (this.scrolledToHash || !added.length) return;
+    const hash = this.ownerDocument.defaultView?.location.hash.slice(1);
+    if (!hash) return;
+    let id = hash;
+    try {
+      id = decodeURIComponent(hash);
+    } catch {
+      /* keep it as written */
+    }
+    const h = added.find((a) => a.id === id);
+    if (!h) return;
+    this.scrolledToHash = true;
+    requestAnimationFrame(() => h.scrollIntoView());
   }
 
   /** Read the entries from the first list among the children. */
@@ -470,7 +654,18 @@ export class UvalibContents extends UvalibElement {
         delete rest.mark;
         return rest;
       });
-    return clean(this.items ? this.fromItems(this.items) : this.childItems);
+    return clean(
+      this.items
+        ? this.fromItems(this.items)
+        : this.fromHeadingsNow
+          ? this.headingItems
+          : this.childItems,
+    );
+  }
+
+  /** Whether the list shown is the one built from the headings (no items, no child list). */
+  private get fromHeadingsNow(): boolean {
+    return !this.items && !this.childItems.length && !!this.headingItems.length;
   }
 
   /** The current entries: the page's and its section's. */
@@ -555,6 +750,11 @@ export class UvalibContents extends UvalibElement {
 
   protected override willUpdate(changed: PropertyValues): void {
     if (changed.has('collapseBelow') && this.isConnected) this.watchWidth();
+    if (
+      (changed.has('headingsFrom') || changed.has('levels') || changed.has('min')) &&
+      this.isConnected
+    )
+      this.refresh();
   }
 
   protected override updated(changed: PropertyValues): void {
@@ -606,8 +806,9 @@ export class UvalibContents extends UvalibElement {
         ${own}${e.children.length ? this.renderList(e.children, current, level + 1) : nothing}
       </li>`;
     });
-    // role="list": Safari drops the list semantics of a list styled without markers.
-    return this.ordered
+    // role="list": Safari drops the list semantics of a list styled without markers. A list
+    // built from headings is an <ol>: the document's order.
+    return this.ordered || this.fromHeadingsNow
       ? html`<ol role="list">
           ${items}
         </ol>`

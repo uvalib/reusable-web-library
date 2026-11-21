@@ -286,7 +286,12 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       it('links to a same-origin search with a query, keeping the text', async () => {
         fake(`${location.origin}/search/?q=budget&date_start=2023`);
         const el = await make(SEARCH);
-        expect(shown(el)[0]).to.deep.equal(['a', 'Search', '/search/?q=budget&date_start=2023', null]);
+        expect(shown(el)[0]).to.deep.equal([
+          'a',
+          'Search',
+          '/search/?q=budget&date_start=2023',
+          null,
+        ]);
         expect(hrefs(el).slice(1)).to.deep.equal(['/2023/', null]);
       });
 
@@ -328,7 +333,10 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         src.setAttribute('data-return-from', '/search/');
         await settle(el);
         expect(hrefs(el)[0]).to.equal('/search/?q=a');
-        el.items = [{ label: 'Search', href: '/search/', returnFrom: '/search' }, { label: 'Here' }];
+        el.items = [
+          { label: 'Search', href: '/search/', returnFrom: '/search' },
+          { label: 'Here' },
+        ];
         await settle(el);
         expect(hrefs(el)).to.deep.equal(['/search/?q=a', null]);
       });

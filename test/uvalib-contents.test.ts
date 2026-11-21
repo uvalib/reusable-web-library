@@ -529,6 +529,191 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       expect(a.getAttribute('aria-current')).to.equal('page');
     });
 
+    describe('headings-from', () => {
+      const DOC = `<article id="doc">
+          <h1>Board of Visitors Minutes</h1>
+          <h2>Call to order</h2>
+          <h2 id="kept">Résumé of the <em>budget</em></h2>
+          <h3>Capital projects</h3>
+          <h4>Not listed (h4)</h4>
+          <h3>Operating budget <a href="#x" aria-hidden="true">#</a></h3>
+          <h2>Call to order</h2>
+          <h2>   </h2>
+          <h2 aria-hidden="true">Hidden heading</h2>
+          <div aria-hidden="true"><h2>Inside hidden</h2></div>
+          <h2>Adjournment</h2>
+        </article>`;
+      /** The article and the contents, in one fixture; returns the contents. */
+      const build = async (attrs = 'headings-from="#doc"', doc = DOC, children = '') => {
+        const wrap = await fixture<HTMLElement>(
+          `<div>${doc}<uvalib-contents ${attr} ${attrs}>${children}</uvalib-contents></div>`,
+        );
+        const el = wrap.querySelector<UvalibContents>('uvalib-contents')!;
+        await settle(el);
+        return el;
+      };
+      const ids = () => [...document.querySelectorAll('#doc :is(h2, h3)')].map((h) => h.id);
+
+      it('lists the h2 and h3 headings, nested, adding ids and keeping existing ones', async () => {
+        const el = await build();
+        expect(shown(el)).to.deep.equal([
+          [1, 'Call to order', '#call-to-order', null],
+          [1, 'Résumé of the budget', '#kept', null],
+          [2, 'Capital projects', '#capital-projects', null],
+          [2, 'Operating budget', '#operating-budget', null],
+          [1, 'Call to order', '#call-to-order-2', null],
+          [1, 'Adjournment', '#adjournment', null],
+        ]);
+        // Empty and hidden headings get no entry and no id.
+        expect(ids()).to.deep.equal([
+          'call-to-order',
+          'kept',
+          'capital-projects',
+          'operating-budget',
+          'call-to-order-2',
+          '',
+          '',
+          '',
+          'adjournment',
+        ]);
+        expect(panel(el).querySelector(':scope > ol')).to.not.equal(null);
+        expect(nav(el).hidden).to.equal(false);
+      });
+
+      it('makes ASCII slugs from accented text, unique against ids already on the page', async () => {
+        const el = await build(
+          'headings-from="#doc"',
+          `<p id="cafe-notes"></p><article id="doc"><h2>Café   Notes!</h2><h2>¿Qué?</h2><h2>—</h2></article>`,
+        );
+        expect(shown(el).map((s) => s[2])).to.deep.equal(['#cafe-notes-2', '#que', '#section']);
+      });
+
+      it('keeps the ids on a second read, so links stay stable', async () => {
+        const el = await build();
+        const before = ids();
+        el.refresh();
+        await settle(el);
+        expect(ids()).to.deep.equal(before);
+      });
+
+      it('follows levels: one level, or a wider range', async () => {
+        const el = await build('headings-from="#doc" levels="2"');
+        expect(shown(el).map((s) => s[0])).to.deep.equal([1, 1, 1, 1]);
+        el.levels = '2-4';
+        await settle(el);
+        expect(shown(el).map((s) => [s[0], s[1]])).to.deep.include.members([
+          [3, 'Not listed (h4)'],
+        ]);
+        // One h1 over everything is a single top-level entry: below the default min of 2.
+        el.levels = '1-2';
+        await settle(el);
+        expect(nav(el).hidden).to.equal(true);
+        el.min = 1;
+        await settle(el);
+        expect(shown(el)[0]!.slice(0, 2)).to.deep.equal([1, 'Board of Visitors Minutes']);
+        expect(shown(el)[1]!.slice(0, 2)).to.deep.equal([2, 'Call to order']);
+      });
+
+      it('shows nothing below min top-level entries (default 2)', async () => {
+        const el = await build('headings-from="#doc" min="5"');
+        expect(nav(el).hidden).to.equal(true);
+        expect(el.hasAttribute('data-empty')).to.equal(true);
+        el.min = 4;
+        await settle(el);
+        expect(nav(el).hidden).to.equal(false);
+        const one = await build(
+          'headings-from="#short"',
+          `<article id="short"><h2>Only</h2><h3>Sub</h3><h3>Sub 2</h3></article>`,
+        );
+        expect(nav(one).hidden).to.equal(true);
+      });
+
+      it('marks the section in the hash with aria-current="location"', async () => {
+        const start = location.href;
+        const el = await build();
+        try {
+          location.hash = 'capital-projects';
+          await new Promise((r) => setTimeout(r, 50));
+          await settle(el);
+          const marked = shown(el).filter((s) => s[3]);
+          expect(marked).to.deep.equal([[2, 'Capital projects', '#capital-projects', 'location']]);
+        } finally {
+          history.replaceState(null, '', start);
+        }
+      });
+
+      it('goes to the section in the hash once its heading has an id', async () => {
+        const start = location.href;
+        const orig = Element.prototype.scrollIntoView;
+        const went: string[] = [];
+        Element.prototype.scrollIntoView = function (this: Element) {
+          went.push(this.id);
+        };
+        try {
+          history.replaceState(null, '', '#adjournment');
+          await build();
+          await nextFrame();
+          expect(went).to.deep.equal(['adjournment']);
+        } finally {
+          Element.prototype.scrollIntoView = orig;
+          history.replaceState(null, '', start);
+        }
+      });
+
+      it('follows headings added and retitled, and refresh() after other changes', async () => {
+        const el = await build();
+        const doc = document.getElementById('doc')!;
+        const h = document.createElement('h2');
+        h.textContent = 'New business';
+        doc.append(h);
+        await settle(el);
+        expect(shown(el).at(-1)).to.deep.equal([1, 'New business', '#new-business', null]);
+        h.firstChild!.textContent = 'Old business';
+        await settle(el);
+        // Retitled: the text follows, the id stays.
+        expect(shown(el).at(-1)).to.deep.equal([1, 'Old business', '#new-business', null]);
+        h.setAttribute('aria-hidden', 'true');
+        el.refresh();
+        await settle(el);
+        expect(shown(el).map((s) => s[1])).to.not.include('Old business');
+      });
+
+      it('skips headings inside itself when placed in the document', async () => {
+        const wrap = await fixture<HTMLElement>(
+          `<article id="inner"><uvalib-contents ${attr} headings-from="#inner"><h2>Own heading</h2></uvalib-contents><h2>One</h2><h2>Two</h2></article>`,
+        );
+        const el = wrap.querySelector<UvalibContents>('uvalib-contents')!;
+        await settle(el);
+        expect(shown(el).map((s) => s[1])).to.deep.equal(['One', 'Two']);
+        // Its own drawing (light DOM: inside the article) does not read itself again.
+        await settle(el);
+        expect(shown(el).map((s) => s[1])).to.deep.equal(['One', 'Two']);
+      });
+
+      it('lets the children win over headings-from', async () => {
+        const el = await build(
+          'headings-from="#doc"',
+          DOC,
+          '<ul><li><a href="/x">Given</a></li></ul>',
+        );
+        expect(shown(el).map((s) => s[1])).to.deep.equal(['Given']);
+      });
+
+      it('warns once when nothing matches headings-from, and shows nothing', async () => {
+        let el!: UvalibContents;
+        const warns = await warnings(async () => {
+          el = await build('headings-from="#missing"');
+        });
+        expect(warns.filter((w) => w.includes('headings-from')).length).to.equal(1);
+        expect(nav(el).hidden).to.equal(true);
+      });
+
+      it('passes axe', async () => {
+        const el = await build();
+        await expectNoAxeViolations(el);
+      });
+    });
+
     it('keeps only the structural rules with no-style', async () => {
       const el = await make(LIST, 'no-style');
       const ol = panel(el).querySelector('ol')!;

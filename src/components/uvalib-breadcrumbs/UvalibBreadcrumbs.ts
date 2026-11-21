@@ -296,7 +296,9 @@ export class UvalibBreadcrumbs extends UvalibElement {
       if (href === undefined || !this.safe(href)) return { label };
       // A step back to the search: the same-origin search the visitor came from, if any.
       const back =
-        returnFrom && origin ? returnHref(returnFrom, doc.referrer, doc.baseURI, origin) : undefined;
+        returnFrom && origin
+          ? returnHref(returnFrom, doc.referrer, doc.baseURI, origin)
+          : undefined;
       return { label, href: back ?? href };
     });
   }
