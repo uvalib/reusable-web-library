@@ -84,6 +84,16 @@ const structuralRules = (host: string) => `
     font-weight: 700;
     line-height: 1.25;
     white-space: nowrap;
+    outline: 1px solid #fff;
+  }
+  ${host} .region:not([data-inside]) .badge {
+    inset-block-start: auto;
+    inset-block-end: calc(100% + 4px);
+    inset-inline-start: -4px;
+  }
+  ${host} .region.active:not([data-inside]) .badge {
+    inset-block-end: calc(100% + 8px);
+    inset-inline-start: -8px;
   }
   ${host} .badge .name { overflow: hidden; text-overflow: ellipsis; }
   ${host} .region:not(.active) .badge .name, ${host} .badge:empty { display: none; }
@@ -93,7 +103,7 @@ const structuralRules = (host: string) => `
   @media (forced-colors: active) {
     ${host} .region { border-color: Canvas; outline-color: CanvasText; }
     ${host} .region.active { outline-color: Highlight; }
-    ${host} .badge { background: CanvasText; color: Canvas; }
+    ${host} .badge { background: CanvasText; color: Canvas; outline-color: Canvas; }
     ${host} .region.active .badge { background: Highlight; color: HighlightText; }
   }
   ${host}[hidden], ${host} [hidden] { display: none !important; }
@@ -239,6 +249,9 @@ export class UvalibImageRegions extends UvalibElement {
   private observer?: MutationObserver;
   private watchedImg: HTMLImageElement | null = null;
   private key = '';
+  /** The image's rendered size decides where badges fit. */
+  private resizer?: ResizeObserver;
+  private resized = 0;
 
   constructor() {
     super();
@@ -290,6 +303,8 @@ export class UvalibImageRegions extends UvalibElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     this.observer?.disconnect();
+    this.resizer?.disconnect();
+    this.resizer = undefined;
     this.watchImage(null);
   }
 
@@ -300,6 +315,7 @@ export class UvalibImageRegions extends UvalibElement {
   protected override updated(changed: PropertyValues): void {
     super.updated(changed);
     this.arrange();
+    this.observeSize();
     this.place();
     this.mark();
     // Reading the image's size may set state: not from inside this update.
@@ -444,9 +460,14 @@ export class UvalibImageRegions extends UvalibElement {
     return this.natural ?? { w: 0, h: 0 };
   }
 
-  /** Position the outlines in percent of the image, so they scale with it (CSSOM, not markup). */
+  /**
+   * Position the outlines in percent of the image, so they scale with it (CSSOM, not markup).
+   * A number badge sits above its outline, or inside it when there is no room above.
+   */
   private place(): void {
     const { w, h } = this.space;
+    const overlay = this.renderRoot.querySelector<HTMLElement>('.overlay');
+    const tall = overlay?.clientHeight ?? 0;
     for (const el of this.renderRoot.querySelectorAll<HTMLElement>('.overlay > .region')) {
       const entry = this.entries[Number(el.dataset.index)];
       const box = entry?.box ? toPercent(entry.box, w, h) : null;
@@ -456,6 +477,22 @@ export class UvalibImageRegions extends UvalibElement {
       el.style.top = `${box.y}%`;
       el.style.width = `${box.w}%`;
       el.style.height = `${box.h}%`;
+      el.toggleAttribute('data-inside', (box.y / 100) * tall < 28);
+    }
+  }
+
+  private observeSize(): void {
+    const media = this.renderRoot.querySelector<HTMLElement>('.media');
+    if (!media || typeof ResizeObserver === 'undefined') return;
+    if (!this.resizer) {
+      this.resizer = new ResizeObserver(() => {
+        // The outlines scale by themselves (percent); only the badges' side may change.
+        const h = media.clientHeight;
+        if (h === this.resized) return;
+        this.resized = h;
+        this.place();
+      });
+      this.resizer.observe(media);
     }
   }
 

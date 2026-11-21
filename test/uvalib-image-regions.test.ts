@@ -141,6 +141,14 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         '2',
         '3',
       ]);
+      // Badges sit above their outline, inside it at the image's top edge.
+      expect(outlines(el).map((o) => o.hasAttribute('data-inside'))).to.deep.equal([
+        false,
+        false,
+        true,
+      ]);
+      const badge = outlines(el)[0]!.querySelector('.badge')!.getBoundingClientRect();
+      expect(badge.bottom).to.be.at.most(outlines(el)[0]!.getBoundingClientRect().top);
       // The image is the author's (alt kept) and the overlay is hidden from assistive tech.
       expect(img.alt).to.equal('Three people outside a doorway');
       expect(overlay(el).getAttribute('aria-hidden')).to.equal('true');
