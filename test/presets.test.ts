@@ -367,7 +367,17 @@ describe('playground presets', function () {
       const groups = [...doc.querySelectorAll('uvalib-chip-group')].map((g) =>
         g.shadowRoot!.querySelector('.chips')!.getAttribute('role'),
       );
-      expect(groups).to.deep.equal(['radiogroup', 'radiogroup', 'group', 'group']);
+      expect(groups).to.deep.equal(['radiogroup', 'radiogroup', 'group', 'group', 'group']);
+      // The colour key: a decorative square on each category chip.
+      const key = doc.querySelectorAll('uvalib-chip-group')[3]!.shadowRoot!;
+      const swatches = [...key.querySelectorAll<HTMLElement>('.swatch')];
+      expect(swatches.map((s) => s.getAttribute('aria-hidden'))).to.deep.equal([
+        'true',
+        'true',
+        'true',
+        'true',
+      ]);
+      expect(getComputedStyle(swatches[0]!).backgroundColor).to.equal('rgb(229, 114, 0)');
       expect(countMain(doc)).to.equal(1);
       await expectNoPageAxeViolations(doc);
       expect(errors).to.deep.equal([]);
