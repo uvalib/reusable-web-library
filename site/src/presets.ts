@@ -220,6 +220,59 @@ const SHOOTS = [
   shoot('1049095', 'Students on the Lawn', 9, 'Student life', '1910'),
 ].join('\n');
 /** Placeholders the size of a shoot: a 3:2 image and two lines. */
+/**
+ * The results-list example's rows: made-up committee reports, twelve a year for ten years,
+ * newest first, grouped by year (a heading and a list each), as plain base.css rows.
+ */
+const REPORT_TOPICS = [
+  'opening hours',
+  'the map collection',
+  'digitization',
+  'group study rooms',
+  'rare books',
+  'accessible entrances',
+  'the reading room lights',
+  'interlibrary loan',
+];
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+const REPORT_YEARS = Array.from({ length: 10 }, (_, i) => 2024 - i)
+  .map((year) => {
+    const rows = Array.from({ length: 12 }, (_, i) => {
+      const month = 11 - i;
+      const n = (year - 2015) * 12 + month + 1;
+      const date = `${MONTHS[month]} ${(n % 27) + 1}, ${year}`;
+      const a = REPORT_TOPICS[n % REPORT_TOPICS.length];
+      const b = REPORT_TOPICS[(n * 3 + 1) % REPORT_TOPICS.length];
+      const title = `Reading Room Committee, meeting ${n}`;
+      return `          <li class="uvalib-result">
+            <p class="uvalib-result__meta"><span class="uvalib-badge uvalib-badge--category">${date}</span><span>${(n % 9) + 2} pages</span></p>
+            <h3 class="uvalib-result__title"><a href="#report-${n}">${title}</a></h3>
+            <p class="uvalib-result__snippet">The committee discussed ${a} and agreed to report on ${b} at its next meeting.</p>
+            <div class="uvalib-result__actions"><a class="uvalib-button uvalib-button--secondary uvalib-button--small" href="#report-${n}-pdf">PDF<span class="visually-hidden"> of ${title}, ${date}</span></a></div>
+          </li>`;
+    }).join('\n');
+    return `      <section class="year" aria-labelledby="y${year}">
+        <h2 id="y${year}">${year}</h2>
+        <ul class="uvalib-result-list">
+${rows}
+        </ul>
+      </section>`;
+  })
+  .join('\n');
+
 const SKELETONS = Array.from(
   { length: 3 },
   () => `          <div>
@@ -1570,6 +1623,75 @@ ${SKELETONS}
   gap: 0.375rem;
 }
 `,
+      },
+    },
+  },
+  {
+    id: 'results-list',
+    group: 'Search',
+    title: 'Results list',
+    description:
+      "120 made-up committee reports as base.css's lightweight result rows: .uvalib-result-list and .uvalib-result with a date badge, the title as the row's one link, a snippet and a PDF action with a unique hidden name, grouped by year. Type a word (lights, maps): rows that do not match are hidden, and the word is marked in each snippet in bold on --uva-color-highlight. Rows off screen skip rendering (content-visibility), so thousands stay fast. On a phone the PDF button wraps below the text. The note at the top is a .uvalib-message.",
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Committee reports',
+          components: ['uvalib-results-count'],
+          body: `    <site-page>
+      <h1>Committee reports</h1>
+      <div class="uvalib-message uvalib-message--notice">
+        <strong class="uvalib-message__label">Note:</strong> these reports are made up for this example.
+      </div>
+      <div class="uvalib-toolbar">
+        <div class="uvalib-toolbar__field uvalib-toolbar__field--grow">
+          <label for="filter">Search the reports</label>
+          <input class="uvalib-input" id="filter" type="search" />
+        </div>
+        <uvalib-results-count class="uvalib-toolbar__summary" shown="120" total="120" noun="reports" singular="report"></uvalib-results-count>
+      </div>
+      <div id="reports">
+${REPORT_YEARS}
+      </div>
+      <div class="uvalib-empty-state" id="empty" hidden>
+        <h2>No reports match</h2>
+        <p>Try another word.</p>
+      </div>
+      <script type="module">
+        const filter = document.querySelector('#filter');
+        const count = document.querySelector('uvalib-results-count');
+        const rows = [...document.querySelectorAll('.uvalib-result')];
+        const snippets = new Map(rows.map((r) => [r, r.querySelector('.uvalib-result__snippet')]));
+        const original = new Map(rows.map((r) => [r, snippets.get(r).textContent]));
+        /** The snippet's text with each match of q in a <mark>, built as nodes, never HTML. */
+        function mark(p, text, q) {
+          const parts = q ? text.split(new RegExp('(' + q.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&') + ')', 'i')) : [text];
+          p.replaceChildren(
+            ...parts.map((t, i) => {
+              if (i % 2 === 0) return document.createTextNode(t);
+              const m = document.createElement('mark');
+              m.textContent = t;
+              return m;
+            }),
+          );
+        }
+        filter.addEventListener('input', () => {
+          const q = filter.value.trim();
+          let shown = 0;
+          for (const row of rows) {
+            const match = !q || row.textContent.toLowerCase().includes(q.toLowerCase());
+            row.hidden = !match;
+            if (match) shown++;
+            mark(snippets.get(row), original.get(row), match ? q : '');
+          }
+          for (const year of document.querySelectorAll('.year'))
+            year.hidden = !year.querySelector('.uvalib-result:not([hidden])');
+          document.querySelector('#empty').hidden = shown > 0;
+          count.shown = shown;
+          count.total = rows.length;
+        });
+      </script>
+    </site-page>`,
+        }),
       },
     },
   },

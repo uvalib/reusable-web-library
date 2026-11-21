@@ -62,6 +62,7 @@ describe('playground presets', function () {
       'search-results',
       'pagefind-search',
       'results-toolbar',
+      'results-list',
       'date-histogram',
       'combobox',
       'todays-hours',
@@ -134,6 +135,7 @@ describe('playground presets', function () {
         'search-results',
         'pagefind-search',
         'results-toolbar',
+        'results-list',
         'date-histogram',
         'combobox',
         'uvalib-filter-shadow',
@@ -803,6 +805,53 @@ describe('playground presets', function () {
       await expectNoPageAxeViolations(doc);
       const tags = doc.querySelector('uvalib-tag-list')!;
       expect(tags.shadowRoot!.querySelector('button.toggle')!.textContent).to.include('Show all 8');
+      expect(countMain(doc)).to.equal(1);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  }).timeout(15000);
+
+  it('results-list hides rows that do not match, marks the word, and passes axe', async () => {
+    const p = presets.find((x) => x.id === 'results-list')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    iframe.style.width = '1000px';
+    iframe.style.height = '900px';
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-page', 'uvalib-results-count']);
+      await new Promise((r) => setTimeout(r, 100));
+      const rows = [...doc.querySelectorAll<HTMLElement>('.uvalib-result')];
+      expect(rows.length).to.equal(120);
+      expect(doc.querySelectorAll('ul.uvalib-result-list').length).to.equal(10);
+      expect(win.getComputedStyle(rows[0]!).contentVisibility).to.equal('auto');
+      for (const r of rows.slice(0, 3))
+        expect(r.querySelectorAll('.uvalib-result__title a').length).to.equal(1);
+      const filter = doc.querySelector<HTMLInputElement>('#filter')!;
+      filter.value = 'lights';
+      filter.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 50));
+      const shown = rows.filter((r) => win.getComputedStyle(r).display !== 'none');
+      expect(shown.length).to.be.greaterThan(0);
+      expect(shown.length).to.be.below(120);
+      for (const r of shown) {
+        const m = r.querySelector('.uvalib-result__snippet mark')!;
+        expect(m.textContent!.toLowerCase()).to.equal('lights');
+        expect(win.getComputedStyle(m).fontWeight).to.equal('700');
+      }
+      const count = doc.querySelector('uvalib-results-count')!;
+      expect(count.shadowRoot!.querySelector('.text')!.textContent).to.equal(
+        `Showing ${shown.length} of 120 reports`,
+      );
+      await expectNoPageAxeViolations(doc);
+      filter.value = 'nothing like this';
+      filter.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 50));
+      expect(win.getComputedStyle(doc.querySelector('#empty')!).display).to.equal('flex');
+      expect([...doc.querySelectorAll('.year')].every((y) => (y as HTMLElement).hidden)).to.equal(
+        true,
+      );
       expect(countMain(doc)).to.equal(1);
       expect(errors).to.deep.equal([]);
     } finally {
