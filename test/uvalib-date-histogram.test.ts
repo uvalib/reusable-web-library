@@ -23,6 +23,15 @@ const PHOTOS = [
   { date: '2016-02', count: 1 },
 ];
 
+/** Made-up meeting counts over a long span; the 1810s total 22 and the 1860s are empty. */
+const DECADES = [
+  { date: '1817', count: 10 },
+  { date: '1818', count: 12 },
+  { date: '1950', count: 1 },
+  { date: '1955-03', count: 5 },
+  { date: '2026', count: 4 },
+];
+
 /** Collect console.warn calls made while `fn` runs. */
 async function warnings<T>(fn: () => Promise<T>): Promise<{ result: T; warns: string[] }> {
   const orig = console.warn;
@@ -665,6 +674,190 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       );
     });
 
+    it('draws one bar per decade in half-century rows, with an empty decade as a gap', async () => {
+      const el = await withItems(DECADES, 'granularity="decade" unit="meetings" label="Meetings"');
+      const keys = bars(el).map((b) => b.dataset.date);
+      expect(keys).to.have.length(22);
+      expect(keys[0]).to.equal('1810s');
+      expect(keys.at(-1)).to.equal('2020s');
+      const bar = (key: string) => bars(el).find((b) => b.dataset.date === key)!;
+      expect(bar('1810s').getAttribute('aria-label')).to.equal('1810s: 22 meetings');
+      expect(bar('1950s').getAttribute('aria-label')).to.equal('1950s: 6 meetings');
+      expect(bar('2020s').getAttribute('aria-label')).to.equal('2020s: 4 meetings');
+      expect(bar('1860s').getAttribute('aria-label')).to.equal('1860s: 0 meetings');
+      expect(bar('1860s').classList.contains('is-empty')).to.equal(true);
+      const rows = [...root(el).querySelectorAll('.year')];
+      expect(rows.map((r) => r.querySelector('.year-label')!.textContent!.trim())).to.deep.equal([
+        '1800',
+        '1850',
+        '1900',
+        '1950',
+        '2000',
+      ]);
+      expect(rows.map((r) => r.querySelector('.bars')!.getAttribute('aria-label'))).to.deep.equal([
+        '1800 to 1849',
+        '1850 to 1899',
+        '1900 to 1949',
+        '1950 to 1999',
+        '2000 to 2049',
+      ]);
+      // Decades line up in columns: the 1810s sits above the 1860s.
+      const left = (key: string) => bar(key).getBoundingClientRect().left;
+      expect(Math.abs(left('1810s') - left('1860s'))).to.be.below(1);
+      expect(left('1810s') > left('1850s')).to.equal(true);
+      expect(chips(el)).to.have.length(0);
+    });
+
+    it('selects a whole decade, and moves by decade and by half-century with the keys', async () => {
+      const el = await withItems(DECADES, 'granularity="decade" unit="meetings"');
+      const rec = recordAnalytics();
+      const seen: { from: string; to: string }[] = [];
+      const on = (e: Event) => seen.push((e as CustomEvent).detail);
+      el.addEventListener('select', on);
+      try {
+        bars(el)[0]!.click();
+        await el.updateComplete;
+        expect(seen).to.deep.equal([{ from: '1810-01-01', to: '1819-12-31' }]);
+        expect(el.selected).to.equal('1810/1819');
+        expect(
+          bars(el)
+            .filter((b) => b.getAttribute('aria-pressed') === 'true')
+            .map((b) => b.dataset.date),
+        ).to.deep.equal(['1810s']);
+        expect(rec.of('uvalib-analytics-event').map((d) => d.event)).to.deep.equal([
+          ['uvalib-date-histogram', 'select', '1810-01-01\u20131819-12-31'],
+        ]);
+        bars(el)[0]!.click();
+        await el.updateComplete;
+        expect(seen[1]).to.deep.equal({ from: '', to: '' });
+        expect(el.selected).to.equal('');
+        el.selected = '1855';
+        await el.updateComplete;
+        expect(
+          bars(el)
+            .filter((b) => b.getAttribute('aria-pressed') === 'true')
+            .map((b) => b.dataset.date),
+        ).to.deep.equal(['1850s']);
+        el.selected = '';
+        await el.updateComplete;
+      } finally {
+        rec.restore();
+        el.removeEventListener('select', on);
+      }
+      bars(el)[0]!.focus();
+      await sendKeys({ press: 'ArrowUp' });
+      expect(focused(el)!.dataset.date).to.equal('1810s');
+      await sendKeys({ press: 'ArrowRight' });
+      expect(focused(el)!.dataset.date).to.equal('1820s');
+      await sendKeys({ press: 'ArrowDown' });
+      expect(focused(el)!.dataset.date).to.equal('1870s');
+      await sendKeys({ press: 'ArrowUp' });
+      expect(focused(el)!.dataset.date).to.equal('1820s');
+      await sendKeys({ press: 'End' });
+      expect(focused(el)!.dataset.date).to.equal('2020s');
+      await sendKeys({ press: 'ArrowDown' });
+      expect(focused(el)!.dataset.date).to.equal('2020s');
+      await sendKeys({ press: 'Home' });
+      expect(focused(el)!.dataset.date).to.equal('1810s');
+    });
+
+    it('lists decades in Show as table, and reads a child table of years into decades', async () => {
+      const el = await withItems(DECADES, 'granularity="decade" unit="meetings" label="Meetings"');
+      (root(el).querySelector('details') as HTMLDetailsElement).open = true;
+      await el.updateComplete;
+      const table = root(el).querySelector('table')!;
+      expect([...table.querySelectorAll('thead th')].map((th) => th.textContent)).to.deep.equal([
+        'Decade',
+        'Count',
+      ]);
+      const first = table.querySelector('tbody tr')!;
+      expect(first.querySelector('th')!.textContent).to.equal('1810s');
+      expect(first.querySelector('td')!.textContent).to.equal('22');
+      expect(table.querySelectorAll('tbody tr')).to.have.length(22);
+      await expectNoAxeViolations(el);
+
+      const fromTable = await fixture<UvalibDateHistogram>(`<uvalib-date-histogram ${attr}
+        granularity="decade" unit="meetings">
+        <table>
+          <tr><th>Year</th><th>Meetings</th></tr>
+          <tr><td>1817</td><td>10</td></tr>
+          <tr><td>1818</td><td>12</td></tr>
+          <tr><td>1831</td><td>3</td></tr>
+        </table>
+      </uvalib-date-histogram>`);
+      await fromTable.updateComplete;
+      expect(bars(fromTable).map((b) => b.getAttribute('aria-label'))).to.deep.equal([
+        '1810s: 22 meetings',
+        '1820s: 0 meetings',
+        '1830s: 3 meetings',
+      ]);
+    });
+
+    it('picks month, year or decade bars with granularity="auto"', async () => {
+      const months = await withItems(PHOTOS, 'granularity="auto" unit="photos"');
+      expect(bars(months)).to.have.length(24);
+      expect(bars(months)[9]!.dataset.date).to.equal('2015-10');
+      const years = await withItems(
+        [
+          { date: '1990', count: 1 },
+          { date: '2019-04', count: 2 },
+        ],
+        'granularity="auto"',
+      );
+      expect(bars(years)).to.have.length(30);
+      expect(bars(years)[0]!.dataset.date).to.equal('1990');
+      const decades = await withItems(DECADES, 'granularity="auto" unit="meetings"');
+      expect(bars(decades)).to.have.length(22);
+      expect(bars(decades)[0]!.dataset.date).to.equal('1810s');
+      decades.items = [...DECADES.slice(0, 2), { date: '1840', count: 1 }];
+      await decades.updateComplete;
+      expect(bars(decades)[0]!.dataset.date).to.equal('1817');
+      const { warns } = await warnings(async () => {
+        const none = await make('granularity="auto"');
+        expect(root(none).querySelector('.empty')!.textContent).to.equal('No dates to show.');
+        return none;
+      });
+      expect(warns).to.have.length(0);
+    });
+
+    it('draws one strip bar per decade', async () => {
+      const el = await withItems(
+        DECADES,
+        'variant="strip" granularity="decade" unit="meetings" label="Meetings"',
+      );
+      const strip = root(el).querySelector('.strip')!;
+      expect(root(el).querySelectorAll('.strip-bar')).to.have.length(22);
+      expect(strip.getAttribute('aria-label')).to.equal('Meetings: 1810s to 2020s, 32 meetings');
+      el.selected = '1810/1829';
+      await el.updateComplete;
+      expect(strip.getAttribute('aria-label')).to.equal(
+        'Meetings: 1810s to 2020s, 32 meetings. Selected 1810s to 1820s.',
+      );
+      expect(root(el).querySelectorAll('.strip-bar.is-selected')).to.have.length(2);
+      await expectNoAxeViolations(el);
+    });
+
+    it('fits decades in 320px without scrolling, and passes axe in dark mode', async () => {
+      await setViewport({ width: 320, height: 640 });
+      try {
+        const el = await withItems(DECADES, 'granularity="decade" unit="meetings"');
+        await el.updateComplete;
+        expect(document.documentElement.scrollWidth).to.be.at.most(320);
+        const scroller = root(el).querySelector('.scroller') as HTMLElement;
+        expect(scroller.scrollWidth > scroller.clientWidth + 1).to.equal(false);
+        expect((root(el).querySelector('.scroll-hint') as HTMLElement).hidden).to.equal(true);
+        for (const bar of bars(el)) {
+          const box = bar.getBoundingClientRect();
+          expect(box.width).to.be.at.least(24);
+          expect(box.height).to.be.at.least(24);
+        }
+        await expectNoAxeViolations(el);
+        await inDarkMode(() => expectNoAxeViolations(el));
+      } finally {
+        await setViewport({ width: 800, height: 600 });
+      }
+    });
+
     it('passes axe for the strip and for an empty chart', async () => {
       await expectNoAxeViolations(
         await withItems(PHOTOS, 'variant="strip" unit="photos" label="Photos"'),
@@ -726,7 +919,7 @@ describe('uvalib-date-histogram range-for', () => {
     expect(partner.value).to.deep.equal(['2000-01-01', '2020-12-31']);
   });
 
-  it('follows date-range-change and ignores a value set in script', async () => {
+  it('follows date-range-change and a value set in script', async () => {
     const partner = await range(['2015-01-01', '2015-01-31']);
     const el = await fixture<UvalibDateHistogram>(
       `<uvalib-date-histogram range-for="hist-range" unit="photos"></uvalib-date-histogram>`,
@@ -739,7 +932,7 @@ describe('uvalib-date-histogram range-for', () => {
     partner.value = ['2016-02-01', '2016-02-28'];
     await partner.updateComplete;
     await el.updateComplete;
-    expect(el.selected).to.equal('2015-01');
+    expect(el.selected).to.equal('2016-02');
     partner.value = ['2015-01-01', '2015-01-31'];
     await partner.updateComplete;
     const input = (partner.shadowRoot ?? partner).querySelectorAll(
@@ -834,6 +1027,119 @@ describe('uvalib-date-histogram range-for', () => {
     input.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
     expect(el.selected).to.equal('2016-02/2016-06');
+  });
+
+  /** The BOV setup in issue #10: a long span, a range set in script, a year chart. */
+  async function bovRange(value: [string, string]) {
+    const el = document.createElement('uvalib-date-range') as UvalibDateRange;
+    el.id = 'hist-range';
+    el.min = '1817-01-01';
+    el.max = '2026-12-31';
+    el.value = value;
+    document.body.append(el);
+    await el.updateComplete;
+    return el;
+  }
+  const BOV = [
+    { date: '1817', count: 2 },
+    { date: '1950', count: 12 },
+    { date: '2026', count: 4 },
+  ];
+
+  it('follows a value set in script, and a reconnect does not write a rounded value back', async () => {
+    const partner = await bovRange(['1900-01-01', '2026-06-06']);
+    const rec = recordAnalytics();
+    const el = await fixture<UvalibDateHistogram>(
+      `<uvalib-date-histogram range-for="hist-range" granularity="year"></uvalib-date-histogram>`,
+    );
+    let fired = false;
+    el.addEventListener('select', () => (fired = true));
+    try {
+      el.items = BOV;
+      await el.updateComplete;
+      expect(el.selected).to.equal('1900/2026');
+      partner.value = ['1817-01-01', '2026-12-31'];
+      await partner.updateComplete;
+      await el.updateComplete;
+      expect(el.selected).to.equal('');
+      expect(bars(el).some((b) => b.getAttribute('aria-pressed') === 'true')).to.equal(false);
+      partner.value = ['1950-03-01', '1950-04-30'];
+      await partner.updateComplete;
+      await el.updateComplete;
+      expect(el.selected).to.equal('1950');
+      expect(partner.value).to.deep.equal(['1950-03-01', '1950-04-30']);
+      const parent = el.parentElement!;
+      el.remove();
+      parent.append(el);
+      await el.updateComplete;
+      expect(partner.value).to.deep.equal(['1950-03-01', '1950-04-30']);
+      expect(el.selected).to.equal('1950');
+      expect(fired).to.equal(false);
+      expect(rec.of('uvalib-analytics-event')).to.have.length(0);
+    } finally {
+      rec.restore();
+    }
+  });
+
+  it('takes a value set while it was detached over its old selected', async () => {
+    const partner = await bovRange(['1900-01-01', '2026-06-06']);
+    const el = await fixture<UvalibDateHistogram>(
+      `<uvalib-date-histogram range-for="hist-range" granularity="year"></uvalib-date-histogram>`,
+    );
+    el.items = BOV;
+    await el.updateComplete;
+    expect(el.selected).to.equal('1900/2026');
+    const parent = el.parentElement!;
+    el.remove();
+    partner.value = ['1817-01-01', '2026-12-31'];
+    await partner.updateComplete;
+    parent.append(el);
+    await el.updateComplete;
+    expect(partner.value).to.deep.equal(['1817-01-01', '2026-12-31']);
+    expect(el.selected).to.equal('');
+    el.remove();
+    partner.value = ['1920-05-05', '1930-01-01'];
+    await partner.updateComplete;
+    parent.append(el);
+    await el.updateComplete;
+    expect(partner.value).to.deep.equal(['1920-05-05', '1930-01-01']);
+    expect(el.selected).to.equal('1920/1930');
+  });
+
+  it('lets a date range that holds a selection win over selected on first connect', async () => {
+    const partner = await bovRange(['1900-01-01', '2026-06-06']);
+    const el = await fixture<UvalibDateHistogram>(
+      `<uvalib-date-histogram range-for="hist-range" granularity="year" selected="1817"></uvalib-date-histogram>`,
+    );
+    el.items = BOV;
+    await el.updateComplete;
+    expect(partner.value).to.deep.equal(['1900-01-01', '2026-06-06']);
+    expect(el.selected).to.equal('1900/2026');
+  });
+
+  it('writes a chosen decade to the date range and highlights decades for a range set in script', async () => {
+    const partner = await bovRange(['1817-01-01', '2026-12-31']);
+    const el = await fixture<UvalibDateHistogram>(
+      `<uvalib-date-histogram range-for="hist-range" granularity="decade" unit="meetings"></uvalib-date-histogram>`,
+    );
+    el.items = DECADES;
+    await el.updateComplete;
+    expect(el.selected).to.equal('');
+    bars(el)[0]!.click();
+    await el.updateComplete;
+    await partner.updateComplete;
+    await el.updateComplete;
+    expect(partner.value).to.deep.equal(['1810-01-01', '1819-12-31']);
+    expect(el.selected).to.equal('1810/1819');
+    partner.value = ['1815-03-01', '1832-01-01'];
+    await partner.updateComplete;
+    await el.updateComplete;
+    expect(partner.value).to.deep.equal(['1815-03-01', '1832-01-01']);
+    expect(
+      bars(el)
+        .filter((b) => b.getAttribute('aria-pressed') === 'true')
+        .map((b) => b.dataset.date),
+    ).to.deep.equal(['1810s', '1820s', '1830s']);
   });
 
   it('leaves a February selection on the 29th in a leap year', async () => {
