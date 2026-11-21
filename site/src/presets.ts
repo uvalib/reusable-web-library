@@ -793,7 +793,7 @@ site-footer footer {
     group: 'Chips',
     title: 'Year rail, sort and suggestions',
     description:
-      'Three uvalib-chip-group modes. A year rail (mode="single", the default): radios drawn as chips in a radio group named by label, one row that scrolls sideways (scroll), each count read as part of the name ("2005, 461 shoots", from count-label). Tab enters at the selected year and the arrow keys move and select. A sort toggle (segmented): the same radios joined into one bar. Category filters (mode="multi"): toggle buttons with aria-pressed and an array value. Suggestions (mode="links"): plain links that fire a cancelable select. A colour key (data-swatch): the category chips with a decorative colour square each, as the legend of a chart or map; the name stays the label. A selected chip is filled and ticked, never colour alone. Each fires change with { value }; the line under the rail shows it. url-param="year" would keep the year in the address.',
+      'Three uvalib-chip-group modes. A year rail (mode="single", the default): radios drawn as chips in a radio group named by label, one row that scrolls sideways (scroll), each count read as part of the name ("2005, 461 shoots", from count-label). Tab enters at the selected year and the arrow keys move and select. A sort toggle (segmented): the same radios joined into one bar. Its description, the hint under it, is tied to the radio group with aria-describedby, so it is read when focus enters the group. Category filters (mode="multi"): toggle buttons with aria-pressed and an array value. Suggestions (mode="links"): plain links that fire a cancelable select. A colour key (data-swatch): the category chips with a decorative colour square each, as the legend of a chart or map; the name stays the label. A selected chip is filled and ticked, never colour alone. Each fires change with { value }; the line under the rail shows it. url-param="year" would keep the year in the address.',
     files: {
       'index.html': {
         content: page({
@@ -817,7 +817,12 @@ site-footer footer {
       </uvalib-chip-group>
       <p id="status" role="status">Showing all years.</p>
       <h2>Sort</h2>
-      <uvalib-chip-group label="Sort by" segmented value="photos">
+      <uvalib-chip-group
+        label="Sort by"
+        segmented
+        value="photos"
+        description="Most photos puts the largest series first. Date runs from the oldest shoot to the newest."
+      >
         <button value="photos">Most photos</button>
         <button value="date">Date</button>
         <button value="title">Title A–Z</button>
@@ -1103,7 +1108,7 @@ article p {
     group: 'Metadata',
     title: 'Record metadata',
     description:
-      'uvalib-metadata shows a record\'s details from a plain <dl>: label and value side by side when there is room, stacked when narrow. Values can be text, links or lists; a download link with data-size shows its size ("EPUB · 184 KB") and keeps its download attribute. Its attributes add the credit and rights rows Special Collections asks for: creator, organization, rights (a rightsstatements.org or Creative Commons URL, shown by its short name), a link about rights and permissions, and How to cite with a Copy citation button.',
+      'uvalib-metadata shows a record\'s details from a plain <dl>: label and value side by side when there is room, stacked when narrow. Values can be text, links or lists; a download link with data-size shows its size ("EPUB · 184 KB") and keeps its download attribute. Its attributes add the credit and rights rows Special Collections asks for: creator, organization, rights (a rightsstatements.org or Creative Commons URL, shown by its short name), a link about rights and permissions, and How to cite with a Copy citation button. list-limit="8" shortens the long Participants list (made-up names) to eight and a "Show all 34 participants" button that reveals the rest in place and moves focus to the first one revealed.',
     files: {
       'index.html': {
         content: page({
@@ -1117,6 +1122,7 @@ article p {
         rights="http://rightsstatements.org/vocab/NoC-US/1.0/"
         rights-info="https://www.library.virginia.edu/policies/use-of-materials"
         citation-title="The actress of Padua, and other tales"
+        list-limit="8"
       >
         <dl>
           <div>
@@ -1150,6 +1156,47 @@ article p {
           <div>
             <dt>Page images</dt>
             <dd>Available: select a page number in the text</dd>
+          </div>
+          <div>
+            <dt>Participants</dt>
+            <dd>
+              <ul>
+                <li>Ada Whitcombe</li>
+                <li>Bernard Ashford</li>
+                <li>Clara Penrose</li>
+                <li>Desmond Hale</li>
+                <li>Eleanor Briggs</li>
+                <li>Franklin Moreau</li>
+                <li>Grace Talbot</li>
+                <li>Henry Calloway</li>
+                <li>Iris Dunmore</li>
+                <li>Julian Pryce</li>
+                <li>Katherine Vance</li>
+                <li>Lionel Mercer</li>
+                <li>Margaret Holloway</li>
+                <li>Nathaniel Brooke</li>
+                <li>Olivia Strand</li>
+                <li>Percival Lane</li>
+                <li>Quentin Ashby</li>
+                <li>Rosalind Keene</li>
+                <li>Silas Thornbury</li>
+                <li>Theodora Wren</li>
+                <li>Ulysses Fairfax</li>
+                <li>Vivian Lockhart</li>
+                <li>Walter Endicott</li>
+                <li>Xavier Dalton</li>
+                <li>Yvonne Marsh</li>
+                <li>Zachary Pell</li>
+                <li>Amelia Crane</li>
+                <li>Benedict Royce</li>
+                <li>Cecilia Hartwell</li>
+                <li>Dorian Sayre</li>
+                <li>Evangeline Moss</li>
+                <li>Frederick Garland</li>
+                <li>Georgiana Tate</li>
+                <li>Harold Winslow</li>
+              </ul>
+            </dd>
           </div>
         </dl>
       </uvalib-metadata>
