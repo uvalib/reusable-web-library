@@ -1151,19 +1151,13 @@ ${[286686, 286687, 286688, 286689].map((id, i) => pageLink(String(id), i + 2)).j
     group: 'Maps',
     title: 'Map: places on Grounds',
     description:
-      'uvalib-map draws a map over the page\'s own Leaflet (here leaflet.js and leaflet.css 1.9.4 from unpkg, pinned with integrity hashes; the library never bundles Leaflet) with the list of places under it. The places are the child list, so without JavaScript, or without Leaflet, the list is still there. Each marker is a link named like "The Rotunda, 2,702 photos" and sized by its count. Tab or the arrow keys move between markers, Enter follows one, and hovering or focusing a list entry highlights its marker (a ring and a larger dot). A skip link jumps past the map. The tiles are OpenStreetMap\'s, fine for an example but not for a busy page (see the README for a tile source). The counts are made up.',
+      "uvalib-map draws a map over the page's own Leaflet (here leaflet.js 1.9.4 from unpkg, pinned with an integrity hash and loaded with defer before the components; the library never bundles Leaflet, and Leaflet's CSS is optional) with the list of places under it. The places are the child list, so without JavaScript, or without Leaflet, the list is still there. Each marker is a link named like \"The Rotunda, 2,702 photos\" and sized by its count. Tab or the arrow keys move between markers, Enter follows one, and hovering or focusing a list entry highlights its marker (a ring and a larger dot). A skip link jumps past the map. The tiles are OpenStreetMap's, fine for an example but not for a busy page (see the README for a tile source). The counts are made up.",
     files: {
       'index.html': {
         content: page({
           title: 'Places on Grounds',
           components: ['uvalib-map'],
           head: `
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-      crossorigin=""
-    />
     <script
       defer
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"

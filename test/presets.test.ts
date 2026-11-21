@@ -355,9 +355,9 @@ describe('playground presets', function () {
     it(`places-map: Leaflet from the (stubbed) CDN draws the markers, linked to the list, and the page passes axe at ${width}px`, async () => {
       const p = presets.find((x) => x.id === 'places-map')!;
       const html = p.files['index.html']!.content;
-      // A pinned Leaflet with integrity hashes, before the components' module scripts.
+      // A pinned Leaflet with an integrity hash, before the components' module scripts.
       expect(html).to.include('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js');
-      expect(html.match(/integrity="sha256-/g)).to.have.length(2);
+      expect(html.match(/integrity="sha256-/g)).to.have.length(1);
       expect(html.indexOf('leaflet.js')).to.be.lessThan(html.indexOf('uvalib-map.js'));
       const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
       iframe.style.width = `${width}px`;
