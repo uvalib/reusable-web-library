@@ -248,6 +248,8 @@ export class UvalibImageRegions extends UvalibElement {
   private readonly headingId = `uvalib-image-regions-heading-${++nextId}`;
   private observer?: MutationObserver;
   private watchedImg: HTMLImageElement | null = null;
+  /** A list slotted through a `<slot>` child (from a host element's light DOM), also observed. */
+  private slottedList: Element | null = null;
   private key = '';
   /** The image's rendered size decides where badges fit. */
   private resizer?: ResizeObserver;
@@ -289,15 +291,24 @@ export class UvalibImageRegions extends UvalibElement {
     }
     const above = precedingHeadingLevel(this);
     this.inferredLevel = above === null ? 2 : Math.min(Math.max(above + 1, 2), 6);
+    this.slottedList = null;
     this.sync();
+    this.observe();
+  }
+
+  /** Watch the children, and a list slotted from outside them (it is not in this subtree). */
+  private observe(): void {
     this.observer ??= new MutationObserver(() => this.sync());
-    this.observer.observe(this, {
+    this.observer.disconnect();
+    const options: MutationObserverInit = {
       childList: true,
       subtree: true,
       attributes: true,
       attributeFilter: ['data-xywh', 'data-label', 'data-id', 'href', 'start', 'src', 'srcset'],
       characterData: true,
-    });
+    };
+    this.observer.observe(this, options);
+    if (this.slottedList) this.observer.observe(this.slottedList, options);
   }
 
   override disconnectedCallback(): void {
@@ -337,11 +348,15 @@ export class UvalibImageRegions extends UvalibElement {
     return el instanceof HTMLElement ? el : null;
   }
 
-  /** The author's list (`<ol>` or `<ul>`), wherever it is now. */
+  /**
+   * The author's list (`<ol>` or `<ul>`), wherever it is now. A `<slot>` child (this element
+   * inside another component's shadow root) passes on that host's list, which stays in the
+   * page's light DOM (so the page's styles and listeners still apply to it).
+   */
   private sourceList(): HTMLOListElement | HTMLUListElement | null {
-    const kids = this.lightDom
-      ? [...this.children, ...(this.listHost?.children ?? [])]
-      : [...this.children];
+    const kids = (
+      this.lightDom ? [...this.children, ...(this.listHost?.children ?? [])] : [...this.children]
+    ).flatMap((k) => (k instanceof HTMLSlotElement ? k.assignedElements({ flatten: true }) : [k]));
     const el = kids.find((k) => k.localName === 'ol' || k.localName === 'ul');
     return (el as HTMLOListElement | HTMLUListElement | undefined) ?? null;
   }
@@ -389,6 +404,20 @@ export class UvalibImageRegions extends UvalibElement {
 
   private fromList(): Entry[] {
     const list = this.sourceList();
+    const outside = list && !this.contains(list) ? list : null;
+    if (outside !== this.slottedList) {
+      this.slottedList = outside;
+      if (this.isConnected) this.observe();
+      if (outside && !this.noStyle) {
+        // Its entries are styled where the list is (the page), not under this tag.
+        const root = outside.getRootNode();
+        if (root instanceof Document || root instanceof ShadowRoot)
+          installLightDomStyles(`${this.localName}::slotted-entries`, entryStyles, {
+            root,
+            scope: false,
+          });
+      }
+    }
     if (!list) return [];
     const start = list.localName === 'ol' ? Number(list.getAttribute('start') ?? 1) || 1 : 1;
     const out: Entry[] = [];
@@ -506,9 +535,11 @@ export class UvalibImageRegions extends UvalibElement {
 
   /** Mark the entries (their padding) and the highlighted one. */
   private mark(): void {
+    const list = this.items ? null : this.sourceList();
     this.entries.forEach((e, i) => {
       const el = this.entryEl(i);
-      if (!el) return;
+      // An author's item that has left the list (given back to the page) is not marked again.
+      if (!el || (e.el && e.el.parentElement !== list)) return;
       if (el.getAttribute('data-uvalib-region') !== String(e.number))
         el.setAttribute('data-uvalib-region', String(e.number));
       el.toggleAttribute('data-uvalib-active', i === this.active);
@@ -561,7 +592,11 @@ export class UvalibImageRegions extends UvalibElement {
 
   private readonly onFocusOut = (e: FocusEvent): void => {
     const to = e.relatedTarget;
-    if (to instanceof Node && (this.contains(to) || this.renderRoot.contains(to))) return;
+    if (
+      to instanceof Node &&
+      (this.contains(to) || this.renderRoot.contains(to) || this.slottedList?.contains(to))
+    )
+      return;
     this.focused = -1;
     this.setActive();
   };

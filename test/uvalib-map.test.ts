@@ -1,4 +1,4 @@
-import { expect, fixture } from '@open-wc/testing';
+import { expect, fixture, waitUntil } from '@open-wc/testing';
 import { emulateMedia, sendKeys, sendMouse, setViewport } from '@web/test-runner-commands';
 import * as L from 'leaflet/dist/leaflet-src.esm.js';
 import type * as Leaflet from 'leaflet';
@@ -38,6 +38,53 @@ const PLACES: MapItem[] = [
     count: 1,
     description: 'Football and commencement',
   },
+];
+
+/** Three places on one point (a building, a room in it, a statue at its door). */
+const SAME: MapItem[] = [
+  { id: 'rotunda', name: 'The Rotunda', lat: 38.0356, lng: -78.5034, count: 2702, href: '/r' },
+  { id: 'dome', name: 'Dome Room', lat: 38.0356, lng: -78.5034, count: 600, href: '/d' },
+  { id: 'statue', name: 'Jefferson statue', lat: 38.0356, lng: -78.5034, count: 308, href: '/j' },
+];
+const LAWN: MapItem = PLACES[1]!;
+const STADIUM: MapItem = PLACES[3]!;
+/** Two places about 26 m apart: one marker until zoomed in. */
+const NEAR: MapItem[] = [
+  { id: 'brooks', name: 'Brooks Hall', lat: 38.0361, lng: -78.5007, count: 85 },
+  { id: 'annex', name: 'Brooks Annex', lat: 38.0361, lng: -78.5004, count: 20 },
+];
+/** The places-map example's places, with its co-located ones. */
+const GROUNDS_PLACES: MapItem[] = [
+  { name: 'The Rotunda', lat: 38.0356, lng: -78.5034, count: 2702, href: '/places/rotunda' },
+  { name: 'Dome Room', lat: 38.0356, lng: -78.5034, count: 600, href: '/places/dome-room' },
+  { name: 'Jefferson statue', lat: 38.0356, lng: -78.5034, count: 308, href: '/places/statue' },
+  { name: 'The Lawn', lat: 38.0322, lng: -78.5045, count: 1890, href: '/places/lawn' },
+  { name: 'Alderman Library', lat: 38.0367, lng: -78.5055, count: 640, href: '/places/alderman' },
+  { name: 'Brooks Hall', lat: 38.0361, lng: -78.5007, count: 85, href: '/places/brooks' },
+  {
+    name: 'The Fralin Museum of Art',
+    lat: 38.0384,
+    lng: -78.5027,
+    count: 120,
+    href: '/places/fralin',
+  },
+  { name: "Carr's Hill", lat: 38.0393, lng: -78.507, count: 48, href: '/places/carrs-hill' },
+  {
+    name: 'Memorial Gymnasium',
+    lat: 38.0372,
+    lng: -78.5099,
+    count: 330,
+    href: '/places/memorial-gym',
+  },
+  { name: 'Clark Hall', lat: 38.0327, lng: -78.5087, count: 210, href: '/places/clark' },
+  {
+    name: 'Scott Stadium',
+    lat: 38.0311,
+    lng: -78.5137,
+    count: 1150,
+    href: '/places/scott-stadium',
+  },
+  { name: 'University Hospital', lat: 38.0314, lng: -78.499, count: 96, href: '/places/hospital' },
 ];
 
 type Internals = { map?: Leaflet.Map };
@@ -541,6 +588,282 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       } finally {
         rec.restore();
       }
+    });
+
+    describe('places whose markers would overlap', () => {
+      const groupCtl = (el: Element) =>
+        root(el).querySelector<HTMLElement>('.uvalib-map-marker.is-group .marker');
+      const groupCtls = (el: Element) => [
+        ...root(el).querySelectorAll<HTMLElement>('.uvalib-map-marker.is-group .marker'),
+      ];
+      /** The places' markers on the map (not groups), by name. */
+      const placeNames = (el: Element) =>
+        markers(el)
+          .filter((m) => m.dataset.index !== undefined)
+          .map((m) => m.textContent);
+      const zoomTo = async (el: UvalibMap, z: number) => {
+        leafletMap(el).setZoom(z, { animate: false });
+        await el.updateComplete;
+      };
+      /** Whether two markers' hit areas keep `gap` px apart. */
+      const apart = (a: Element, b: Element, gap = 24) => {
+        const r = a.getBoundingClientRect();
+        const s = b.getBoundingClientRect();
+        return (
+          r.right + gap <= s.left ||
+          s.right + gap <= r.left ||
+          r.bottom + gap <= s.top ||
+          s.bottom + gap <= r.top
+        );
+      };
+
+      it('places on one point are one group at every zoom, named by the largest with the total', async () => {
+        const el = await make(undefined, [...SAME, STADIUM]);
+        const map = leafletMap(el);
+        for (let z = 14; z <= map.getMaxZoom(); z += 1) {
+          await zoomTo(el, z);
+          expect(groupCtls(el), `zoom ${z}`).to.have.length(1);
+          expect(placeNames(el), `zoom ${z}`).to.deep.equal(['Scott Stadium, 1 photo']);
+        }
+        const g = groupCtl(el)!;
+        expect(g.localName).to.equal('button');
+        expect(g.textContent).to.equal('3The Rotunda and 2 more places, 3,610 photos');
+        expect(g.querySelector('.visually-hidden')!.textContent).to.equal(
+          'The Rotunda and 2 more places, 3,610 photos',
+        );
+        expect(g.querySelector('.dot')!.getAttribute('aria-hidden')).to.equal('true');
+        expect(g.querySelector('.dot')!.textContent).to.equal('3');
+        expect(g.hasAttribute('aria-expanded')).to.equal(false);
+        const r = g.getBoundingClientRect();
+        expect(r.width).to.be.at.least(44);
+        expect(r.height).to.be.at.least(44);
+        // The list still has every place.
+        expect(places(el)).to.have.length(4);
+      });
+
+      it('two places in a group: "1 more place", and place-label sets the noun', async () => {
+        const el = await make('label="Rooms" count-label="photos" place-label="rooms"', [
+          SAME[0]!,
+          SAME[1]!,
+        ]);
+        expect(groupCtl(el)!.querySelector('.visually-hidden')!.textContent).to.equal(
+          'The Rotunda and 1 more room, 3,302 photos',
+        );
+        const plain = await make('label="Places"', [
+          { name: 'A', lat: 38.0356, lng: -78.5034 },
+          { name: 'B', lat: 38.0356, lng: -78.5034 },
+          { name: 'C', lat: 38.0356, lng: -78.5034 },
+        ]);
+        expect(groupCtl(plain)!.querySelector('.visually-hidden')!.textContent).to.equal(
+          'A and 2 more places',
+        );
+      });
+
+      it('choosing a group of one point spreads a ring; each place is selectable; Escape closes it', async () => {
+        const rec = recordAnalytics();
+        try {
+          const el = await make(undefined, [...SAME, STADIUM]);
+          const chosen: string[] = [];
+          el.addEventListener('select', (e) => {
+            chosen.push((e as CustomEvent<{ item: MapItem }>).detail.item.id!);
+            e.preventDefault();
+          });
+          const g = groupCtl(el)!;
+          g.focus();
+          await sendKeys({ press: 'Enter' });
+          await el.updateComplete;
+          expect(placeNames(el)).to.have.members([
+            'The Rotunda, 2,702 photos',
+            'Dome Room, 600 photos',
+            'Jefferson statue, 308 photos',
+            'Scott Stadium, 1 photo',
+          ]);
+          expect(g.getAttribute('aria-expanded')).to.equal('true');
+          // Focus is on the first ring place (the largest).
+          expect(focused(el)?.textContent).to.equal('The Rotunda, 2,702 photos');
+          // Every target 44px, 24px clear of the others and of the group.
+          const ring = icons(el);
+          for (const a of ring) {
+            expect(a.getBoundingClientRect().width).to.be.at.least(43.99);
+            for (const b of ring) if (a !== b) expect(apart(a, b)).to.equal(true);
+          }
+          await expectNoAxeViolations(el);
+          // The ring is in the keyboard order right after its group.
+          await sendKeys({ press: 'ArrowRight' });
+          expect(focused(el)?.textContent).to.equal('Dome Room, 600 photos');
+          await sendKeys({ press: 'ArrowLeft' });
+          await sendKeys({ press: 'ArrowLeft' });
+          expect(focused(el) === g).to.equal(true);
+          for (const m of markers(el)) if (m.dataset.index !== undefined) m.click();
+          expect(chosen).to.have.members(['rotunda', 'dome', 'statue', 'stadium']);
+          markers(el)
+            .find((m) => m.textContent!.startsWith('Dome'))!
+            .focus();
+          await sendKeys({ press: 'Escape' });
+          await el.updateComplete;
+          expect(placeNames(el)).to.deep.equal(['Scott Stadium, 1 photo']);
+          expect(focused(el) === g).to.equal(true);
+          expect(g.hasAttribute('aria-expanded')).to.equal(false);
+          // The group itself is never a select, and reports expand with how many places.
+          const events = rec.of('uvalib-analytics-event').map((d) => d.event);
+          expect(events[0]).to.deep.equal(['uvalib-map', 'expand', 'Places on Grounds', 3]);
+          expect(events.filter((x) => (x as unknown[])[1] === 'expand')).to.have.length(1);
+          expect(JSON.stringify(events)).to.not.include('Rotunda');
+          g.blur();
+        } finally {
+          rec.restore();
+        }
+      });
+
+      it('zooming out closes the ring and gives focus back to the group', async () => {
+        const el = await make(undefined, [...SAME, STADIUM]);
+        await zoomTo(el, 18);
+        groupCtl(el)!.click();
+        await el.updateComplete;
+        expect(placeNames(el)).to.have.length(4);
+        await zoomTo(el, 17);
+        expect(placeNames(el)).to.deep.equal(['Scott Stadium, 1 photo']);
+        expect(focused(el) === groupCtl(el)).to.equal(true);
+        groupCtl(el)!.blur();
+      });
+
+      it('near places group, then part when the group is chosen (it zooms in)', async () => {
+        const el = await make(
+          'label="Near" count-label="photos" center="38.0356,-78.5034" zoom="16"',
+          NEAR,
+        );
+        const map = leafletMap(el);
+        expect(groupCtls(el)).to.have.length(1);
+        expect(placeNames(el)).to.deep.equal([]);
+        const z = map.getZoom();
+        groupCtl(el)!.focus();
+        await sendKeys({ press: 'Enter' });
+        await waitUntil(() => map.getZoom() > z && groupCtls(el).length === 0, 'no zoom in', {
+          timeout: 3000,
+        });
+        expect(placeNames(el)).to.deep.equal(['Brooks Hall, 85 photos', 'Brooks Annex, 20 photos']);
+        for (const p of NEAR) expect(map.getBounds().contains([p.lat, p.lng])).to.equal(true);
+        // Parted: their hit areas no longer overlap (GROUP_GAP, 4px; 3 allows for rounding).
+        expect(apart(icons(el)[0]!, icons(el)[1]!, 3)).to.equal(true);
+        // Focus moves to the largest place.
+        expect(focused(el)?.textContent).to.equal('Brooks Hall, 85 photos');
+        await zoomTo(el, z);
+        expect(groupCtls(el)).to.have.length(1);
+        groupCtl(el)!.blur();
+      });
+
+      it('at the maximum zoom, near places that still overlap spread in a ring', async () => {
+        const el = await make('label="Close" center="38.0356,-78.5034" zoom="19"', [
+          { id: 'a', name: 'Door', lat: 38.0356, lng: -78.5034 },
+          { id: 'b', name: 'Step', lat: 38.03561, lng: -78.50341 },
+        ]);
+        expect(leafletMap(el).getZoom()).to.equal(leafletMap(el).getMaxZoom());
+        groupCtl(el)!.click();
+        await el.updateComplete;
+        expect(leafletMap(el).getZoom()).to.equal(19);
+        expect(placeNames(el)).to.have.members(['Door', 'Step']);
+        await expectNoAxeViolations(el);
+        groupCtl(el)!.blur();
+      });
+
+      it('under reduced motion the zoom to a group jumps', async () => {
+        await emulateMedia({ reducedMotion: 'reduce' });
+        const el = await make('label="Near" center="38.0356,-78.5034" zoom="16"', NEAR);
+        const z = leafletMap(el).getZoom();
+        groupCtl(el)!.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+        await el.updateComplete;
+        expect(places(el).map((li) => li.classList.contains('is-active'))).to.deep.equal([
+          true,
+          true,
+        ]);
+        groupCtl(el)!.click();
+        // No animation: the new zoom and the parted markers are there at once.
+        expect(leafletMap(el).getZoom()).to.be.greaterThan(z);
+        expect(groupCtls(el)).to.have.length(0);
+        // The group hovered is gone, so nothing stays highlighted.
+        await el.updateComplete;
+        expect(places(el).map((li) => li.classList.contains('is-active'))).to.deep.equal([
+          false,
+          false,
+        ]);
+        expect(tooltipText(el)).to.equal(null);
+        (focused(el) as HTMLElement | null)?.blur();
+      });
+
+      it('arrow keys, Home and End move between the visible markers, a group counting as one', async () => {
+        const el = await make(undefined, [SAME[0]!, LAWN, SAME[1]!, SAME[2]!, STADIUM]);
+        const order = () => markers(el).map((m) => m.textContent!.replace(/^\d/, ''));
+        expect(order()).to.deep.equal([
+          'The Rotunda and 2 more places, 3,610 photos',
+          'The Lawn, 900 photos',
+          'Scott Stadium, 1 photo',
+        ]);
+        groupCtl(el)!.focus();
+        await sendKeys({ press: 'ArrowRight' });
+        expect(focused(el)?.textContent).to.equal('The Lawn, 900 photos');
+        await sendKeys({ press: 'End' });
+        expect(focused(el)?.textContent).to.equal('Scott Stadium, 1 photo');
+        await sendKeys({ press: 'Home' });
+        expect(focused(el) === groupCtl(el)).to.equal(true);
+        // Tab follows the same order.
+        await sendKeys({ press: 'Tab' });
+        expect(focused(el)?.textContent).to.equal('The Lawn, 900 photos');
+        (focused(el) as HTMLElement).blur();
+      });
+
+      it('a grouped place in the list highlights its group, whose tooltip names it', async () => {
+        const el = await make(undefined, [...SAME, STADIUM]);
+        const groupIcon = () => root(el).querySelector('.uvalib-map-marker.is-group')!;
+        const dome = places(el)[1]!;
+        dome.dispatchEvent(new MouseEvent('mouseenter'));
+        await el.updateComplete;
+        expect(groupIcon().classList.contains('is-active')).to.equal(true);
+        expect(getComputedStyle(groupIcon().querySelector('.dot')!).transform).to.not.equal('none');
+        expect(tooltipText(el)).to.equal('Dome Room600 photosOne of 3 places here');
+        dome.dispatchEvent(new MouseEvent('mouseleave'));
+        await el.updateComplete;
+        expect(groupIcon().classList.contains('is-active')).to.equal(false);
+        dome.querySelector('a')!.focus();
+        await el.updateComplete;
+        expect(groupIcon().classList.contains('is-active')).to.equal(true);
+        dome.querySelector('a')!.blur();
+        await el.updateComplete;
+        // Hovering or focusing the group highlights all its places in the list.
+        groupCtl(el)!.focus();
+        await el.updateComplete;
+        expect(places(el).map((li) => li.classList.contains('is-active'))).to.deep.equal([
+          true,
+          true,
+          true,
+          false,
+        ]);
+        expect(tooltipText(el)).to.equal('The Rotunda and 2 more places3,610 photos');
+        groupCtl(el)!.blur();
+      });
+
+      it('passes axe, target-size included, zoomed in on the example with co-located places', async () => {
+        for (const z of [17, 18, 19]) {
+          const el = await make(
+            `label="Places on Grounds" count-label="photos" center="38.0356,-78.5034" zoom="${z}"`,
+            GROUNDS_PLACES,
+          );
+          await expectNoAxeViolations(el);
+          await expectNoAxeViolations(el, undefined, { rules: ['target-size'] });
+        }
+        const all = await make(undefined, GROUNDS_PLACES);
+        await expectNoAxeViolations(all, undefined, { rules: ['target-size'] });
+        // No two visible markers' hit areas overlap (44px targets need no more for WCAG 2.5.8);
+        // they keep a few pixels apart (GROUP_GAP, 4px; 3 allows for rounding).
+        const i = icons(all);
+        for (const a of i) for (const b of i) if (a !== b) expect(apart(a, b, 3)).to.equal(true);
+      });
+
+      it('keeps the group distinct in forced colors (a double border)', async () => {
+        await emulateMedia({ forcedColors: 'active' });
+        const el = await make(undefined, [...SAME, STADIUM]);
+        const dot = getComputedStyle(groupCtl(el)!.querySelector('.dot')!);
+        expect(dot.borderTopStyle).to.equal('double');
+      });
     });
   });
 }

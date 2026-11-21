@@ -1428,7 +1428,7 @@ ${[286686, 286687, 286688, 286689].map((id, i) => pageLink(String(id), i + 2)).j
     group: 'Images',
     title: 'Image regions',
     description:
-      'uvalib-image-regions outlines regions of a photograph (people, objects) and lists them beside it, under it on a phone. The list is the way in: hover or focus an entry, or its button, and its outline thickens and shows its label while the others dim; hover an outline and its entry is marked; click an outline and focus moves to its entry. The outlines are hidden from screen readers and are not tab stops. Each entry is the page’s own <li data-xywh="percent:x,y,w,h">, so the list works before the script loads, and its buttons are the page’s. Below, the same regions in uvalib-lightbox from data-regions, with a Show regions toggle. Region labels here are generic.',
+      'uvalib-image-regions outlines regions of a photograph (people, objects) and lists them beside it, under it on a phone. The list is the way in: hover or focus an entry, or its button, and its outline thickens and shows its label while the others dim; hover an outline and its entry is marked; click an outline and focus moves to its entry. The outlines are hidden from screen readers and are not tab stops. Each entry is the page’s own <li data-xywh="percent:x,y,w,h">, so the list works before the script loads, and its buttons are the page’s. Below, the same photograph in uvalib-lightbox: data-regions-list names a hidden <ol> in the page, with its own buttons, which the viewer shows as the region list (the same elements, so the page’s click listener still updates the status line in the viewer’s details) and puts back on close. A Show regions toggle hides the outlines and keeps the list. Region labels here are generic.',
     files: {
       'index.html': {
         content: page({
@@ -1448,8 +1448,15 @@ ${[286686, 286687, 286688, 286689].map((id, i) => pageLink(String(id), i + 2)).j
       <p id="said" role="status"></p>
       <h2>In the viewer</h2>
       <uvalib-lightbox regions-label="In this photograph">
-        <a href="${iiif('1040162', '!1600,1600')}" data-caption="Lawn games" data-regions="percent:37.5,58,7,22 Person 1; percent:51.5,58,7,22 Person 2; percent:62,15,4.5,5.5 Clock; percent:63.5,47,4,7 Doorway"><img src="${iiif('1040162', ',200')}" alt="Lawn games" width="249" height="200" loading="lazy"></a>
+        <a href="${iiif('1040162', '!1600,1600')}" data-caption="Lawn games" data-regions-list="lawn-people"><img src="${iiif('1040162', ',200')}" alt="Lawn games" width="249" height="200" loading="lazy"></a>
+        <p slot="details" id="viewer-said" role="status"></p>
       </uvalib-lightbox>
+      <ol id="lawn-people" hidden>
+        <li data-xywh="percent:37.5,58,7,22">Person 1 <button type="button" class="uvalib-button uvalib-button--small" data-name="Person 1" data-act="Named">Name Person 1</button> <button type="button" class="uvalib-button uvalib-button--small" data-name="Person 1" data-act="Not">Not Person 1</button></li>
+        <li data-xywh="percent:51.5,58,7,22">Person 2 <button type="button" class="uvalib-button uvalib-button--small" data-name="Person 2" data-act="Named">Name Person 2</button> <button type="button" class="uvalib-button uvalib-button--small" data-name="Person 2" data-act="Not">Not Person 2</button></li>
+        <li data-xywh="percent:62,15,4.5,5.5">Clock</li>
+        <li data-xywh="percent:63.5,47,4,7">Doorway</li>
+      </ol>
     </site-page>
     <script type="module">
       // The buttons are the page's own: the component only numbers and highlights the entries.
@@ -1457,6 +1464,14 @@ ${[286686, 286687, 286688, 286689].map((id, i) => pageLink(String(id), i + 2)).j
       document.querySelector('#regions').addEventListener('click', (e) => {
         const button = e.target.closest('button[data-name]');
         if (button) said.textContent = 'Naming ' + button.dataset.name + ' (an example: nothing is saved).';
+      });
+      // The viewer's list is the page's too: this listener keeps working while it is open.
+      const viewerSaid = document.querySelector('#viewer-said');
+      document.querySelector('#lawn-people').addEventListener('click', (e) => {
+        const button = e.target.closest('button[data-act]');
+        if (!button) return;
+        const what = button.dataset.act === 'Not' ? 'Marked as not ' : 'Naming ';
+        viewerSaid.textContent = what + button.dataset.name + ' (an example: nothing is saved).';
       });
       document.querySelector('#regions').addEventListener('select', (e) => {
         said.textContent = 'Outline ' + (e.detail.index + 1) + ' chosen: ' + e.detail.item.label + '.';
@@ -1471,7 +1486,7 @@ ${[286686, 286687, 286688, 286689].map((id, i) => pageLink(String(id), i + 2)).j
     group: 'Maps',
     title: 'Map: places on Grounds',
     description:
-      "uvalib-map draws a map over the page's own Leaflet (here leaflet.js 1.9.4 from unpkg, pinned with an integrity hash and loaded with defer before the components; the library never bundles Leaflet, and Leaflet's CSS is optional) with the list of places under it. The places are the child list, so without JavaScript, or without Leaflet, the list is still there. Each marker is a link named like \"The Rotunda, 2,702 photos\" and sized by its count. Tab or the arrow keys move between markers, Enter follows one, and hovering or focusing a list entry highlights its marker (a ring and a larger dot). A skip link jumps past the map. The tiles are OpenStreetMap's, fine for an example but not for a busy page (see the README for a tile source). The counts are made up.",
+      'uvalib-map draws a map over the page\'s own Leaflet (here leaflet.js 1.9.4 from unpkg, pinned with an integrity hash and loaded with defer before the components; the library never bundles Leaflet, and Leaflet\'s CSS is optional) with the list of places under it. The places are the child list, so without JavaScript, or without Leaflet, the list is still there. Each marker is a link named like "The Rotunda, 2,702 photos" and sized by its count. Tab or the arrow keys move between markers, Enter follows one, and hovering or focusing a list entry highlights its marker (a ring and a larger dot). The Rotunda, its Dome Room and the Jefferson statue share one point, so they are one group marker, "The Rotunda and 2 more places, 3,610 photos" (as are any markers that would overlap at the current zoom): choosing it zooms in, or, when the places cannot part, spreads them in a ring. A skip link jumps past the map. The tiles are OpenStreetMap\'s, fine for an example but not for a busy page (see the README for a tile source). The counts are made up.',
     files: {
       'index.html': {
         content: page({
@@ -1489,7 +1504,9 @@ ${[286686, 286687, 286688, 286689].map((id, i) => pageLink(String(id), i + 2)).j
       <p>Photographs in the archive, by the place they show.</p>
       <uvalib-map id="places" label="Places on Grounds" count-label="photos">
         <ul>
-          <li><a href="#rotunda" data-lat="38.0356" data-lng="-78.5034" data-count="2702" data-description="The dome and its Dome Room, from 1826.">The Rotunda</a></li>
+          <li><a href="#rotunda" data-lat="38.0356" data-lng="-78.5034" data-count="2702" data-description="Jefferson's library for the University, from 1826.">The Rotunda</a></li>
+          <li><a href="#dome-room" data-lat="38.0356" data-lng="-78.5034" data-count="600" data-description="The room under the dome.">Dome Room</a></li>
+          <li><a href="#jefferson-statue" data-lat="38.0356" data-lng="-78.5034" data-count="308">Jefferson statue</a></li>
           <li><a href="#lawn" data-lat="38.0322" data-lng="-78.5045" data-count="1890" data-description="The pavilions, the gardens and the student rooms.">The Lawn</a></li>
           <li><a href="#alderman" data-lat="38.0367" data-lng="-78.5055" data-count="640">Alderman Library</a></li>
           <li><a href="#brooks" data-lat="38.0361" data-lng="-78.5007" data-count="85">Brooks Hall</a></li>

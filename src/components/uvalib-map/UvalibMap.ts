@@ -26,6 +26,24 @@ export interface MapItem {
 
 type LeafletNS = typeof Leaflet;
 
+/** Places drawn as one marker at the current zoom. */
+interface MapGroup {
+  /** The places' indexes, ascending, joined by commas. */
+  key: string;
+  /** The places' indexes, largest count first. */
+  members: number[];
+  marker: Leaflet.Marker;
+  ctl: HTMLElement;
+  /** Dot diameter (px). */
+  d: number;
+  sum: number;
+  /** Whether any place in it has a count. */
+  counted: boolean;
+}
+
+const countOf = (p?: MapItem) =>
+  p && Number.isFinite(p.count) && (p.count as number) > 0 ? (p.count as number) : 0;
+
 /** The analytics category. */
 const TAG = 'uvalib-map';
 
@@ -41,6 +59,17 @@ const GROUNDS: [number, number] = [38.0336, -78.5048];
 const MIN_DOT = 24;
 const MAX_DOT = 56;
 const HIT = 44;
+/**
+ * Space kept between two visible markers' hit areas: closer ones are grouped. Every target is
+ * at least 44px, so WCAG 2.5.8 only needs them not to overlap; a few pixels keep them visibly
+ * apart without grouping places that are merely close.
+ */
+const GROUP_GAP = 4;
+/** Space between the places of an open ring (and the group), generous since they are close by design. */
+const GAP = 24;
+/** A group's dot: big enough for the number of places in it, and never larger than this. */
+const MIN_GROUP_DOT = 32;
+const MAX_GROUP_DOT = 64;
 
 const MAP_HEIGHT = 'var(--uvalib-map-height, min(24rem, 75vw))';
 
@@ -152,6 +181,7 @@ const structuralRules = (host: string) => `
     cursor: pointer; font: inherit; color: inherit;
   }
   ${host} .uvalib-map-marker .dot { box-sizing: border-box; display: block; flex: none; inline-size: var(--d); block-size: var(--d); border-radius: 50%; }
+  ${host} .uvalib-map-marker.is-group .dot { display: flex; align-items: center; justify-content: center; font-weight: 700; line-height: 1; }
   ${host} .leaflet-bar a {
     box-sizing: border-box; display: flex !important; align-items: center; justify-content: center;
     inline-size: 44px !important; block-size: 44px !important; line-height: 1 !important;
@@ -161,8 +191,9 @@ const structuralRules = (host: string) => `
   }
   @media (forced-colors: active) {
     ${host} .uvalib-map-marker .dot {
-      forced-color-adjust: none; background: Canvas !important; border: 3px solid CanvasText !important; box-shadow: none !important;
+      forced-color-adjust: none; background: Canvas !important; color: CanvasText !important; border: 3px solid CanvasText !important; box-shadow: none !important;
     }
+    ${host} .uvalib-map-marker.is-group .dot { border-style: double !important; border-width: 6px !important; }
     ${host} .uvalib-map-marker.is-active .dot { outline: 3px solid Highlight; outline-offset: 3px; }
     ${host} .uvalib-map-marker .marker:focus-visible .dot { outline: 3px solid Highlight; outline-offset: 6px; }
     ${host} .map, ${host} .map .leaflet-bar, ${host} .map .leaflet-bar a, ${host} .map .leaflet-tooltip,
@@ -197,6 +228,16 @@ const shadowStructure = unsafeCSS(structuralRules(':host'));
  * list entry; hovering or focusing a list entry highlights its marker (a ring and a larger
  * dot, not colour alone) and brings it into view.
  *
+ * Markers whose 44px targets would overlap at the current zoom are drawn as one group
+ * marker (regrouped after every zoom and resize): a button
+ * showing how many places it holds, sized by their summed count and named like "The Rotunda
+ * and 2 more places, 3,610 photos" (the largest place's name; `place-label` is the noun).
+ * Choosing it zooms in until its places part; when they cannot (one point, or the
+ * maximum zoom) it spreads them in a ring around it instead, with focus on the first;
+ * Escape or a zoom closes the ring and focus returns to the group. The arrow keys move
+ * between the markers shown (a group is one); a place in the list that is in a group
+ * highlights the group, whose tooltip names the place.
+ *
  * The map is a region named by `label`, after a "Skip map, go to the list" link and a line
  * of key instructions. It opens on the bounds of the places, or on `center` and `zoom`. The
  * zoom buttons are 44px with a visible focus ring; the attribution stays. Tiles come from
@@ -207,8 +248,8 @@ const shadowStructure = unsafeCSS(structuralRules(':host'));
  *
  * @tagname uvalib-map
  * @slot - A `<ul>` or `<ol>` of places: each `<li>` holds an `<a href>` (or the `<li>` itself) with `data-lat`, `data-lng` and optionally `data-count`, `data-id` and `data-description`. Used when `items` is empty; without JavaScript it is the list.
- * @fires select - A marker was chosen (click, Enter or Space). `detail` is `{ item }`. Cancelable: for a place with `href`, `preventDefault()` keeps the page from following the link. Bubbles and is composed.
- * @fires uvalib-analytics-event - For `<site-analytics>`: `['uvalib-map', 'select', '<label>', <position from 1>]` when a marker is chosen, and `['uvalib-map', 'zoom', '<label>', <zoom level>]` 1 s after the last zoom-button press. Never a place's name, coordinates or URL. Bubbles and is composed.
+ * @fires select - A place's marker was chosen (click, Enter or Space); never a group's. `detail` is `{ item }`. Cancelable: for a place with `href`, `preventDefault()` keeps the page from following the link. Bubbles and is composed.
+ * @fires uvalib-analytics-event - For `<site-analytics>`: `['uvalib-map', 'select', '<label>', <position from 1>]` when a place's marker is chosen, `['uvalib-map', 'expand', '<label>', <places in it>]` when a group is chosen (it zooms in or opens its ring), and `['uvalib-map', 'zoom', '<label>', <zoom level>]` 1 s after the last zoom-button press. Never a place's name, coordinates or URL. Bubbles and is composed.
  * @csspart map - The map region (the Leaflet container).
  * @csspart instructions - The line of key instructions above the map.
  * @csspart list - The list of places.
@@ -263,6 +304,16 @@ export class UvalibMap extends UvalibElement {
         border: 2px solid var(--uva-color-on-accent, #fff);
         box-shadow: 0 0 0 1px var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
         transition: transform 0.15s ease, box-shadow 0.15s ease;
+      }
+      /* A group: its number of places, and a second ring (not colour alone). */
+      .uvalib-map-marker.is-group .dot {
+        color: var(--uva-color-on-accent, #fff);
+        font-family: var(--uva-font-family, system-ui, sans-serif);
+        font-size: 0.875rem;
+        box-shadow:
+          0 0 0 1px var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b)),
+          0 0 0 3px var(--uva-color-on-accent, #fff),
+          0 0 0 5px var(--uva-color-accent-bg, var(--uva-brand-blue, #232d4b));
       }
       .uvalib-map-marker.is-active .dot {
         transform: scale(1.25);
@@ -322,6 +373,7 @@ export class UvalibMap extends UvalibElement {
       }
       .leaflet-tooltip::before { display: none !important; }
       .tip-name { display: block; font-weight: 600; }
+      .tip-note { display: block; }
       .places {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
@@ -389,6 +441,13 @@ export class UvalibMap extends UvalibElement {
   @property({ type: String, attribute: 'count-label' })
   countLabel = 'items';
 
+  /**
+   * The noun for places in a group's name, plural: "The Rotunda and 2 more places" (one
+   * drops a trailing s: "and 1 more place"). For example "rooms".
+   */
+  @property({ type: String, attribute: 'place-label' })
+  placeLabel = 'places';
+
   /** The tile URL template (`{z}/{x}/{y}`, optionally `{s}` and `{r}`). */
   @property({ type: String, attribute: 'tile-url' })
   tileUrl = OSM_TILE_URL;
@@ -418,7 +477,8 @@ export class UvalibMap extends UvalibElement {
 
   @state() private sourceItems: MapItem[] = [];
   @state() private hasLeaflet = false;
-  @state() private active = -1;
+  /** The highlighted target: "3" a place, "g:1,3" a group, "" none. */
+  @state() private active = '';
   @state() private dark = false;
 
   private readonly uid = `uvalib-map-${++instanceCounter}`;
@@ -428,13 +488,24 @@ export class UvalibMap extends UvalibElement {
   private tiles?: Leaflet.TileLayer;
   private tooltip?: Leaflet.Tooltip;
   private markers: (Leaflet.Marker | undefined)[] = [];
+  private dots: number[] = [];
+  private maxCount = 0;
+  /** The groups drawn at the current zoom, by key. */
+  private groups = new Map<string, MapGroup>();
+  /** A grouped place's index → its group's key. */
+  private groupOf = new Map<number, string>();
+  /** The key of the group whose places are spread in a ring, or "". */
+  private ring = '';
+  /** The visible markers' controls, in keyboard (and document) order. */
+  private order: HTMLElement[] = [];
+  private activeIcon?: { marker: Leaflet.Marker; z: number };
   private drawn: MapItem[] = [];
   private reduceMotion = false;
   /** The visitor moved the map: a resize no longer refits it. */
   private userMoved = false;
   private fitting = false;
-  private hoverIndex = -1;
-  private focusIndex = -1;
+  private hoverKey = '';
+  private focusKey = '';
   private dismissed = false;
   private warnedLabel = false;
   private warnedLeaflet = false;
@@ -451,7 +522,7 @@ export class UvalibMap extends UvalibElement {
       (nodes) => this.readList(nodes),
     );
     this.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.active >= 0) {
+      if (e.key === 'Escape' && this.active) {
         this.dismissed = true;
         this.syncActive();
       }
@@ -601,13 +672,19 @@ export class UvalibMap extends UvalibElement {
         changed.has('dark'))
     )
       this.drawTiles();
-    if (created || this.places !== this.drawn || changed.has('countLabel')) {
+    if (
+      created ||
+      this.places !== this.drawn ||
+      changed.has('countLabel') ||
+      changed.has('placeLabel')
+    ) {
       this.drawMarkers();
       if (created || !this.userMoved) this.fit();
+      this.regroup();
     } else if (changed.has('center') || changed.has('zoom')) {
       this.fit();
     }
-    if (changed.has('active')) this.showActive(changed.get('active') as number | undefined);
+    if (changed.has('active')) this.showActive();
   }
 
   private get container(): HTMLElement | null {
@@ -650,11 +727,19 @@ export class UvalibMap extends UvalibElement {
     map.on('movestart', () => {
       if (!this.fitting) this.userMoved = true;
     });
+    // Any zoom closes a ring; every zoom regroups.
+    map.on('zoomstart', () => {
+      if (!this.ring) return;
+      this.unring();
+      this.regroup();
+    });
+    map.on('zoomend', () => this.regroup());
     this.drawTiles();
     this.ro = new ResizeObserver(() => {
       if (!this.map) return;
       this.map.invalidateSize({ animate: false });
       if (!this.userMoved) this.fit();
+      this.regroup();
     });
     this.ro.observe(el);
     return true;
@@ -669,6 +754,11 @@ export class UvalibMap extends UvalibElement {
     this.tiles = undefined;
     this.tooltip = undefined;
     this.markers = [];
+    this.groups.clear();
+    this.groupOf.clear();
+    this.ring = '';
+    this.order = [];
+    this.activeIcon = undefined;
     this.drawn = [];
     this.userMoved = false;
   }
@@ -701,49 +791,326 @@ export class UvalibMap extends UvalibElement {
     return p.href && safeHref(p.href, this.ownerDocument.baseURI) ? p.href : null;
   }
 
+  /** A group's dot: by the square root of its summed count, between MIN_GROUP_DOT and MAX_GROUP_DOT. */
+  private groupDot(sum: number): number {
+    const max = this.maxCount;
+    if (!(max > 0) || !(sum > 0)) return MIN_GROUP_DOT;
+    const d = Math.round(MIN_DOT + (MAX_DOT - MIN_DOT) * Math.sqrt(sum / max));
+    return Math.min(MAX_GROUP_DOT, Math.max(MIN_GROUP_DOT, d));
+  }
+
+  /** "The Rotunda and 2 more places": the largest place's name and how many more. */
+  private groupName(members: number[]): string {
+    const n = members.length - 1;
+    return `${this.places[members[0]!]!.name} and ${fmt(n)} more ${noun(this.placeLabel || 'places', n)}`;
+  }
+
+  /** A marker's hit area (px): its dot, at least 44px; a group's dot for several places. */
+  private hitOf(members: number[]): number {
+    if (members.length === 1) return Math.max(HIT, this.dots[members[0]!] ?? MIN_DOT);
+    return Math.max(HIT, this.groupDot(members.reduce((s, i) => s + countOf(this.places[i]), 0)));
+  }
+
+  private makeMarker(
+    ll: Leaflet.LatLngExpression,
+    ctl: HTMLElement,
+    d: number,
+    className: string,
+  ): Leaflet.Marker {
+    const L = this.L!;
+    const hit = Math.max(HIT, d);
+    return L.marker(ll, {
+      icon: L.divIcon({
+        className,
+        html: ctl,
+        iconSize: [hit, hit],
+        iconAnchor: [hit / 2, hit / 2],
+      }),
+      keyboard: false,
+      // Smaller dots above larger ones.
+      zIndexOffset: (MAX_DOT - d) * 10,
+    });
+  }
+
+  /** The control inside a marker: its dot (with `text`, for a group) and its hidden name. */
+  private makeControl(tag: 'a' | 'button', d: number, label: string, text = ''): HTMLElement {
+    const doc = this.ownerDocument;
+    const ctl = doc.createElement(tag);
+    if (ctl instanceof HTMLButtonElement) ctl.type = 'button';
+    ctl.className = 'marker';
+    ctl.style.setProperty('--d', `${d}px`);
+    const dot = doc.createElement('span');
+    dot.className = 'dot';
+    dot.setAttribute('aria-hidden', 'true');
+    dot.textContent = text;
+    const name = doc.createElement('span');
+    name.className = 'visually-hidden';
+    name.textContent = label;
+    ctl.append(dot, name);
+    return ctl;
+  }
+
+  /** One marker per place, not yet on the map: `regroup()` adds the ones not in a group. */
   private drawMarkers(): void {
     const { L, map } = this;
     if (!L || !map) return;
     for (const m of this.markers) m?.remove();
+    for (const g of this.groups.values()) g.marker.remove();
+    this.groups.clear();
+    this.groupOf.clear();
+    this.ring = '';
+    this.order = [];
+    this.activeIcon = undefined;
     const places = this.places;
     this.drawn = places;
-    const max = Math.max(0, ...places.map((p) => (Number.isFinite(p.count) ? p.count! : 0)));
-    const doc = this.ownerDocument;
+    this.maxCount = Math.max(0, ...places.map(countOf));
+    this.dots = places.map((p) => this.dotSize(p.count, this.maxCount));
     this.markers = places.map((p, i) => {
       if (!validPlace(p)) return undefined;
-      const d = this.dotSize(p.count, max);
-      const hit = Math.max(HIT, d);
+      const d = this.dots[i]!;
       const href = this.href(p);
-      const ctl = doc.createElement(href ? 'a' : 'button');
+      const ctl = this.makeControl(href ? 'a' : 'button', d, this.placeName(p));
       if (ctl instanceof HTMLAnchorElement) ctl.href = href!;
-      else (ctl as HTMLButtonElement).type = 'button';
-      ctl.className = 'marker';
       ctl.dataset.index = String(i);
-      ctl.style.setProperty('--d', `${d}px`);
-      const dot = doc.createElement('span');
-      dot.className = 'dot';
-      dot.setAttribute('aria-hidden', 'true');
-      const name = doc.createElement('span');
-      name.className = 'visually-hidden';
-      name.textContent = this.placeName(p);
-      ctl.append(dot, name);
-      const marker = L.marker([p.lat, p.lng], {
-        icon: L.divIcon({
-          className: 'uvalib-map-marker',
-          html: ctl,
-          iconSize: [hit, hit],
-          iconAnchor: [hit / 2, hit / 2],
-        }),
-        keyboard: false,
-        // Smaller dots above larger ones, so every one stays reachable by pointer.
-        zIndexOffset: (MAX_DOT - d) * 10,
-      });
-      marker.on('mouseover', () => this.hover(i));
-      return marker.addTo(map);
+      const marker = this.makeMarker([p.lat, p.lng], ctl, d, 'uvalib-map-marker');
+      marker.on('mouseover', () => this.hover(String(i)));
+      return marker;
     });
-    this.hoverIndex = -1;
-    this.focusIndex = -1;
-    if (this.active !== -1) this.active = -1;
+    this.hoverKey = '';
+    this.focusKey = '';
+    if (this.active) this.active = '';
+  }
+
+  /**
+   * Greedy screen-space grouping at `zoom`: largest count first, each place takes every
+   * later one whose hit area (plus GROUP_GAP) would overlap its own; then groups whose larger
+   * markers now overlap merge, until none do. Each group's largest place comes first.
+   */
+  private cluster(idx: number[], zoom: number): number[][] {
+    const map = this.map!;
+    const places = this.places;
+    const byCount = (a: number, b: number) => countOf(places[b]) - countOf(places[a]) || a - b;
+    const pt = new Map(idx.map((i) => [i, map.project([places[i]!.lat, places[i]!.lng], zoom)]));
+    const clash = (a: number[], b: number[]) => {
+      const p = pt.get(a[0]!)!;
+      const q = pt.get(b[0]!)!;
+      const t = (this.hitOf(a) + this.hitOf(b)) / 2 + GROUP_GAP;
+      return Math.abs(p.x - q.x) < t && Math.abs(p.y - q.y) < t;
+    };
+    const sorted = [...idx].sort(byCount);
+    const out: number[][] = [];
+    const taken = new Set<number>();
+    for (const i of sorted) {
+      if (taken.has(i)) continue;
+      const c = [i];
+      taken.add(i);
+      for (const j of sorted)
+        if (!taken.has(j) && clash([i], [j])) {
+          c.push(j);
+          taken.add(j);
+        }
+      out.push(c);
+    }
+    for (let merged = true; merged;) {
+      merged = false;
+      for (let a = 0; a < out.length && !merged; a++)
+        for (let b = a + 1; b < out.length && !merged; b++)
+          if (clash(out[a]!, out[b]!)) {
+            out[a] = [...out[a]!, ...out[b]!].sort(byCount);
+            out.splice(b, 1);
+            merged = true;
+          }
+    }
+    return out;
+  }
+
+  private makeGroup(key: string, members: number[]): MapGroup {
+    const p = this.places;
+    const lead = p[members[0]!]!;
+    const sum = members.reduce((s, i) => s + countOf(p[i]), 0);
+    const counted = members.some((i) => Number.isFinite(p[i]!.count));
+    const d = this.groupDot(sum);
+    const name = this.groupName(members);
+    const ctl = this.makeControl(
+      'button',
+      d,
+      counted ? `${name}, ${this.countText(sum)}` : name,
+      String(members.length),
+    );
+    ctl.dataset.group = key;
+    const marker = this.makeMarker([lead.lat, lead.lng], ctl, d, 'uvalib-map-marker is-group');
+    marker.on('mouseover', () => this.hover(`g:${key}`));
+    return { key, members, marker, ctl, d, sum, counted };
+  }
+
+  /** The marker control that has focus, if any. */
+  private focusedControl(): HTMLElement | null {
+    const r = this.renderRoot;
+    const a = r instanceof ShadowRoot ? r.activeElement : this.ownerDocument.activeElement;
+    const ctl = a?.closest?.('.marker') as HTMLElement | null;
+    return ctl && this.container?.contains(ctl) ? ctl : null;
+  }
+
+  /**
+   * Group the markers whose hit areas would overlap at the current zoom, show one marker
+   * per group (and the ring's places, when one is open), keep the markers' document order
+   * the keyboard order, and give focus back if its marker went.
+   */
+  private regroup(): void {
+    const { map } = this;
+    if (!map || !(map as unknown as { _loaded?: boolean })._loaded) return;
+    const had = this.focusedControl();
+    const hadKey = had ? this.keyOf(had) : '';
+    const lead = hadKey.startsWith('g:')
+      ? (this.groups.get(hadKey.slice(2))?.members[0] ?? -1)
+      : hadKey
+        ? Number(hadKey)
+        : -1;
+    const idx = this.markers.flatMap((m, i) => (m ? [i] : []));
+    const groups = new Map<string, MapGroup>();
+    this.groupOf.clear();
+    for (const c of this.cluster(idx, map.getZoom())) {
+      if (c.length < 2) continue;
+      const key = [...c].sort((a, b) => a - b).join(',');
+      groups.set(key, this.groups.get(key) ?? this.makeGroup(key, c));
+      for (const i of c) this.groupOf.set(i, key);
+    }
+    for (const [key, g] of this.groups) if (!groups.has(key)) g.marker.remove();
+    if (this.ring && !groups.has(this.ring)) this.unring();
+    this.groups = groups;
+
+    // The visible markers, by the first place in each; a ring's places follow its group.
+    const spots: { first: number; list: { marker: Leaflet.Marker; ctl: HTMLElement }[] }[] = [];
+    const shown = new Set<number>();
+    for (const i of idx)
+      if (!this.groupOf.has(i)) {
+        shown.add(i);
+        spots.push({ first: i, list: [this.spot(i)] });
+      }
+    for (const g of groups.values()) {
+      const list = [{ marker: g.marker, ctl: g.ctl }];
+      if (this.ring === g.key)
+        for (const i of g.members) {
+          shown.add(i);
+          list.push(this.spot(i));
+        }
+      spots.push({ first: Number(g.key.split(',')[0]), list });
+    }
+    spots.sort((a, b) => a.first - b.first);
+    const added = new Set<HTMLElement>();
+    for (const i of idx) {
+      const m = this.markers[i]!;
+      if (shown.has(i) && !map.hasLayer(m)) {
+        m.addTo(map);
+        added.add(m.getElement()!);
+      } else if (!shown.has(i) && map.hasLayer(m)) m.remove();
+    }
+    for (const g of groups.values())
+      if (!map.hasLayer(g.marker)) {
+        g.marker.addTo(map);
+        added.add(g.marker.getElement()!);
+      }
+    const flat = spots.flatMap((s) => s.list);
+    // Move only the markers just added, so a focused one is never moved.
+    const els = flat.map((s) => s.marker.getElement()!);
+    for (let k = els.length - 2; k >= 0; k--) if (added.has(els[k]!)) els[k + 1]!.before(els[k]!);
+    this.order = flat.map((s) => s.ctl);
+    for (const g of groups.values())
+      if (this.ring === g.key) g.ctl.setAttribute('aria-expanded', 'true');
+      else g.ctl.removeAttribute('aria-expanded');
+
+    if (had && !had.isConnected && lead >= 0) {
+      const to = shown.has(lead)
+        ? this.spot(lead).ctl
+        : groups.get(this.groupOf.get(lead) ?? '')?.ctl;
+      to?.focus({ preventScroll: true });
+    }
+    // A group hovered or focused that is gone highlights nothing.
+    const gone = (k: string) => k.startsWith('g:') && !groups.has(k.slice(2));
+    if (gone(this.hoverKey)) this.hoverKey = '';
+    if (gone(this.focusKey)) this.focusKey = '';
+    this.syncActive();
+    this.showActive();
+  }
+
+  private spot(i: number): { marker: Leaflet.Marker; ctl: HTMLElement } {
+    const marker = this.markers[i]!;
+    const html = (marker.options.icon as Leaflet.DivIcon).options.html as HTMLElement;
+    return { marker, ctl: html };
+  }
+
+  /** The first zoom (in zoomSnap steps, up to the maximum) at which a group's places part. */
+  private splitZoom(members: number[]): number | undefined {
+    const map = this.map!;
+    const step = map.options.zoomSnap || 1;
+    const max = map.getMaxZoom();
+    for (let z = map.getZoom() + step; z <= max + 1e-9; z += step)
+      if (this.cluster(members, z).length > 1) return z;
+    return undefined;
+  }
+
+  /** A group chosen: zoom in until its places part, or (when they cannot) spread them in a ring. */
+  private expand(key: string): void {
+    const { L, map } = this;
+    const g = this.groups.get(key);
+    if (!L || !map || !g) return;
+    if (this.ring === key) {
+      this.unring();
+      this.regroup();
+      return;
+    }
+    trackEvent(this, [TAG, 'expand', this.label, g.members.length]);
+    const z = this.splitZoom(g.members);
+    if (z === undefined) {
+      this.spread(g);
+      return;
+    }
+    const bounds = L.latLngBounds(
+      g.members.map((i) => [this.places[i]!.lat, this.places[i]!.lng] as [number, number]),
+    );
+    map.setView(bounds.getCenter(), z, { animate: !this.reduceMotion });
+  }
+
+  /**
+   * Spread a group's places in a ring around it, far enough apart that each 44px target
+   * keeps 24px from its neighbours and from the group's own marker; focus the first.
+   */
+  private spread(g: MapGroup): void {
+    const map = this.map!;
+    if (this.ring) this.unring();
+    const z = map.getZoom();
+    const c = map.project(g.marker.getLatLng(), z);
+    const h = Math.max(...g.members.map((i) => Math.max(HIT, this.dots[i] ?? MIN_DOT)));
+    const n = g.members.length;
+    // Square hit areas: centres √2 × (size + gap) apart are clear in every direction.
+    const r = Math.ceil(
+      Math.max(
+        ((h + GAP) * Math.SQRT2) / (2 * Math.sin(Math.PI / n)),
+        ((Math.max(HIT, g.d) + h) / 2 + GAP) * Math.SQRT2,
+      ),
+    );
+    g.members.forEach((i, k) => {
+      const a = -Math.PI / 2 + (2 * Math.PI * k) / n;
+      this.markers[i]!.setLatLng(map.unproject(c.add([r * Math.cos(a), r * Math.sin(a)]), z));
+    });
+    this.ring = g.key;
+    this.regroup();
+    const size = map.getSize();
+    const pad = r + h / 2 + 8;
+    const at = map.latLngToContainerPoint(g.marker.getLatLng());
+    if (at.x < pad || at.y < pad || at.x > size.x - pad || at.y > size.y - pad)
+      map.panTo(g.marker.getLatLng(), { animate: !this.reduceMotion });
+    this.spot(g.members[0]!).ctl.focus();
+  }
+
+  /** Put a ring's places back on their own point (the next regroup hides them). */
+  private unring(): void {
+    const g = this.groups.get(this.ring);
+    for (const i of g?.members ?? []) {
+      const p = this.places[i];
+      if (p) this.markers[i]?.setLatLng([p.lat, p.lng]);
+    }
+    this.ring = '';
   }
 
   /** Open on `center`/`zoom`, else on the places' bounds, else on Grounds. */
@@ -799,72 +1166,100 @@ export class UvalibMap extends UvalibElement {
     });
   }
 
-  private markerEl(i: number): HTMLElement | undefined {
-    return this.markers[i]?.getElement();
+  /** The marker on the map for a target ("3" a place, "g:1,3" a group): a place's own, or its group's. */
+  private markerFor(key: string): { marker: Leaflet.Marker; group?: MapGroup } | undefined {
+    if (key.startsWith('g:')) {
+      const g = this.groups.get(key.slice(2));
+      return g && { marker: g.marker, group: g };
+    }
+    const i = Number(key);
+    const m = this.markers[i];
+    if (!m || !this.map) return undefined;
+    if (this.map.hasLayer(m)) return { marker: m };
+    const g = this.groups.get(this.groupOf.get(i) ?? '');
+    return g && { marker: g.marker, group: g };
   }
 
-  private hover(i: number): void {
-    this.hoverIndex = i;
+  private hover(key: string): void {
+    this.hoverKey = key;
     this.dismissed = false;
     this.syncActive();
   }
 
-  /** The highlighted place: the one hovered, else the one focused (none after Escape). */
+  /** The highlighted target: the one hovered, else the one focused (none after Escape). */
   private syncActive(): void {
-    this.active = this.dismissed ? -1 : this.hoverIndex >= 0 ? this.hoverIndex : this.focusIndex;
+    this.active = this.dismissed ? '' : this.hoverKey || this.focusKey;
   }
 
-  /** Highlight the active place's marker and show its tooltip (after a render). */
-  private showActive(prev: number | undefined): void {
+  /**
+   * Highlight the active target's marker (a place inside a group highlights the group) and
+   * show its tooltip: the name and count, and for a place in a group, how many share it.
+   */
+  private showActive(): void {
     const { map, tooltip } = this;
     if (!map || !tooltip) return;
-    if (prev !== undefined && prev >= 0) {
-      this.markerEl(prev)?.classList.remove('is-active');
-      const d = this.markerDot(prev);
-      this.markers[prev]?.setZIndexOffset((MAX_DOT - d) * 10);
+    const prev = this.activeIcon;
+    if (prev) {
+      prev.marker.getElement()?.classList.remove('is-active');
+      prev.marker.setZIndexOffset(prev.z);
+      this.activeIcon = undefined;
     }
-    const i = this.active;
-    const marker = this.markers[i];
-    const p = this.places[i];
-    if (i < 0 || !marker || !p) {
+    const key = this.active;
+    const spot = key ? this.markerFor(key) : undefined;
+    const el = spot?.marker.getElement();
+    if (!spot || !el) {
       tooltip.remove();
       return;
     }
-    this.markerEl(i)?.classList.add('is-active');
-    marker.setZIndexOffset(10000);
-    const content = this.ownerDocument.createElement('span');
-    const name = this.ownerDocument.createElement('span');
+    const g = spot.group;
+    const own = spot.marker === this.markers[Number(key)];
+    const d = own ? (this.dots[Number(key)] ?? MIN_DOT) : (g?.d ?? MIN_DOT);
+    el.classList.add('is-active');
+    this.activeIcon = { marker: spot.marker, z: (MAX_DOT - d) * 10 };
+    spot.marker.setZIndexOffset(10000);
+    const doc = this.ownerDocument;
+    const content = doc.createElement('span');
+    const name = doc.createElement('span');
     name.className = 'tip-name';
-    name.textContent = p.name;
     content.append(name);
-    if (p.count !== undefined) content.append(this.countText(p.count));
-    const size = Math.max(HIT, this.markerDot(i));
+    if (key.startsWith('g:') && g) {
+      name.textContent = this.groupName(g.members);
+      if (g.counted) content.append(this.countText(g.sum));
+    } else {
+      const p = this.places[Number(key)]!;
+      name.textContent = p.name;
+      if (p.count !== undefined) content.append(this.countText(p.count));
+      if (g) {
+        const note = doc.createElement('span');
+        note.className = 'tip-note';
+        note.textContent = `One of ${fmt(g.members.length)} ${this.placeLabel || 'places'} here`;
+        content.append(note);
+      }
+    }
+    const size = Math.max(HIT, d);
     tooltip.options.offset = [0, -Math.round(size * 0.6)];
-    tooltip.setLatLng(marker.getLatLng()).setContent(content);
+    tooltip.setLatLng(spot.marker.getLatLng()).setContent(content);
     if (!map.hasLayer(tooltip)) tooltip.addTo(map);
     else tooltip.update();
   }
 
-  private markerDot(i: number): number {
-    const d = parseFloat(
-      this.markerEl(i)?.querySelector<HTMLElement>('.marker')?.style.getPropertyValue('--d') ?? '',
-    );
-    return Number.isFinite(d) ? d : MIN_DOT;
-  }
-
-  /** Bring a place into view (on focus), without animation under reduced motion. */
-  private reveal(i: number): void {
+  /** Bring a target's marker into view (on focus), without animation under reduced motion. */
+  private reveal(key: string): void {
     const { map } = this;
-    const marker = this.markers[i];
-    if (!map || !marker) return;
-    const ll = marker.getLatLng();
+    const spot = this.markerFor(key);
+    if (!map || !spot) return;
+    const ll = spot.marker.getLatLng();
     if (!map.getBounds().pad(-0.15).contains(ll)) map.panTo(ll, { animate: !this.reduceMotion });
   }
 
-  private indexOf(e: Event): number {
-    const t = e.target as Element | null;
-    const ctl = t?.closest?.('.marker') as HTMLElement | null;
-    return ctl ? Number(ctl.dataset.index) : -1;
+  /** "3" for a place's marker, "g:1,3" for a group's. */
+  private keyOf(ctl: HTMLElement): string {
+    return ctl.dataset.group !== undefined ? `g:${ctl.dataset.group}` : (ctl.dataset.index ?? '');
+  }
+
+  private targetOf(e: Event): string {
+    const ctl = (e.target as Element | null)?.closest?.('.marker') as HTMLElement | null;
+    return ctl ? this.keyOf(ctl) : '';
   }
 
   private onMapClick = (e: MouseEvent) => {
@@ -873,15 +1268,21 @@ export class UvalibMap extends UvalibElement {
       this.queueZoomReport();
       return;
     }
-    const i = this.indexOf(e);
-    const p = this.places[i];
-    if (i < 0 || !p) return;
+    const key = this.targetOf(e);
+    if (!key) return;
     // The end of a drag that started on a marker is not a choice (a key press always is).
     const drag = this.map?.dragging as unknown as { moved?: () => boolean } | undefined;
     if (e.detail !== 0 && drag?.moved?.()) {
       e.preventDefault();
       return;
     }
+    if (key.startsWith('g:')) {
+      this.expand(key.slice(2));
+      return;
+    }
+    const i = Number(key);
+    const p = this.places[i];
+    if (!p) return;
     trackEvent(this, [TAG, 'select', this.label, i + 1]);
     const go = this.dispatchEvent(
       new CustomEvent('select', {
@@ -910,15 +1311,28 @@ export class UvalibMap extends UvalibElement {
       (t.closest('a') as HTMLElement).click();
       return;
     }
-    const i = this.indexOf(e);
-    if (i < 0) return;
-    const order = this.markers.flatMap((m, j) => (m ? [j] : []));
-    const at = order.indexOf(i);
-    let next = -1;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = order[at + 1] ?? -1;
-    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = order[at - 1] ?? -1;
-    else if (e.key === 'Home') next = order[0] ?? -1;
-    else if (e.key === 'End') next = order[order.length - 1] ?? -1;
+    const ctl = t.closest?.('.marker') as HTMLElement | null;
+    if (!ctl) return;
+    // Escape in a ring (on its places or its group) closes it; focus goes to the group.
+    if (e.key === 'Escape' && this.ring) {
+      const key = this.keyOf(ctl);
+      const g = this.groups.get(this.ring);
+      if (g && (key === `g:${g.key}` || g.members.includes(Number(key)))) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.unring();
+        this.regroup();
+        return;
+      }
+    }
+    const order = this.order;
+    const at = order.indexOf(ctl);
+    let next: HTMLElement | undefined;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = order[at + 1];
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp')
+      next = at > 0 ? order[at - 1] : undefined;
+    else if (e.key === 'Home') next = order[0];
+    else if (e.key === 'End') next = order[order.length - 1];
     else if (e.key === ' ' && t.localName === 'a') {
       // A link marker is a control here: Space chooses it, like Enter.
       e.preventDefault();
@@ -927,54 +1341,54 @@ export class UvalibMap extends UvalibElement {
     } else return;
     e.preventDefault();
     e.stopPropagation();
-    if (next >= 0) {
-      this.reveal(next);
-      this.markerEl(next)?.querySelector<HTMLElement>('.marker')?.focus();
+    if (next) {
+      this.reveal(this.keyOf(next));
+      next.focus();
     }
   };
 
   private onMapFocusIn = (e: FocusEvent) => {
-    const i = this.indexOf(e);
-    if (i < 0) return;
-    this.focusIndex = i;
+    const key = this.targetOf(e);
+    if (!key) return;
+    this.focusKey = key;
     this.dismissed = false;
-    this.reveal(i);
+    this.reveal(key);
     this.syncActive();
   };
 
   private onMapFocusOut = (e: FocusEvent) => {
-    if (this.indexOf(e) < 0) return;
+    if (!this.targetOf(e)) return;
     const to = e.relatedTarget as Element | null;
     if (to?.closest?.('.marker')) return; // the next marker's focusin sets it
-    this.focusIndex = -1;
+    this.focusKey = '';
     this.syncActive();
   };
 
   private onMapLeave = () => {
-    this.hoverIndex = -1;
+    this.hoverKey = '';
     this.syncActive();
   };
 
   private onPlaceEnter(i: number): void {
-    this.hover(i);
+    this.hover(String(i));
   }
 
   private onPlaceLeave(): void {
-    this.hoverIndex = -1;
+    this.hoverKey = '';
     this.syncActive();
   }
 
   private onPlaceFocusIn(i: number): void {
-    this.focusIndex = i;
+    this.focusKey = String(i);
     this.dismissed = false;
-    this.reveal(i);
+    this.reveal(String(i));
     this.syncActive();
   }
 
   private onPlaceFocusOut(e: FocusEvent): void {
     const to = e.relatedTarget as Element | null;
     if (to?.closest?.('.place')) return;
-    this.focusIndex = -1;
+    this.focusKey = '';
     this.syncActive();
   }
 
@@ -987,6 +1401,11 @@ export class UvalibMap extends UvalibElement {
   override render() {
     const places = this.places;
     const label = this.label.trim() || 'Places';
+    // A list entry is highlighted with its place, or with its group.
+    const a = this.active;
+    const lit = new Set(
+      a.startsWith('g:') ? a.slice(2).split(',').map(Number) : a ? [Number(a)] : [],
+    );
     const listId = `${this.uid}-list`;
     const map = this.hasLeaflet
       ? html`<a class="skip-link" href="#${listId}" @click=${this.skipToList}
@@ -1013,7 +1432,7 @@ export class UvalibMap extends UvalibElement {
         ${places.map((p, i) => {
           const href = this.href(p);
           return html`<li
-            class=${i === this.active ? 'place is-active' : 'place'}
+            class=${lit.has(i) ? 'place is-active' : 'place'}
             part="place"
             @mouseenter=${() => this.onPlaceEnter(i)}
             @mouseleave=${() => this.onPlaceLeave()}
