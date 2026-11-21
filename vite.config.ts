@@ -33,6 +33,8 @@ const tags = [
   'uvalib-combobox',
   'uvalib-image-regions',
   'uvalib-map',
+  'uvalib-filter-drawer',
+  'uvalib-back-to-top',
 ];
 
 // Library mode, ES output: one self-contained entry per component, with Lit and shared

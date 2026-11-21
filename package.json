@@ -163,6 +163,14 @@
       "types": "./dist/components/uvalib-map/uvalib-map.d.ts",
       "default": "./dist/components/uvalib-map/uvalib-map.js"
     },
+    "./uvalib-filter-drawer.js": {
+      "types": "./dist/components/uvalib-filter-drawer/uvalib-filter-drawer.d.ts",
+      "default": "./dist/components/uvalib-filter-drawer/uvalib-filter-drawer.js"
+    },
+    "./uvalib-back-to-top.js": {
+      "types": "./dist/components/uvalib-back-to-top/uvalib-back-to-top.d.ts",
+      "default": "./dist/components/uvalib-back-to-top/uvalib-back-to-top.js"
+    },
     "./tokens.css": "./dist/tokens.css",
     "./base.css": "./dist/base.css",
     "./pagefind.css": "./dist/pagefind.css",
