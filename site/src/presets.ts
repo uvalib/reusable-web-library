@@ -739,7 +739,7 @@ site-footer footer {
     group: 'Chips',
     title: 'Year rail, sort and suggestions',
     description:
-      'Three uvalib-chip-group modes. A year rail (mode="single", the default): radios drawn as chips in a radio group named by label, one row that scrolls sideways (scroll), each count read as part of the name ("2005, 461 shoots", from count-label). Tab enters at the selected year and the arrow keys move and select. A sort toggle (segmented): the same radios joined into one bar. Category filters (mode="multi"): toggle buttons with aria-pressed and an array value. Suggestions (mode="links"): plain links that fire a cancelable select. A selected chip is filled and ticked, never colour alone. Each fires change with { value }; the line under the rail shows it. url-param="year" would keep the year in the address.',
+      'Three uvalib-chip-group modes. A year rail (mode="single", the default): radios drawn as chips in a radio group named by label, one row that scrolls sideways (scroll), each count read as part of the name ("2005, 461 shoots", from count-label). Tab enters at the selected year and the arrow keys move and select. A sort toggle (segmented): the same radios joined into one bar. Category filters (mode="multi"): toggle buttons with aria-pressed and an array value. Suggestions (mode="links"): plain links that fire a cancelable select. A colour key (data-swatch): the category chips with a decorative colour square each, as the legend of a chart or map; the name stays the label. A selected chip is filled and ticked, never colour alone. Each fires change with { value }; the line under the rail shows it. url-param="year" would keep the year in the address.',
     files: {
       'index.html': {
         content: page({
@@ -774,6 +774,14 @@ site-footer footer {
         <button value="architecture" data-count="14">Architecture</button>
         <button value="sports" data-count="21">Sports</button>
         <button value="people" data-count="6">People</button>
+      </uvalib-chip-group>
+      <h2>Photos by category</h2>
+      <p>The chips are the map's colour key: each colour is also named by its label.</p>
+      <uvalib-chip-group mode="multi" label="Map categories" count-label="photos" value="athletics,architecture">
+        <button value="athletics" data-count="4203" data-swatch="#e57200">Athletics</button>
+        <button value="architecture" data-count="1180" data-swatch="#232d4b">Architecture</button>
+        <button value="traditions" data-count="912" data-swatch="#25cad3">Traditions</button>
+        <button value="people" data-count="640" data-swatch="#62bb46">People</button>
       </uvalib-chip-group>
       <h2>Try a search</h2>
       <uvalib-chip-group mode="links" label="Suggested searches">
