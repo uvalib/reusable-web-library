@@ -39,6 +39,10 @@
       "types": "./dist/analytics.d.ts",
       "default": "./dist/analytics.js"
     },
+    "./testing": {
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    },
     "./site-page.js": {
       "types": "./dist/components/site-page/site-page.d.ts",
       "default": "./dist/components/site-page/site-page.js"
@@ -210,9 +214,13 @@
     "lit": "^3.2.0"
   },
   "peerDependencies": {
+    "@axe-core/playwright": "^4.10.0",
     "leaflet": "^1.9.4"
   },
   "peerDependenciesMeta": {
+    "@axe-core/playwright": {
+      "optional": true
+    },
     "leaflet": {
       "optional": true
     }

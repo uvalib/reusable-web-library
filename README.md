@@ -1089,6 +1089,34 @@ Three elements show opening hours from the library's own data, for library.virgi
 - **States.** On the first load a polite `role="status"` says "Loading hours…". Later loads keep the current rows on screen (the weekly table gets `aria-busy="true"`) until the new data lands. If the data cannot be loaded the status says "Hours are unavailable right now."; `<library-weekly-hours>` keeps its week header and adds a Retry button, and both elements retry quietly on their timers. Only user actions (the week buttons, Retry) are announced; midnight rollovers and background refreshes are silent. Read the read-only `state` (`loading`, `ready` or `error`) from script. On the first load `<library-weekly-hours>` draws its rows straight away (Building hours and each space, as soon as the library list is in) with invisible placeholder hours, so the table has its final height in the page's own font and nothing below it moves when the hours arrive. `--library-weekly-hours-min-height` can reserve space even before the library list is in (it applies while the element has a `loading` attribute), and `library-weekly-hours:not(:defined) { display: block; min-height: … }` before it upgrades. `<site-hours-section>` has `--site-hours-list-min-height` for the same purpose.
 - **Harrison special case.** `<library-hours-setup>` adds `hide-building-hours` to `library-slug="harrison"`: Harrison's building calendar (LibCal 4114) is also the calendar of its own "Harrison/Small Building & Exhibitions" space, so the building row would repeat it.
 - **Light DOM output** keeps the class names Drupal's CSS targets (`home-hours-block`, `hours-locations`, `weekly-hours-header-section`, `weekly-hours-body-section`, `date--mobile`, `lib-space-link`, …). `<library-weekly-hours>` keeps a few layout rules even with `no-style` (the host is `display: block`, the week header is a flex row, `[hidden]` hides), scoped to the tag in `@layer uvalib`. `headinglevelstart` is still read as an alias of `heading-level`. With neither set, the week heading's `aria-level` is one below the nearest heading before the element in the page (3 under each library's `<h2>` on /hours), or 2 when there is none, while its class stays `heading-h2`, the one the library website's CSS styles; set `heading-level` to override both. `<site-hours-section>` does not infer its level: on the home page it sits in a side column after another section's cards, where the heading before it in the page is not its parent, so it keeps its explicit default.
+- **Testing a site's analytics and accessibility.** `@uvalib/web-components/testing` (npm only, for Playwright; not on the CDN) has the helpers library sites share: `stubMatomo(page, { siteId? })` (call it before `page.goto`: `…/matomo.js` gets an empty script and `…/matomo.php` a 204, so nothing reaches Matomo, and `siteId` becomes the `matomo-id` of each `<site-page>` without one), `matomoQueue(page)` (a copy of `window._paq`: the page views, site searches and events, in order), `waitForUpgrade(page, { selector?, timeout? })` (every `<site-page>`, or `selector`, defined and rendered), `strictAxe(page, { include?, exclude?, AxeBuilder? })` (axe after `waitForUpgrade`, with `LIGHTHOUSE_RULES` forced on and the WCAG 2.x A/AA and best-practice tags `STRICT_AXE_TAGS`; it needs the optional peer dependency `@axe-core/playwright`, loaded only when it runs) and `formatViolations(violations)` (one line each). See [accessibility testing](skills/uvalib-web-components/reference/accessibility-testing.md).
+
+  ```js
+  import { test, expect } from '@playwright/test';
+  import { stubMatomo, matomoQueue, waitForUpgrade } from '@uvalib/web-components/testing';
+
+  test('a search is one site search', async ({ page }) => {
+    await stubMatomo(page, { siteId: 42 });
+    await page.goto('./search/');
+    await waitForUpgrade(page);
+    await page.getByLabel('Search').fill('rotunda');
+    await page.getByRole('button', { name: 'Search' }).click();
+    await expect
+      .poll(async () => (await matomoQueue(page)).filter((c) => c[0] === 'trackSiteSearch'))
+      .toEqual([['trackSiteSearch', 'rotunda', 'Keyword', 4]]);
+  });
+
+  test('Do Not Track sends nothing', async ({ page }) => {
+    await page.addInitScript(() =>
+      Object.defineProperty(Navigator.prototype, 'doNotTrack', { get: () => '1' }),
+    );
+    await stubMatomo(page, { siteId: 42 });
+    await page.goto('./');
+    await waitForUpgrade(page);
+    expect(await matomoQueue(page)).toEqual([]);
+  });
+  ```
+
 - **Drupal switch.** Replace the old `…/web-components/cdn-vX.Y.Z/@uvalib/site-hours/<file>.js` script URLs with `https://unpkg.internal.lib.virginia.edu/web-components/v1/<tag>.js` (`site-hours-section.js` on the home page, `library-hours-setup.js` on /hours). The markup stays the same. `library-daily-hours` is not migrated.
 
 ## Library events

@@ -227,6 +227,8 @@ For the host page's own content, tag the clickable element (or a wrapper) with `
 
 A page with its own search UI (not `<bento-box>` or `<uvalib-pagefind-search>`, which report their own) sends site searches with `createSearchTracker()` from `analytics.js` (CDN `…/web-components/v1/analytics.js`, npm `@uvalib/web-components/analytics.js`), never with hand-written timers or `trackSearch` calls: `typed()` for search-as-you-type (sent after a 1 s pause), `settled()` when a submitted search's results arrive, `restored()` for a query from the URL or Back/Forward (not sent), `cancel()` on a clear or an error; always pass the result `count` (0 included) and a fixed `category`. It never sends the same search twice in a row; see the README's "Analytics".
 
+To test a site's pages in Playwright, use `@uvalib/web-components/testing` (npm, dev dependency) rather than copying setup: `strictAxe(page)` with `formatViolations` for accessibility (see [reference/accessibility-testing.md](reference/accessibility-testing.md)), and `stubMatomo(page, { siteId })` with `matomoQueue(page)` to check page views, site searches and events without reaching Matomo.
+
 To opt out: `no-analytics` on an element (or any ancestor) silences it and everything inside; `<html data-uvalib-analytics="off">` turns analytics off for the whole page (no Matomo, no page view, no events). Browsers that send Do Not Track or Global Privacy Control get no Matomo at all, with nothing to configure.
 
 A page with a breadcrumb trail (between the header and `<main>`):
