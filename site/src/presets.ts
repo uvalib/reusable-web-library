@@ -14,6 +14,7 @@ export const GROUPS = [
   'Contents',
   'Metadata',
   'Images',
+  'Maps',
   'Search',
   'Hours',
   'Events',
@@ -1142,6 +1143,60 @@ ${[286686, 286687, 286688, 286689].map((id, i) => pageLink(String(id), i + 2)).j
   padding: 0.5rem 0.75rem;
 }
 `,
+      },
+    },
+  },
+  {
+    id: 'places-map',
+    group: 'Maps',
+    title: 'Map: places on Grounds',
+    description:
+      'uvalib-map draws a map over the page\'s own Leaflet (here leaflet.js and leaflet.css 1.9.4 from unpkg, pinned with integrity hashes; the library never bundles Leaflet) with the list of places under it. The places are the child list, so without JavaScript, or without Leaflet, the list is still there. Each marker is a link named like "The Rotunda, 2,702 photos" and sized by its count. Tab or the arrow keys move between markers, Enter follows one, and hovering or focusing a list entry highlights its marker (a ring and a larger dot). A skip link jumps past the map. The tiles are OpenStreetMap\'s, fine for an example but not for a busy page (see the README for a tile source). The counts are made up.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Places on Grounds',
+          components: ['uvalib-map'],
+          head: `
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <script
+      defer
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>`,
+          body: `    <site-page>
+      <h1>Places on Grounds</h1>
+      <p>Photographs in the archive, by the place they show.</p>
+      <uvalib-map id="places" label="Places on Grounds" count-label="photos">
+        <ul>
+          <li><a href="#rotunda" data-lat="38.0356" data-lng="-78.5034" data-count="2702" data-description="The dome and its Dome Room, from 1826.">The Rotunda</a></li>
+          <li><a href="#lawn" data-lat="38.0322" data-lng="-78.5045" data-count="1890" data-description="The pavilions, the gardens and the student rooms.">The Lawn</a></li>
+          <li><a href="#alderman" data-lat="38.0367" data-lng="-78.5055" data-count="640">Alderman Library</a></li>
+          <li><a href="#brooks" data-lat="38.0361" data-lng="-78.5007" data-count="85">Brooks Hall</a></li>
+          <li><a href="#fralin" data-lat="38.0384" data-lng="-78.5027" data-count="120">The Fralin Museum of Art</a></li>
+          <li><a href="#carrs-hill" data-lat="38.0393" data-lng="-78.507" data-count="48">Carr's Hill</a></li>
+          <li><a href="#memorial-gym" data-lat="38.0372" data-lng="-78.5099" data-count="330">Memorial Gymnasium</a></li>
+          <li><a href="#clark" data-lat="38.0327" data-lng="-78.5087" data-count="210">Clark Hall</a></li>
+          <li><a href="#scott-stadium" data-lat="38.0311" data-lng="-78.5137" data-count="1150" data-description="Football, and Final Exercises in May.">Scott Stadium</a></li>
+          <li><a href="#hospital" data-lat="38.0314" data-lng="-78.499" data-count="96">University Hospital</a></li>
+        </ul>
+      </uvalib-map>
+      <p id="chosen" role="status"></p>
+    </site-page>
+    <script type="module">
+      // Each marker and list entry links to the place (#rotunda here). select fires for a
+      // marker first; call preventDefault() on it to stay on the page.
+      document.querySelector('#places').addEventListener('select', (e) => {
+        document.querySelector('#chosen').textContent = 'You chose ' + e.detail.item.name + '.';
+      });
+    </script>`,
+        }),
       },
     },
   },

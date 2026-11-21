@@ -55,6 +55,7 @@ describe('playground presets', function () {
       'photo-grid',
       'photo-grid-badges',
       'page-images',
+      'places-map',
       'search-facets',
       'search-results',
       'pagefind-search',
@@ -79,6 +80,7 @@ describe('playground presets', function () {
       'Contents',
       'Metadata',
       'Images',
+      'Maps',
       'Search',
       'Hours',
       'Events',
@@ -123,6 +125,7 @@ describe('playground presets', function () {
       Contents: ['contents-sidebar'],
       Metadata: ['record-metadata'],
       Images: ['photo-grid', 'photo-grid-badges', 'page-images'],
+      Maps: ['places-map'],
       Search: [
         'search-facets',
         'search-results',
@@ -347,6 +350,59 @@ describe('playground presets', function () {
       iframe.remove();
     }
   });
+
+  for (const width of [1000, 400]) {
+    it(`places-map: Leaflet from the (stubbed) CDN draws the markers, linked to the list, and the page passes axe at ${width}px`, async () => {
+      const p = presets.find((x) => x.id === 'places-map')!;
+      const html = p.files['index.html']!.content;
+      // A pinned Leaflet with integrity hashes, before the components' module scripts.
+      expect(html).to.include('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js');
+      expect(html.match(/integrity="sha256-/g)).to.have.length(2);
+      expect(html.indexOf('leaflet.js')).to.be.lessThan(html.indexOf('uvalib-map.js'));
+      const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+      iframe.style.width = `${width}px`;
+      iframe.style.height = '1100px';
+      try {
+        const doc = iframe.contentDocument!;
+        await whenAllDefined(iframe.contentWindow!, ['site-page', 'uvalib-map']);
+        type Map = HTMLElement & { updateComplete: Promise<unknown>; shadowRoot: ShadowRoot };
+        const map = doc.querySelector('#places') as Map;
+        await map.updateComplete;
+        await new Promise((r) => setTimeout(r, 300));
+        const r = map.shadowRoot;
+        expect(r.querySelector('[role="region"]')!.getAttribute('aria-label')).to.equal(
+          'Places on Grounds, map',
+        );
+        const markers = [...r.querySelectorAll<HTMLElement>('.uvalib-map-marker .marker')];
+        expect(markers).to.have.length(10);
+        expect(markers[0]!.textContent).to.equal('The Rotunda, 2,702 photos');
+        const places = [...r.querySelectorAll<HTMLElement>('li.place')];
+        expect(places).to.have.length(10);
+        places[2]!.querySelector('a')!.focus();
+        await map.updateComplete;
+        expect(
+          r.querySelectorAll('.uvalib-map-marker')[2]!.classList.contains('is-active'),
+        ).to.equal(true);
+        places[2]!.querySelector('a')!.blur();
+        await map.updateComplete;
+        // Every marker is inside the map at the opening view.
+        const box = r.querySelector('.map')!.getBoundingClientRect();
+        for (const m of markers) {
+          const b = m.getBoundingClientRect();
+          expect(b.left >= box.left && b.right <= box.right, m.textContent!).to.equal(true);
+          expect(b.top >= box.top && b.bottom <= box.bottom, m.textContent!).to.equal(true);
+        }
+        doc.addEventListener('click', (e) => e.preventDefault());
+        markers[8]!.click();
+        expect(doc.querySelector('#chosen')!.textContent).to.equal('You chose Scott Stadium.');
+        expect(countMain(doc)).to.equal(1);
+        await expectNoPageAxeViolations(doc);
+        expect(errors).to.deep.equal([]);
+      } finally {
+        iframe.remove();
+      }
+    }).timeout(15000);
+  }
 
   it('chip-groups: picking a year fires change, and the page passes axe', async () => {
     const p = presets.find((x) => x.id === 'chip-groups')!;
