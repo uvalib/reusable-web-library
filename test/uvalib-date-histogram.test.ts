@@ -726,7 +726,7 @@ describe('uvalib-date-histogram range-for', () => {
     expect(partner.value).to.deep.equal(['2000-01-01', '2020-12-31']);
   });
 
-  it('follows date-range-change and ignores a value set in script', async () => {
+  it('follows date-range-change and a value set in script', async () => {
     const partner = await range(['2015-01-01', '2015-01-31']);
     const el = await fixture<UvalibDateHistogram>(
       `<uvalib-date-histogram range-for="hist-range" unit="photos"></uvalib-date-histogram>`,
@@ -739,7 +739,7 @@ describe('uvalib-date-histogram range-for', () => {
     partner.value = ['2016-02-01', '2016-02-28'];
     await partner.updateComplete;
     await el.updateComplete;
-    expect(el.selected).to.equal('2015-01');
+    expect(el.selected).to.equal('2016-02');
     partner.value = ['2015-01-01', '2015-01-31'];
     await partner.updateComplete;
     const input = (partner.shadowRoot ?? partner).querySelectorAll(
@@ -834,6 +834,94 @@ describe('uvalib-date-histogram range-for', () => {
     input.dispatchEvent(new Event('change', { bubbles: true }));
     await el.updateComplete;
     expect(el.selected).to.equal('2016-02/2016-06');
+  });
+
+  /** The BOV setup in issue #10: a long span, a range set in script, a year chart. */
+  async function bovRange(value: [string, string]) {
+    const el = document.createElement('uvalib-date-range') as UvalibDateRange;
+    el.id = 'hist-range';
+    el.min = '1817-01-01';
+    el.max = '2026-12-31';
+    el.value = value;
+    document.body.append(el);
+    await el.updateComplete;
+    return el;
+  }
+  const BOV = [
+    { date: '1817', count: 2 },
+    { date: '1950', count: 12 },
+    { date: '2026', count: 4 },
+  ];
+
+  it('follows a value set in script, and a reconnect does not write a rounded value back', async () => {
+    const partner = await bovRange(['1900-01-01', '2026-06-06']);
+    const rec = recordAnalytics();
+    const el = await fixture<UvalibDateHistogram>(
+      `<uvalib-date-histogram range-for="hist-range" granularity="year"></uvalib-date-histogram>`,
+    );
+    let fired = false;
+    el.addEventListener('select', () => (fired = true));
+    try {
+      el.items = BOV;
+      await el.updateComplete;
+      expect(el.selected).to.equal('1900/2026');
+      partner.value = ['1817-01-01', '2026-12-31'];
+      await partner.updateComplete;
+      await el.updateComplete;
+      expect(el.selected).to.equal('');
+      expect(bars(el).some((b) => b.getAttribute('aria-pressed') === 'true')).to.equal(false);
+      partner.value = ['1950-03-01', '1950-04-30'];
+      await partner.updateComplete;
+      await el.updateComplete;
+      expect(el.selected).to.equal('1950');
+      expect(partner.value).to.deep.equal(['1950-03-01', '1950-04-30']);
+      const parent = el.parentElement!;
+      el.remove();
+      parent.append(el);
+      await el.updateComplete;
+      expect(partner.value).to.deep.equal(['1950-03-01', '1950-04-30']);
+      expect(el.selected).to.equal('1950');
+      expect(fired).to.equal(false);
+      expect(rec.of('uvalib-analytics-event')).to.have.length(0);
+    } finally {
+      rec.restore();
+    }
+  });
+
+  it('takes a value set while it was detached over its old selected', async () => {
+    const partner = await bovRange(['1900-01-01', '2026-06-06']);
+    const el = await fixture<UvalibDateHistogram>(
+      `<uvalib-date-histogram range-for="hist-range" granularity="year"></uvalib-date-histogram>`,
+    );
+    el.items = BOV;
+    await el.updateComplete;
+    expect(el.selected).to.equal('1900/2026');
+    const parent = el.parentElement!;
+    el.remove();
+    partner.value = ['1817-01-01', '2026-12-31'];
+    await partner.updateComplete;
+    parent.append(el);
+    await el.updateComplete;
+    expect(partner.value).to.deep.equal(['1817-01-01', '2026-12-31']);
+    expect(el.selected).to.equal('');
+    el.remove();
+    partner.value = ['1920-05-05', '1930-01-01'];
+    await partner.updateComplete;
+    parent.append(el);
+    await el.updateComplete;
+    expect(partner.value).to.deep.equal(['1920-05-05', '1930-01-01']);
+    expect(el.selected).to.equal('1920/1930');
+  });
+
+  it('lets a date range that holds a selection win over selected on first connect', async () => {
+    const partner = await bovRange(['1900-01-01', '2026-06-06']);
+    const el = await fixture<UvalibDateHistogram>(
+      `<uvalib-date-histogram range-for="hist-range" granularity="year" selected="1817"></uvalib-date-histogram>`,
+    );
+    el.items = BOV;
+    await el.updateComplete;
+    expect(partner.value).to.deep.equal(['1900-01-01', '2026-06-06']);
+    expect(el.selected).to.equal('1900/2026');
   });
 
   it('leaves a February selection on the 29th in a leap year', async () => {

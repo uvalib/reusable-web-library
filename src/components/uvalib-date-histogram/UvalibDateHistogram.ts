@@ -505,11 +505,13 @@ function tableCaption(text: string): TemplateResult {
  * again clears it (`from` and `to` are empty strings).
  *
  * `range-for` is the id of a `<uvalib-date-range>`. A bar click sets that element's
- * `value`. Its `date-range-change` (and its `value` when this element connects, reconnects,
- * or the range is added later) highlights the buckets that overlap the range. A value
- * that is exactly the range's own `min` and `max` is no selection. Setting `selected`
- * here updates the date range; setting the date range's `value` in script does not,
- * unless this element connects afterwards or the range fires `date-range-change`.
+ * `value`. Whenever the range's value changes, from its controls or set in script (a Clear
+ * button, Back/Forward, a restored URL), this element highlights the buckets that overlap it
+ * (it listens for `uvalib-date-range-value`). A value that is exactly the range's own `min`
+ * and `max` is no selection. On connect or reconnect, or when the range is added later, the
+ * range's value wins when it holds a selection or changed while this element was away;
+ * otherwise `selected` is written to it. A range value is never rounded to whole buckets
+ * and written back. Setting `selected` here updates the date range.
  *
  * `variant="strip"` is the small per-year row for a card: not interactive, `role="img"`,
  * one bar per year whatever `granularity` is.
@@ -641,6 +643,9 @@ export class UvalibDateHistogram extends UvalibElement {
   private ro?: ResizeObserver;
   private observed?: Element;
   private partnerObserver?: MutationObserver;
+  /** The date range's value when this element last read or wrote it, and which range that was. */
+  private lastSeen?: string;
+  private lastSeenEl?: RangePartner;
 
   constructor() {
     super();
@@ -674,19 +679,24 @@ export class UvalibDateHistogram extends UvalibElement {
       );
     }
     this.bindPartner();
+    // A reconnect schedules no update, so take up the date range here.
+    if (this.hasUpdated) {
+      this.seen = true;
+      this.syncOnBind();
+    }
     this.measureOverflow();
     if (!customElements.get('uvalib-date-range')) {
       void customElements.whenDefined('uvalib-date-range').then(() => {
-        if (!this.isConnected || this.selected) return;
+        if (!this.isConnected) return;
         this.bindPartner();
-        this.pullPartner();
+        this.syncOnBind();
       });
     }
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
-    this.partner?.removeEventListener('date-range-change', this.onPartner);
+    this.unlisten(this.partner);
     this.partner = null;
     this.ro?.disconnect();
     this.ro = undefined;
@@ -718,8 +728,7 @@ export class UvalibDateHistogram extends UvalibElement {
     const appeared = this.partner != null && this.partner !== before;
     if (!this.seen || changed.has('rangeFor') || appeared) {
       this.seen = true;
-      if (this.selected) this.pushPartner();
-      else if (!echoing) this.pullPartner();
+      if (!echoing || this.selected) this.syncOnBind();
     } else if (changed.has('selected') && !echoing) {
       this.pushPartner();
     }
@@ -773,9 +782,32 @@ export class UvalibDateHistogram extends UvalibElement {
   private bindPartner(): void {
     const el = this.findPartner();
     if (el === this.partner) return;
-    this.partner?.removeEventListener('date-range-change', this.onPartner);
+    this.unlisten(this.partner);
     this.partner = el;
+    // `uvalib-date-range-value` also covers a `value` set in script; `date-range-change`
+    // is kept for a date range from an older release.
+    el?.addEventListener('uvalib-date-range-value', this.onPartner);
     el?.addEventListener('date-range-change', this.onPartner);
+  }
+
+  private unlisten(el: RangePartner | null): void {
+    el?.removeEventListener('uvalib-date-range-value', this.onPartner);
+    el?.removeEventListener('date-range-change', this.onPartner);
+  }
+
+  /**
+   * On connect, or when the date range appears: the range's value wins when it holds a
+   * selection or changed while this element was away; otherwise `selected` is written to it.
+   */
+  private syncOnBind(): void {
+    const el = this.partner;
+    if (!el) return;
+    const r = this.partnerRange();
+    const changedAway =
+      !!r && this.lastSeenEl === el && this.lastSeen != null && r.join('/') !== this.lastSeen;
+    this.lastSeenEl = el;
+    if (!this.selected || changedAway || (r && !this.isFullSpan(r[0], r[1]))) this.pullPartner();
+    else this.pushPartner();
   }
 
   /** While the named date range is not in the tree yet, take its value when it appears. */
@@ -794,8 +826,7 @@ export class UvalibDateHistogram extends UvalibElement {
       if (!this.partner) return;
       this.partnerObserver?.disconnect();
       this.partnerObserver = undefined;
-      if (this.selected) this.pushPartner();
-      else this.pullPartner();
+      this.syncOnBind();
       this.requestUpdate();
     });
     this.partnerObserver.observe(root, { childList: true, subtree: true });
@@ -817,10 +848,31 @@ export class UvalibDateHistogram extends UvalibElement {
     return from === ends.min && to === ends.max;
   }
 
-  private applyPartnerValue(value: string[] | undefined): void {
-    if (!Array.isArray(value) || value.length < 2) return;
-    const from = value[0] ?? '';
-    const to = value[1] ?? '';
+  /** The date range's value as it shows it: missing ends are `min` / `max`, both clamped to them. */
+  private partnerRange(): [string, string] | null {
+    const el = this.partner;
+    const ends = this.partnerEnds();
+    if (!el || !ends) return null;
+    const value = Array.isArray(el.value) ? el.value : [];
+    const bounded = isIsoDate(ends.min) && isIsoDate(ends.max) && ends.min <= ends.max;
+    const clamp = (iso: string) =>
+      !bounded ? iso : iso < ends.min ? ends.min : iso > ends.max ? ends.max : iso;
+    const a = isIsoDate(value[0]) ? clamp(value[0]) : bounded ? ends.min : '';
+    const b = isIsoDate(value[1]) ? clamp(value[1]) : bounded ? ends.max : '';
+    if (!a || !b) return null;
+    return a <= b ? [a, b] : [b, b];
+  }
+
+  private onPartner = (): void => {
+    this.pullPartner();
+  };
+
+  /** Show the date range's value. A `selected` that already spans it exactly is kept as written. */
+  private pullPartner(): void {
+    const r = this.partnerRange();
+    if (!r) return;
+    this.lastSeen = r.join('/');
+    const [from, to] = r;
     if (this.isFullSpan(from, to)) {
       if (this.selected) {
         this.echo = true;
@@ -828,21 +880,20 @@ export class UvalibDateHistogram extends UvalibElement {
       }
       return;
     }
-    const next = isoToSelected(from, to, this.grain);
+    const cur = this.selected ? parseSelected(this.selected) : null;
+    if (cur && cur.from === from && cur.to === to) return;
+    const next = isoToSelected(from, to, this.grain === 'month' ? 'month' : 'year');
     if (!next || next === this.selected) return;
     this.echo = true;
     this.selected = next;
   }
 
-  private onPartner = (e: Event): void => {
-    this.applyPartnerValue((e as CustomEvent<{ value?: string[] }>).detail?.value);
-  };
-
-  private pullPartner(): void {
-    this.applyPartnerValue(this.partner?.value);
-  }
-
-  private pushPartner(): void {
+  /**
+   * Write `selected` to the date range. A `selected` that is only the range's own value
+   * rounded to this chart's buckets is not written back (that would widen the range),
+   * unless `force` (a visitor chose that bar again to take the whole bucket).
+   */
+  private pushPartner(force = false): void {
     const el = this.partner;
     if (!el) return;
     const span = this.selected ? parseSelected(this.selected) : null;
@@ -852,7 +903,19 @@ export class UvalibDateHistogram extends UvalibElement {
     if (!next) return;
     const cur = el.value;
     if (Array.isArray(cur) && cur[0] === next[0] && cur[1] === next[1]) return;
+    const r = this.partnerRange();
+    if (
+      !force &&
+      r &&
+      this.selected &&
+      !this.isFullSpan(r[0], r[1]) &&
+      isoToSelected(r[0], r[1], this.grain === 'month' ? 'month' : 'year') === this.selected.trim()
+    ) {
+      this.lastSeen = r.join('/');
+      return;
+    }
     el.value = next;
+    this.lastSeen = next.join('/');
   }
 
   private emit(from: string, to: string): void {
@@ -880,7 +943,7 @@ export class UvalibDateHistogram extends UvalibElement {
         value.length >= 2 &&
         (value[0] !== bucket.from || value[1] !== bucket.to);
       if (partial && bucket) {
-        this.pushPartner();
+        this.pushPartner(true);
         this.emit(bucket.from, bucket.to);
         return;
       }
