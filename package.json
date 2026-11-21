@@ -155,6 +155,10 @@
       "types": "./dist/components/uvalib-combobox/uvalib-combobox.d.ts",
       "default": "./dist/components/uvalib-combobox/uvalib-combobox.js"
     },
+    "./uvalib-image-regions.js": {
+      "types": "./dist/components/uvalib-image-regions/uvalib-image-regions.d.ts",
+      "default": "./dist/components/uvalib-image-regions/uvalib-image-regions.js"
+    },
     "./tokens.css": "./dist/tokens.css",
     "./base.css": "./dist/base.css",
     "./pagefind.css": "./dist/pagefind.css",

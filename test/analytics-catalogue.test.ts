@@ -22,6 +22,7 @@ import '../src/components/uvalib-filter/uvalib-filter.js';
 import '../src/components/uvalib-date-range/uvalib-date-range.js';
 import '../src/components/uvalib-tabs/uvalib-tabs.js';
 import '../src/components/uvalib-combobox/uvalib-combobox.js';
+import '../src/components/uvalib-image-regions/uvalib-image-regions.js';
 import '../src/components/bento-box/bento-box.js';
 import type { SiteHeader } from '../src/components/site-header/SiteHeader.js';
 import type { SiteMainNav } from '../src/components/site-main-nav/SiteMainNav.js';
@@ -37,6 +38,7 @@ import {
 import type { BentoBox } from '../src/components/bento-box/BentoBox.js';
 import type { BentoSection } from '../src/components/bento-box/BentoSection.js';
 import type { UvalibCombobox } from '../src/components/uvalib-combobox/UvalibCombobox.js';
+import type { UvalibImageRegions } from '../src/components/uvalib-image-regions/UvalibImageRegions.js';
 import { recordAnalytics } from './helpers/analytics.js';
 import { resetEvents, useEventsHost } from './helpers/events.js';
 import { resetHours, setClock, settled, useHoursHost } from './helpers/hours.js';
@@ -539,6 +541,22 @@ describe('analytics catalogue', () => {
         ]);
         expect(JSON.stringify(rec.events)).to.not.include('Stone');
         input.blur();
+      });
+    });
+
+    describe(`uvalib-image-regions (${mode})`, () => {
+      it('an outline click reports the list label and the number, never the region label', async () => {
+        const el = await fixture<UvalibImageRegions>(
+          `<uvalib-image-regions ${attr(mode)} label="People"><img alt="A group" width="40" height="30"><ol><li data-xywh="percent:0,0,50,50"><a href="#a">Ada Marsh</a></li><li data-xywh="percent:50,50,50,50">Bruno Stone</li></ol></uvalib-image-regions>`,
+        );
+        await quietRender(el);
+        // Focus (a highlight) reports nothing.
+        el.querySelector<HTMLAnchorElement>('a')!.focus();
+        el.querySelector<HTMLAnchorElement>('a')!.blur();
+        root(el).querySelectorAll<HTMLElement>('.overlay > .region')[1]!.click();
+        expect(events()).to.deep.equal([['uvalib-image-regions', 'select', 'People', 2]]);
+        expect(JSON.stringify(rec.events)).to.not.include('Stone');
+        (document.activeElement as HTMLElement | null)?.blur();
       });
     });
 

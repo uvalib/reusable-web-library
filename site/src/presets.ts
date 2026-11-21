@@ -1199,6 +1199,49 @@ ${[286686, 286687, 286688, 286689].map((id, i) => pageLink(String(id), i + 2)).j
     },
   },
   {
+    id: 'image-regions',
+    group: 'Images',
+    title: 'Image regions',
+    description:
+      'uvalib-image-regions outlines regions of a photograph (people, objects) and lists them beside it, under it on a phone. The list is the way in: hover or focus an entry, or its button, and its outline thickens and shows its label while the others dim; hover an outline and its entry is marked; click an outline and focus moves to its entry. The outlines are hidden from screen readers and are not tab stops. Each entry is the page’s own <li data-xywh="percent:x,y,w,h">, so the list works before the script loads, and its buttons are the page’s. Below, the same regions in uvalib-lightbox from data-regions, with a Show regions toggle. Region labels here are generic.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Image regions',
+          components: ['uvalib-image-regions', 'uvalib-lightbox'],
+          body: `    <site-page>
+      <h1>Lawn games</h1>
+      <uvalib-image-regions id="regions" label="In this photograph">
+        <img src="${iiif('1040162', ',600')}" alt="Dancers in white dresses circle a maypole on the Lawn in front of the Rotunda, watched by a crowd." width="746" height="600">
+        <ol>
+          <li data-xywh="percent:37.5,58,7,22">Person 1 <button type="button" class="uvalib-button uvalib-button--small" data-name="Person 1">Name Person 1</button></li>
+          <li data-xywh="percent:51.5,58,7,22">Person 2 <button type="button" class="uvalib-button uvalib-button--small" data-name="Person 2">Name Person 2</button></li>
+          <li data-xywh="percent:62,15,4.5,5.5">Clock</li>
+          <li data-xywh="percent:63.5,47,4,7">Doorway</li>
+        </ol>
+      </uvalib-image-regions>
+      <p id="said" role="status"></p>
+      <h2>In the viewer</h2>
+      <uvalib-lightbox regions-label="In this photograph">
+        <a href="${iiif('1040162', '!1600,1600')}" data-caption="Lawn games" data-regions="percent:37.5,58,7,22 Person 1; percent:51.5,58,7,22 Person 2; percent:62,15,4.5,5.5 Clock; percent:63.5,47,4,7 Doorway"><img src="${iiif('1040162', ',200')}" alt="Lawn games" width="249" height="200" loading="lazy"></a>
+      </uvalib-lightbox>
+    </site-page>
+    <script type="module">
+      // The buttons are the page's own: the component only numbers and highlights the entries.
+      const said = document.querySelector('#said');
+      document.querySelector('#regions').addEventListener('click', (e) => {
+        const button = e.target.closest('button[data-name]');
+        if (button) said.textContent = 'Naming ' + button.dataset.name + ' (an example: nothing is saved).';
+      });
+      document.querySelector('#regions').addEventListener('select', (e) => {
+        said.textContent = 'Outline ' + (e.detail.index + 1) + ' chosen: ' + e.detail.item.label + '.';
+      });
+    </script>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'search-facets',
     group: 'Search',
     title: 'Search facets',
