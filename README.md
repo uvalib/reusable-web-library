@@ -10,7 +10,7 @@ Reusable web components for UVA Library sites, built with Lit and TypeScript:
 - **Tabs:** `<uvalib-tabs>`.
 - **Records:** `<uvalib-metadata>` (a record's details, credit, rights and how to cite).
 - **Images:** `<uvalib-lightbox>` (an image viewer over plain links) and `<uvalib-photo-grid>` (justified rows of thumbnails).
-- **Search:** `<uvalib-filter>`, `<uvalib-date-range>`, `<uvalib-date-histogram>` and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
+- **Search:** `<uvalib-filter>`, `<uvalib-date-range>`, `<uvalib-date-histogram>`, `<uvalib-combobox>` (a text field that suggests values as you type) and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
 - **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
 - **Library events:** `<events-section>`.
 - **Search results:** `<bento-box>` (library.virginia.edu/search), with its `<catalog-section>`, `<articles-section>`, `<libguides-section>` and `<website-section>`.
@@ -706,6 +706,69 @@ The filter and the date range are controlled: set `value` (and `scopeValue`) fro
 </script>
 ```
 
+## Combobox
+
+`<uvalib-combobox>` is a text field that suggests values as you type, from a local list or a URL: a person, place or subject picker. It follows the WAI-ARIA APG [editable combobox with list autocomplete](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/examples/combobox-autocomplete-list/) and looks like `.uvalib-input`. Entry: `uvalib-combobox.js` on the CDN, `@uvalib/web-components/uvalib-combobox.js` on npm.
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-combobox.js"
+></script>
+
+<!-- Local items, set in script (objects or strings). -->
+<form action="/search">
+  <uvalib-combobox
+    id="person"
+    name="person"
+    label="Person"
+    description="Type part of a name."
+  ></uvalib-combobox>
+  <button class="uvalib-button" type="submit">Search</button>
+</form>
+<script type="module">
+  document.querySelector('#person').items = [
+    { value: 'p-101', label: 'Avery Ashby', description: 'Photographer' },
+    { value: 'p-102', label: 'Bea Brandt' },
+  ];
+</script>
+
+<!-- <option> children, directly or in a <datalist>. A fallback <input list> works before
+     the script loads (give it aria-label); its text and name carry over. -->
+<uvalib-combobox label="Subject" name="subject">
+  <input name="subject" list="subjects" aria-label="Subject" />
+  <datalist id="subjects">
+    <option value="architecture">Architecture</option>
+    <option value="athletics" data-description="Sports, games and teams">Athletics</option>
+  </datalist>
+</uvalib-combobox>
+
+<!-- A URL: {q} is the typed text, URL-encoded. -->
+<uvalib-combobox
+  id="place"
+  label="Place"
+  name="place"
+  src="/api/places?q={q}"
+  min-length="2"
+></uvalib-combobox>
+<script type="module">
+  // Only if the response is not already an array of { value, label?, description? }.
+  document.querySelector('#place').transform = (data) =>
+    data.results.map((r) => ({ value: r.id, label: r.name }));
+</script>
+```
+
+- **Suggestions.** `items` (`[{ value, label?, description?, disabled? }]` or strings) wins over the children while set; `<option>` children use `label` or their text, `value`, `data-description` and `disabled`. Local matching ignores case and accents and finds the text anywhere in the label: labels that start with it come first, then those with a word that starts with it. At most `max-results` are shown (default 50; `0` for all), so 16,000 records stay fast; the popup then says “Showing 50 of 1,234. Type more to narrow them.” The matched text is bold and underlined in a `<mark>`.
+- **`src`.** Fetched 250 ms after the last keystroke once the text has `min-length` characters (default 1); a newer keystroke aborts the older request, and answers are cached per text. The response is a JSON array of the same shape, or `transform(data, query)` maps it. A failed load shows and announces “Couldn't load suggestions” and never throws.
+- **Keys** (as the APG example). Down opens the list on the first suggestion and moves, wrapping; Up opens on the last; Alt+Down opens without moving and Alt+Up closes. Enter chooses the active suggestion and does not submit the form; with none active, Enter submits as in any field. Escape closes the list, and a second Escape clears the field. Home, End, Left and Right move the caret. Tab leaves without choosing. Typing never picks a suggestion for you.
+- **Free text or a choice.** `value` is the text in the field and `selected` the chosen suggestion (or null). Typing after a choice keeps the text and drops the choice; leaving the field with text that is exactly one suggestion's label (ignoring case and accents) chooses it. `must-choose` makes any other text invalid. Set `selected` (an item) or `value` in script to show a value; neither fires `change`.
+- **Forms.** The element is form-associated: with `name` it submits the chosen suggestion's `value`, or else the text, in a plain `<form>`. A reset restores the `value` attribute; `required`, `disabled` and a disabled `<fieldset>` work as on an `<input>`.
+- **Events.** `select` (`detail: { item }`, the object you gave) when a suggestion is chosen; `change` (`detail: { value, item }`) when the value is committed: a choice, a clear, or leaving the field with changed text. Both bubble and are composed. The field's own `input` events reach the page; its native `change` and `select` do not.
+- **Accessibility.** A visible `label` is required (one console warning without it); `description` is a hint read with the field (`aria-describedby`). The field is a real `<input role="combobox">` with `aria-expanded`, `aria-controls` and `aria-activedescendant`; the popup is a `role="listbox"`. A polite status says “5 suggestions”, “No suggestions” or “Loading suggestions” half a second after the list settles, never on the first render. The clear button is a real button named “Clear <label>”, 44px, shown only with text, and returns focus to the field. Suggestions are at least 44px tall; the active one has a fill, a bar at its start and an outline (Highlight in forced colors), not colour alone.
+- **Layout.** The popup is positioned under the field inside the element (no top layer), as wide as the field, so it never overflows a 320px screen and scrolls with the page or a scrolling container; a long list scrolls inside it with the active suggestion kept in view. An ancestor with `overflow: hidden` clips it. Dark mode follows the role tokens. `no-style` keeps the layout, the 44px targets and the hidden status.
+- **Before the script loads.** `base.css` shows the label (from the attribute) and holds the field's height, plus one line for a `description`, so nothing below moves on upgrade. A fallback `<input>` child is a working field meanwhile (with `list`, the browser's own suggestions); once upgraded it is disabled so it does not submit twice. Other children stay hidden.
+- **Analytics.** `select` with the label and the suggestion's position (from 1), and `clear` with the label. Never the typed text or a suggestion's text or value: they can be people's names.
+
 ## Results, badges and tags
 
 For search pages, Virgo-like result lists and digital collections: badges and labels, a toolbar above the results, a results count that screen readers hear, keyword lists, an empty state and loading placeholders. The classes are in `base.css` (no script); `<uvalib-tag-list>` and `<uvalib-results-count>` are elements with their own entries (`uvalib-tag-list.js`, `uvalib-results-count.js`; npm `@uvalib/web-components/uvalib-tag-list.js`, `…/uvalib-results-count.js`). See the [Results toolbar & badges](https://uvalib.github.io/reusable-web-library/#results-toolbar) example.
@@ -1007,6 +1070,9 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
   | `library-weekly-hours`                       | `week-change`                                                                                                        | `next` or `previous`                                                                                                                      |                                   |
   | `uvalib-chip-group`                          | `change` (single: 1 s after the last change, and only if it differs from where it started; multi: each toggle)       | `<group label>: <chip label>`                                                                                                             | the chip's count, when it has one |
   | `uvalib-chip-group`                          | `select` (links mode)                                                                                                | the group's label (never the chip or its URL)                                                                                             |                                   |
+  | `uvalib-combobox`                            | `select` (a suggestion chosen)                                                                                       | the field's label (never the typed text or the suggestion)                                                                                | the suggestion's position, from 1 |
+  | `uvalib-combobox`                            | `clear` (the clear button, or Escape on a closed list)                                                               | the field's label                                                                                                                         |                                   |
+  | `uvalib-combobox`                            | `error` (`src` failed to load)                                                                                       | `load`                                                                                                                                    |                                   |
   | `uvalib-filter`                              | `facet-change`                                                                                                       | `<filter title>: <value>` (the facet value as the search service returns it, such as a format, library or subject; cut at 100 characters) | 1 checked, 0 unchecked            |
   | `uvalib-filter`                              | `scope-change`                                                                                                       | the scope's label                                                                                                                         | 1 pressed, 0 not                  |
   | `uvalib-filter`                              | `see-more`, `see-less`                                                                                               | the filter's title                                                                                                                        |                                   |
@@ -1754,6 +1820,63 @@ A row of chips: a segmented control or single-select filter (`mode="single"`), f
 | `--uva-color-on-accent` |  | Dark-mode role token: selected chip text (else #fff). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 | `--uva-color-surface` |  | Dark-mode role token: the page background the scrolling row fades into at an edge with more chips (else #fff). |
+
+### `<uvalib-combobox>`
+
+An editable text field that suggests values as you type, from a local list or a URL: a person, place or subject picker. It follows the WAI-ARIA APG “Editable Combobox With List Autocomplete”: a real `<input role="combobox">` and a `role="listbox"` popup under it. Suggestions come from the `items` property (`{ value, label?, description?, disabled? }` objects, or strings), from `<option>` children (directly or inside a `<datalist>`; the `label` attribute or text is the label, `data-description` the second line), or from `src`, a URL template with `{q}` (fetched 250 ms after the last keystroke once the text has `min-length` characters, default 1; a newer keystroke aborts the older request; the response is a JSON array of the same shape, or anything `transform(data, query)` turns into one). `items` wins over the children while set. Local suggestions match anywhere in the label, ignoring case and accents, those starting with the text first, then those with a word starting with it; at most `max-results` (default 50, 0 for all) are shown, which keeps a list of 16,000 people fast. The matched text is bold and underlined in a `<mark>`. Keys: Down opens the list on the first suggestion and moves (wrapping), Up opens on the last, Alt+Down opens without moving, Alt+Up closes, Enter chooses the active suggestion (and then does not submit the form; with none active, Enter submits as in any field), Escape closes the list and a second Escape clears the field, Home, End, Left and Right move the caret, and Tab leaves without choosing. A real clear button (“Clear <label>”, 44px, shown only with text) empties the field and returns focus to it. Free text is allowed: `value` is whatever is in the field, and `selected` the chosen suggestion (or null); typing after choosing clears it, and leaving the field with text that is exactly one suggestion's label chooses it. `must-choose` makes any other text invalid (“Choose one of the suggestions.”). The element is form-associated: with `name` it submits the chosen suggestion's value, or else the text, and a form reset restores the `value` attribute. `required` and `disabled` (also from a disabled fieldset) work as on an input. A polite status says “5 suggestions”, “50 of 1,234 suggestions”, “No suggestions”, “Loading suggestions” or “Couldn't load suggestions” half a second after the list settles (never on the first render); the popup shows the same notes visibly. A failed load never throws. Before it upgrades, `base.css` shows the label (from the attribute) and holds the field's height. A fallback `<input list>` child works as a plain field meanwhile; on upgrade its text, `name` and `placeholder` carry over, and it is disabled so it does not submit twice.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `label` | `string` | `''` | The field's visible label (required); also the analytics name. |
+| `description` | `string` | `''` | A hint under the field, read with it (aria-describedby). |
+| `placeholder` | `string` | `''` |  |
+| `name` | `string` | `''` | The form field name. |
+| `value` | `string` | `''` | The text in the field. The attribute is the starting text, and what a form reset restores. Setting it does not fire `change`. |
+| `src` | `string` | `''` | A URL template with `{q}` (the trimmed text, URL-encoded) that returns suggestions as JSON. |
+| `min-length` | `number` | `1` | Characters typed before suggestions appear (and `src` is fetched). |
+| `max-results` | `number` | `50` | The most suggestions shown at once; 0 for all. |
+| `must-choose` | `boolean` | `false` | Text that is not one of the suggestions is invalid. |
+| `required` | `boolean` | `false` |  |
+| `disabled` | `boolean` | `false` |  |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### CSS parts
+
+| Part | Description |
+|---|---|
+| `label` | The visible label. |
+| `input` | The text field. |
+| `clear` | The clear button. |
+| `popup` | The popup under the field. |
+| `option` | Each suggestion. |
+| `description` | The hint under the field. |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `type` |  |
+| `input` | The text changed by typing (the native event of the field, composed). Not fired when an option is chosen. |
+| `select` | A suggestion was chosen (click or Enter). `detail` is `{ item }`, the object given. Bubbles and is composed. |
+| `change` | The value was committed: a suggestion chosen, the field cleared, or the field left with changed text. `detail` is `{ value, item }` (`item` is the chosen suggestion or null). Not fired when the app sets `value` or `selected`. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-combobox', 'select', '<label>', <position from 1>]` when a suggestion is chosen, `['uvalib-combobox', 'clear', '<label>']` when the clear button or Escape empties the field, and `['uvalib-combobox', 'error', 'load']` once when `src` fails. Never the typed text or a suggestion's text or value. Bubbles and is composed. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-surface-raised` |  | Dark-mode role token: field and popup background (else #fff). |
+| `--uva-color-control-border` |  | Dark-mode role token: field and popup border (else `--uva-grey`, #808080). |
+| `--uva-color-input-text` |  | Dark-mode role token: field and suggestion text (else #2b2b2b). |
+| `--uva-color-text-muted` |  | Dark-mode role token: descriptions, notes and the clear icon (else #4f4f4f). |
+| `--uva-color-surface-hover` |  | Dark-mode role token: active suggestion background (else #dadada). |
+| `--uva-color-track` |  | Dark-mode role token: hovered suggestion background (else #f1f1f1). |
+| `--uva-color-accent-bg` |  | Dark-mode role token: the active suggestion's bar and outline (else `--uva-brand-blue`). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+| `--uva-color-shadow` |  | Dark-mode role token: popup shadow. |
 
 ### `<uvalib-contents>`
 
