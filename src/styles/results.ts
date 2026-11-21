@@ -239,19 +239,4 @@ export const results = css`
       animation: none;
     }
   }
-  /* The classes set display, which would beat the hidden attribute's. */
-  :is(
-    .uvalib-badge,
-    .uvalib-media,
-    .uvalib-media__badges,
-    .uvalib-toolbar,
-    .uvalib-toolbar__field,
-    .uvalib-toolbar__group,
-    .uvalib-toolbar__summary,
-    .uvalib-empty-state,
-    .uvalib-skeleton,
-    .uvalib-skeleton-text
-  )[hidden] {
-    display: none !important;
-  }
 `;

@@ -73,6 +73,11 @@ export const colorScheme = css`
          status badges read: text (--uva-color-alert-text) is 7:1 or more in both schemes. */
       --uva-color-status-success-bg: light-dark(var(--uva-green-200, #ddefdc), #173d1c);
       --uva-color-status-success-border: light-dark(var(--uva-green-A, #4e9737), #62bb46);
+      /* Highlighted search terms (<mark> in base.css's .uvalib-result__snippet):
+         library.virginia.edu's orange-200 with dark text (9.5:1), and a dark orange with white
+         text (7.6:1). */
+      --uva-color-highlight: light-dark(var(--uva-brand-orange-200, #ffc999), #854200);
+      --uva-color-on-highlight: light-dark(var(--uva-grey-darkest, #2b2b2b), #ffffff);
     }
     :root[data-uva-color-scheme='system'] {
       color-scheme: light dark;

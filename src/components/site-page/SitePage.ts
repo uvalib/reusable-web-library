@@ -48,6 +48,13 @@ const slotOf = (n: Node): string | null => (n instanceof Element ? n.getAttribut
  * puts the trail: after the header and the alert list band, before `<main>` and outside it (so
  * the skip link lands past it), with the same gutters as `<main>`.
  *
+ * Printing leaves out the chrome: the skip link, header (with the main navigation and the
+ * header alert), alert list band, regional alerts, breadcrumbs, pre-footer and footer are not
+ * printed, `<main>` loses its gutters, and the content prints black on white (a dark scheme
+ * prints light), its links underlined. A short line above the content says where the page
+ * came from ("UVA Library — <site name or page title>" and the page's URL). `print-chrome`
+ * prints the page as it is shown instead. With `no-style` none of this applies.
+ *
  * @tagname site-page
  * @slot - Main page content, rendered inside the single `<main>`.
  * @slot breadcrumbs - Optional breadcrumb trail (a `<uvalib-breadcrumbs>`), shown between the header (and alert list band) and `<main>`. In light mode it is moved there, never into `<main>`.
@@ -82,6 +89,11 @@ export class SitePage extends UvalibElement {
    * attribute keeps pre-footer content.
    */
   @property({ type: Boolean, attribute: 'no-footer', reflect: true }) noFooter = false;
+  /**
+   * Print the header, alerts, breadcrumbs and footer too. By default printing leaves them out
+   * and prints only `<main>`, black on white.
+   */
+  @property({ type: Boolean, attribute: 'print-chrome', reflect: true }) printChrome = false;
   /** Accessible name of the header navigation when site links are given (default "Site"). */
   @property({ type: String, attribute: 'site-links-label' }) siteLinksLabel?: string;
   /** The sub-site's name, forwarded to `<site-header site-name>`: shown after the logo as a link to the site's home. */
@@ -205,6 +217,39 @@ export class SitePage extends UvalibElement {
           padding-top: 24px; /* old: .breadcrumb-found dropped its 12px top margin */
         }
       }
+      /* Print (issue #20): only <main>, black on white, unless print-chrome. In shadow mode
+         the breadcrumbs slot is hidden, which hides what is assigned to it; in light mode
+         (rewritten to site-page …) the trail is a direct child. The pre-footer is in the
+         footer. The base styles underline the content's links and print a dark scheme light. */
+      @media print {
+        :host(:not([print-chrome])) {
+          color: #000;
+          background: #fff;
+        }
+        :host(:not([print-chrome])) :is(site-header, site-footer, .alerts-list, .skip-link),
+        :host(:not([print-chrome])) main > site-alerts,
+        :host(:not([print-chrome])) slot[name='breadcrumbs'],
+        :host(:not([print-chrome])) > [slot='breadcrumbs'] {
+          display: none;
+        }
+        :host(:not([print-chrome])) main {
+          max-width: none;
+          padding: 0;
+        }
+        /* Where the page came from: a line above the content, from --uvalib-print-source
+           (set on <main>: "UVA Library — <site name or title> <URL>"). Print only, so never
+           read out on screen. */
+        :host(:not([print-chrome])) main::before {
+          content: var(--uvalib-print-source, none);
+          display: block;
+          margin: 0 0 1rem;
+          padding: 0 0 0.25rem;
+          border-bottom: 1px solid #000;
+          color: #000;
+          font-size: 0.875rem;
+          overflow-wrap: anywhere;
+        }
+      }
     `,
   ];
 
@@ -250,6 +295,7 @@ export class SitePage extends UvalibElement {
         attributeFilter: ['slot'],
       });
     }
+    this.ownerDocument.defaultView?.addEventListener('beforeprint', this.syncPrintSource);
     if (!this.noGlobalStyles && !this.globalsInstalled) {
       this.globalsInstalled = true;
       this.installGlobalStyles(this.ownerDocument);
@@ -265,7 +311,29 @@ export class SitePage extends UvalibElement {
     super.disconnectedCallback();
     this.observer?.disconnect();
     this.breadcrumbsObserver?.disconnect();
+    this.ownerDocument.defaultView?.removeEventListener('beforeprint', this.syncPrintSource);
   }
+
+  /**
+   * The printed "where from" line, as a CSS string on <main> (`--uvalib-print-source`), read
+   * by the print styles. Set on each update and again just before printing, so a single-page
+   * app prints its current title and URL.
+   */
+  private syncPrintSource = (): void => {
+    const main = this.renderRoot.querySelector<HTMLElement>(
+      this.lightDom ? ':scope > main' : 'main',
+    );
+    if (!main) return;
+    const doc = this.ownerDocument;
+    const name = (this.siteName || doc.title || '').trim();
+    const text = `UVA Library${name ? ` — ${name}` : ''} ${doc.defaultView?.location.href ?? ''}`;
+    const value = `"${text
+      .trim()
+      .replace(/[\\"]/g, '\\$&')
+      .replace(/[\n\r\f]/g, ' ')}"`;
+    if (main.style.getPropertyValue('--uvalib-print-source') !== value)
+      main.style.setProperty('--uvalib-print-source', value);
+  };
 
   private installGlobalStyles(doc: Document): void {
     // Tokens stay layered so a host's own `:root { --uva-*: … }` wins; base and accessibility
@@ -313,6 +381,7 @@ export class SitePage extends UvalibElement {
 
   protected override updated(): void {
     if (this.lightDom) this.syncLightAlerts();
+    this.syncPrintSource();
     if (!this.noAlerts) {
       // The alerts script starts loading at once, alongside <site-alerts>' own code.
       loadAlerts(this.ownerDocument, this.alertsUrl);

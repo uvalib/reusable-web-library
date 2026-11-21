@@ -69,6 +69,25 @@ export const base = css`
   uvalib-results-count:not(:defined)[hidden] {
     display: none;
   }
+  /* The pre-upgrade rules here set display, which beats the hidden attribute's (issue #7).
+     More specific than each of them (two pseudo-classes or attributes), so it needs no importance flag. */
+  :where(
+      site-page,
+      uvalib-breadcrumbs,
+      uvalib-card,
+      uvalib-card-grid,
+      uvalib-pager,
+      uvalib-contents,
+      uvalib-metadata,
+      uvalib-chip-group,
+      uvalib-tabs,
+      uvalib-combobox,
+      uvalib-image-regions,
+      uvalib-map
+    ):not(:defined)[hidden],
+  :where(uvalib-combobox, uvalib-image-regions):not(:defined) > [hidden] {
+    display: none;
+  }
   /* Tabs stay readable before the script runs: a block, one panel, and a gap the
      size of the tab row (44px) plus its 1rem margin, so the first panel does not
      jump when the element upgrades. Later data-tab panels stay hidden. */
@@ -139,6 +158,26 @@ export const base = css`
     font-size: 0.875rem;
     line-height: 1.5;
     color: var(--uva-color-text-muted, #4b5563);
+  }
+  /* Printing a <site-page> (issue #20; its own styles leave out the chrome): a dark scheme
+     prints light (the role tokens resolve to their light values), and the content's links
+     are black and underlined, so they are told apart without colour. Content is <main> in
+     light DOM and the unslotted children in shadow DOM. print-chrome keeps the page as it is
+     shown, apart from the light scheme. */
+  @media print {
+    :root[data-uva-color-scheme]:has(site-page) {
+      color-scheme: light;
+      --uva-color-scheme: light;
+    }
+    /* Light DOM's trail, here too, as the pre-upgrade rule above (unlayered) would win. */
+    site-page:not([print-chrome]) > [slot='breadcrumbs'] {
+      display: none;
+    }
+    site-page:not([print-chrome]) > :not([slot], site-header, site-footer, .alerts-list) :any-link,
+    site-page:not([print-chrome]) > :any-link:not([slot], .skip-link) {
+      color: #000;
+      text-decoration: underline;
+    }
   }
   @keyframes uvalib-site-page-reveal {
     to {
