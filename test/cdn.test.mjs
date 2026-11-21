@@ -40,6 +40,8 @@ const TAGS = [
   'uvalib-combobox',
   'uvalib-image-regions',
   'uvalib-map',
+  'uvalib-filter-drawer',
+  'uvalib-back-to-top',
 ];
 
 const manifest = () => JSON.parse(readFileSync(join(cdn, 'manifest.json'), 'utf8'));

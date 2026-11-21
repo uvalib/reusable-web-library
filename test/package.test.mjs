@@ -40,6 +40,8 @@ const TAGS = [
   'uvalib-combobox',
   'uvalib-image-regions',
   'uvalib-map',
+  'uvalib-filter-drawer',
+  'uvalib-back-to-top',
 ];
 
 const walk = (dir) =>

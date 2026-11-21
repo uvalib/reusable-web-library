@@ -8,10 +8,11 @@ Reusable web components for UVA Library sites, built with Lit and TypeScript:
 - **Navigation:** `<uvalib-breadcrumbs>` (the breadcrumb trail) and `<uvalib-contents>` (sub-navigation or a table of contents).
 - **Cards:** `<uvalib-card>`, `<uvalib-card-grid>` and `<uvalib-pager>`.
 - **Tabs:** `<uvalib-tabs>`.
+- **Long pages:** `<uvalib-back-to-top>` (a “Back to top” button that appears once the top has scrolled away).
 - **Records:** `<uvalib-metadata>` (a record's details, credit, rights and how to cite).
 - **Images:** `<uvalib-lightbox>` (an image viewer over plain links), `<uvalib-photo-grid>` (justified rows of thumbnails) and `<uvalib-image-regions>` (numbered region outlines on an image, with their list).
 - **Maps:** `<uvalib-map>` (places on the page's own Leaflet map, sized by a count, with a linked list).
-- **Search:** `<uvalib-filter>`, `<uvalib-date-range>`, `<uvalib-date-histogram>`, `<uvalib-combobox>` (a text field that suggests values as you type) and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
+- **Search:** `<uvalib-filter>`, `<uvalib-date-range>`, `<uvalib-date-histogram>`, `<uvalib-combobox>` (a text field that suggests values as you type), `<uvalib-filter-drawer>` (the filters as a sidebar, or a modal panel on phones) and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
 - **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
 - **Library events:** `<events-section>`.
 - **Search results:** `<bento-box>` (library.virginia.edu/search), with its `<catalog-section>`, `<articles-section>`, `<libguides-section>` and `<website-section>`.
@@ -781,6 +782,29 @@ An inline message for the page's own content: a search error, a notice that resu
 - **Live regions:** use `role="alert"` only for an error that appears in response to what the visitor did (it interrupts); use `role="status"` for a notice or confirmation (polite). For a status to be announced reliably, put the empty `role="status"` container in the page first and fill it later, rather than inserting the whole element. A message that is there when the page loads needs no role. Do not put an alert role on a message that is always shown.
 - **Forced colors:** every message keeps a system-colour border, thicker at the start. In the flow of the page it is a block with the content's own width, its first and last child without outer margins.
 
+## Back to top
+
+`<uvalib-back-to-top>` is a “Back to top” button for long pages: minutes, finding aids, transcriptions, long result lists. Entry: `uvalib-back-to-top.js` on the CDN, `@uvalib/web-components/uvalib-back-to-top.js` on npm. See the [Back to top](https://uvalib.github.io/reusable-web-library/#back-to-top) example.
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-back-to-top.js"
+></script>
+
+<site-page>
+  <h1>Minutes of the Board of Visitors</h1>
+  …
+  <uvalib-back-to-top></uvalib-back-to-top>
+</site-page>
+```
+
+- **When it shows.** Hidden until the top `offset` pixels (default 400) have scrolled out of view, watched with an IntersectionObserver on a 1px-wide sentinel it adds to `<body>`, positioned at the top of the page (no scroll listener). Hidden means `visibility: hidden`: not a tab stop and not in the accessibility tree. If it has focus as it hides, focus moves to the target.
+- **What it does.** A real `<button>` with visible text (`label`, default “Back to top”) and an arrow. It scrolls to the top, smoothly unless the visitor prefers reduced motion, and moves focus to the page's `<h1>` (the first in `<main>`, else the first on the page, else `#top`), or to the element `target` selects, adding `tabindex="-1"` when that element is not focusable, so keyboard and screen reader users land at the top too.
+- **Where it sits.** Fixed in the bottom corner on the end side, 1rem in (or the safe-area inset), 44px tall, with the outline (`.uvalib-button--secondary`) look on a solid background. **Put it last in the page's content** (inside `<site-page>`, after everything else): the element is an empty block `--uvalib-back-to-top-space` (default 4.75rem) tall, the space the button needs, so the last lines can scroll clear of it; once that space is in view the button sits in it instead of floating, so it never covers the footer either. While scrolling it floats over content like any fixed button; it never widens the page at 320px. It is hidden in print. `<site-page>` has no attribute for it: load `uvalib-back-to-top.js` and add the element.
+- **Colours.** Dark mode follows the role tokens; in forced colors it is a ButtonFace button with a ButtonText border.
+- **Analytics.** `['uvalib-back-to-top', 'click']`.
+
 ## Tokens and theming
 
 - **Tokens:** inherited `--uva-*` custom properties (for example `--uva-brand-blue`, `--uva-font-family`), set on `:root` or an ancestor of the component. The full set is in `tokens.css`. Components read tokens with fallbacks and never set them.
@@ -980,6 +1004,44 @@ The filter and the date range are controlled: set `value` (and `scopeValue`) fro
 - **Layout.** The popup is positioned under the field inside the element (no top layer), as wide as the field, so it never overflows a 320px screen and scrolls with the page or a scrolling container; a long list scrolls inside it with the active suggestion kept in view. An ancestor with `overflow: hidden` clips it. Dark mode follows the role tokens. `no-style` keeps the layout, the 44px targets and the hidden status.
 - **Before the script loads.** `base.css` shows the label (from the attribute) and holds the field's height, plus one line for a `description`, so nothing below moves on upgrade. A fallback `<input>` child is a working field meanwhile (with `list`, the browser's own suggestions); once upgraded it is disabled so it does not submit twice. Other children stay hidden.
 - **Analytics.** `select` with the label and the suggestion's position (from 1), and `clear` with the label. Never the typed text or a suggestion's text or value: they can be people's names.
+
+## Filter drawer
+
+`<uvalib-filter-drawer>` holds a search page's form and filters: a plain sidebar on wide screens, and at and below `breakpoint` (default `48rem`) a “Search and filters” button that opens them in a modal panel from the side, as Virgo does on phones. Entry: `uvalib-filter-drawer.js` on the CDN, `@uvalib/web-components/uvalib-filter-drawer.js` on npm. See the [Filter drawer](https://uvalib.github.io/reusable-web-library/#filter-drawer) example.
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-filter-drawer.js"
+></script>
+
+<div class="search-layout">
+  <uvalib-filter-drawer label="Search and filters" live="results-count status">
+    <form class="uvalib-search-form" role="search">…</form>
+    <uvalib-filter id="decade"></uvalib-filter>
+  </uvalib-filter-drawer>
+  <section>
+    <uvalib-results-count id="results-count" total="1204"></uvalib-results-count>
+    <p id="status" role="status"></p>
+    …
+  </section>
+</div>
+<script type="module">
+  const drawer = document.querySelector('uvalib-filter-drawer');
+  document.querySelector('#decade').addEventListener('filter-change', (e) => {
+    drawer.count = e.detail.value.length; // the number of filters set, on the button
+  });
+</script>
+```
+
+- **Wide screens.** The children are shown as written: no button, no dialog role. Lay out the sidebar column yourself (a grid with the drawer in the first column above `48rem`).
+- **Narrow screens.** Only the button is shown (44px, `aria-haspopup="dialog"`, `aria-expanded`). It opens a native `<dialog>` with `showModal()`, named by its visible heading (the `label`), with a 44px Close button that takes focus. Close, Escape and a click on the backdrop close it, and focus returns to the button. Widening the window past the breakpoint closes it and leaves focus where it was. `show()` and `close()` open and close it from script (call `close()` after a search, say); `open` says whether it is open; `open` and `close` events follow.
+- **The page behind is inert.** A modal dialog makes everything outside it inert, `<site-page>`'s shadow header, skip link and alerts included, so focus cannot reach them and no script has to send it back. The only way out is Escape, Close, the backdrop or the browser's own controls: no keyboard trap.
+- **Announcements from behind.** Inert content is not announced, so a results count or status notice outside the panel would go silent while the visitor filters. List their ids in `live`: while the panel is open the drawer watches them (also inside a component's open shadow root, such as `<uvalib-results-count>`'s live region) and repeats each new announcement in its own polite live region inside the panel, cleared after 5 seconds. Regions inside the drawer need no entry.
+- **Same nodes.** The children are moved between the sidebar and the panel (with `moveBefore()` where the browser has it), never re-created: typed text, checked boxes, listeners and each `<uvalib-filter>`'s state stay, through open, close and resizes. In shadow DOM they never move at all (the slot does). Children added later are included.
+- **Count.** `count` (a number the page sets) is shown on the button when above 0 and read as “Search and filters, 3 active”. The drawer does not count inputs itself: only the page knows which of them are filters.
+- **Look.** The panel slides in from the start side (no slide with reduced motion), `--uvalib-filter-drawer-width` wide (default `min(24rem, 100% - 3rem)`, leaving a strip of backdrop at 320px), scrolling on its own. Dark mode follows the role tokens; in forced colors the panel keeps a visible edge. Before the script loads the children show as the sidebar, so a phone briefly shows them in full.
+- **Analytics.** `open` and `close` with the drawer's `label`, only when the visitor does it (not a resize or a script).
 
 ## Results, badges and tags
 
@@ -1402,6 +1464,8 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
   | `uvalib-combobox`                            | `select` (a suggestion chosen)                                                                                       | the field's label (never the typed text or the suggestion)                                                                                | the suggestion's position, from 1 |
   | `uvalib-combobox`                            | `clear` (the clear button, or Escape on a closed list)                                                               | the field's label                                                                                                                         |                                   |
   | `uvalib-combobox`                            | `error` (`src` failed to load)                                                                                       | `load`                                                                                                                                    |                                   |
+  | `uvalib-filter-drawer`                       | `open`, `close` (by the visitor: the button, Close, Escape or the backdrop; not a resize or a script)                | the drawer's `label`                                                                                                                      |                                   |
+  | `uvalib-back-to-top`                         | `click`                                                                                                              |                                                                                                                                           |                                   |
   | `uvalib-map`                                 | `select` (a marker chosen: click, Enter or Space)                                                                    | the map's label (never the place's name, coordinates or URL)                                                                              | the place's position, from 1      |
   | `uvalib-map`                                 | `zoom` (1 s after the last zoom-button press)                                                                        | the map's label                                                                                                                           | the zoom level                    |
   | `uvalib-filter`                              | `facet-change`                                                                                                       | `<filter title>: <value>` (the facet value as the search service returns it, such as a format, library or subject; cut at 100 characters) | 1 checked, 0 unchecked            |
@@ -2011,6 +2075,43 @@ Compatibility element. Light mode (`no-shadow-dom`) installs the tokens and base
 | `site-analytics-event` | Listened for on `document` too: the same as `uvalib-analytics-event`. |
 | `site-analytics-content` | Listened for on `document` too: the same as `uvalib-analytics-content`. |
 
+### `<uvalib-back-to-top>`
+
+A “Back to top” button for long pages: minutes, finding aids, transcriptions, long result lists. It stays hidden (`visibility: hidden`, so it is neither a tab stop nor in the accessibility tree) until the top `offset` pixels of the page (default 400) have scrolled out of view, watched with an IntersectionObserver on a small sentinel at the top of the page, never a scroll listener. If it has focus as it hides, focus moves to the target. Activating it scrolls to the top (smoothly unless the visitor prefers reduced motion) and moves focus to the page's `<h1>` (the first in `<main>`, else the first anywhere, else `#top`), or to `target` (a selector), adding `tabindex="-1"` when it is not focusable, so keyboard and screen reader users land at the top too. The button is fixed in the bottom corner (end side), inside the safe-area insets. The element itself is an empty block 4.75rem tall: put it last in the page's main content and that is the space the button needs, so the last lines can always scroll clear of it. When that space comes into view the button sits in it instead of floating, so it never covers the footer either. It is hidden in print.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `label` |  | `DEFAULT_LABEL` | The button's text. |
+| `offset` |  | `DEFAULT_OFFSET` | How many pixels at the top of the page must scroll out of view before the button shows. |
+| `target` | `string` | `''` | A selector for where focus goes (default: the page's `<h1>`, else `#top`). |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### CSS parts
+
+| Part | Description |
+|---|---|
+| `button` | The button. |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-back-to-top', 'click']` when activated. Bubbles and is composed. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uvalib-back-to-top-space` | `4.75rem` | The height the element keeps for the button at the end of the content. |
+| `--uva-color-surface-raised` |  | Dark-mode role token: button background (else #fff). |
+| `--uva-color-button-bg` |  | Dark-mode role token: button border and text (else `--uva-blue-alt`, #007bac). |
+| `--uva-color-button-hover-bg` |  | Dark-mode role token: hovered button (else `--uva-blue-alt-A`, #005679). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+| `--uva-color-shadow` |  | Dark-mode role token: the floating button's shadow. |
+
 ### `<uvalib-breadcrumbs>`
 
 A breadcrumb trail, as on library.virginia.edu: links separated by slashes, ending with the current page, at body size. A `<nav aria-label="Breadcrumb">` holding an `<ol>`; the separators are hidden from assistive technology and the last item has `aria-current="page"` (a `<span>`, or a link when it has an href). Give the trail as children: `<a href>` elements, ending with the current page as a text-only element (`<span>Hours</span>`) or a link (`<a href aria-current="page">`). The last child is always the current page. An earlier child without an href is shown as plain text. Children with no text are skipped with one console warning. Hrefs are used as written, and the trail follows changes to the children (attributes and text too). Apps that build the trail in JavaScript set the `items` property instead (it then wins over any children); assigning a new array re-renders. A step back to a search: give its link `data-return-from` with the search page's path (or several, separated by spaces), as in `<a href="/" data-return-from="/">Search</a>`. When the visitor came from that page on this site with a query string (`document.referrer`; a trailing slash or `index.html` does not matter), the step links back to that search (path and query) instead; its text stays the same. Otherwise, as when the result was opened in a new tab or the site sends no referrer, it keeps its href. Nothing is stored or sent. In `items`, the same is `returnFrom`. Inside `<site-page>`, give it `slot="breadcrumbs"`: it is placed between the header (and alerts band) and `<main>`, with the page's gutters. It works anywhere else too. Single-page apps: the trail is drawn from copies of the children, so a router's own click handlers on them do not run. Listen for `uvalib-breadcrumbs-navigate` and cancel it to route in place; hash links need nothing.
@@ -2408,6 +2509,61 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 | `--uva-color-link` |  | Dark-mode role token: scope chip text and hover border (else `--uva-brand-blue`). |
 | `--uva-color-accent-bg` |  | Dark-mode role token: pressed chip background and border (else `--uva-brand-blue`). |
 | `--uva-color-on-accent` |  | Dark-mode role token: pressed chip text (else #fff). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+
+### `<uvalib-filter-drawer>`
+
+A search page's form and filters: a plain sidebar on wide screens, and on narrow ones a “Search and filters” button that opens them in a modal panel from the side. Put the page's search form, `<uvalib-filter>`s and other facets inside. Above `breakpoint` (default `48rem`) they are shown as written: no button, no dialog role. At and below it only the button is shown; it opens a native `<dialog>` (`showModal()`) with a visible heading (the `label`) and a 44px Close button, which takes focus. Escape, Close and a click on the backdrop close it, and focus returns to the button; widening the window past the breakpoint closes it and keeps focus where it was. While it is open the rest of the page, including `<site-page>`'s header, skip link and alerts, is inert (the browser's modal dialog), so focus cannot leave it except to the browser itself, and nothing else is announced. The children are the same nodes in both layouts (moved, never re-created): typed text, checked boxes, listeners and each filter's state are kept. Inert content is not announced, so results counts and status notices outside the panel would go silent while the visitor filters: name them in `live` (space-separated ids) and the drawer repeats what they announce in its own polite live region while it is open. `count` (the page's number of active filters) is shown on the button when above 0. The drawer never counts by itself: only the page knows which inputs are filters.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `label` |  | `DEFAULT_LABEL` | The button's text, the panel's heading and the dialog's name. |
+| `breakpoint` |  | `DEFAULT_BREAKPOINT` | The widest viewport that gets the button and panel (`48rem`, `768px`); wider gets the sidebar. |
+| `count` | `number` | `0` | Active filters, set by the page; shown on the button when above 0. |
+| `live` | `string` | `''` | Space-separated ids of live regions outside the drawer (a results count, a status notice) to keep announcing while the panel is open. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Slots
+
+| Slot | Description |
+|---|---|
+| (default) | The search form and filters. Shown as the sidebar on wide screens and inside the panel on narrow ones. |
+
+#### CSS parts
+
+| Part | Description |
+|---|---|
+| `toggle` | The “Search and filters” button (narrow screens only). |
+| `count` | The number of active filters on the button. |
+| `sidebar` | The wrapper of the children on wide screens. |
+| `dialog` | The `<dialog>` panel. |
+| `header` | The panel's heading row. |
+| `heading` | The panel's heading. |
+| `close` | The Close button. |
+| `body` | The wrapper of the children, in the sidebar or the panel. |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `close` | The panel closed (Close, Escape, the backdrop, `close()`, or the window widening past the breakpoint). Does not bubble. |
+| `open` | The panel opened. Does not bubble. |
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-filter-drawer', 'open', '<label>']` when the visitor opens the panel, and `['uvalib-filter-drawer', 'close', '<label>']` when they close it (Close, Escape or the backdrop; not when the window widens or a script closes it). Bubbles and is composed. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uvalib-filter-drawer-width` | `min(24rem, 100% - 3rem)` | The panel's width. |
+| `--uva-color-surface` |  | Dark-mode role token: panel background (else #fff). |
+| `--uva-color-text` |  | Dark-mode role token: panel text (else #2b2b2b). |
+| `--uva-color-border` |  | Dark-mode role token: panel edge and heading rule (else #dadada). |
+| `--uva-color-button-bg` |  | Dark-mode role token: button border and text, the count's background (else `--uva-blue-alt`, #007bac). |
+| `--uva-color-button-hover-bg` |  | Dark-mode role token: hovered button (else `--uva-blue-alt-A`, #005679). |
+| `--uva-color-button-text` |  | Dark-mode role token: the count's text (else #fff). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ### `<uvalib-image-regions>`

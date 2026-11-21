@@ -81,3 +81,5 @@ export { UvalibImageRegions } from './components/uvalib-image-regions/UvalibImag
 export type { ImageRegion } from './components/uvalib-image-regions/regions.js';
 export { UvalibMap } from './components/uvalib-map/UvalibMap.js';
 export type { MapItem } from './components/uvalib-map/UvalibMap.js';
+export { UvalibFilterDrawer } from './components/uvalib-filter-drawer/UvalibFilterDrawer.js';
+export { UvalibBackToTop } from './components/uvalib-back-to-top/UvalibBackToTop.js';

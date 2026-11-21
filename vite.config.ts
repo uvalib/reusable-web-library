@@ -33,6 +33,8 @@ const tags = [
   'uvalib-combobox',
   'uvalib-image-regions',
   'uvalib-map',
+  'uvalib-filter-drawer',
+  'uvalib-back-to-top',
 ];
 
 /** Plain modules a page's own scripts import (no element): analytics.js, the track* helpers. */

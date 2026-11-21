@@ -513,6 +513,38 @@ site-footer footer {
     },
   },
   {
+    id: 'back-to-top',
+    group: 'Page',
+    title: 'Back to top',
+    description:
+      'uvalib-back-to-top, last in a long page: hidden until the top 400px scroll away (an IntersectionObserver, not a scroll listener), then a 44px “Back to top” button in the bottom corner. It scrolls to the top (smoothly unless you prefer reduced motion) and moves focus to the h1, so keyboard and screen reader users land there too. Hidden, it is not a tab stop. It keeps its own space at the end of the content and sits in it there, so it never covers the last lines or the footer. Hidden in print.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Minutes of the Board of Visitors',
+          components: ['uvalib-back-to-top'],
+          body: `    <site-page>
+      <h1>Minutes of the Board of Visitors</h1>
+${Array.from(
+  { length: 8 },
+  (_, i) => `      <h2>Session ${i + 1}</h2>
+      <p>
+        The Board met at the Rotunda. The minutes of the previous session were read and approved.
+        The committee on the library reported on the purchase of books and the care of the
+        collection, and the Proctor reported on the accounts of the University.
+      </p>
+      <p>
+        Resolved, that the report be received and entered on the journal, and that the Proctor
+        be directed to settle the accounts before the next meeting of the Board.
+      </p>`,
+).join('\n')}
+      <uvalib-back-to-top></uvalib-back-to-top>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'vendor-header',
     group: 'Header',
     title: 'Vendor header',
@@ -2113,6 +2145,91 @@ ${REPORT_YEARS}
       });
     </script>`,
         }),
+      },
+    },
+  },
+  {
+    id: 'filter-drawer',
+    group: 'Search',
+    title: 'Filter drawer: search and filters',
+    description:
+      'uvalib-filter-drawer around a search form and uvalib-filter: a plain sidebar on wide screens; at 48rem and below a “Search and filters” button (with the number of filters set) that opens them in a modal panel from the side. Close takes focus, Escape, Close and the backdrop close it, and focus returns to the button. The rest of the page, the library header included, is inert while it is open; the results count outside is named in live, so its announcements are repeated inside the panel. Typed text and checked filters stay when the panel closes or the window is resized. Narrow the preview to see the button.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Search the minutes',
+          styles: true,
+          components: ['uvalib-filter-drawer', 'uvalib-filter', 'uvalib-results-count'],
+          body: `    <site-page>
+      <h1>Search the minutes</h1>
+      <div class="search-layout">
+        <uvalib-filter-drawer id="drawer" label="Search and filters" live="count">
+          <form class="uvalib-search-form" role="search" id="search">
+            <label for="q">Search the minutes</label>
+            <input class="uvalib-input" id="q" name="q" type="search" />
+            <button class="uvalib-button" type="submit">Search</button>
+          </form>
+          <uvalib-filter id="decade"></uvalib-filter>
+        </uvalib-filter-drawer>
+        <section aria-labelledby="results-heading">
+          <h2 id="results-heading">Results</h2>
+          <uvalib-results-count id="count" total="1204" noun="meetings" singular="meeting"></uvalib-results-count>
+          <p id="sent">Choose a decade or search to narrow the meetings.</p>
+        </section>
+      </div>
+    </site-page>
+    <script type="module">
+      const counts = { '1820s': 61, '1830s': 74, '1840s': 69, '1850s': 80, '1860s': 52 };
+      const drawer = document.querySelector('#drawer');
+      const decade = document.querySelector('#decade');
+      const count = document.querySelector('#count');
+      await customElements.whenDefined('uvalib-filter');
+      decade.filter = {
+        name: 'decade',
+        title: 'Decade',
+        position: 0,
+        buckets: Object.entries(counts).map(([key, doc_count]) => ({ key, doc_count, selected: false })),
+      };
+      decade.addEventListener('filter-change', (e) => {
+        const chosen = e.detail.value;
+        drawer.count = chosen.length;
+        count.total = chosen.length ? chosen.reduce((n, k) => n + counts[k], 0) : 1204;
+      });
+      document.querySelector('#search').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const q = new FormData(e.target).get('q');
+        document.querySelector('#sent').textContent = q
+          ? 'The page would search for what you typed.'
+          : 'Type something to search.';
+        drawer.close();
+      });
+    </script>`,
+        }),
+      },
+      'styles.css': {
+        content: `/* Two columns above the drawer's breakpoint (48rem); one below, where the drawer is a button. */
+.search-layout {
+  display: grid;
+  gap: 1.5rem;
+  padding-block: 1rem;
+}
+
+@media (width > 48rem) {
+  .search-layout {
+    grid-template-columns: 18rem minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+uvalib-filter-drawer .uvalib-search-form,
+uvalib-filter-drawer uvalib-filter {
+  margin-block-end: 1.5rem;
+}
+
+.search-layout h2 {
+  margin-block-start: 0;
+}
+`,
       },
     },
   },

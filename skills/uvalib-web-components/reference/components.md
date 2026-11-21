@@ -584,6 +584,43 @@ Compatibility element. Light mode (`no-shadow-dom`) installs the tokens and base
 | `site-analytics-event` | Listened for on `document` too: the same as `uvalib-analytics-event`. |
 | `site-analytics-content` | Listened for on `document` too: the same as `uvalib-analytics-content`. |
 
+## `<uvalib-back-to-top>`
+
+A “Back to top” button for long pages: minutes, finding aids, transcriptions, long result lists. It stays hidden (`visibility: hidden`, so it is neither a tab stop nor in the accessibility tree) until the top `offset` pixels of the page (default 400) have scrolled out of view, watched with an IntersectionObserver on a small sentinel at the top of the page, never a scroll listener. If it has focus as it hides, focus moves to the target. Activating it scrolls to the top (smoothly unless the visitor prefers reduced motion) and moves focus to the page's `<h1>` (the first in `<main>`, else the first anywhere, else `#top`), or to `target` (a selector), adding `tabindex="-1"` when it is not focusable, so keyboard and screen reader users land at the top too. The button is fixed in the bottom corner (end side), inside the safe-area insets. The element itself is an empty block 4.75rem tall: put it last in the page's main content and that is the space the button needs, so the last lines can always scroll clear of it. When that space comes into view the button sits in it instead of floating, so it never covers the footer either. It is hidden in print.
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `label` |  | `DEFAULT_LABEL` | The button's text. |
+| `offset` |  | `DEFAULT_OFFSET` | How many pixels at the top of the page must scroll out of view before the button shows. |
+| `target` | `string` | `''` | A selector for where focus goes (default: the page's `<h1>`, else `#top`). |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### CSS parts
+
+| Part | Description |
+|---|---|
+| `button` | The button. |
+
+### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-back-to-top', 'click']` when activated. Bubbles and is composed. |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uvalib-back-to-top-space` | `4.75rem` | The height the element keeps for the button at the end of the content. |
+| `--uva-color-surface-raised` |  | Dark-mode role token: button background (else #fff). |
+| `--uva-color-button-bg` |  | Dark-mode role token: button border and text (else `--uva-blue-alt`, #007bac). |
+| `--uva-color-button-hover-bg` |  | Dark-mode role token: hovered button (else `--uva-blue-alt-A`, #005679). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+| `--uva-color-shadow` |  | Dark-mode role token: the floating button's shadow. |
+
 ## `<uvalib-breadcrumbs>`
 
 A breadcrumb trail, as on library.virginia.edu: links separated by slashes, ending with the current page, at body size. A `<nav aria-label="Breadcrumb">` holding an `<ol>`; the separators are hidden from assistive technology and the last item has `aria-current="page"` (a `<span>`, or a link when it has an href). Give the trail as children: `<a href>` elements, ending with the current page as a text-only element (`<span>Hours</span>`) or a link (`<a href aria-current="page">`). The last child is always the current page. An earlier child without an href is shown as plain text. Children with no text are skipped with one console warning. Hrefs are used as written, and the trail follows changes to the children (attributes and text too). Apps that build the trail in JavaScript set the `items` property instead (it then wins over any children); assigning a new array re-renders. A step back to a search: give its link `data-return-from` with the search page's path (or several, separated by spaces), as in `<a href="/" data-return-from="/">Search</a>`. When the visitor came from that page on this site with a query string (`document.referrer`; a trailing slash or `index.html` does not matter), the step links back to that search (path and query) instead; its text stays the same. Otherwise, as when the result was opened in a new tab or the site sends no referrer, it keeps its href. Nothing is stored or sent. In `items`, the same is `returnFrom`. Inside `<site-page>`, give it `slot="breadcrumbs"`: it is placed between the header (and alerts band) and `<main>`, with the page's gutters. It works anywhere else too. Single-page apps: the trail is drawn from copies of the children, so a router's own click handlers on them do not run. Listen for `uvalib-breadcrumbs-navigate` and cancel it to route in place; hash links need nothing.
@@ -981,6 +1018,61 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 | `--uva-color-link` |  | Dark-mode role token: scope chip text and hover border (else `--uva-brand-blue`). |
 | `--uva-color-accent-bg` |  | Dark-mode role token: pressed chip background and border (else `--uva-brand-blue`). |
 | `--uva-color-on-accent` |  | Dark-mode role token: pressed chip text (else #fff). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+
+## `<uvalib-filter-drawer>`
+
+A search page's form and filters: a plain sidebar on wide screens, and on narrow ones a “Search and filters” button that opens them in a modal panel from the side. Put the page's search form, `<uvalib-filter>`s and other facets inside. Above `breakpoint` (default `48rem`) they are shown as written: no button, no dialog role. At and below it only the button is shown; it opens a native `<dialog>` (`showModal()`) with a visible heading (the `label`) and a 44px Close button, which takes focus. Escape, Close and a click on the backdrop close it, and focus returns to the button; widening the window past the breakpoint closes it and keeps focus where it was. While it is open the rest of the page, including `<site-page>`'s header, skip link and alerts, is inert (the browser's modal dialog), so focus cannot leave it except to the browser itself, and nothing else is announced. The children are the same nodes in both layouts (moved, never re-created): typed text, checked boxes, listeners and each filter's state are kept. Inert content is not announced, so results counts and status notices outside the panel would go silent while the visitor filters: name them in `live` (space-separated ids) and the drawer repeats what they announce in its own polite live region while it is open. `count` (the page's number of active filters) is shown on the button when above 0. The drawer never counts by itself: only the page knows which inputs are filters.
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `label` |  | `DEFAULT_LABEL` | The button's text, the panel's heading and the dialog's name. |
+| `breakpoint` |  | `DEFAULT_BREAKPOINT` | The widest viewport that gets the button and panel (`48rem`, `768px`); wider gets the sidebar. |
+| `count` | `number` | `0` | Active filters, set by the page; shown on the button when above 0. |
+| `live` | `string` | `''` | Space-separated ids of live regions outside the drawer (a results count, a status notice) to keep announcing while the panel is open. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### Slots
+
+| Slot | Description |
+|---|---|
+| (default) | The search form and filters. Shown as the sidebar on wide screens and inside the panel on narrow ones. |
+
+### CSS parts
+
+| Part | Description |
+|---|---|
+| `toggle` | The “Search and filters” button (narrow screens only). |
+| `count` | The number of active filters on the button. |
+| `sidebar` | The wrapper of the children on wide screens. |
+| `dialog` | The `<dialog>` panel. |
+| `header` | The panel's heading row. |
+| `heading` | The panel's heading. |
+| `close` | The Close button. |
+| `body` | The wrapper of the children, in the sidebar or the panel. |
+
+### Events
+
+| Event | Description |
+|---|---|
+| `close` | The panel closed (Close, Escape, the backdrop, `close()`, or the window widening past the breakpoint). Does not bubble. |
+| `open` | The panel opened. Does not bubble. |
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-filter-drawer', 'open', '<label>']` when the visitor opens the panel, and `['uvalib-filter-drawer', 'close', '<label>']` when they close it (Close, Escape or the backdrop; not when the window widens or a script closes it). Bubbles and is composed. |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uvalib-filter-drawer-width` | `min(24rem, 100% - 3rem)` | The panel's width. |
+| `--uva-color-surface` |  | Dark-mode role token: panel background (else #fff). |
+| `--uva-color-text` |  | Dark-mode role token: panel text (else #2b2b2b). |
+| `--uva-color-border` |  | Dark-mode role token: panel edge and heading rule (else #dadada). |
+| `--uva-color-button-bg` |  | Dark-mode role token: button border and text, the count's background (else `--uva-blue-alt`, #007bac). |
+| `--uva-color-button-hover-bg` |  | Dark-mode role token: hovered button (else `--uva-blue-alt-A`, #005679). |
+| `--uva-color-button-text` |  | Dark-mode role token: the count's text (else #fff). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ## `<uvalib-image-regions>`
