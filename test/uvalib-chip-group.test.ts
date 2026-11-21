@@ -693,6 +693,81 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       expect(parseFloat(s.width)).to.be.greaterThan(0);
     });
 
+    it('description: shown under the chips and describes the group, in every mode', async () => {
+      const hint = 'Keyword matches your words. Meaning finds meetings about your topic.';
+      const cases: [string, string, string][] = [
+        ['', YEARS, 'radiogroup'],
+        ['segmented', YEARS, 'radiogroup'],
+        ['scroll', YEARS, 'radiogroup'],
+        ['no-style', YEARS, 'radiogroup'],
+        ['mode="multi"', YEARS, 'group'],
+        ['mode="links"', '<a href="#a">Rotunda</a><button>Lawn</button>', 'group'],
+      ];
+      for (const [extra, children, role] of cases) {
+        const el = await make(`label="Search by" description="${hint}" ${extra}`, children);
+        const g = group(el);
+        expect(g.getAttribute('role'), extra).to.equal(role);
+        const ids = g.getAttribute('aria-describedby')!.split(/\s+/);
+        expect(ids, extra).to.have.length(1);
+        // Resolves in the same root as the group (aria-describedby cannot cross a shadow root).
+        const target = (g.getRootNode() as Document | ShadowRoot).getElementById(ids[0]!)!;
+        expect(target, extra).to.not.equal(null);
+        expect(target.textContent!.trim(), extra).to.equal(hint);
+        expect(target.getRootNode() === g.getRootNode(), extra).to.equal(true);
+        // Visible, below the chips.
+        expect(target.getBoundingClientRect().height, extra).to.be.greaterThan(0);
+        const bottom = Math.max(...chips(el).map((c) => c.getBoundingClientRect().bottom));
+        expect(target.getBoundingClientRect().top, extra).to.be.at.least(bottom - 1);
+        el.remove();
+      }
+    });
+
+    it('description: unique ids, follows the attribute, none without it', async () => {
+      const a = await make('label="A" description="First"');
+      const b = await make('label="B" description="Second"');
+      const id = (el: Element) => group(el).getAttribute('aria-describedby');
+      expect(id(a) === id(b)).to.equal(false);
+      expect(document.querySelectorAll(`[id="${id(a)}"]`).length).to.be.at.most(1);
+      a.setAttribute('description', 'Changed');
+      await a.updateComplete;
+      expect(root(a).querySelector('.description')!.textContent!.trim()).to.equal('Changed');
+      a.removeAttribute('description');
+      await a.updateComplete;
+      expect(group(a).hasAttribute('aria-describedby')).to.equal(false);
+      expect(root(a).querySelector('.description')).to.equal(null);
+      const plain = await make('label="C" description="   "');
+      expect(group(plain).hasAttribute('aria-describedby')).to.equal(false);
+    });
+
+    it('description: read when focus enters the group (Tab), axe light and dark, 320px', async () => {
+      const hint = 'Keyword matches your words.';
+      const el = await make(`label="Search by" value="2004" description="${hint}"`);
+      (document.activeElement as HTMLElement | null)?.blur();
+      await sendKeys({ press: 'Tab' });
+      const focused = (el.shadowRoot ?? document).activeElement as HTMLElement;
+      expect(focused.closest('[role="radiogroup"]')?.getAttribute('aria-describedby')).to.equal(
+        group(el).getAttribute('aria-describedby'),
+      );
+      await expectNoAxeViolations(el);
+      await inDarkMode(async () => {
+        const d = await make(`label="Search by" description="${hint}" segmented`);
+        await expectNoAxeViolations(d);
+      });
+      await setViewport({ width: 320, height: 640 });
+      try {
+        await make(`label="Search by" description="${hint} ${hint} ${hint}" scroll`);
+        expect(document.documentElement.scrollWidth).to.be.at.most(320);
+      } finally {
+        await setViewport({ width: 800, height: 600 });
+      }
+    });
+
+    it('description: hidden with the group when there are no chips', async () => {
+      const el = await make('label="Year" description="Hint"', '');
+      const d = root(el).querySelector<HTMLElement>('.description')!;
+      expect(d.getBoundingClientRect().height).to.equal(0);
+    });
+
     it('forced colors: no light fade over the scrolling row', async () => {
       await emulateMedia({ forcedColors: 'active' });
       try {

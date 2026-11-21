@@ -60,6 +60,10 @@ export const base = css`
   uvalib-chip-group[scroll]:not(:defined) {
     min-height: calc(44px + 0.75rem);
   }
+  /* A description: one line of it (0.875rem at 1.5, 0.25rem below the row). */
+  uvalib-chip-group[description]:not(:defined) {
+    padding-block-end: 1.5625rem;
+  }
   /* Its text is drawn from attributes: hold one line until it upgrades. */
   uvalib-results-count:not(:defined) {
     display: block;

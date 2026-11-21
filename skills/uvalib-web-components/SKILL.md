@@ -478,7 +478,7 @@ A year rail, a category filter, a sort or view toggle, or "Try:" suggestions are
 - `label` (required) names the group. `mode="single"` (default): one value, radios drawn as chips; arrow keys select. `mode="multi"`: toggles with `aria-pressed`, `value` an array. `mode="links"`: `<a href>` children (or buttons) that fire `select`, with no selected state.
 - Chips are children (`<button value="2005" data-count="213">2005</button>`, `<a href>` for links) or the `items` property (`[{ value, label, count?, href?, disabled?, swatch? }]`); `data-swatch="#e57200"`/`swatch` adds a decorative colour square, so the chips can be a chart's or map's key (the label stays the name). Counts go in `data-count`/`count`, not in the label text; `count-label` is the word read after them ("2005, 213 shoots").
 - Listen for `change` (`detail: { value }`); setting `value` from your state fires nothing. In a single-page app cancel `select` to route a link chip in place.
-- `segmented` for a short sort or view toggle (one row), `scroll` for a long rail such as years (one scrolling row). `url-param="year"` keeps the value in the address and follows Back and Forward (then `change` has `restored: true`).
+- `segmented` for a short sort or view toggle (one row), `scroll` for a long rail such as years (one scrolling row). A hint about the choice goes in `description="…"` (shown under the chips and read with the group), not in a paragraph beside it. `url-param="year"` keeps the value in the address and follows Back and Forward (then `change` has `restored: true`).
 - It reports `change` (`<label>: <chip label>`, with the count) and `select` (the label only) to analytics itself: do not add your own tracking.
 
 ```html snippet

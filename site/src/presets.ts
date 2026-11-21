@@ -740,7 +740,7 @@ site-footer footer {
     group: 'Chips',
     title: 'Year rail, sort and suggestions',
     description:
-      'Three uvalib-chip-group modes. A year rail (mode="single", the default): radios drawn as chips in a radio group named by label, one row that scrolls sideways (scroll), each count read as part of the name ("2005, 461 shoots", from count-label). Tab enters at the selected year and the arrow keys move and select. A sort toggle (segmented): the same radios joined into one bar. Category filters (mode="multi"): toggle buttons with aria-pressed and an array value. Suggestions (mode="links"): plain links that fire a cancelable select. A colour key (data-swatch): the category chips with a decorative colour square each, as the legend of a chart or map; the name stays the label. A selected chip is filled and ticked, never colour alone. Each fires change with { value }; the line under the rail shows it. url-param="year" would keep the year in the address.',
+      'Three uvalib-chip-group modes. A year rail (mode="single", the default): radios drawn as chips in a radio group named by label, one row that scrolls sideways (scroll), each count read as part of the name ("2005, 461 shoots", from count-label). Tab enters at the selected year and the arrow keys move and select. A sort toggle (segmented): the same radios joined into one bar. Its description, the hint under it, is tied to the radio group with aria-describedby, so it is read when focus enters the group. Category filters (mode="multi"): toggle buttons with aria-pressed and an array value. Suggestions (mode="links"): plain links that fire a cancelable select. A colour key (data-swatch): the category chips with a decorative colour square each, as the legend of a chart or map; the name stays the label. A selected chip is filled and ticked, never colour alone. Each fires change with { value }; the line under the rail shows it. url-param="year" would keep the year in the address.',
     files: {
       'index.html': {
         content: page({
@@ -764,7 +764,12 @@ site-footer footer {
       </uvalib-chip-group>
       <p id="status" role="status">Showing all years.</p>
       <h2>Sort</h2>
-      <uvalib-chip-group label="Sort by" segmented value="photos">
+      <uvalib-chip-group
+        label="Sort by"
+        segmented
+        value="photos"
+        description="Most photos puts the largest series first. Date runs from the oldest shoot to the newest."
+      >
         <button value="photos">Most photos</button>
         <button value="date">Date</button>
         <button value="title">Title A–Z</button>

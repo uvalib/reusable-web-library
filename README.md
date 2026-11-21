@@ -383,6 +383,15 @@ connect-src https://d2q6t6fdv76k7r.cloudfront.net wss://*.appsync-realtime-api.u
   <button value="date">Date</button>
   <button value="title">Title A–Z</button>
 </uvalib-chip-group>
+<uvalib-chip-group
+  label="Search by"
+  segmented
+  value="keyword"
+  description="Keyword matches your words. Meaning finds meetings about your topic, even when the minutes put it differently."
+>
+  <button value="keyword">Keyword</button>
+  <button value="meaning">Meaning</button>
+</uvalib-chip-group>
 <uvalib-chip-group mode="multi" label="Category" value="traditions">
   <button value="traditions" data-count="9">Traditions</button>
   <button value="sports" data-count="21">Sports</button>
@@ -404,6 +413,7 @@ A colour key: `data-swatch` (or `swatch` in `items`) draws a small square of tha
 
 - **Modes.** `single` (the default): native radios drawn as chips in a `role="radiogroup"`. Tab enters at the selected chip and the arrow keys move and select, as in any radio group; `value` is a string. `multi`: toggle buttons with `aria-pressed`; `value` is an array (comma-separated as an attribute). `links`: links (or, without `href`, buttons) that fire `select` and have no selected state.
 - **Chips.** Children: `<button value data-count>` (the value falls back to `data-value`, then the text; `disabled` disables), or `<a href>` in `links` mode (an unsafe href such as `javascript:` makes the chip plain text, with one warning; an empty one makes it a button). Or set `items` (`[{ value, label, count?, href?, disabled?, swatch? }]`), which wins over the children while set. The chips follow changes to the children.
+- **Description.** `description` is a hint shown under the chips in small muted text and tied to the group (the `radiogroup`, or the `group` in `multi` and `links`) with `aria-describedby`, so a screen reader reads it when focus enters the group. It is an attribute, not a slot, on purpose: the text lives in the element's own root next to the group, so the reference works in shadow DOM (an `aria-describedby` from the page cannot reach into a shadow root, nor out of one) and in light DOM (a unique id). It is plain text, so it cannot hold a link; put a longer explanation with links next to the element. Works in every mode, with `segmented`, `scroll` and `no-style`; before the script loads `base.css` holds a line for it.
 - **Names.** `label` names the group and is required (one console warning without it). A count is shown smaller and muted, and read as part of the chip's name: “2005, 461 shoots” with `count-label="shoots"` (default “items”). Numbers are formatted for the page's language.
 - **Swatches.** `data-swatch` / `swatch` is any CSS colour (checked with `CSS.supports`; an invalid one is ignored with one console warning) and is set as a style property, never as CSS text. The square is decorative (`aria-hidden="true"`, `part="swatch"`): the chip's name stays its label and count, so the colour is never the only cue; keep the chart's or map's own labels, and use the same label text in both. Its 1px border is the chip's text colour, so it shows against the chip unselected, selected, disabled and in dark mode (at least 3:1, WCAG 1.4.11), and the chip keeps its height. In forced colors the square keeps its real colour (`forced-color-adjust: none` on the square only, since it must match the chart or map, which forced colors leave alone in a canvas or image) with a system-colour border. It works in every mode, with `segmented` and `scroll`, and with `no-style`.
 - **Events.** `change` (`detail: { value }`) on the visitor's change only, never when the app sets `value`; `select` (`detail: { value, href? }`) in `links` mode, cancelable for a plain click on a link: cancel it to route in a single-page app. Both bubble and are composed.
