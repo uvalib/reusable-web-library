@@ -391,7 +391,7 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       expect(root(unnamed).querySelector('.more')!.getAttribute('aria-label')).to.equal(
         'More results',
       );
-      expect(root(unnamed).querySelector('.status')!.textContent).to.equal('Showing 0 of 0');
+      expect(root(unnamed).querySelector('.status')!.textContent).to.equal('Showing 0');
       const warns = await warnings(async () => {
         const both = await make('mode="load-more" pages="4" prev-href="#p"');
         expect(root(both).querySelector('nav') === null).to.equal(true);
@@ -400,6 +400,112 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         await both.updateComplete;
       });
       expect(warns.filter((line) => line.includes('load-more')).length).to.equal(1);
+    });
+
+    it('shows Showing N and keeps Load more without a total', async () => {
+      const rec = recordAnalytics();
+      try {
+        const el = await make('mode="load-more" shown="24" label="Photos"');
+        const status = () => root(el).querySelector('.status')!.textContent;
+        const button = () => root(el).querySelector('button');
+        expect(status()).to.equal('Showing 24');
+        expect(button() === null).to.equal(false);
+        expect(rec.events).to.deep.equal([]);
+        button()!.click();
+        expect(rec.of('uvalib-analytics-event').map((d) => d.event)).to.deep.equal([
+          ['uvalib-pager', 'load-more', '', 2],
+        ]);
+        el.shown = 500;
+        el.total = 0;
+        await el.updateComplete;
+        expect(status()).to.equal('Showing 500');
+        expect(button() === null).to.equal(false);
+        expect(root(el).querySelector('.status')!.getAttribute('role')).to.equal('status');
+        await expectNoAxeViolations(el);
+        expect(JSON.stringify(rec.events)).to.not.include('Photos');
+      } finally {
+        rec.restore();
+      }
+    });
+
+    it('lets has-more decide whether Load more shows', async () => {
+      const button = (el: Element) => root(el).querySelector('button') !== null;
+      const el = await make('mode="load-more" shown="24" has-more');
+      expect(el.hasMore).to.equal(true);
+      expect(button(el)).to.equal(true);
+      el.removeAttribute('has-more');
+      await el.updateComplete;
+      expect(el.hasMore).to.equal(false);
+      expect(button(el)).to.equal(false);
+      expect(root(el).querySelector('.status')!.textContent).to.equal('Showing 24');
+      el.hasMore = true;
+      await el.updateComplete;
+      expect(button(el)).to.equal(true);
+      el.hasMore = false;
+      await el.updateComplete;
+      expect(button(el)).to.equal(false);
+      el.hasMore = undefined;
+      await el.updateComplete;
+      expect(button(el)).to.equal(true);
+      const no = await make('mode="load-more" shown="3" has-more="false"');
+      expect(no.hasMore).to.equal(false);
+      expect(button(no)).to.equal(false);
+      const yes = await make('mode="load-more" shown="3" has-more="true"');
+      expect(button(yes)).to.equal(true);
+      // Set, has-more wins over total in both directions; the count still uses total.
+      const over = await make('mode="load-more" shown="9" total="9" has-more');
+      expect(button(over)).to.equal(true);
+      expect(root(over).querySelector('.status')!.textContent).to.equal('Showing 9 of 9');
+      const under = await make('mode="load-more" shown="2" total="9" has-more="false"');
+      expect(button(under)).to.equal(false);
+      await expectNoAxeViolations(under);
+    });
+
+    it('keeps focus on the new item when the last page turns has-more off', async () => {
+      const list = await fixture<HTMLUListElement>(
+        `<ul id="last-${mode}"><li><a href="#a">A</a></li></ul>`,
+      );
+      const el = await make(`mode="load-more" for="last-${mode}" shown="1" has-more`);
+      const button = root(el).querySelector('button')!;
+      button.focus();
+      button.click();
+      // Same tick: append, turn has-more off, call loaded().
+      const item = document.createElement('li');
+      item.innerHTML = `<a href="#b" id="last-new-${mode}">B</a>`;
+      list.append(item);
+      el.shown = 2;
+      el.hasMore = false;
+      el.loaded();
+      await el.updateComplete;
+      expect(root(el).querySelector('button') === null).to.equal(true);
+      expect(document.activeElement?.id).to.equal(`last-new-${mode}`);
+      expect(root(el).querySelector('.status')!.textContent).to.equal('Showing 2');
+    });
+
+    it('does not drop focus when Load more goes away before loaded()', async () => {
+      const list = await fixture<HTMLUListElement>(
+        `<ul id="early-${mode}"><li><a href="#a">A</a></li></ul>`,
+      );
+      const el = await make(`mode="load-more" for="early-${mode}" shown="1" has-more`);
+      const button = root(el).querySelector('button')!;
+      button.focus();
+      button.click();
+      const item = document.createElement('li');
+      item.innerHTML = `<a href="#b" id="early-new-${mode}">B</a>`;
+      list.append(item);
+      el.hasMore = false;
+      await el.updateComplete;
+      expect(document.activeElement?.id).to.equal(`early-new-${mode}`);
+      // With no list to focus, the count takes focus instead of the page.
+      const bare = await make('mode="load-more" shown="5" has-more');
+      const only = root(bare).querySelector('button')!;
+      only.focus();
+      bare.hasMore = false;
+      await bare.updateComplete;
+      const status = root(bare).querySelector<HTMLElement>('.status')!;
+      expect(status.matches(':focus')).to.equal(true);
+      expect(status.getAttribute('tabindex')).to.equal('-1');
+      await expectNoAxeViolations(bare);
     });
 
     it('moves focus to the first new item, from the list or from the host', async () => {
