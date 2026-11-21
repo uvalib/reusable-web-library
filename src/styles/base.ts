@@ -100,6 +100,7 @@ export const base = css`
     display: none;
   }
   uvalib-combobox:not(:defined) > input {
+    display: block;
     box-sizing: border-box;
     inline-size: 100%;
     min-block-size: 44px;

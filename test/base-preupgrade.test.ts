@@ -141,3 +141,61 @@ describe('base.css before <uvalib-chip-group> is defined', function () {
     }
   });
 });
+
+/**
+ * base.css before <uvalib-combobox> is defined: the label (from the attribute) and the field's
+ * height are held, so nothing below moves when it upgrades; a fallback <input list> child is a
+ * working field meanwhile, and the options are out of sight.
+ */
+describe('base.css before <uvalib-combobox> is defined', function () {
+  this.timeout(12000);
+  const rows = [
+    `<uvalib-combobox id="plain" label="Person"><option>Ada</option><option>Bruno</option></uvalib-combobox>`,
+    `<uvalib-combobox id="hint" label="Person" description="Type a name."></uvalib-combobox>`,
+    `<uvalib-combobox id="fallback" label="Place"><input name="place" list="pl" aria-label="Place"><datalist id="pl"><option>Rotunda</option></datalist></uvalib-combobox>`,
+  ];
+
+  it('holds the label and field, keeps a fallback input usable, and nothing moves on upgrade', async () => {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'width: 400px; height: 600px';
+    iframe.srcdoc = `<!doctype html><html lang="en"><head>
+      <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+      </head><body>${rows.join('')}<p id="after">After</p></body></html>`;
+    document.body.append(iframe);
+    await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+    try {
+      const doc = iframe.contentDocument!;
+      const win = iframe.contentWindow!;
+      const ids = ['plain', 'hint', 'fallback'];
+      const heights = () => ids.map((id) => doc.getElementById(id)!.getBoundingClientRect().height);
+      const after = () => doc.getElementById('after')!.getBoundingClientRect().top;
+      expect(win.getComputedStyle(doc.getElementById('plain')!, '::before').content).to.equal(
+        '"Person"',
+      );
+      expect(doc.querySelector('#plain option')!.getClientRects().length).to.equal(0);
+      const fallback = doc.querySelector<HTMLInputElement>('#fallback input')!;
+      expect(fallback.getBoundingClientRect().height).to.be.at.least(44);
+      expect(win.getComputedStyle(fallback).visibility).to.equal('visible');
+      const before = heights();
+      const top = after();
+      const script = doc.createElement('script');
+      script.type = 'module';
+      script.src = `${location.origin}/dist-cdn/uvalib-combobox.js`;
+      doc.head.append(script);
+      await new Promise((r) => script.addEventListener('load', r, { once: true }));
+      await Promise.all(
+        ids.map(
+          (id) =>
+            (doc.getElementById(id) as unknown as { updateComplete: Promise<unknown> })
+              .updateComplete,
+        ),
+      );
+      await new Promise((r) => setTimeout(r, 50));
+      expect(heights().map(Math.round)).to.deep.equal(before.map(Math.round));
+      expect(Math.round(after())).to.equal(Math.round(top));
+      expect(fallback.disabled).to.equal(true);
+    } finally {
+      iframe.remove();
+    }
+  });
+});

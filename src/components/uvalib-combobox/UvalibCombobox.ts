@@ -104,12 +104,14 @@ const structuralRules = (host: string) => `
   ${host} .label { display: block; margin-block-end: 0.25rem; }
   ${host} .field { position: relative; }
   ${host} .input {
+    display: block;
     box-sizing: border-box;
     inline-size: 100%;
     min-block-size: 44px;
     margin: 0;
     padding-inline-end: 44px;
     font: inherit;
+    line-height: 1.2;
   }
   ${host} .clear {
     position: absolute;
@@ -253,7 +255,6 @@ export class UvalibCombobox extends UvalibElement {
         border-radius: 5px;
         background: ${RAISED};
         color: ${TEXT};
-        line-height: 1.2;
       }
       .input::placeholder {
         color: ${MUTED};
