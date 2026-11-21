@@ -29,6 +29,8 @@ interface Slide {
   detailsId: string | null;
   /** Regions outlined on the image (`data-regions`, or the `regions` callback). */
   regions: ImageRegion[];
+  /** The page's own region list (`data-regions-list`, or the `regionsList` callback). */
+  list: RegionsListElement | null;
   /** `data-image-width` / `data-image-height`: the size pixel regions are measured in. */
   imageWidth?: number;
   imageHeight?: number;
@@ -50,6 +52,17 @@ export interface LightboxRegionsItem {
 export type LightboxRegions = (
   item: LightboxRegionsItem,
 ) => readonly ImageRegion[] | null | undefined;
+
+/** Returns the page's own region list for an image: an `<ol>` or `<ul>` of `<li data-xywh>`. */
+export type LightboxRegionsList = (item: LightboxRegionsItem) => Element | null | undefined;
+
+type RegionsListElement = HTMLOListElement | HTMLUListElement;
+
+/** The slot (shadow mode) a page's region list is lent to while its image is open. */
+const LIST_SLOT = 'uvalib-regions-list';
+
+/** Attributes `<uvalib-image-regions>` puts on a list's entries. */
+const ENTRY_MARKS = ['data-uvalib-region', 'data-uvalib-active'];
 
 const positive = (v: string | undefined): number | undefined => {
   const n = Number(v);
@@ -145,7 +158,6 @@ function loadRegions(): void {
  * a link pointing at an element elsewhere on the page. Either is shown inside the dialog and
  * put back when the viewer moves on or closes.
  *
- * @tagname uvalib-lightbox
  * Optional regions (people, objects, inscriptions): `data-regions` on a link, a JSON array of
  * `{ label, x, y, w, h, unit? }` or `xywh` values each followed by its label, separated by
  * `;` (`percent:10,20,30,40 Person 1; percent:55,15,20,30 Sign`), or the `regions` callback.
@@ -154,6 +166,15 @@ function loadRegions(): void {
  * hides the outlines. Pixel regions are measured in `data-image-width` × `data-image-height`
  * when set (the viewer shows a resized IIIF image), else in the image's natural size.
  *
+ * Or the page's own list, with its own buttons: `data-regions-list="<id>"` on a link (or the
+ * `regionsList` callback) names an `<ol>` or `<ul>` of `<li data-xywh>` anywhere in the page,
+ * usually `hidden`. While that image is open the list (the same nodes, so the page's listeners
+ * keep working) is the region list: in shadow mode it becomes a child of the lightbox slotted
+ * into the viewer, not moved into the shadow root, so the page's CSS still applies to it. When
+ * the image changes or the viewer closes it goes back where it was, `hidden` as before. It wins
+ * over `data-regions`.
+ *
+ * @tagname uvalib-lightbox
  * @slot - The image links. A plain click opens the viewer; without JavaScript they open the image.
  * @slot details - Details for the open image. `data-for` selects one item by its id or position (from 1); without it the details show for every image.
  * @csspart dialog - The modal dialog.
@@ -300,6 +321,15 @@ export class UvalibLightbox extends UvalibElement {
    */
   @property({ attribute: false }) regions?: LightboxRegions;
 
+  /**
+   * The page's own region list for each image, instead of `data-regions-list`: called with
+   * `{ element, id, href, index }`, it returns an `<ol>` or `<ul>` of `<li data-xywh>` (or
+   * null). While the image is open the list is shown as its region list, with the page's own
+   * buttons and listeners; it is put back where it was when the image changes or the viewer
+   * closes.
+   */
+  @property({ attribute: false }) regionsList?: LightboxRegionsList;
+
   /** The heading of the regions list (for example `People`). */
   @property({ attribute: 'regions-label' }) regionsLabel = 'Regions';
 
@@ -356,6 +386,18 @@ export class UvalibLightbox extends UvalibElement {
   /** Details elements moved into the dialog, and where they go back to. */
   private parked: { el: HTMLElement; parent: Node; next: ChildNode | null; hidden: boolean }[] = [];
   private parkedKey = '';
+  /** The page's region list lent to the viewer, and how to give it back as it was. */
+  private lent: {
+    el: RegionsListElement;
+    parent: Node;
+    next: ChildNode | null;
+    hidden: boolean;
+    slot: string | null;
+  } | null = null;
+  /** Each entry's own `tabindex` (null: none), so one the viewer added is removed. */
+  private entryTabindex = new WeakMap<Element, string | null>();
+  private warnedList = false;
+  private refocus = false;
 
   /** Shadow mode follows the base class. Light mode renders into `.viewer`. */
   private get isLight(): boolean {
@@ -418,6 +460,7 @@ export class UvalibLightbox extends UvalibElement {
   }
 
   protected override willUpdate(): void {
+    this.lendList();
     if (!this.open) {
       this.lastSrc = '';
       return;
@@ -436,13 +479,19 @@ export class UvalibLightbox extends UvalibElement {
   protected override updated(changed: PropertyValues): void {
     super.updated(changed);
     if (changed.has('selector')) this.watch();
-    if (changed.has('regions') && this.isConnected) this.scheduleSync(true);
+    if ((changed.has('regions') || changed.has('regionsList')) && this.isConnected)
+      this.scheduleSync(true);
     if (!this.open) {
       if (changed.has('open')) this.restoreDetails();
       return;
     }
     if (changed.has('open') || changed.has('index') || changed.has('slides')) this.placeDetails();
-    if (this.current?.regions.length) loadRegions();
+    if (this.current?.regions.length || this.current?.list) loadRegions();
+    this.lendList(true);
+    if (this.refocus) {
+      this.refocus = false;
+      this.closeBtn?.focus();
+    }
     this.bindDialogObserver();
     if (changed.has('open')) this.reveal();
     // Reading the image and writing `status` from inside `updated` makes Lit warn and schedule
@@ -519,6 +568,7 @@ export class UvalibLightbox extends UvalibElement {
         'data-id',
         'data-details-id',
         'data-regions',
+        'data-regions-list',
         'data-image-width',
         'data-image-height',
         'slot',
@@ -550,6 +600,7 @@ export class UvalibLightbox extends UvalibElement {
             s.id === this.slides[i]?.id &&
             s.caption === this.slides[i]?.caption &&
             s.detailsId === this.slides[i]?.detailsId &&
+            s.list === this.slides[i]?.list &&
             JSON.stringify([s.regions, s.imageWidth, s.imageHeight]) ===
               JSON.stringify([
                 this.slides[i]?.regions,
@@ -557,6 +608,7 @@ export class UvalibLightbox extends UvalibElement {
                 this.slides[i]?.imageHeight,
               ]),
         );
+      this.noteEntries();
       if (!same) {
         const current = this.current?.el;
         this.slides = next;
@@ -600,6 +652,8 @@ export class UvalibLightbox extends UvalibElement {
       if (a.closest('[hidden]')) return;
       if (this.mount?.contains(a) || a.closest('dialog')) return;
       if (a.closest('[slot="details"]')) return;
+      // Links in a page's region list are its actions, not images (and it may be lent here).
+      if (this.lent?.el.contains(a)) return;
       for (const root of detailRoots) {
         if (root.contains(a)) return;
       }
@@ -632,6 +686,14 @@ export class UvalibLightbox extends UvalibElement {
       'Image';
     const id =
       normalize(el.dataset.id) || el.id || iiifIdentifier(href, this.base) || String(index + 1);
+    const list = this.listOf(el, id, href, index);
+    const regions = this.regionsOf(el, id, href, index);
+    if (list && regions.length && !this.warnedList) {
+      this.warnedList = true;
+      console.warn(
+        `${this.localName}: an image has both regions and a regions list; the list is used.`,
+      );
+    }
     return {
       el,
       id,
@@ -639,7 +701,8 @@ export class UvalibLightbox extends UvalibElement {
       caption,
       alt: alt || caption,
       detailsId: normalize(el.dataset.detailsId) || null,
-      regions: this.regionsOf(el, id, href, index),
+      regions: list ? [] : regions,
+      list,
       imageWidth: positive(el.dataset.imageWidth),
       imageHeight: positive(el.dataset.imageHeight),
     };
@@ -662,6 +725,28 @@ export class UvalibLightbox extends UvalibElement {
         }
     }
     return found;
+  }
+
+  /** `data-regions-list` (an id in this root), else the `regionsList` callback's element. */
+  private listOf(
+    el: HTMLAnchorElement,
+    id: string,
+    href: string,
+    index: number,
+  ): RegionsListElement | null {
+    let found: unknown = null;
+    const ref = normalize(el.dataset.regionsList);
+    if (ref) found = this.scope.getElementById(ref);
+    else if (typeof this.regionsList === 'function') {
+      try {
+        found = this.regionsList({ element: el, id, href, index });
+      } catch (err) {
+        console.warn(`${this.localName}: the regionsList callback threw.`, err);
+      }
+    }
+    if (!(found instanceof HTMLOListElement || found instanceof HTMLUListElement)) return null;
+    // Not one that holds the viewer or the image link itself.
+    return found.contains(this) || found.contains(el) ? null : found;
   }
 
   /** The link's own text, not the alt of its image and not a details subtree. */
@@ -1152,6 +1237,81 @@ export class UvalibLightbox extends UvalibElement {
     for (let i = this.parked.length - 1; i >= 0; i--) this.putBack(this.parked[i]!);
     this.parked = [];
     this.parkedKey = '';
+    this.returnList();
+  }
+
+  /** The list the open image shows (none while its image cannot be drawn). */
+  private get wantedList(): RegionsListElement | null {
+    if (!this.open) return null;
+    const list = this.current?.list ?? null;
+    return list && this.displaySrc ? list : null;
+  }
+
+  /**
+   * Lend the open image's list to the viewer, giving back any other. Shadow mode (before
+   * render): the list becomes a light-DOM child of the lightbox with `slot`, and the viewer's
+   * `<uvalib-image-regions>` slots it on, so it stays in the page (its styles and listeners
+   * apply). Light DOM (`rendered`, after render): it is moved into `<uvalib-image-regions>`.
+   */
+  private lendList(rendered = false): void {
+    const want = this.wantedList;
+    if (this.lent && this.lent.el !== want) this.returnList();
+    if (!want) return;
+    if (this.isLight && !rendered) return;
+    const target: Element | null = this.isLight
+      ? this.renderRoot.querySelector('uvalib-image-regions')
+      : this;
+    if (!target || want.parentNode === target) return;
+    if (!this.lent) {
+      const parent = want.parentNode;
+      if (!parent) return;
+      this.lent = {
+        el: want,
+        parent,
+        next: want.nextSibling,
+        hidden: want.hidden,
+        slot: want.getAttribute('slot'),
+      };
+    }
+    this.noteEntries();
+    if (this.isLight) want.removeAttribute('slot');
+    else want.setAttribute('slot', LIST_SLOT);
+    want.hidden = false;
+    target.append(want);
+  }
+
+  /** Remember each entry's own tabindex before the viewer can add one. */
+  private noteEntries(): void {
+    const list = this.lent?.el;
+    if (!list) return;
+    for (const li of list.children) {
+      if (!this.entryTabindex.has(li)) this.entryTabindex.set(li, li.getAttribute('tabindex'));
+    }
+  }
+
+  /** Give the lent list back: same place, same `hidden` and `slot`, no marks of the viewer's. */
+  private returnList(): void {
+    const lent = this.lent;
+    if (!lent) return;
+    this.lent = null;
+    const { el } = lent;
+    const active = this.shadowRoot?.activeElement ?? this.ownerDocument.activeElement;
+    // Focus in the list would be lost with it; Close takes it while the viewer stays open.
+    if (this.open && active && el.contains(active)) this.refocus = true;
+    for (const li of el.children) {
+      for (const name of ENTRY_MARKS) li.removeAttribute(name);
+      if (this.entryTabindex.has(li)) {
+        const was = this.entryTabindex.get(li);
+        if (was == null) li.removeAttribute('tabindex');
+        else li.setAttribute('tabindex', was);
+      }
+    }
+    this.entryTabindex = new WeakMap();
+    if (lent.slot == null) el.removeAttribute('slot');
+    else el.setAttribute('slot', lent.slot);
+    el.hidden = lent.hidden;
+    const next = lent.next?.parentNode === lent.parent ? lent.next : null;
+    lent.parent.insertBefore(el, next);
   }
 
   private get statusText(): string {
@@ -1165,28 +1325,31 @@ export class UvalibLightbox extends UvalibElement {
     this.showRegions = !this.showRegions;
   };
 
-  /** The image, inside `<uvalib-image-regions>` when it has regions. */
+  /** The image, inside `<uvalib-image-regions>` when it has regions (or the page's list). */
   private renderImage(slide: Slide, src: string, regions: ImageRegion[] | null) {
     const img = html`<img
       part="image"
-      slot=${regions ? 'image' : nothing}
+      slot=${regions || slide.list ? 'image' : nothing}
       alt=${slide.alt}
       src=${src}
       aria-busy=${this.status === 'loading' ? 'true' : 'false'}
       @load=${this.onLoad}
       @error=${this.onError}
     />`;
-    if (!regions) return img;
+    if (!regions && !slide.list) return img;
+    // The page's list: slotted on from the lightbox's light DOM (shadow mode), or moved in
+    // after render (light DOM).
+    const list = slide.list && !this.isLight ? html`<slot name=${LIST_SLOT}></slot>` : nothing;
     return html`<uvalib-image-regions
       class="regions"
       part="regions"
-      .items=${regions}
+      .items=${slide.list ? null : regions}
       label=${normalize(this.regionsLabel) || 'Regions'}
       image-width=${slide.imageWidth ?? nothing}
       image-height=${slide.imageHeight ?? nothing}
       ?hide-outlines=${!this.showRegions}
       ?no-style=${this.noStyle}
-      >${img}</uvalib-image-regions
+      >${img}${list}</uvalib-image-regions
     >`;
   }
 
@@ -1196,6 +1359,7 @@ export class UvalibLightbox extends UvalibElement {
     const full = slide && usableImageUrl(slide.href, this.base) ? slide.href : '';
     const shown = this.statusText;
     const regions = slide?.regions.length ? slide.regions : null;
+    const outlined = !!(regions || slide?.list);
     const counter = this.multiple
       ? html`<p class="count" aria-live="polite">${this.index + 1} of ${this.slides.length}</p>`
       : nothing;
@@ -1221,7 +1385,7 @@ export class UvalibLightbox extends UvalibElement {
           <p class="status ${shown ? '' : 'visually-hidden'}" role="status">${shown}</p>
           <div class="toolbar" part="controls">
             ${
-              regions && src
+              outlined && src
                 ? html`<button
                     type="button"
                     class="regions-toggle"

@@ -623,6 +623,42 @@ Both follow dark mode through the role tokens and reflow at 320px; `no-style` ke
 </uvalib-lightbox>
 ```
 
+With your own actions in each entry, give the viewer the page's list: `data-regions-list` names an `<ol>` (or `<ul>`) of `<li data-xywh>` anywhere in the page, usually `hidden`.
+
+```html
+<uvalib-lightbox regions-label="People">
+  <a
+    href="board-large.jpg"
+    data-caption="The Board of Visitors, 2019"
+    data-regions-list="people-board-2019"
+    data-image-width="3000"
+    data-image-height="2000"
+  >
+    <img src="board-small.jpg" alt="The Board of Visitors, 2019" width="300" height="200" />
+  </a>
+</uvalib-lightbox>
+
+<ol id="people-board-2019" class="people" hidden>
+  <li data-xywh="410,380,220,260">
+    Tim Kaine
+    <button type="button" data-person="kaine" data-act="confirm">Confirm Tim Kaine</button>
+    <button type="button" data-person="kaine" data-act="reject">Not Tim Kaine</button>
+  </li>
+  <li data-xywh="1210,400,200,250" data-label="Person 2">
+    Person 2
+    <button type="button" data-face="2" data-act="name">Name person 2</button>
+  </li>
+</ol>
+
+<script type="module">
+  // The buttons are the page's: listen on the list (it is the same element while open).
+  document.querySelector('#people-board-2019').addEventListener('click', (e) => {
+    const button = e.target.closest('button[data-act]');
+    if (button) saveAnswer(button.dataset); // your own code
+  });
+</script>
+```
+
 - **The list is the way in.** Every region is an entry in the list, with the same name and the page's own links and buttons. The outlines are a visual aid: the overlay is `aria-hidden` and the outlines are not focusable, so no region is a second tab stop. Clicking an outline moves focus to its entry (and fires `select`); from there Tab reaches its links and buttons. Labels shown on a highlighted outline are the list's text, so nothing is only on hover.
 - **Regions.** An `<ol>` child whose `<li>` items carry `data-xywh`, IIIF and Media Fragments style: `percent:x,y,w,h`, or pixels (`x,y,w,h`, `pixel:x,y,w,h` or `xywh=…`) of the image's natural size, or of `image-width` × `image-height` when the image is a smaller derivative of the original (a IIIF `,880` size, say). A label is `data-label`, else the entry's first link, else its text without its buttons. `data-id` (or `id`) is sent back in events. Or set `items` (`{ id?, label, x, y, w, h, unit?: 'px' | 'percent', href?, description? }[]`): it replaces the child list. A pixel region is drawn once the image's size is known.
 - **Host content.** The child list and everything in it stay the page's: the element only numbers, positions and highlights them (it adds `data-uvalib-region` and, while highlighted, `data-uvalib-active` to each `<li>`, and `tabindex="-1"` when an outline moves focus to one). Your buttons' events are yours.
@@ -631,6 +667,7 @@ Both follow dark mode through the role tokens and reflow at 320px; `no-style` ke
 - **Layout.** The image keeps its own width (at most the element's) and the list sits beside it when 14rem is left, else under it, so it reflows at 320px. Outlines are in percent and scale with the image; give the image `width` and `height` so its space is reserved. `base.css` gives the children the same layout before the element upgrades, so the image does not move. `hide-outlines` hides the outlines and keeps the list. `label` (default “Regions”) is the list's heading; `heading-level` sets its level (default: one below the heading before it).
 - **Events.** `highlight` (`detail: { item, index }`, `item` null when none) as hover or focus changes the highlight; `select` (`detail: { item, index }`) when an outline is clicked. Both bubble and are composed.
 - **Lightbox.** On `<uvalib-lightbox>`, `data-regions` on a link is a JSON array of region objects, or `xywh` values each followed by its label, separated by `;` (`percent:10,20,30,40 Person 1; 160,120,320,240 Sign`; use JSON when a label contains `;`). Or set the lightbox's `regions` property to a function from `{ element, id, href, index }` to regions. An image with regions shows the outlines over it and their list beside it, and a “Show regions” toggle (`aria-pressed`) hides the outlines; `regions-label` names the list. `<uvalib-image-regions>` is loaded the first time it is needed. Because the viewer asks for a resized IIIF image, give pixel regions `data-image-width` and `data-image-height` (the original's size), or use percent. Images without regions are unchanged.
+- **The page's own list in the viewer.** `data-regions-list="<id>"` on a lightbox link (or the lightbox's `regionsList` property, a function from `{ element, id, href, index }` to the list element, for apps) names an `<ol>` or `<ul>` of `<li data-xywh>` entries in the same page (or the same shadow root as the lightbox), usually `hidden`. While that image is open the list is its region list, exactly as `<uvalib-image-regions>` uses its child list: the numbers, the highlight both ways and an outline click focusing its entry are the component's; the entries and their buttons and links stay yours. It is the same element, not a copy, so listeners you added (on the buttons or on the list) keep working, and when the image changes or the viewer closes it goes back where it was, with its own `hidden` state, and without the `data-uvalib-*` attributes or `tabindex` the viewer added. Change it while it is home (a name confirmed, a person added) and the next open shows the change; changes while it is open are seen too. If an image has both, the list wins over `data-regions` and the `regions` callback (with one console warning). **Styles:** in shadow mode the list becomes a child of `<uvalib-lightbox>` (with `slot="uvalib-regions-list"`) and is slotted into the viewer, never moved into the shadow root, so the page's CSS keeps applying; with `no-shadow-dom` it is moved into the viewer's `<uvalib-image-regions>`, still in the page. Either way it leaves its parent while open, so style it by its own id or class (`.people button`), not by where it sits in the page (`.sidebar ol button`). **Names:** the accessible names of your actions are yours, and must be unique in the list: “Confirm Tim Kaine”, “Not Tim Kaine”, “Name person 2”, never three “Confirm” buttons. A region's label is `data-label`, else the entry's first link, else its text without its buttons. If focus is in the list when the visitor moves to the next image, it goes to Close. Analytics are unchanged: outline clicks report the list's heading (`regions-label`) and the number, never a label.
 - **Analytics.** `select` when an outline is clicked, with the list's `label` and the region's number. Never a region's label: it may be a person's name. Nothing on hover or focus.
 - **Motion and styles.** The dimming fades only without `prefers-reduced-motion: reduce`. Shadow and light DOM; `no-style` keeps the layout and the outlines.
 
@@ -2638,7 +2675,7 @@ An image with numbered region outlines (people, objects, inscriptions) and a lis
 
 ### `<uvalib-lightbox>`
 
-An accessible image viewer over a set of plain links. With JavaScript a primary click opens a modal dialog; without it (or with a modified click) the link opens the image as before. Wrap the links, or point at them with `selector` (for example `a.pb-image` on a reading page). There is no autoplay and no carousel. The dialog is labelled by the caption (`data-caption`, else the image alt, else the link text). Focus moves to Close on open and back to the trigger on close. Escape and a click on the backdrop close it. With more than one image, Previous and Next and the arrow keys move through the set (wrapping), and a polite “3 of 13” counter is shown. Full size opens the original image in a new tab. A IIIF Image API URL keeps its region; only the size becomes `!W,H` for the viewport. TIFF and JPEG2000 URLs are left as written. `url-param` (for example `photo`) keeps `?photo=<id>` in sync, including on a hash route (`#/text?photo=<id>`): opening pushes a history entry, stepping replaces it, and Back closes. Optional details: children with `slot="details"` (and `data-for` equal to the item's id or its position from 1; without `data-for` they show for every image), or `data-details-id` on a link pointing at an element elsewhere on the page. Either is shown inside the dialog and put back when the viewer moves on or closes.
+An accessible image viewer over a set of plain links. With JavaScript a primary click opens a modal dialog; without it (or with a modified click) the link opens the image as before. Wrap the links, or point at them with `selector` (for example `a.pb-image` on a reading page). There is no autoplay and no carousel. The dialog is labelled by the caption (`data-caption`, else the image alt, else the link text). Focus moves to Close on open and back to the trigger on close. Escape and a click on the backdrop close it. With more than one image, Previous and Next and the arrow keys move through the set (wrapping), and a polite “3 of 13” counter is shown. Full size opens the original image in a new tab. A IIIF Image API URL keeps its region; only the size becomes `!W,H` for the viewport. TIFF and JPEG2000 URLs are left as written. `url-param` (for example `photo`) keeps `?photo=<id>` in sync, including on a hash route (`#/text?photo=<id>`): opening pushes a history entry, stepping replaces it, and Back closes. Optional details: children with `slot="details"` (and `data-for` equal to the item's id or its position from 1; without `data-for` they show for every image), or `data-details-id` on a link pointing at an element elsewhere on the page. Either is shown inside the dialog and put back when the viewer moves on or closes. Optional regions (people, objects, inscriptions): `data-regions` on a link, a JSON array of `{ label, x, y, w, h, unit? }` or `xywh` values each followed by its label, separated by `;` (`percent:10,20,30,40 Person 1; percent:55,15,20,30 Sign`), or the `regions` callback. The open image then shows numbered outlines (`<uvalib-image-regions>`, loaded on first use) and a list of the regions beside it, with a "Show regions" toggle (`aria-pressed`) that hides the outlines. Pixel regions are measured in `data-image-width` × `data-image-height` when set (the viewer shows a resized IIIF image), else in the image's natural size. Or the page's own list, with its own buttons: `data-regions-list="<id>"` on a link (or the `regionsList` callback) names an `<ol>` or `<ul>` of `<li data-xywh>` anywhere in the page, usually `hidden`. While that image is open the list (the same nodes, so the page's listeners keep working) is the region list: in shadow mode it becomes a child of the lightbox slotted into the viewer, not moved into the shadow root, so the page's CSS still applies to it. When the image changes or the viewer closes it goes back where it was, `hidden` as before. It wins over `data-regions`.
 
 #### Attributes
 

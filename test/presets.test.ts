@@ -776,7 +776,20 @@ describe('playground presets', function () {
       expect(dialog.querySelector('button.regions-toggle')!.getAttribute('aria-pressed')).to.equal(
         'true',
       );
+      // The region list is the page's hidden <ol>, lent to the viewer: its buttons are the page's.
+      const people = doc.querySelector<HTMLOListElement>('#lawn-people')!;
+      expect(people.hidden).to.equal(false);
+      expect(people.assignedSlot !== null).to.equal(true);
+      people.querySelector<HTMLButtonElement>('button[data-act="Not"]')!.click();
+      // The status line is the viewer's details (slot="details"), shown inside the dialog.
+      expect(dialog.querySelector('#viewer-said')!.textContent).to.include(
+        'Marked as not Person 1',
+      );
       await expectNoPageAxeViolations(doc);
+      box2.shadowRoot.querySelector<HTMLButtonElement>('button.close')!.click();
+      await box2.updateComplete;
+      expect(people.hidden).to.equal(true);
+      expect(people.parentElement!.localName).to.not.equal('uvalib-lightbox');
       expect(errors).to.deep.equal([]);
     } finally {
       iframe.remove();
