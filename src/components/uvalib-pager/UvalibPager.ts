@@ -259,7 +259,7 @@ export class UvalibPager extends UvalibElement {
   /** How many results are already shown. Used by `mode="load-more"` as N in “Showing N of M”. */
   @property({ type: Number }) shown?: number;
 
-  /** How many results there are. Used by `mode="load-more"` as M in “Showing N of M”. */
+  /** How many results there are. Used by `mode="load-more"` as M in “Showing N of M”. Unset or 0 (an unknown total), the count reads “Showing N”. */
   @property({ type: Number }) total?: number;
 
   /**
