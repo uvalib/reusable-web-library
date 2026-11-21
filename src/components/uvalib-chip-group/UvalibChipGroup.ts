@@ -1,5 +1,6 @@
 import { css, html, nothing, svg, unsafeCSS, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
+import { styleMap } from 'lit/directives/style-map.js';
 import { trackEvent } from '../../base/analytics.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
@@ -21,6 +22,11 @@ export interface ChipItem {
   /** `links` mode: the chip is a link. Without it the chip is a button that fires `select`. */
   href?: string;
   disabled?: boolean;
+  /**
+   * A CSS colour for a small square before the label, so the chips can be a chart's or map's
+   * colour key. Decorative (`aria-hidden`): the name stays the label.
+   */
+  swatch?: string;
 }
 
 export type ChipGroupMode = 'single' | 'multi' | 'links';
@@ -107,6 +113,21 @@ const structuralRules = (host: string) => `
   }
   ${host} .text { min-width: 0; }
   ${host} .check { flex: none; width: 1em; height: 1em; }
+  /* A key's colour is content, not look: kept with no-style. Its border is the chip's text
+     colour, which contrasts with the chip in every state (selected, disabled, dark). */
+  ${host} .swatch {
+    flex: none;
+    box-sizing: border-box;
+    width: 0.75em;
+    height: 0.75em;
+    border: 1px solid currentColor;
+    border-radius: 2px;
+  }
+  /* Forced colors would flatten the fill: the key keeps its colour (it matches the chart or
+     map) and its border stays the chip's system text colour. */
+  @media (forced-colors: active) {
+    ${host} .swatch { forced-color-adjust: none; }
+  }
   ${host} .chip:focus-visible { outline: none; }
   ${host} :is(.chip:focus-visible > .face, .chip input:focus-visible + .face) {
     position: relative;
@@ -158,7 +179,7 @@ const FOCUSED = unsafeCSS('.chip:focus-visible > .face, .chip input:focus-visibl
  * Give the chips as children, `<button value="2005" data-count="213">2005</button>` (the
  * value is the `value` attribute, else `data-value`, else the text; `disabled` disables), or
  * `<a href>` in `links` mode, or set the `items` property (`{ value, label, count?, href?,
- * disabled? }`), which wins over the children while set. The chips follow later changes to
+ * disabled?, swatch? }`), which wins over the children while set. The chips follow later changes to
  * the children.
  *
  * `single`: native radios drawn as chips, in a `role="radiogroup"` named by `label`. Tab
@@ -167,6 +188,11 @@ const FOCUSED = unsafeCSS('.chip:focus-visible > .face, .chip input:focus-visibl
  * `value` is an array (as an attribute, comma-separated). `links`: links, or buttons that fire
  * `select`, with no selected state; a chip whose href is unsafe (`javascript:`) is plain text,
  * and an empty href is a button.
+ *
+ * `data-swatch` (or `swatch` in `items`) is a CSS colour drawn as a small bordered square
+ * before the label, so the chips double as a chart's or map's colour key. It is decorative
+ * (`aria-hidden`) and never the only cue: the name stays the label. An invalid colour is
+ * ignored with one warning. In forced colors the square keeps its colour.
  *
  * A count is shown in a smaller muted span after the label and read as part of the name: “2005,
  * 213 items”, with `count-label` in place of “items”. A selected chip is filled, keeps its
@@ -187,6 +213,7 @@ const FOCUSED = unsafeCSS('.chip:focus-visible > .face, .chip input:focus-visibl
  * @fires change - The visitor changed the selection (`single`, `multi`), or Back or Forward changed it through `url-param`: `detail` is `{ value, restored? }` (a string in `single`, an array in `multi`; `restored` is true for Back and Forward). Not fired when the app sets `value`. Bubbles and is composed.
  * @fires select - `links` mode: a chip was chosen. `detail` is `{ value, href? }`. For a link, a plain primary click fires it cancelable: cancel it (`preventDefault()`) to route in the app, and the click's default is prevented too. Bubbles and is composed.
  * @fires uvalib-analytics-event - For `<site-analytics>`, on the visitor's actions only: `['uvalib-chip-group', 'change', '<label>: <chip label>', <count>?]` (in `single`, one second after the last change, for the chip then selected; in `multi`, for the chip toggled), and `['uvalib-chip-group', 'select', '<label>']` in `links` mode (never the chip or its URL). The count is sent when it is a number. Bubbles and is composed.
+ * @csspart swatch - The colour square before a chip's label (`data-swatch`, `swatch`).
  * @cssprop --uva-color-surface-raised - Dark-mode role token: chip background (else #fff).
  * @cssprop --uva-color-control-border - Dark-mode role token: chip border (else `--uva-grey`, #808080).
  * @cssprop --uva-color-link - Dark-mode role token: chip text and hover border (else `--uva-brand-blue`).
@@ -325,7 +352,7 @@ export class UvalibChipGroup extends UvalibElement {
   value: string | string[] = '';
 
   /**
-   * The chips as data: `{ value, label, count?, href?, disabled? }`. Wins over the children
+   * The chips as data: `{ value, label, count?, href?, disabled?, swatch? }`. Wins over the children
    * while set; `undefined` goes back to them.
    */
   @property({ attribute: false }) items?: ChipItem[];
@@ -448,6 +475,8 @@ export class UvalibChipGroup extends UvalibElement {
         item.href = n.getAttribute('href')!;
       if (n.hasAttribute('disabled') || n.getAttribute('aria-disabled') === 'true')
         item.disabled = true;
+      const swatch = n.getAttribute('data-swatch');
+      if (swatch !== null) item.swatch = swatch;
       items.push(item);
     }
     // Only a real change re-renders.
@@ -463,7 +492,17 @@ export class UvalibChipGroup extends UvalibElement {
         ...i,
         label: normalize(i.label),
         value: String(i.value ?? normalize(i.label)),
+        swatch: this.colour(i.swatch),
       }));
+  }
+
+  /** A valid CSS colour, else nothing (one warning). Only ever set as a style property. */
+  private colour(c: unknown): string | undefined {
+    const v = typeof c === 'string' ? c.trim() : '';
+    if (!v && (c === undefined || c === null || c === '')) return undefined;
+    if (v && CSS.supports('color', v)) return v;
+    this.warnOnce('swatch', `ignoring a swatch that is not a CSS colour: ${String(c)}`);
+    return undefined;
   }
 
   /** The selected values, whatever shape `value` has. */
@@ -660,7 +699,16 @@ export class UvalibChipGroup extends UvalibElement {
   private face(item: ChipItem, on: boolean) {
     const count = item.count === undefined ? '' : this.formatCount(item.count);
     return html`<span class="face"
-      >${on ? CHECK : nothing}<span class="text">${item.label}</span>${
+      >${on ? CHECK : nothing}${
+        item.swatch
+          ? html`<span
+              class="swatch"
+              part="swatch"
+              aria-hidden="true"
+              style=${styleMap({ backgroundColor: item.swatch })}
+            ></span>`
+          : nothing
+      }<span class="text">${item.label}</span>${
         count
           ? html`<span class="visually-hidden">, </span><span class="count">${count}</span
               ><span class="visually-hidden"> ${this.countLabel}</span>`
