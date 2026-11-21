@@ -611,6 +611,25 @@ describe('analytics catalogue', () => {
         for (const text of ['Rotunda', 'Stadium', '38.0', '/rotunda'])
           expect(sent).to.not.include(text);
       });
+
+      it('choosing a group of places reports expand with how many; never a place', async () => {
+        const el = await fixture<UvalibMap>(
+          `<uvalib-map ${attr(mode)} label="Places on Grounds" count-label="photos"></uvalib-map>`,
+        );
+        el.leaflet = Leaflet;
+        el.items = [
+          { name: 'The Rotunda', lat: 38.0356, lng: -78.5034, count: 2702, href: '/rotunda' },
+          { name: 'Dome Room', lat: 38.0356, lng: -78.5034, count: 600, href: '/dome' },
+          { name: 'Scott Stadium', lat: 38.0311, lng: -78.5137, count: 40 },
+        ];
+        await quietRender(el);
+        root(el).querySelector<HTMLElement>('.uvalib-map-marker.is-group .marker')!.click();
+        expect(events()).to.deep.equal([['uvalib-map', 'expand', 'Places on Grounds', 2]]);
+        const sent = JSON.stringify(rec.events);
+        for (const text of ['Rotunda', 'Dome', '38.0', '/rotunda'])
+          expect(sent).to.not.include(text);
+        (document.activeElement as HTMLElement | null)?.blur();
+      });
     });
 
     describe(`uvalib-filter-drawer (${mode})`, () => {
