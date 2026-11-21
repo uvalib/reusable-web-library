@@ -63,6 +63,7 @@ describe('playground presets', function () {
       'pagefind-search',
       'results-toolbar',
       'date-histogram',
+      'date-histogram-decades',
       'combobox',
       'todays-hours',
       'weekly-hours',
@@ -135,6 +136,7 @@ describe('playground presets', function () {
         'pagefind-search',
         'results-toolbar',
         'date-histogram',
+        'date-histogram-decades',
         'combobox',
         'uvalib-filter-shadow',
         'uvalib-filter-light',
@@ -315,6 +317,40 @@ describe('playground presets', function () {
       } finally {
         iframe.remove();
       }
+    }
+  });
+
+  it('date-histogram-decades: a decade sets the date range, Clear clears the chart, and the page passes axe', async () => {
+    const p = presets.find((x) => x.id === 'date-histogram-decades')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    try {
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(iframe.contentWindow!, [
+        'site-page',
+        'uvalib-date-range',
+        'uvalib-date-histogram',
+      ]);
+      await new Promise((r) => setTimeout(r, 100));
+      type Lit = HTMLElement & { updateComplete: Promise<unknown> };
+      const hist = doc.querySelector('#decades') as Lit & { selected: string };
+      const range = doc.querySelector('#meeting-dates') as Lit & { value: string[] };
+      const buttons = () => [...hist.shadowRoot!.querySelectorAll<HTMLButtonElement>('button.bar')];
+      expect(buttons()).to.have.length(22);
+      expect(buttons()[0]!.getAttribute('aria-label')).to.match(/^1810s: \d+ meetings$/);
+      expect(buttons()[5]!.classList.contains('is-empty')).to.equal(true);
+      buttons()[1]!.click();
+      await hist.updateComplete;
+      await range.updateComplete;
+      expect(range.value).to.deep.equal(['1820-01-01', '1829-12-31']);
+      doc.querySelector<HTMLButtonElement>('#clear-dates')!.click();
+      await range.updateComplete;
+      await hist.updateComplete;
+      expect(hist.selected).to.equal('');
+      expect(buttons().some((b) => b.getAttribute('aria-pressed') === 'true')).to.equal(false);
+      await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
     }
   });
 

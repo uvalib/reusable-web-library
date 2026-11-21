@@ -1761,6 +1761,41 @@ ${SKELETONS}
     },
   },
   {
+    id: 'date-histogram-decades',
+    group: 'Search',
+    title: 'Date histogram: decades over a long span',
+    description:
+      'Made-up meeting counts for 1817–2026, one bar per decade (granularity="decade"), five decades to a labelled row. Each bar is named like "1810s: 22 meetings"; choosing one selects the whole decade and sets the date range to its first and last day. A decade with no meetings is a gap. Clear sets the date range in script, and the chart follows it. granularity="auto" picks months, years or decades from the span.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Meetings by decade',
+          components: ['uvalib-date-range', 'uvalib-date-histogram'],
+          body: `    <site-page>
+      <h1>Meetings by decade</h1>
+      <uvalib-date-range id="meeting-dates" min="1817-01-01" max="2026-12-31" label="Meeting dates"></uvalib-date-range>
+      <p><button type="button" class="uvalib-button uvalib-button--secondary" id="clear-dates">Clear dates</button></p>
+      <uvalib-date-histogram id="decades" range-for="meeting-dates" granularity="decade" unit="meetings" label="Meetings by decade"></uvalib-date-histogram>
+    </site-page>
+    <script type="module">
+      // Made-up counts: a few meetings a year, none in the 1860s, more after 1900.
+      const items = [];
+      for (let year = 1817; year <= 2026; year++) {
+        const count = year >= 1860 && year < 1870 ? 0 : (year > 1900 ? 6 : 3) + ((year * 7) % 5);
+        items.push({ date: String(year), count });
+      }
+      await customElements.whenDefined('uvalib-date-histogram');
+      document.querySelector('#decades').items = items;
+      const range = document.querySelector('#meeting-dates');
+      document.querySelector('#clear-dates').addEventListener('click', () => {
+        range.value = [range.min, range.max];
+      });
+    </script>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'combobox',
     group: 'Search',
     title: 'Combobox: person and subject pickers',
