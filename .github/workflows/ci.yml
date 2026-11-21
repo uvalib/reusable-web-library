@@ -36,7 +36,7 @@ jobs:
       - run: pnpm test
 
   # Lighthouse CI over one standalone page per playground example (scripts/lhci.mjs):
-  # accessibility 1.0, best practices >= 0.95, performance >= 0.9, CLS <= 0.05 and
+  # accessibility 1.0, best practices >= 0.95, performance >= 0.95, CLS <= 0.05 and
   # TBT <= 200 ms, as medians of three runs (lighthouserc.json; about 10 minutes). Third
   # parties are blocked or stubbed locally.
   lighthouse:
