@@ -143,7 +143,7 @@ The page is built with the library itself. Its header's main navigation is the e
 
 - `https://unpkg.internal.lib.virginia.edu/web-components/v1/<tag>.js` is the major alias. It follows releases within major 1 and is cached for about 5 minutes.
 - `https://unpkg.internal.lib.virginia.edu/web-components/vX.Y.Z/<tag>.js` is an exact, immutable version. Use it to pin.
-- `tokens.css` and `base.css` live at the same prefix (`.../v1/tokens.css`).
+- `tokens.css` and `base.css` live at the same prefix (`.../v1/tokens.css`), and so does `analytics.js`, the analytics helpers for a page's own scripts (`trackEvent`, `trackSearch`, `createSearchTracker`; no element, no Lit; see [Analytics](#analytics)).
 - Never use the legacy `/web-components/latest/` or `/web-components/cdn-v*` paths; they belong to the old components. See [migration](docs/migration.md).
 - `site-page.js` also loads the header and footer. For Matomo, give `<site-page>` a `matomo-id` (it then loads the analytics code itself), or add `site-analytics.js` and a `<site-analytics>` element; see [Analytics](#analytics).
 - Link `base.css` in `<head>` too. `<site-page>` installs the same page-level base styles itself, but only after the first paint, so without the link the page jumps once: the browser's default body margin goes away, and a heading's top margin stops collapsing through the not-yet-upgraded `<site-page>` (layout shifts Lighthouse counts on every page). With the link, `<site-page>` also stays invisible until its script has run, so its content never paints above where the header goes; if the script fails to load, the content appears anyway after two seconds. Sites with `no-global-styles` skip `base.css`, as that attribute turns those styles off.
@@ -158,7 +158,7 @@ npm i @uvalib/web-components
 import '@uvalib/web-components/site-page.js'; // registers site-page, site-header, site-main-nav and site-footer
 ```
 
-The define entries are `site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `uvalib-date-histogram.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`, `events-section.js`, `bento-box.js` and `uvalib-pagefind-search.js`. The package root (`import '@uvalib/web-components'`) exports the classes only and registers nothing. To use a class such as `SitePage` directly, also import the define entries. CSS is available as `@uvalib/web-components/tokens.css`, `base.css` and `pagefind.css` (the Pagefind theme, see [Static-site search](#static-site-search-pagefind)). Do not load the same component from both the CDN and npm on one page.
+The define entries are `site-page.js`, `site-header.js`, `site-main-nav.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `uvalib-date-histogram.js`, `site-hours-section.js`, `library-weekly-hours.js`, `library-hours-setup.js`, `events-section.js`, `bento-box.js` and `uvalib-pagefind-search.js`. The package root (`import '@uvalib/web-components'`) exports the classes only and registers nothing. To use a class such as `SitePage` directly, also import the define entries. CSS is available as `@uvalib/web-components/tokens.css`, `base.css` and `pagefind.css` (the Pagefind theme, see [Static-site search](#static-site-search-pagefind)). `@uvalib/web-components/analytics.js` has the analytics helpers on their own (`base.js` exports them too). Do not load the same component from both the CDN and npm on one page.
 
 ## Quick start
 
@@ -1182,6 +1182,39 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
   - `…-search`: `detail: { searchQuery, searchCategory?, resultCount? }`, a Matomo site search; an unknown count (null or missing) is sent as Matomo's "unknown".
   - `…-pageview`: `detail: { customTitle?, referrer? }`, a page view; the title defaults to the document's, a referrer without `http` is a path on this origin, and with none the document's referrer is used.
   - `…-content`: `detail: { name, piece, target?, interaction? }`, a Matomo content impression (`trackContentImpression`), or with `interaction` a `trackContentInteraction`; `trackContent(el, { name, piece, target?, interaction? })` from `@uvalib/web-components/base.js` fires it.
+- **Site search in your own search UI: `createSearchTracker`.** `<bento-box>` and `<uvalib-pagefind-search>` report their searches; a page with its own search box uses `createSearchTracker({ element?, debounce? })` from `analytics.js` (CDN `https://unpkg.internal.lib.virginia.edu/web-components/v1/analytics.js`, npm `@uvalib/web-components/analytics.js` or `base.js`) rather than calling `trackSearch` itself. It sends one Matomo site search per search the visitor settles on, with the result count (0 included) and a category, through `trackSearch`, so the opt-outs below apply; the query goes only into Matomo's site-search keyword, never into an event. Each method takes `{ query, count?, category?, key? }`:
+  - `typed(search)`: search-as-you-type; sent once the results have stayed the same for `debounce` ms (default 1000), and a later call replaces it.
+  - `settled(search)`: a submitted or server-backed search, when its results arrive; sent at once.
+  - `restored(search)`: the page opened from a link with a query, or Back/Forward; nothing is sent, and the same search again (Enter) is not counted.
+  - `cancel()`: the field was cleared or the search failed; a typed search still waiting is dropped. Send nothing for errors.
+  - `reset()`: forget the last search sent, so the same one counts again.
+
+  A search is never sent twice in a row for the same `key` (default: the query and the category); pass the query and the active filters as `key` when filters make a new search. `element` (default `document`) is where it reports from, so a `no-analytics` ancestor silences it.
+
+  ```html
+  <script type="module">
+    import { createSearchTracker } from 'https://unpkg.internal.lib.virginia.edu/web-components/v1/analytics.js';
+    const form = document.querySelector('#search');
+    const tracker = createSearchTracker({ element: form });
+    const fromUrl = new URLSearchParams(location.search).get('q');
+    if (fromUrl) tracker.restored({ query: fromUrl, category: 'Keyword', count: show(fromUrl) });
+    form.q.addEventListener('input', () => {
+      const query = form.q.value;
+      if (!query.trim()) return tracker.cancel();
+      tracker.typed({ query, category: 'Keyword', count: show(query) });
+    });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const results = await search(form.q.value); // your own search
+        tracker.settled({ query: form.q.value, category: 'Keyword', count: results.length });
+      } catch {
+        tracker.cancel(); // never on an error
+      }
+    });
+  </script>
+  ```
+
 - **Nothing is lost or counted twice.** Every call goes through Matomo's `_paq` queue, which matomo.js replays when it loads, so events fired before it arrives are kept (and nothing waits for it if it is blocked). However many analytics elements a page has, from any copy of this library (an npm build next to a CDN script, two CDN versions), matomo.js is loaded and the page view recorded once and only one element forwards each event; if it is removed, the next one takes over. A Matomo snippet already on the page (a `matomo.js` script, or a `_paq` that sets a site id) is used as it is: nothing is loaded or recorded again, and the element only forwards the events.
 - **Matomo's own link tracking** (`enableLinkTracking`, on unless `spa`, as in the old element) still records clicks on links to other sites and downloads with their URLs, result links included. Besides Matomo's own download types (pdf, doc*, xls*, ppt*, …), links to the library's file types count as downloads: epub, mobi, csv, tsv, json, xml, zip, tar, gz, mp3, mp4, m4a, tif, tiff, jp2, mrc, ris, bib and txt (`addDownloadExtensions`). The components' own events never carry titles or URLs.
 - **`spa="auto"`** records a page view on load and on every same-document route change (`history.replaceState`, such as a search page syncing its filters to the URL, and reloads are never page views): a hash change, Back and Forward (`popstate`), the Navigation API's `currententrychange` where the browser has it, and `history.pushState` (wrapped once per page, shared by every copy of this library, and left in place). The view is recorded on the next frame, so the title the app sets right after navigating is the one counted, with the URL as the custom URL and the previous view's URL as the referrer. A change to the URL already counted (`replaceState`, a second `pushState` to the same URL, the several events one Back fires) is not counted again. Opening `<uvalib-lightbox url-param>` pushes one history entry, so this counts that open as a page view; stepping through the images replaces the entry and is not another view. Bare `spa` keeps its meaning: no automatic views.

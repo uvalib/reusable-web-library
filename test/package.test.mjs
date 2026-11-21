@@ -67,6 +67,8 @@ test('the component entries and the base entry are exported with types', () => {
     assert.equal(e.types, `./dist/components/${tag}/${tag}.d.ts`);
   }
   assert.equal(pkg.exports['./base.js'].default, './dist/base.js');
+  assert.equal(pkg.exports['./analytics.js'].default, './dist/analytics.js');
+  assert.equal(pkg.exports['./analytics.js'].types, './dist/analytics.d.ts');
   assert.equal(pkg.exports['.'].default, './dist/index.js');
   assert.equal(pkg.customElements, 'dist/custom-elements.json');
 });

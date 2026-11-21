@@ -225,6 +225,8 @@ The library's components already report what visitors do with them; do not add t
 
 For the host page's own content, tag the clickable element (or a wrapper) with `data-uvalib-track="category,action[,name[,value]]"` instead of writing a listener, for example `<a href="/spaces" data-uvalib-track="home-page,banner-click,Study spaces">`: the category is your page or widget, the action a fixed kebab-case verb, the name a short fixed label, the value a number. It works inside shadow DOM too. Never put titles, URLs, search text, ids, email addresses, phone numbers or other personal data in events.
 
+A page with its own search UI (not `<bento-box>` or `<uvalib-pagefind-search>`, which report their own) sends site searches with `createSearchTracker()` from `analytics.js` (CDN `…/web-components/v1/analytics.js`, npm `@uvalib/web-components/analytics.js`), never with hand-written timers or `trackSearch` calls: `typed()` for search-as-you-type (sent after a 1 s pause), `settled()` when a submitted search's results arrive, `restored()` for a query from the URL or Back/Forward (not sent), `cancel()` on a clear or an error; always pass the result `count` (0 included) and a fixed `category`. It never sends the same search twice in a row; see the README's "Analytics".
+
 To opt out: `no-analytics` on an element (or any ancestor) silences it and everything inside; `<html data-uvalib-analytics="off">` turns analytics off for the whole page (no Matomo, no page view, no events). Browsers that send Do Not Track or Global Privacy Control get no Matomo at all, with nothing to configure.
 
 A page with a breadcrumb trail (between the header and `<main>`):

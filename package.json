@@ -35,6 +35,10 @@
       "types": "./dist/base.d.ts",
       "default": "./dist/base.js"
     },
+    "./analytics.js": {
+      "types": "./dist/analytics.d.ts",
+      "default": "./dist/analytics.js"
+    },
     "./site-page.js": {
       "types": "./dist/components/site-page/site-page.d.ts",
       "default": "./dist/components/site-page/site-page.js"
