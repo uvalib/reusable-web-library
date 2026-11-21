@@ -600,6 +600,19 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       await expectNoAxeViolations(el);
     });
 
+    it('passes axe with a list long enough to scroll, which stays out of the tab order', async () => {
+      // 40 matches overflow the popup, so axe's scrollable-region-focusable rule applies. The
+      // listbox is focusable by script only (tabindex -1): focus stays in the field, as in APG.
+      const many = Array.from({ length: 40 }, (_, i) => `Ellis ${i + 1}`);
+      const el = await make('label="Person"', '', many);
+      await type(el, 'el');
+      await press(el, 'ArrowDown');
+      expect(popup(el).scrollHeight > popup(el).clientHeight).to.equal(true);
+      expect(listbox(el).tabIndex).to.equal(-1);
+      expect(focused(el)).to.equal(true);
+      await expectNoAxeViolations(el);
+    });
+
     it('passes axe in dark mode, open and closed', async () => {
       await inDarkMode(async () => {
         const el = await make('label="Person" description="Type a name."');

@@ -1059,6 +1059,7 @@ export class UvalibCombobox extends UvalibElement {
             class="listbox"
             role="listbox"
             aria-labelledby="${id}-label"
+            tabindex="-1"
             ?hidden=${!expanded}
             @click=${this.onOptionClick}
           >
