@@ -34,6 +34,7 @@ describe('playground presets', function () {
       'light-dom-host-css',
       'dark-mode',
       'buttons-forms',
+      'back-to-top',
       'vendor-header',
       'site-navigation',
       'site-name',
@@ -64,6 +65,7 @@ describe('playground presets', function () {
       'results-toolbar',
       'date-histogram',
       'combobox',
+      'filter-drawer',
       'todays-hours',
       'weekly-hours',
       'events',
@@ -100,6 +102,7 @@ describe('playground presets', function () {
         'light-dom-host-css',
         'dark-mode',
         'buttons-forms',
+        'back-to-top',
       ],
       Header: [
         'vendor-header',
@@ -136,6 +139,7 @@ describe('playground presets', function () {
         'results-toolbar',
         'date-histogram',
         'combobox',
+        'filter-drawer',
         'uvalib-filter-shadow',
         'uvalib-filter-light',
         'uvalib-date-range-shadow',
@@ -348,6 +352,80 @@ describe('playground presets', function () {
       );
       expect(countMain(doc)).to.equal(1);
       await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  });
+
+  for (const width of [1000, 400]) {
+    it(`filter-drawer: a sidebar at 1000px, a modal panel at 400px; filters and the count work, axe passes (${width}px)`, async () => {
+      const p = presets.find((x) => x.id === 'filter-drawer')!;
+      const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+      iframe.style.width = `${width}px`;
+      iframe.style.height = '900px';
+      try {
+        const doc = iframe.contentDocument!;
+        const win = iframe.contentWindow!;
+        await whenAllDefined(win, ['site-page', 'uvalib-filter-drawer', 'uvalib-filter']);
+        await new Promise((r) => setTimeout(r, 200));
+        type Lit = HTMLElement & { updateComplete: Promise<unknown>; shadowRoot: ShadowRoot };
+        const drawer = doc.querySelector('uvalib-filter-drawer') as Lit;
+        const filter = doc.querySelector('uvalib-filter') as Lit;
+        await drawer.updateComplete;
+        const toggle = drawer.shadowRoot.querySelector<HTMLButtonElement>('button.fd-toggle')!;
+        const dialog = drawer.shadowRoot.querySelector<HTMLDialogElement>('dialog')!;
+        expect(toggle.hidden).to.equal(width > 768);
+        if (width < 768) {
+          toggle.click();
+          await drawer.updateComplete;
+          expect(dialog.open).to.equal(true);
+          expect(drawer.shadowRoot.activeElement?.classList.contains('fd-close')).to.equal(true);
+        }
+        await filter.updateComplete;
+        filter.shadowRoot.querySelector<HTMLInputElement>('input[type=checkbox]')!.click();
+        await drawer.updateComplete;
+        const count = doc.querySelector('uvalib-results-count') as Lit;
+        await count.updateComplete;
+        expect(count.shadowRoot.querySelector('.text')!.textContent).to.equal('Showing all 61 meetings');
+        if (width < 768) expect(toggle.textContent).to.include('1');
+        expect(countMain(doc)).to.equal(1);
+        await expectNoPageAxeViolations(doc);
+        if (width < 768) {
+          drawer.shadowRoot.querySelector<HTMLButtonElement>('button.fd-close')!.click();
+          expect(dialog.open).to.equal(false);
+        }
+        expect(errors).to.deep.equal([]);
+      } finally {
+        iframe.remove();
+      }
+    }).timeout(10000);
+  }
+
+  it('back-to-top: shown after scrolling, back to the h1, and axe passes', async () => {
+    const p = presets.find((x) => x.id === 'back-to-top')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    iframe.style.width = '400px';
+    iframe.style.height = '600px';
+    try {
+      const doc = iframe.contentDocument!;
+      const win = iframe.contentWindow!;
+      await whenAllDefined(win, ['site-page', 'uvalib-back-to-top']);
+      type Lit = HTMLElement & { updateComplete: Promise<unknown>; shadowRoot: ShadowRoot };
+      const el = doc.querySelector('uvalib-back-to-top') as Lit;
+      await el.updateComplete;
+      const button = el.shadowRoot.querySelector<HTMLButtonElement>('button')!;
+      const shown = () => win.getComputedStyle(button).visibility === 'visible';
+      await new Promise((r) => setTimeout(r, 300));
+      expect(shown()).to.equal(false);
+      win.scrollTo(0, 1500);
+      const end = Date.now() + 2000;
+      while (!shown() && Date.now() < end) await new Promise((r) => setTimeout(r, 20));
+      expect(shown()).to.equal(true);
+      await new Promise((r) => setTimeout(r, 300)); // the 0.2s fade in
+      await expectNoPageAxeViolations(doc);
+      button.click();
+      expect(doc.activeElement === doc.querySelector('h1')).to.equal(true);
       expect(errors).to.deep.equal([]);
     } finally {
       iframe.remove();
