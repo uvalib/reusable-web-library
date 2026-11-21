@@ -35,6 +35,9 @@ const tags = [
   'uvalib-map',
 ];
 
+/** Plain modules a page's own scripts import (no element): analytics.js, the track* helpers. */
+const modules = { analytics: 'src/analytics.ts' };
+
 // Library mode, ES output: one self-contained entry per component, with Lit and shared
 // code split into hashed chunks. Nothing is external, so a page needs no import map.
 export default defineConfig({
@@ -44,7 +47,10 @@ export default defineConfig({
     minify: true,
     sourcemap: true,
     lib: {
-      entry: Object.fromEntries(tags.map((t) => [t, `src/components/${t}/${t}.ts`])),
+      entry: {
+        ...Object.fromEntries(tags.map((t) => [t, `src/components/${t}/${t}.ts`])),
+        ...modules,
+      },
       formats: ['es'],
     },
     rollupOptions: {

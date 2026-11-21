@@ -255,7 +255,7 @@ Live UVA Library alerts, drawn as library.virginia.edu draws them. The alerts pr
 
 ## `<site-analytics>`
 
-Matomo analytics, with no visual output. Loads matomo.js for the site and records the page view, then forwards the events below, fired anywhere in the page, to Matomo. Every call goes through Matomo's `_paq` queue, so events fired before matomo.js loads are kept. One tracker per page: however many `<site-analytics>` and `<uvalib-analytics>` elements there are (from any copy of this library), matomo.js is loaded and the page view recorded once, and only one element forwards each event; if it is removed, the next takes over. A Matomo snippet already on the page is used as it is (nothing is loaded or recorded again). When the browser sends Do Not Track or Global Privacy Control, or the page has `<html data-uvalib-analytics="off">`, it loads nothing and records nothing. A click on an element with `data-uvalib-track="category,action[,name[,value]]"` (or inside one, in light or shadow DOM) sends that event, unless `<html data-uvalib-analytics="off">` or a `no-analytics` ancestor opts it out. The same element is registered as `<uvalib-analytics>` by `uvalib-analytics.js`.
+Matomo analytics, with no visual output. Loads matomo.js for the site and records the page view, then forwards the events below, fired anywhere in the page, to Matomo. Every call goes through Matomo's `_paq` queue, so events fired before matomo.js loads are kept. One tracker per page: however many `<site-analytics>` and `<uvalib-analytics>` elements there are (from any copy of this library), matomo.js is loaded and the page view recorded once, and only one element forwards each event; if it is removed, the next takes over. A Matomo snippet already on the page is used as it is (nothing is loaded or recorded again). When the browser sends Do Not Track or Global Privacy Control, or the page has `<html data-uvalib-analytics="off">`, it loads nothing and records nothing. A click on an element with `data-uvalib-track="category,action[,name[,value]]"` (or inside one, in light or shadow DOM) sends that event, unless `<html data-uvalib-analytics="off">` or a `no-analytics` ancestor opts it out. With `downloads="event"` downloads are counted as `['download', '<extension>']` events, without their URLs, instead of by Matomo's link tracking. The same element is registered as `<uvalib-analytics>` by `uvalib-analytics.js`.
 
 ### Attributes
 
@@ -265,6 +265,7 @@ Matomo analytics, with no visual output. Loads matomo.js for the site and record
 | `matomoid` | `number \| undefined` |  | The Matomo site id (attribute `matomoid`). Default: the site whose URL the page is under. |
 | `spa` | `boolean \| 'auto'` | `false` | A single-page app. `spa` (no value): it records its own page views (`uvalib-analytics-pageview`), none on load. `spa="auto"`: a page view on load and one per same-document route change (hash change, Back and Forward, `history.pushState`), once the title has settled, never twice in a row for the same URL, with the previous URL as the referrer. Either way Matomo's link tracking is off. |
 | `variables` | `Record<string, unknown> \| null` | `null` | Custom dimensions, a JSON object of `{ id: value }`, set before the page view. |
+| `downloads` | `string \| undefined` |  | `event`: count downloads without their URLs. Matomo's link tracking is left off; a left or middle click on a link to a file (the `download` attribute, or a download file type) sends the event `['download', '<extension>']` (no URL, no file name), and a click on a link to another site is still sent as an outlink (`trackLink`), as Matomo's link tracking would. Off by default. Read when Matomo is set up; no effect with a Matomo snippet already on the page. |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -488,6 +489,7 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 | `color-scheme-switch` | `boolean` | `false` | Opt in to dark mode, forwarded to `<site-header color-scheme-switch>`: the page follows the OS preference, and a Light / Dark / System control in the header lets the visitor override it (remembered per site). Off by default: the page is always light. The page's own content must support it (see the README's "Dark mode"). |
 | `matomo-id` | `number \| undefined` |  | Opt in to Matomo analytics: the site's Matomo id. The page then adds one `<site-analytics>` for it (loading its code only then), which records the page view and what the library's components report (see the README's "Analytics"). Off by default. With an analytics element or a Matomo snippet already on the page nothing is counted twice. |
 | `matomo-url` | `string \| undefined` |  | The Matomo server for `matomo-id`, ending in `/` (default: the library's). |
+| `matomo-downloads` | `string \| undefined` |  | `event`: the `<site-analytics downloads="event">` option for `matomo-id`, counting downloads as `['download', '<extension>']` events without their URLs. |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -565,6 +567,7 @@ Compatibility element. Light mode (`no-shadow-dom`) installs the tokens and base
 | `matomoid` | `number \| undefined` |  | The Matomo site id (attribute `matomoid`). Default: the site whose URL the page is under. |
 | `spa` | `boolean \| 'auto'` | `false` | A single-page app. `spa` (no value): it records its own page views (`uvalib-analytics-pageview`), none on load. `spa="auto"`: a page view on load and one per same-document route change (hash change, Back and Forward, `history.pushState`), once the title has settled, never twice in a row for the same URL, with the previous URL as the referrer. Either way Matomo's link tracking is off. |
 | `variables` | `Record<string, unknown> \| null` | `null` | Custom dimensions, a JSON object of `{ id: value }`, set before the page view. |
+| `downloads` | `string \| undefined` |  | `event`: count downloads without their URLs. Matomo's link tracking is left off; a left or middle click on a link to a file (the `download` attribute, or a download file type) sends the event `['download', '<extension>']` (no URL, no file name), and a click on a link to another site is still sent as an outlink (`trackLink`), as Matomo's link tracking would. Off by default. Read when Matomo is set up; no effect with a Matomo snippet already on the page. |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 

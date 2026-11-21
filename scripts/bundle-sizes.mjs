@@ -27,10 +27,10 @@ export function moduleGraph(entry) {
 
 const gz = (file) => gzipSync(readFileSync(join(CDN, file)), { level: 9 }).length;
 
-/** { file: { bytes, files } } for every element and style in the manifest. */
+/** { file: { bytes, files } } for every element, style and module in the manifest. */
 export function bundleSizes() {
   const m = JSON.parse(readFileSync(join(CDN, 'manifest.json'), 'utf8'));
-  const entries = [...Object.values(m.elements), ...m.styles];
+  const entries = [...Object.values(m.elements), ...m.styles, ...(m.modules ?? [])];
   return Object.fromEntries(
     entries.map((e) => {
       const files = moduleGraph(e);

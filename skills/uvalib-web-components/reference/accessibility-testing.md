@@ -18,10 +18,36 @@ best-practice tags added, and fail on **every** impact level (minor included), s
 test cannot lose Lighthouse accessibility points to axe.
 
 ```bash
-npm i -D @playwright/test @axe-core/playwright
+npm i -D @playwright/test @axe-core/playwright @uvalib/web-components
 ```
 
-`tests/a11y.spec.mjs`:
+The package ships this setup as test helpers, `@uvalib/web-components/testing` (npm only; kept in step
+with the Lighthouse version these docs target): `strictAxe(page, { include?, exclude? })` waits for
+`<site-page>` to upgrade (`waitForUpgrade(page)`) and runs axe with `LIGHTHOUSE_RULES` forced on and the
+WCAG 2.0/2.1/2.2 A and AA and best-practice tags (`STRICT_AXE_TAGS`); `formatViolations` makes one line
+per violation. Install `@uvalib/web-components` in the site's dev dependencies even if the pages use the
+CDN. `tests/a11y.spec.mjs`:
+
+```js
+import { test, expect } from '@playwright/test';
+import { strictAxe, formatViolations } from '@uvalib/web-components/testing';
+
+const PAGES = ['./', './about/'];
+
+for (const path of PAGES) {
+  for (const colorScheme of ['light', 'dark']) {
+    test(`${path}: no axe violations at any impact (${colorScheme})`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme });
+      await page.goto(path);
+      const { violations } = await strictAxe(page);
+      expect(formatViolations(violations)).toEqual([]);
+    });
+  }
+}
+```
+
+The same test written by hand, without the package (keep `LIGHTHOUSE_RULES` in step with Lighthouse
+yourself):
 
 ```js
 import { test, expect } from '@playwright/test';
@@ -118,6 +144,12 @@ Notes:
   two documents; test that page on its own instead.
 - Dark mode: when the page has `color-scheme-switch`, `emulateMedia({ colorScheme: 'dark' })` with the
   System choice covers it. Contrast is checked per scheme.
+- `waitForUpgrade(page, { selector })` waits for other elements too (say `'uvalib-card'`) before a
+  screenshot or a keyboard test.
+- Analytics tests use the same module: `stubMatomo(page, { siteId })` (before `page.goto`) answers
+  `matomo.js` with an empty script and `matomo.php` with 204, and gives `<site-page>` that `matomo-id`;
+  `matomoQueue(page)` returns `window._paq`, the page views, site searches and events the page sent. See
+  the README's "Analytics" for an example, including Do Not Track.
 
 ## 2. Lighthouse CI
 

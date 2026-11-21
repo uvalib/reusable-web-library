@@ -1,4 +1,5 @@
 import type AxeCore from 'axe-core';
+import { LIGHTHOUSE_RULES } from '../../src/testing/lighthouse-rules.js';
 
 type AxeWindow = Window & { axe?: typeof AxeCore };
 
@@ -24,17 +25,13 @@ function loadAxe(win: AxeWindow): Promise<typeof AxeCore> {
 }
 
 /**
- * Rules Lighthouse's accessibility audit turns on that a default axe run leaves off (target
- * size, identical link purpose, and two table rules). Every run here enables them, so this
- * suite is at least as strict as Lighthouse (which also runs only the WCAG 2.0 A/AA tags plus
- * a few rules, where this runs every rule).
+ * Every rule Lighthouse's accessibility audit turns on, from the module the package ships as
+ * `@uvalib/web-components/testing` (one list for this suite, the docs and sites). A default
+ * axe run leaves a few of them off (target size, identical link purpose, two table rules); every
+ * run here enables them all, so this suite is at least as strict as Lighthouse (which also runs
+ * only the WCAG 2.0 A/AA tags plus those rules, where this runs every rule).
  */
-export const LIGHTHOUSE_EXTRA_RULES = [
-  'target-size',
-  'identical-links-same-purpose',
-  'table-fake-caption',
-  'td-has-header',
-];
+export { LIGHTHOUSE_RULES };
 
 /** Every axe impact level: minor and moderate cover most best-practice rules. */
 export const ALL_IMPACTS = ['minor', 'moderate', 'serious', 'critical'];
@@ -82,7 +79,7 @@ export async function expectNoAxeViolations(
       ? { runOnly: { type: 'rule', values: rules } }
       : {
           rules: Object.fromEntries([
-            ...LIGHTHOUSE_EXTRA_RULES.map((id) => [id, { enabled: true }]),
+            ...LIGHTHOUSE_RULES.map((id) => [id, { enabled: true }]),
             ...disable.map((id) => [id, { enabled: false }]),
           ]),
         }),

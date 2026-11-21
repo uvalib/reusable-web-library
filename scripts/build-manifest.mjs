@@ -45,5 +45,7 @@ const manifest = {
   version: pkg.version,
   elements: Object.fromEntries(TAGS.map((t) => [t, `${t}.js`])),
   styles: ['tokens.css', 'base.css', 'pagefind.css'],
+  // Plain modules for a page's own scripts (no element): the analytics helpers.
+  modules: ['analytics.js'],
 };
 writeFileSync(join(root, 'dist-cdn/manifest.json'), JSON.stringify(manifest, null, 2) + '\n');

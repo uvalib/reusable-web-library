@@ -99,7 +99,7 @@ Vendor or third-party site:
 </html>
 ```
 
-Analytics. `<site-analytics>` listens for `site-analytics-event`, `site-analytics-search` and `site-analytics-pageview` on `document` (and the original `uvalib-analytics-*` names). Events go through Matomo's `_paq` queue, so one fired before Matomo has loaded is kept; dispatch them normally from a user action such as a search submit. The Matomo property id is found from the page URL for registered library sites; otherwise add `matomoid="N"`, or use `<site-page matomo-id="N">` instead of the element. The snippet tests answer matomo.js with a stub, so nothing reaches real Matomo.
+Analytics. `<site-analytics>` listens for `site-analytics-event`, `site-analytics-search` and `site-analytics-pageview` on `document` (and the original `uvalib-analytics-*` names). Events go through Matomo's `_paq` queue, so one fired before Matomo has loaded is kept; dispatch them normally from a user action such as a search submit. The Matomo property id is found from the page URL for registered library sites; otherwise add `matomoid="N"`, or use `<site-page matomo-id="N">` instead of the element. To count downloads without recording their URLs (file URLs that carry ids), add `downloads="event"` (`<site-page matomo-downloads="event">`): each download is then the event `['download', '<extension>']`, and links to other sites are still counted. For a search box of your own, report searches with `createSearchTracker()` from `analytics.js` rather than firing `site-analytics-search` by hand (see the README's "Analytics"). The snippet tests answer matomo.js with a stub, so nothing reaches real Matomo.
 
 ```html snippet
 <!doctype html>

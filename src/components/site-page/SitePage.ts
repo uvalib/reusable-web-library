@@ -140,6 +140,11 @@ export class SitePage extends UvalibElement {
   @property({ type: Number, attribute: 'matomo-id' }) matomoId?: number;
   /** The Matomo server for `matomo-id`, ending in `/` (default: the library's). */
   @property({ type: String, attribute: 'matomo-url' }) matomoUrl?: string;
+  /**
+   * `event`: the `<site-analytics downloads="event">` option for `matomo-id`, counting
+   * downloads as `['download', '<extension>']` events without their URLs.
+   */
+  @property({ type: String, attribute: 'matomo-downloads' }) matomoDownloads?: string;
 
   /**
    * Sets the stored scheme on <html> as soon as the page connects, before the header renders,
@@ -446,6 +451,8 @@ export class SitePage extends UvalibElement {
     if (a.getAttribute('matomoid') !== String(id)) a.setAttribute('matomoid', String(id));
     if (this.matomoUrl) a.setAttribute('matomourl', this.matomoUrl);
     else a.removeAttribute('matomourl');
+    if (this.matomoDownloads) a.setAttribute('downloads', this.matomoDownloads);
+    else a.removeAttribute('downloads');
     if (a.parentNode !== this.renderRoot) this.renderRoot.prepend(a);
   }
 
