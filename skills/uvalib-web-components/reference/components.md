@@ -725,6 +725,63 @@ A row of chips: a segmented control or single-select filter (`mode="single"`), f
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 | `--uva-color-surface` |  | Dark-mode role token: the page background the scrolling row fades into at an edge with more chips (else #fff). |
 
+## `<uvalib-combobox>`
+
+An editable text field that suggests values as you type, from a local list or a URL: a person, place or subject picker. It follows the WAI-ARIA APG “Editable Combobox With List Autocomplete”: a real `<input role="combobox">` and a `role="listbox"` popup under it. Suggestions come from the `items` property (`{ value, label?, description?, disabled? }` objects, or strings), from `<option>` children (directly or inside a `<datalist>`; the `label` attribute or text is the label, `data-description` the second line), or from `src`, a URL template with `{q}` (fetched 250 ms after the last keystroke once the text has `min-length` characters, default 1; a newer keystroke aborts the older request; the response is a JSON array of the same shape, or anything `transform(data, query)` turns into one). `items` wins over the children while set. Local suggestions match anywhere in the label, ignoring case and accents, those starting with the text first, then those with a word starting with it; at most `max-results` (default 50, 0 for all) are shown, which keeps a list of 16,000 people fast. The matched text is bold and underlined in a `<mark>`. Keys: Down opens the list on the first suggestion and moves (wrapping), Up opens on the last, Alt+Down opens without moving, Alt+Up closes, Enter chooses the active suggestion (and then does not submit the form; with none active, Enter submits as in any field), Escape closes the list and a second Escape clears the field, Home, End, Left and Right move the caret, and Tab leaves without choosing. A real clear button (“Clear <label>”, 44px, shown only with text) empties the field and returns focus to it. Free text is allowed: `value` is whatever is in the field, and `selected` the chosen suggestion (or null); typing after choosing clears it, and leaving the field with text that is exactly one suggestion's label chooses it. `must-choose` makes any other text invalid (“Choose one of the suggestions.”). The element is form-associated: with `name` it submits the chosen suggestion's value, or else the text, and a form reset restores the `value` attribute. `required` and `disabled` (also from a disabled fieldset) work as on an input. A polite status says “5 suggestions”, “50 of 1,234 suggestions”, “No suggestions”, “Loading suggestions” or “Couldn't load suggestions” half a second after the list settles (never on the first render); the popup shows the same notes visibly. A failed load never throws. Before it upgrades, `base.css` shows the label (from the attribute) and holds the field's height. A fallback `<input list>` child works as a plain field meanwhile; on upgrade its text, `name` and `placeholder` carry over, and it is disabled so it does not submit twice.
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `label` | `string` | `''` | The field's visible label (required); also the analytics name. |
+| `description` | `string` | `''` | A hint under the field, read with it (aria-describedby). |
+| `placeholder` | `string` | `''` |  |
+| `name` | `string` | `''` | The form field name. |
+| `value` | `string` | `''` | The text in the field. The attribute is the starting text, and what a form reset restores. Setting it does not fire `change`. |
+| `src` | `string` | `''` | A URL template with `{q}` (the trimmed text, URL-encoded) that returns suggestions as JSON. |
+| `min-length` | `number` | `1` | Characters typed before suggestions appear (and `src` is fetched). |
+| `max-results` | `number` | `50` | The most suggestions shown at once; 0 for all. |
+| `must-choose` | `boolean` | `false` | Text that is not one of the suggestions is invalid. |
+| `required` | `boolean` | `false` |  |
+| `disabled` | `boolean` | `false` |  |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### CSS parts
+
+| Part | Description |
+|---|---|
+| `label` | The visible label. |
+| `input` | The text field. |
+| `clear` | The clear button. |
+| `popup` | The popup under the field. |
+| `option` | Each suggestion. |
+| `description` | The hint under the field. |
+
+### Events
+
+| Event | Description |
+|---|---|
+| `type` |  |
+| `input` | The text changed by typing (the native event of the field, composed). Not fired when an option is chosen. |
+| `select` | A suggestion was chosen (click or Enter). `detail` is `{ item }`, the object given. Bubbles and is composed. |
+| `change` | The value was committed: a suggestion chosen, the field cleared, or the field left with changed text. `detail` is `{ value, item }` (`item` is the chosen suggestion or null). Not fired when the app sets `value` or `selected`. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-combobox', 'select', '<label>', <position from 1>]` when a suggestion is chosen, `['uvalib-combobox', 'clear', '<label>']` when the clear button or Escape empties the field, and `['uvalib-combobox', 'error', 'load']` once when `src` fails. Never the typed text or a suggestion's text or value. Bubbles and is composed. |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-surface-raised` |  | Dark-mode role token: field and popup background (else #fff). |
+| `--uva-color-control-border` |  | Dark-mode role token: field and popup border (else `--uva-grey`, #808080). |
+| `--uva-color-input-text` |  | Dark-mode role token: field and suggestion text (else #2b2b2b). |
+| `--uva-color-text-muted` |  | Dark-mode role token: descriptions, notes and the clear icon (else #4f4f4f). |
+| `--uva-color-surface-hover` |  | Dark-mode role token: active suggestion background (else #dadada). |
+| `--uva-color-track` |  | Dark-mode role token: hovered suggestion background (else #f1f1f1). |
+| `--uva-color-accent-bg` |  | Dark-mode role token: the active suggestion's bar and outline (else `--uva-brand-blue`). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+| `--uva-color-shadow` |  | Dark-mode role token: popup shadow. |
+
 ## `<uvalib-contents>`
 
 Sub-navigation or a table of contents, as library.virginia.edu's sub-navigation: a `<nav>` landmark (named by `label`, "Contents" by default) with the label as a visible headline, and a nested list of links with dividers between the top-level entries and a bar beside each nested level. Give the list as a child: an `<ol>` or `<ul>` of `<li>` elements, each with an `<a href>` (or plain text for a group label) and, for sub-entries, a nested `<ol>`/`<ul>`, to any depth. Other children (a heading) are ignored. The list follows changes to the children. Apps set the `items` property instead (`{ label, href?, children? }`, winning over the children while set). The current entry gets `aria-current`: `page` for the link to this page, `location` for the link to the section of it in the URL's hash. It is found from the page URL (path, and hash for in-page sections), followed through same-document navigations (`hashchange`, `popstate` and the Navigation API), or from the `current` attribute (a URL, resolved like the links). An entry whose href has a query string matches only that query (`?part=2`); one without matches the page whatever its query. Hash-only hrefs are places on that page. With `current` unset, a valid `aria-current` on a source link (`page`, `location` or `true`) is used instead, the first of each kind. `lang` and `dir` on the source links and items, and inline markup in their text (`em`, `cite`, `code`, `abbr`…, copied element by element, never as HTML), are kept. On narrow screens the list collapses into a disclosure: the headline becomes a button with `aria-expanded`, and the list starts closed (as the Electronic Text Collections' Contents does on phones, so the text comes first) until the reader opens it, or while the `open` attribute is set; opening it shows the current entry. Narrow means the viewport (`collapse-below`, 64rem by default), not the element's own width: a contents sidebar is always far narrower than 64rem, so a container query could not tell a phone from a desktop. `sticky` keeps it in view in a sidebar on wide screens; a list longer than the window then scrolls, and the current entry is scrolled into view inside it (never the page). Single-page apps: the list is drawn from copies of the children, so a router's own click handlers on them do not run. Listen for `uvalib-contents-navigate` and cancel it to route in place; hash links need nothing.

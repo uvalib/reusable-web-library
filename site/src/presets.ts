@@ -1616,6 +1616,66 @@ ${SKELETONS}
     },
   },
   {
+    id: 'combobox',
+    group: 'Search',
+    title: 'Combobox: person and subject pickers',
+    description:
+      'uvalib-combobox is a text field that suggests values as you type (the WAI-ARIA editable combobox with list autocomplete). The person picker gets 300 made-up names from the items property; matching ignores case and accents, and the matched text is bold and underlined. The subject picker reads its <option> children. Down opens the list and moves, Enter chooses, Escape closes and then clears, and the clear button empties the field. Typed text is kept unless you choose. A polite status says how many suggestions there are. Both are form fields: Submit shows what the form would send (the chosen value, or the text). src="/api/people?q={q}" would fetch suggestions from a URL instead.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Find photographs',
+          components: ['uvalib-combobox'],
+          body: `    <site-page>
+      <h1>Find photographs</h1>
+      <form id="find">
+        <uvalib-combobox
+          id="person"
+          name="person"
+          label="Person"
+          description="Type part of a name, then choose with the arrow keys and Enter."
+        ></uvalib-combobox>
+        <uvalib-combobox id="subject" name="subject" label="Subject">
+          <option value="architecture">Architecture</option>
+          <option value="athletics" data-description="Sports, games and teams">Athletics</option>
+          <option value="commencement">Commencement</option>
+          <option value="gardens">Gardens and grounds</option>
+          <option value="libraries">Libraries</option>
+          <option value="music">Music and theatre</option>
+          <option value="snow">Snow and weather</option>
+          <option value="student-life">Student life</option>
+        </uvalib-combobox>
+        <p><button class="uvalib-button" type="submit">Search</button></p>
+      </form>
+      <p id="sent">Nothing searched yet.</p>
+    </site-page>
+    <script type="module">
+      // Made-up names for the example: every first name with every family name.
+      const first = ['Avery', 'Bea', 'Cal', 'Dana', 'Eli', 'Fern', 'Gus', 'Hollis', 'Iris', 'Jules',
+        'Kit', 'Lena', 'Milo', 'Nell', 'Otto', 'Pia', 'Quinn', 'Rory', 'Sage', 'Theo'];
+      const family = ['Ashby', 'Brandt', 'Corwin', 'Dorsey', 'Ellery', 'Fairbairn', 'Gable',
+        'Hartwell', 'Ibarra', 'Jessup', 'Kilroy', 'Lindqvist', 'Moreau', 'Núñez', 'Okafor'];
+      const roles = ['Photographer', 'Student', 'Faculty', 'Visitor'];
+      document.querySelector('#person').items = family.flatMap((f, j) =>
+        first.map((n, i) => ({
+          value: 'person-' + (j * first.length + i + 1),
+          label: n + ' ' + f,
+          description: roles[(i + j) % roles.length],
+        })),
+      );
+      document.querySelector('#find').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const data = new FormData(e.target);
+        document.querySelector('#sent').textContent =
+          'The form would send person=' + (data.get('person') || '(empty)') +
+          ' and subject=' + (data.get('subject') || '(empty)') + '.';
+      });
+    </script>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'todays-hours',
     group: 'Hours',
     title: "Today's hours",

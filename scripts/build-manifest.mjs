@@ -36,6 +36,7 @@ const TAGS = [
   'events-section',
   'bento-box',
   'uvalib-tabs',
+  'uvalib-combobox',
 ];
 
 const manifest = {

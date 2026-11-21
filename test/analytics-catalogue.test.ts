@@ -21,6 +21,7 @@ import '../src/components/library-weekly-hours/library-weekly-hours.js';
 import '../src/components/uvalib-filter/uvalib-filter.js';
 import '../src/components/uvalib-date-range/uvalib-date-range.js';
 import '../src/components/uvalib-tabs/uvalib-tabs.js';
+import '../src/components/uvalib-combobox/uvalib-combobox.js';
 import '../src/components/bento-box/bento-box.js';
 import type { SiteHeader } from '../src/components/site-header/SiteHeader.js';
 import type { SiteMainNav } from '../src/components/site-main-nav/SiteMainNav.js';
@@ -35,6 +36,7 @@ import {
 } from '../src/components/uvalib-date-range/UvalibDateRange.js';
 import type { BentoBox } from '../src/components/bento-box/BentoBox.js';
 import type { BentoSection } from '../src/components/bento-box/BentoSection.js';
+import type { UvalibCombobox } from '../src/components/uvalib-combobox/UvalibCombobox.js';
 import { recordAnalytics } from './helpers/analytics.js';
 import { resetEvents, useEventsHost } from './helpers/events.js';
 import { resetHours, setClock, settled, useHoursHost } from './helpers/hours.js';
@@ -512,6 +514,31 @@ describe('analytics catalogue', () => {
           ['uvalib-tabs', 'change', 'News'],
           ['uvalib-tabs', 'change', long.slice(0, 100)],
         ]);
+      });
+    });
+
+    describe(`uvalib-combobox (${mode})`, () => {
+      it('choosing reports the label and position, clearing the label; never the text', async () => {
+        const el = await fixture<UvalibCombobox>(
+          `<uvalib-combobox ${attr(mode)} label="Photographer"></uvalib-combobox>`,
+        );
+        el.items = ['Ada Marsh', 'Bruno Stone', 'Clara Stone'];
+        await quietRender(el);
+        const input = root(el).querySelector<HTMLInputElement>('[role="combobox"]')!;
+        input.focus();
+        input.value = 'stone';
+        input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+        await el.updateComplete;
+        root(el).querySelectorAll<HTMLElement>('[role="option"]')[1]!.click();
+        await el.updateComplete;
+        root(el).querySelector<HTMLButtonElement>('button.clear')!.click();
+        await el.updateComplete;
+        expect(events()).to.deep.equal([
+          ['uvalib-combobox', 'select', 'Photographer', 2],
+          ['uvalib-combobox', 'clear', 'Photographer'],
+        ]);
+        expect(JSON.stringify(rec.events)).to.not.include('Stone');
+        input.blur();
       });
     });
 

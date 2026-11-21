@@ -28,6 +28,7 @@ describe('index', () => {
     expect(lib.UvalibChipGroup).to.be.a('function');
     expect(lib.UvalibTagList).to.be.a('function');
     expect(lib.UvalibResultsCount).to.be.a('function');
+    expect(lib.UvalibCombobox).to.be.a('function');
     expect(lib.SiteAlerts).to.be.a('function');
     expect(lib.UvalibAnalytics).to.be.a('function');
     expect(lib.SiteAnalyticsMixin).to.be.a('function');
@@ -75,6 +76,7 @@ describe('index', () => {
       'libguides-section',
       'website-section',
       'uvalib-tabs',
+      'uvalib-combobox',
     ]) {
       expect(customElements.get(tag) === undefined, `${tag} is defined`).to.equal(true);
     }

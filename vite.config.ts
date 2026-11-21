@@ -30,6 +30,7 @@ const tags = [
   'events-section',
   'bento-box',
   'uvalib-tabs',
+  'uvalib-combobox',
 ];
 
 // Library mode, ES output: one self-contained entry per component, with Lit and shared
