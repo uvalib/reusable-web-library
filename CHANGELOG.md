@@ -1,5 +1,92 @@
 # Changelog
 
+## v1.3.0 — 2026-11-21
+
+### Features
+
+- uvalib-back-to-top, shown once the top of the page scrolls away (issue #14)
+- shorten long value lists with list-limit / data-limit (issue #16)
+- uvalib-filter-drawer, a sidebar on wide screens and a modal panel on narrow ones (issue #12)
+- headings-from builds the list from a document's headings (issue #15)
+- a description under the chips, tied to the group (issue #11)
+- data-return-from links a step back to the search the visitor came from (issue #17)
+- print styles that leave out the chrome, issue #20
+- results list rows and the highlight role tokens, issue #13
+- .uvalib-message inline messages, issue #8
+- ship the strict axe setup and a Matomo stub as @uvalib/web-components/testing
+- granularity="decade" and "auto" for long spans
+- downloads="event" counts downloads without their URLs
+- createSearchTracker for settled site searches in a page's own search UI
+- number badges above their outline, inside at the top edge
+- add <uvalib-map>, a map of places over the page's Leaflet with a linked list
+- a wrapping flex layout that base.css gives the children before upgrade
+- regions on the open image (data-regions or a regions callback)
+- add <uvalib-image-regions>, an image with region outlines and their list
+- an optional colour swatch per chip, for a colour key (issue #6)
+- load-more without a known total, and has-more (issue #4)
+- add <uvalib-combobox>, an editable combobox with list autocomplete
+
+### Fixes
+
+- hold the filter drawer's button on phones before it upgrades
+- hidden hides every component's host once upgraded, in every mode
+- hidden hides every base.css class, issue #7
+- follow a linked date range set in script; never write a rounded value back
+- fit the places as closely as the markers allow, in half zoom steps
+- document the label default and image-height
+- a scrolling list passes axe's scrollable-region-focusable
+
+### Other
+
+- Merge branch 'integrate/bov-issues': BOV requests #7-#21, hidden on every component, Lighthouse harness
+- raise the performance floor to 0.95
+- serve text compressed, as the CDN and GitHub Pages do
+- step through the examples in equal parts of at most 40
+- size budgets after the BOV issues merge
+- lockfile for the optional @axe-core/playwright peer dependency
+- Merge branch 'feat/filter-drawer-back-to-top' into integrate/bov-issues
+- Merge branch 'feat/breadcrumbs-contents' into integrate/bov-issues
+- Merge branch 'feat/chip-desc-metadata-limit' into integrate/bov-issues
+- Merge branch 'feat/analytics-testing' into integrate/bov-issues
+- Merge branch 'feat/histogram-decades' into integrate/bov-issues
+- Merge branch 'fix/styles-batch' into integrate/bov-issues
+- prettier for the filter drawer and back-to-top sources and tests
+- filter-drawer and back-to-top examples, analytics catalogue entries and size budgets (issues #12, #14)
+- register uvalib-filter-drawer and uvalib-back-to-top (vite, manifest, exports, index)
+- raise the uvalib-breadcrumbs.js and uvalib-contents.js budgets (issues #17, #15)
+- size budgets for analytics.js and the larger site-analytics.js
+- Merge branch 'integrate/issues': pager without a total (#4), chip swatches (#6), image regions (#2), map (#1)
+- step through the examples in halves, each on a fresh page
+- a 20s timeout, as mounting a document is slow in the full parallel run
+- allow a 2px rounding difference in the search-results height check
+- raise the site-page.js and site-style.js budgets for the merged base styles
+- raise the uvalib-pager.js budget to about 12% over its size with has-more
+- Merge branch 'feat/uvalib-map' into integrate/issues
+- Merge branch 'feat/image-regions' into integrate/issues
+- Merge branch 'feat/chip-swatches' into integrate/issues
+- Merge branch 'feat/pager-unknown-total' into integrate/issues
+- record uvalib-map.js at 18,009 B with the opening-view fit
+- audit the real map: a local Leaflet copy and stub tiles
+- load only leaflet.js in the Maps example; the element needs no Leaflet CSS
+- add a Maps example, places on Grounds over Leaflet from unpkg
+- size-budget notes with the final image-regions and lightbox sizes
+- add an Image regions example (a Holsinger photograph, with the lightbox option)
+- add uvalib-map to the analytics catalogue
+- register uvalib-map, its size budget and base.css pre-upgrade rule
+- leaflet as an optional peer dependency, and a dev dependency for tests and examples
+- add uvalib-image-regions to the analytics catalogue
+- raise the site-page.js budget for the image-regions pre-upgrade rules in base styles
+- register uvalib-image-regions and its size budget
+- the Chips example has a fifth group, the colour key
+- a colour-keyed category set in the Chips example
+- set the swatch colour in updated(), without styleMap
+- add a Load more example with an unknown total and has-more
+- Merge branch 'feat/combobox': <uvalib-combobox> (issue #5)
+- add a Combobox example with person and subject pickers
+- add uvalib-combobox to the analytics catalogue
+- the combobox holds its label and field before it upgrades
+- register uvalib-combobox, its size budget and base.css pre-upgrade rule
+
 ## v1.2.0 — 2026-11-20
 
 ### Features
