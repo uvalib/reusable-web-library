@@ -125,6 +125,11 @@ export class UvalibFilterDrawer extends UvalibElement {
       line-height: 1.2;
       cursor: pointer;
     }
+    /* Top-aligned, so the host's line is exactly the button's height whatever the page's font
+       and line height (base.css holds that height before the element upgrades). */
+    .fd-toggle {
+      vertical-align: top;
+    }
     .fd-close {
       padding-inline: 0.875rem;
     }

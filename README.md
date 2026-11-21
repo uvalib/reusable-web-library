@@ -1040,7 +1040,21 @@ The filter and the date range are controlled: set `value` (and `scopeValue`) fro
 - **Announcements from behind.** Inert content is not announced, so a results count or status notice outside the panel would go silent while the visitor filters. List their ids in `live`: while the panel is open the drawer watches them (also inside a component's open shadow root, such as `<uvalib-results-count>`'s live region) and repeats each new announcement in its own polite live region inside the panel, cleared after 5 seconds. Regions inside the drawer need no entry.
 - **Same nodes.** The children are moved between the sidebar and the panel (with `moveBefore()` where the browser has it), never re-created: typed text, checked boxes, listeners and each `<uvalib-filter>`'s state stay, through open, close and resizes. In shadow DOM they never move at all (the slot does). Children added later are included.
 - **Count.** `count` (a number the page sets) is shown on the button when above 0 and read as “Search and filters, 3 active”. The drawer does not count inputs itself: only the page knows which of them are filters.
-- **Look.** The panel slides in from the start side (no slide with reduced motion), `--uvalib-filter-drawer-width` wide (default `min(24rem, 100% - 3rem)`, leaving a strip of backdrop at 320px), scrolling on its own. Dark mode follows the role tokens; in forced colors the panel keeps a visible edge. Before the script loads the children show as the sidebar, so a phone briefly shows them in full.
+- **Look.** The panel slides in from the start side (no slide with reduced motion), `--uvalib-filter-drawer-width` wide (default `min(24rem, 100% - 3rem)`, leaving a strip of backdrop at 320px), scrolling on its own. Dark mode follows the role tokens; in forced colors the panel keeps a visible edge.
+- **Before the script loads.** On wide screens the children show as the sidebar, as they will once it upgrades. At and below the default `48rem`, `base.css` hides them and holds the button's 44px, so a phone never shows the filters in full and nothing moves when the element upgrades (no layout shift). With your own `breakpoint`, `base.css` leaves the drawer alone: add the same rule for your width to the page's CSS (`(max-width: …)`, as the element's own media query):
+
+  ```css
+  @media (max-width: 60rem) {
+    :where(uvalib-filter-drawer[breakpoint='60rem']):not(:defined) {
+      display: block;
+      min-block-size: 44px;
+    }
+    :where(uvalib-filter-drawer[breakpoint='60rem']):not(:defined) > * {
+      display: none;
+    }
+  }
+  ```
+
 - **Analytics.** `open` and `close` with the drawer's `label`, only when the visitor does it (not a resize or a script).
 
 ## Results, badges and tags

@@ -87,7 +87,8 @@ export const base = css`
       uvalib-tabs,
       uvalib-combobox,
       uvalib-image-regions,
-      uvalib-map
+      uvalib-map,
+      uvalib-filter-drawer
     ):not(:defined)[hidden],
   :where(uvalib-combobox, uvalib-image-regions):not(:defined) > [hidden] {
     display: none;
@@ -162,6 +163,20 @@ export const base = css`
     font-size: 0.875rem;
     line-height: 1.5;
     color: var(--uva-color-text-muted, #4b5563);
+  }
+  /* A filter drawer on a phone (the default 48rem breakpoint): once it upgrades only its 44px
+     "Search and filters" button shows, so hold that height and keep the form and filters out
+     of sight meanwhile; nothing moves when it upgrades. A page with its own breakpoint adds the
+     same two rules in a media query of that width (see the README). Low specificity, so the
+     [hidden] rule above still wins. */
+  @media (max-width: 48rem) {
+    :where(uvalib-filter-drawer:not([breakpoint])):not(:defined) {
+      display: block;
+      min-block-size: 44px;
+    }
+    :where(uvalib-filter-drawer:not([breakpoint])):not(:defined) > * {
+      display: none;
+    }
   }
   /* Printing a <site-page> (issue #20; its own styles leave out the chrome): a dark scheme
      prints light (the role tokens resolve to their light values), and the content's links
