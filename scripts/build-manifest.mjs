@@ -37,6 +37,8 @@ const TAGS = [
   'bento-box',
   'uvalib-tabs',
   'uvalib-combobox',
+  'uvalib-image-regions',
+  'uvalib-map',
 ];
 
 const manifest = {

@@ -355,30 +355,40 @@ describe('examples page', function () {
   });
 
   it('a main-nav link swaps the IDE files, sets the hash, marks it current and closes the panel', async () => {
-    const nav = navigationOf(win);
-    const start = nav.currentEntry.index;
-    for (const p of [...examples].reverse()) {
-      const before = nav.currentEntry.index;
-      await chooseFromBar(doc, p);
-      await expectShowing(win, doc, p);
-      expect(win.location.hash).to.equal(`#${p.id}`);
-      expect(indexHtml(ide)).to.include(new URL('cdn/site-page.js', win.location.href).href);
-      // Exactly one history entry per selection.
-      expect(nav.currentEntry.index).to.equal(before + 1);
-      // The panel closes, and focus moves to the example's heading.
-      expect(expandedGroups(bar(doc))).to.deep.equal([]);
-      expect(doc.activeElement).to.equal(doc.querySelector('h1'));
+    // This adds one session history entry per example, and Chromium keeps at most 50 (there
+    // are 50 examples), so a push past the cap would drop the oldest entry instead of moving
+    // the current index on by one. So step through them in halves, each on a fresh page.
+    const all = [...examples].reverse();
+    const half = Math.ceil(all.length / 2);
+    for (const chunk of [all.slice(0, half), all.slice(half)]) {
+      ({ win, doc } = await open('index.html'));
+      ide = doc.querySelector<Ide>('playground-ide')!;
+      await chromeReady(doc);
+      const nav = navigationOf(win);
+      const start = nav.currentEntry.index;
+      for (const p of chunk) {
+        const before = nav.currentEntry.index;
+        await chooseFromBar(doc, p);
+        await expectShowing(win, doc, p);
+        expect(win.location.hash).to.equal(`#${p.id}`);
+        expect(indexHtml(ide)).to.include(new URL('cdn/site-page.js', win.location.href).href);
+        // Exactly one history entry per selection.
+        expect(nav.currentEntry.index).to.equal(before + 1);
+        // The panel closes, and focus moves to the example's heading.
+        expect(expandedGroups(bar(doc))).to.deep.equal([]);
+        expect(doc.activeElement).to.equal(doc.querySelector('h1'));
+      }
+      // Each selection is its own history entry, without a reload, in order.
+      const end = nav.currentEntry.index;
+      expect(end).to.equal(start + chunk.length);
+      expect(
+        nav
+          .entries()
+          .slice(start + 1, end + 1)
+          .map((e) => new URL(e.url!).hash),
+      ).to.deep.equal(chunk.map((p) => `#${p.id}`));
+      expect(doc.querySelector('playground-ide')).to.equal(ide);
     }
-    // Each selection is its own history entry, without a reload, in order.
-    const end = nav.currentEntry.index;
-    expect(end).to.equal(start + examples.length);
-    expect(
-      nav
-        .entries()
-        .slice(start + 1, end + 1)
-        .map((e) => new URL(e.url!).hash),
-    ).to.deep.equal([...examples].reverse().map((p) => `#${p.id}`));
-    expect(doc.querySelector('playground-ide')).to.equal(ide);
   });
 
   it('a modified click (new tab) is left to the browser', async () => {

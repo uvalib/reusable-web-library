@@ -19,6 +19,8 @@
           "*.execute-api.us-east-1.amazonaws.com*",
           "*static.lib.virginia.edu*",
           "*iiif.lib.virginia.edu*",
+          "*tile.openstreetmap.org*",
+          "*://unpkg.com/*",
           "*analytics.lib.virginia.edu*",
           "*://www.library.virginia.edu/*",
           "*://library.virginia.edu/*"

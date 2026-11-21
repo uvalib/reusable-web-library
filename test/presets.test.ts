@@ -50,11 +50,14 @@ describe('playground presets', function () {
       'person-cards',
       'story-card',
       'load-more',
+      'load-more-unknown-total',
       'contents-sidebar',
       'record-metadata',
       'photo-grid',
       'photo-grid-badges',
       'page-images',
+      'image-regions',
+      'places-map',
       'search-facets',
       'search-results',
       'pagefind-search',
@@ -79,6 +82,7 @@ describe('playground presets', function () {
       'Contents',
       'Metadata',
       'Images',
+      'Maps',
       'Search',
       'Hours',
       'Events',
@@ -118,11 +122,13 @@ describe('playground presets', function () {
         'person-cards',
         'story-card',
         'load-more',
+        'load-more-unknown-total',
       ],
       Chips: ['chip-groups'],
       Contents: ['contents-sidebar'],
       Metadata: ['record-metadata'],
-      Images: ['photo-grid', 'photo-grid-badges', 'page-images'],
+      Images: ['photo-grid', 'photo-grid-badges', 'page-images', 'image-regions'],
+      Maps: ['places-map'],
       Search: [
         'search-facets',
         'search-results',
@@ -348,6 +354,59 @@ describe('playground presets', function () {
     }
   });
 
+  for (const width of [1000, 400]) {
+    it(`places-map: Leaflet from the (stubbed) CDN draws the markers, linked to the list, and the page passes axe at ${width}px`, async () => {
+      const p = presets.find((x) => x.id === 'places-map')!;
+      const html = p.files['index.html']!.content;
+      // A pinned Leaflet with an integrity hash, before the components' module scripts.
+      expect(html).to.include('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js');
+      expect(html.match(/integrity="sha256-/g)).to.have.length(1);
+      expect(html.indexOf('leaflet.js')).to.be.lessThan(html.indexOf('uvalib-map.js'));
+      const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+      iframe.style.width = `${width}px`;
+      iframe.style.height = '1100px';
+      try {
+        const doc = iframe.contentDocument!;
+        await whenAllDefined(iframe.contentWindow!, ['site-page', 'uvalib-map']);
+        type Map = HTMLElement & { updateComplete: Promise<unknown>; shadowRoot: ShadowRoot };
+        const map = doc.querySelector('#places') as Map;
+        await map.updateComplete;
+        await new Promise((r) => setTimeout(r, 300));
+        const r = map.shadowRoot;
+        expect(r.querySelector('[role="region"]')!.getAttribute('aria-label')).to.equal(
+          'Places on Grounds, map',
+        );
+        const markers = [...r.querySelectorAll<HTMLElement>('.uvalib-map-marker .marker')];
+        expect(markers).to.have.length(10);
+        expect(markers[0]!.textContent).to.equal('The Rotunda, 2,702 photos');
+        const places = [...r.querySelectorAll<HTMLElement>('li.place')];
+        expect(places).to.have.length(10);
+        places[2]!.querySelector('a')!.focus();
+        await map.updateComplete;
+        expect(
+          r.querySelectorAll('.uvalib-map-marker')[2]!.classList.contains('is-active'),
+        ).to.equal(true);
+        places[2]!.querySelector('a')!.blur();
+        await map.updateComplete;
+        // Every marker is inside the map at the opening view.
+        const box = r.querySelector('.map')!.getBoundingClientRect();
+        for (const m of markers) {
+          const b = m.getBoundingClientRect();
+          expect(b.left >= box.left && b.right <= box.right, m.textContent!).to.equal(true);
+          expect(b.top >= box.top && b.bottom <= box.bottom, m.textContent!).to.equal(true);
+        }
+        doc.addEventListener('click', (e) => e.preventDefault());
+        markers[8]!.click();
+        expect(doc.querySelector('#chosen')!.textContent).to.equal('You chose Scott Stadium.');
+        expect(countMain(doc)).to.equal(1);
+        await expectNoPageAxeViolations(doc);
+        expect(errors).to.deep.equal([]);
+      } finally {
+        iframe.remove();
+      }
+    }).timeout(15000);
+  }
+
   it('chip-groups: picking a year fires change, and the page passes axe', async () => {
     const p = presets.find((x) => x.id === 'chip-groups')!;
     const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
@@ -367,7 +426,17 @@ describe('playground presets', function () {
       const groups = [...doc.querySelectorAll('uvalib-chip-group')].map((g) =>
         g.shadowRoot!.querySelector('.chips')!.getAttribute('role'),
       );
-      expect(groups).to.deep.equal(['radiogroup', 'radiogroup', 'group', 'group']);
+      expect(groups).to.deep.equal(['radiogroup', 'radiogroup', 'group', 'group', 'group']);
+      // The colour key: a decorative square on each category chip.
+      const key = doc.querySelectorAll('uvalib-chip-group')[3]!.shadowRoot!;
+      const swatches = [...key.querySelectorAll<HTMLElement>('.swatch')];
+      expect(swatches.map((s) => s.getAttribute('aria-hidden'))).to.deep.equal([
+        'true',
+        'true',
+        'true',
+        'true',
+      ]);
+      expect(getComputedStyle(swatches[0]!).backgroundColor).to.equal('rgb(229, 114, 0)');
       expect(countMain(doc)).to.equal(1);
       await expectNoPageAxeViolations(doc);
       expect(errors).to.deep.equal([]);
@@ -458,6 +527,53 @@ describe('playground presets', function () {
       } finally {
         iframe.remove();
       }
+    }
+  });
+
+  it('image regions: outlines over the photo, the list beside it, the page’s buttons, and the viewer', async function () {
+    this.timeout(10000);
+    const p = presets.find((x) => x.id === 'image-regions')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    try {
+      const doc = iframe.contentDocument!;
+      const win = iframe.contentWindow!;
+      await whenAllDefined(win, ['site-page', 'uvalib-image-regions', 'uvalib-lightbox']);
+      await new Promise((r) => setTimeout(r, 100));
+      type Lit = HTMLElement & { updateComplete: Promise<unknown>; shadowRoot: ShadowRoot };
+      const el = doc.querySelector('uvalib-image-regions') as Lit;
+      await el.updateComplete;
+      const img = el.querySelector('img')!;
+      // The space is reserved from width and height (the stand-in image has its own ratio).
+      expect([img.getAttribute('width'), img.getAttribute('height')]).to.deep.equal(['746', '600']);
+      expect(img.getBoundingClientRect().height).to.be.greaterThan(0);
+      const outlines = [...el.shadowRoot.querySelectorAll<HTMLElement>('.overlay > .region')];
+      expect(outlines.length).to.equal(4);
+      expect(el.shadowRoot.querySelector('.overlay')!.getAttribute('aria-hidden')).to.equal('true');
+      outlines[1]!.click();
+      await el.updateComplete;
+      expect(doc.activeElement === el.querySelectorAll('li')[1]).to.equal(true);
+      expect(doc.querySelector('#said')!.textContent).to.include('Outline 2 chosen');
+      el.querySelector<HTMLButtonElement>('button[data-name]')!.click();
+      expect(doc.querySelector('#said')!.textContent).to.include('Naming Person 1');
+      expect(countMain(doc)).to.equal(1);
+      await expectNoPageAxeViolations(doc);
+      // The viewer shows the same regions with a toggle.
+      const box2 = doc.querySelector('uvalib-lightbox') as Lit;
+      doc.querySelector<HTMLAnchorElement>('uvalib-lightbox a')!.click();
+      await box2.updateComplete;
+      const dialog = box2.shadowRoot.querySelector('dialog')!;
+      expect(dialog.open).to.equal(true);
+      await new Promise((r) => setTimeout(r, 300));
+      const inner = dialog.querySelector('uvalib-image-regions') as Lit;
+      await inner.updateComplete;
+      expect(inner.shadowRoot.querySelectorAll('.overlay > .region').length).to.equal(4);
+      expect(dialog.querySelector('button.regions-toggle')!.getAttribute('aria-pressed')).to.equal(
+        'true',
+      );
+      await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
     }
   });
 
@@ -565,7 +681,10 @@ describe('playground presets', function () {
       it(`reserves the loaded results' height before the script runs (${width}px)`, async () => {
         const reserved = await height(width, false);
         const loaded = await height(width, true);
-        expect(Math.abs(loaded - reserved), `${reserved} reserved, ${loaded} loaded`).to.be.below(
+        // At most 2px: the reserved placeholders and the loaded lists can round to a 2px
+        // difference (subpixel line boxes), which is no visible shift. A missing reservation is a
+        // whole result list, far more; Lighthouse's CLS <= 0.05 is the real gate.
+        expect(Math.abs(loaded - reserved), `${reserved} reserved, ${loaded} loaded`).to.be.at.most(
           2,
         );
       });

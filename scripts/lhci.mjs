@@ -27,6 +27,12 @@
 //   - Dark mode's reversed logo comes from static.lib.virginia.edu: the copied bundles get
 //     its URL rewritten to this server, which answers with a white stand-in of the same size
 //     (300x68). static.lib.virginia.edu is blocked as a backstop.
+//   - The map example loads Leaflet from unpkg: its page gets the URL rewritten to a local
+//     copy of node_modules/leaflet/dist (the same files, so the integrity hashes hold), and
+//     served gzipped as unpkg serves it; the copied bundles get the default OpenStreetMap
+//     tile URL rewritten to this server,
+//     which answers every tile with a plain 256px PNG. So the real map is audited, not the
+//     list alone. unpkg.com and tile.openstreetmap.org are blocked as backstops.
 //
 // The dark-mode example is audited twice: as written (System, which Lighthouse's Chrome
 // resolves to light) and as `dark-mode-forced`, the same page with Dark stored first.
@@ -47,6 +53,7 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { gzipSync } from 'node:zlib';
 import { chromium } from 'playwright';
 import { PNG } from 'pngjs';
 
@@ -163,6 +170,11 @@ const TYPES = {
 
 const dir = mkdtempSync(join(tmpdir(), 'uvalib-lhci-'));
 
+// The map tiles' stand-in: one plain 256px tile in a pale map colour.
+const tileImage = new PNG({ width: 256, height: 256 });
+for (let i = 0; i < tileImage.data.length; i += 4) tileImage.data.set([0xf2, 0xef, 0xe9, 0xff], i);
+const tilePng = PNG.sync.write(tileImage);
+
 const server = createServer((req, res) => {
   const url = new URL(req.url, 'http://localhost');
   if (url.pathname.startsWith('/stub/bento/')) {
@@ -184,6 +196,10 @@ const server = createServer((req, res) => {
     res.writeHead(200, { 'content-type': 'application/json' });
     return res.end(JSON.stringify(libcalEvents(url)));
   }
+  if (url.pathname.startsWith('/stub/tiles/')) {
+    res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'max-age=31536000' });
+    return res.end(tilePng);
+  }
   if (url.pathname.startsWith('/stub/libcal/')) {
     res.writeHead(200, { 'content-type': 'application/json' });
     return res.end(JSON.stringify(libcal(url)));
@@ -194,10 +210,17 @@ const server = createServer((req, res) => {
   if (!file.startsWith(dir)) return res.writeHead(403).end();
   if (url.pathname.endsWith('/')) file = join(file, 'index.html');
   if (!existsSync(file)) return res.writeHead(404).end('not found');
-  res.writeHead(200, {
-    'content-type': TYPES[extname(file)] ?? 'application/octet-stream',
-    'cache-control': 'max-age=31536000',
-  });
+  const type = TYPES[extname(file)] ?? 'application/octet-stream';
+  // The local Leaflet copy compressed, as unpkg serves it.
+  if (url.pathname.startsWith(LEAFLET_COPY) && /gzip/.test(req.headers['accept-encoding'] ?? '')) {
+    res.writeHead(200, {
+      'content-type': type,
+      'content-encoding': 'gzip',
+      'cache-control': 'max-age=31536000',
+    });
+    return res.end(gzipSync(readFileSync(file)));
+  }
+  res.writeHead(200, { 'content-type': type, 'cache-control': 'max-age=31536000' });
   res.end(readFileSync(file));
 });
 await new Promise((r) => server.listen(0, '127.0.0.1', r));
@@ -208,19 +231,30 @@ const base = `http://localhost:${server.address().port}`;
 const SITE_DIRS = ['cdn', 'data', 'pagefind-demo'];
 for (const d of SITE_DIRS) cpSync(join(site, d), join(dir, d), { recursive: true });
 
+const OSM_TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const TILE_STUB = '/stub/tiles/{z}/{x}/{y}.png';
+const LEAFLET_CDN = 'https://unpkg.com/leaflet@1.9.4/dist/';
+const LEAFLET_COPY = '/vendor/leaflet/';
+cpSync(join(root, 'node_modules/leaflet/dist'), join(dir, LEAFLET_COPY), { recursive: true });
+
 const DARK_LOGO =
   'https://static.lib.virginia.edu/files/downloads/LibraryLogos/UVALIB_primary_color_white_web.png';
 const DARK_LOGO_PATH = '/static-logo/UVALIB_primary_color_white_web.png';
 let rewritten = 0;
+let tilesRewritten = 0;
 for (const file of readdirSync(join(dir, 'cdn'), { recursive: true })) {
   if (!String(file).endsWith('.js')) continue;
   const path = join(dir, 'cdn', String(file));
-  const js = readFileSync(path, 'utf8');
-  if (!js.includes(DARK_LOGO)) continue;
-  writeFileSync(path, js.split(DARK_LOGO).join(`${base}${DARK_LOGO_PATH}`));
-  rewritten++;
+  let js = readFileSync(path, 'utf8');
+  if (!js.includes(DARK_LOGO) && !js.includes(OSM_TILES)) continue;
+  if (js.includes(DARK_LOGO)) rewritten++;
+  if (js.includes(OSM_TILES)) tilesRewritten++;
+  js = js.split(DARK_LOGO).join(`${base}${DARK_LOGO_PATH}`);
+  js = js.split(OSM_TILES).join(`${base}${TILE_STUB}`);
+  writeFileSync(path, js);
 }
 if (!rewritten) throw new Error(`the dark-mode logo URL was not found in the CDN build`);
+if (!tilesRewritten) throw new Error(`the map's tile URL was not found in the CDN build`);
 
 /** The dark-mode example again, with Dark stored before its anti-flash snippet runs. */
 const darkPreset = examples.find((p) => p.id === 'dark-mode');
@@ -252,6 +286,7 @@ for (const preset of pages) {
       if (HOURS_COMPONENTS.test(html)) html = html.replace('  </body>', libcalOverride);
       if (EVENTS_COMPONENT.test(html)) html = html.replace('  </body>', eventsOverride);
       if (BENTO_COMPONENT.test(html)) html = html.replace('  </body>', bentoOverride);
+      html = html.split(LEAFLET_CDN).join(LEAFLET_COPY);
     }
     writeFileSync(out, html);
   }

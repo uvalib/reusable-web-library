@@ -14,8 +14,10 @@ for (const f of files) {
 }
 
 describe('skill html snippets', function () {
-  // Each snippet test waits up to 300 ms + 2000 ms (definitions) + 300 ms by itself.
-  this.timeout(5000);
+  // Each snippet test waits up to 300 ms + 2000 ms (definitions) + 300 ms by itself, and
+  // mounting a document (the error probe's included) takes longer than 5s while the whole
+  // suite runs in parallel, as in site-page.test.ts.
+  this.timeout(20000);
   it('finds snippets in SKILL.md and reference/snippets.md', () => {
     expect(snippets.some((s) => s.name.startsWith('SKILL.md'))).to.equal(true);
     expect(snippets.some((s) => s.name.startsWith('reference/snippets.md'))).to.equal(true);

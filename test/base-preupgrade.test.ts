@@ -199,3 +199,94 @@ describe('base.css before <uvalib-combobox> is defined', function () {
     }
   });
 });
+
+/**
+ * base.css before <uvalib-image-regions> is defined: the image at its own width and the list
+ * beside it, the layout the element keeps, so the image does not move when it upgrades.
+ */
+describe('base.css before <uvalib-image-regions> is defined', function () {
+  this.timeout(12000);
+
+  it('lays the image and list out as the upgraded element does', async () => {
+    const c = document.createElement('canvas');
+    c.width = 400;
+    c.height = 300;
+    const src = c.toDataURL('image/png');
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'width: 800px; height: 600px';
+    iframe.srcdoc = `<!doctype html><html lang="en"><head>
+      <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+      </head><body><uvalib-image-regions id="r" label="People">
+        <img src="${src}" alt="A group" width="400" height="300">
+        <ol><li data-xywh="percent:10,10,20,20"><a href="#a">Person 1</a></li></ol>
+      </uvalib-image-regions></body></html>`;
+    document.body.append(iframe);
+    await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+    try {
+      const doc = iframe.contentDocument!;
+      const box = (sel: string) => {
+        const b = doc.querySelector(sel)!.getBoundingClientRect();
+        return [b.left, b.top, b.width, b.height].map(Math.round);
+      };
+      const img = box('img');
+      const listLeft = box('ol')[0];
+      expect(img[2]).to.equal(400);
+      expect(listLeft).to.be.at.least(400);
+      const script = doc.createElement('script');
+      script.type = 'module';
+      script.src = `${location.origin}/dist-cdn/uvalib-image-regions.js`;
+      doc.head.append(script);
+      await new Promise((r) => script.addEventListener('load', r, { once: true }));
+      await (doc.getElementById('r') as unknown as { updateComplete: Promise<unknown> })
+        .updateComplete;
+      await new Promise((r) => setTimeout(r, 50));
+      expect(box('img')).to.deep.equal(img);
+      expect(box('ol')[0]).to.equal(listLeft);
+    } finally {
+      iframe.remove();
+    }
+  });
+});
+
+/**
+ * base.css before <uvalib-map> is defined: the child list is the page's list of places, under
+ * the key instructions and the map's height, so the list does not move when the map is drawn.
+ */
+describe('base.css before <uvalib-map> is defined', function () {
+  this.timeout(12000);
+
+  it('holds the instructions and the map height above the list, and the list stays put', async () => {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'width: 400px; height: 900px';
+    iframe.srcdoc = `<!doctype html><html lang="en"><head>
+      <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+      <script src="${location.origin}/node_modules/leaflet/dist/leaflet.js"></script>
+      </head><body><uvalib-map label="Places" id="map"><ul>
+        <li><a href="#a" data-lat="38.0356" data-lng="-78.5034" data-count="4">Rotunda</a></li>
+        <li><a href="#b" data-lat="38.0336" data-lng="-78.5048">Lawn</a></li>
+      </ul></uvalib-map></body></html>`;
+    document.body.append(iframe);
+    await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+    try {
+      const doc = iframe.contentDocument!;
+      const win = iframe.contentWindow!;
+      const el = doc.getElementById('map')!;
+      const { MAP_INSTRUCTIONS } = await import('../src/components/uvalib-map/UvalibMap.js');
+      expect(win.getComputedStyle(el, '::before').content).to.equal(`"${MAP_INSTRUCTIONS}"`);
+      const top = doc.querySelector('ul')!.getBoundingClientRect().top;
+      expect(top).to.be.greaterThan(300);
+      const script = doc.createElement('script');
+      script.type = 'module';
+      script.src = `${location.origin}/dist-cdn/uvalib-map.js`;
+      doc.head.append(script);
+      await new Promise((r) => script.addEventListener('load', r, { once: true }));
+      await (el as unknown as { updateComplete: Promise<unknown> }).updateComplete;
+      await new Promise((r) => setTimeout(r, 50));
+      const list = el.shadowRoot!.querySelector('ul.places')!;
+      expect(el.shadowRoot!.querySelector('[role="region"]')).to.not.equal(null);
+      expect(Math.round(list.getBoundingClientRect().top)).to.equal(Math.round(top));
+    } finally {
+      iframe.remove();
+    }
+  });
+});

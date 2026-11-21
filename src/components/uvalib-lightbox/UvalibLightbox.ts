@@ -4,6 +4,7 @@ import { trackEvent } from '../../base/analytics.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
 import { accessible } from '../../styles/accessible.js';
+import { parseRegions, toRegion, type ImageRegion } from '../uvalib-image-regions/regions.js';
 import {
   hrefWithParam,
   iiifIdentifier,
@@ -26,7 +27,34 @@ interface Slide {
   alt: string;
   /** `data-details-id`, when the slide has its own details element. */
   detailsId: string | null;
+  /** Regions outlined on the image (`data-regions`, or the `regions` callback). */
+  regions: ImageRegion[];
+  /** `data-image-width` / `data-image-height`: the size pixel regions are measured in. */
+  imageWidth?: number;
+  imageHeight?: number;
 }
+
+/** What the `regions` callback is given for each image. */
+export interface LightboxRegionsItem {
+  /** The image link. */
+  element: HTMLAnchorElement;
+  /** Its deep-link id. */
+  id: string;
+  /** Its href as written. */
+  href: string;
+  /** Its place in the set, from 0. */
+  index: number;
+}
+
+/** Maps an image to its regions (none: an empty array, null or undefined). */
+export type LightboxRegions = (
+  item: LightboxRegionsItem,
+) => readonly ImageRegion[] | null | undefined;
+
+const positive = (v: string | undefined): number | undefined => {
+  const n = Number(v);
+  return n > 0 ? n : undefined;
+};
 
 const normalize = (s: unknown) =>
   String(s ?? '')
@@ -77,6 +105,7 @@ const structuralRules = (host: string) => `
     padding: 0.5rem 0.75rem;
     font: inherit;
   }
+  ${host} .regions { display: block; }
   ${host} .details:empty { display: none; }
   ${host} > [slot="details"] { display: none; }
   ${host}[hidden], ${host} [hidden] { display: none !important; }
@@ -84,6 +113,16 @@ const structuralRules = (host: string) => `
 const shadowStructure = unsafeCSS(structuralRules(':host'));
 
 let nextCaption = 0;
+
+/** `<uvalib-image-regions>` is loaded the first time an open image has regions. */
+let regionsLoading: Promise<unknown> | null = null;
+function loadRegions(): void {
+  if (regionsLoading || customElements.get('uvalib-image-regions')) return;
+  regionsLoading = import('../uvalib-image-regions/uvalib-image-regions.js').catch((err) => {
+    regionsLoading = null;
+    console.warn('uvalib-lightbox: could not load uvalib-image-regions.', err);
+  });
+}
 
 /**
  * An accessible image viewer over a set of plain links. With JavaScript a primary click opens
@@ -107,6 +146,14 @@ let nextCaption = 0;
  * put back when the viewer moves on or closes.
  *
  * @tagname uvalib-lightbox
+ * Optional regions (people, objects, inscriptions): `data-regions` on a link, a JSON array of
+ * `{ label, x, y, w, h, unit? }` or `xywh` values each followed by its label, separated by
+ * `;` (`percent:10,20,30,40 Person 1; percent:55,15,20,30 Sign`), or the `regions` callback.
+ * The open image then shows numbered outlines (`<uvalib-image-regions>`, loaded on first use)
+ * and a list of the regions beside it, with a "Show regions" toggle (`aria-pressed`) that
+ * hides the outlines. Pixel regions are measured in `data-image-width` × `data-image-height`
+ * when set (the viewer shows a resized IIIF image), else in the image's natural size.
+ *
  * @slot - The image links. A plain click opens the viewer; without JavaScript they open the image.
  * @slot details - Details for the open image. `data-for` selects one item by its id or position (from 1); without it the details show for every image.
  * @csspart dialog - The modal dialog.
@@ -115,6 +162,7 @@ let nextCaption = 0;
  * @csspart image - The image.
  * @csspart controls - Previous, Next, the counter and Full size.
  * @csspart details - The details panel.
+ * @csspart regions - The `<uvalib-image-regions>` around an image with regions.
  * @fires uvalib-analytics-event - For `<site-analytics>`: `['uvalib-lightbox', 'open'|'next'|'previous'|'full-size', 'image N', N]` (N from 1, the image's place in the set). Never the URL or the caption. Not fired for a viewer restored from the URL or from Back and Forward. Bubbles and is composed.
  * @cssprop --uva-color-surface-raised - Dark-mode role token: dialog surface (else `--uva-color-surface`, else #fff).
  * @cssprop --uva-color-surface - Dark-mode role token: the figure behind the image (else #fff).
@@ -172,13 +220,33 @@ export class UvalibLightbox extends UvalibElement {
         outline-offset: 2px;
       }
       dialog button.prev,
-      dialog button.next {
+      dialog button.next,
+      dialog button.regions-toggle {
         color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
         background: var(--uva-color-surface, #fff);
         border-color: var(--uva-color-border, var(--uva-grey-100, #dadada));
       }
       .status {
         font-size: 1rem;
+      }
+      /* Pressed shows a check mark, so the state is not shown by colour alone. */
+      button.regions-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      button.regions-toggle::before {
+        content: '';
+        box-sizing: border-box;
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid currentColor;
+      }
+      button.regions-toggle[aria-pressed='true']::before {
+        border-width: 0 3px 3px 0;
+        width: 0.5rem;
+        margin-inline: 0.25rem;
+        transform: translateY(-0.125rem) rotate(45deg);
       }
       @media (prefers-reduced-motion: no-preference) {
         .panel {
@@ -224,12 +292,25 @@ export class UvalibLightbox extends UvalibElement {
    */
   @property({ attribute: 'url-param' }) urlParam = '';
 
+  /**
+   * Regions for each image, instead of (or as well as) `data-regions`: called with
+   * `{ element, id, href, index }`, it returns region objects (`{ label, x, y, w, h, unit? }`).
+   * An image with regions shows their outlines over it, a list of them beside it, and a
+   * "Show regions" toggle.
+   */
+  @property({ attribute: false }) regions?: LightboxRegions;
+
+  /** The heading of the regions list (for example `People`). */
+  @property({ attribute: 'regions-label' }) regionsLabel = 'Regions';
+
   @state() private slides: Slide[] = [];
   @state() private index = 0;
   @state() private open = false;
   @state() private status: 'loading' | 'ready' | 'error' = 'loading';
   @state() private fitW = 0;
   @state() private fitH = 0;
+  /** The "Show regions" toggle: outlines over an image that has regions. */
+  @state() private showRegions = true;
 
   private readonly captionId = `uvalib-lightbox-caption-${++nextCaption}`;
   /** Where the dialog is rendered. Light DOM renders here so the author's links stay put. */
@@ -245,6 +326,7 @@ export class UvalibLightbox extends UvalibElement {
   private lastSrc = '';
   private observer?: MutationObserver;
   private syncQueued = false;
+  private regionsChanged = false;
   private resizeTimer = 0;
   /** A close event from the dialog we just shut must not dismiss the next open. */
   private ignoreClose = false;
@@ -354,11 +436,13 @@ export class UvalibLightbox extends UvalibElement {
   protected override updated(changed: PropertyValues): void {
     super.updated(changed);
     if (changed.has('selector')) this.watch();
+    if (changed.has('regions') && this.isConnected) this.scheduleSync(true);
     if (!this.open) {
       if (changed.has('open')) this.restoreDetails();
       return;
     }
     if (changed.has('open') || changed.has('index') || changed.has('slides')) this.placeDetails();
+    if (this.current?.regions.length) loadRegions();
     this.bindDialogObserver();
     if (changed.has('open')) this.reveal();
     // Reading the image and writing `status` from inside `updated` makes Lit warn and schedule
@@ -434,6 +518,9 @@ export class UvalibLightbox extends UvalibElement {
         'data-caption',
         'data-id',
         'data-details-id',
+        'data-regions',
+        'data-image-width',
+        'data-image-height',
         'slot',
       ],
       childList: true,
@@ -443,14 +530,18 @@ export class UvalibLightbox extends UvalibElement {
   }
 
   /** Ignore mutations inside the viewer (the dialog, parked details) so a render cannot loop. */
-  private scheduleSync(): void {
+  private scheduleSync(force = false): void {
+    if (force) this.regionsChanged = true;
     if (this.syncQueued) return;
     this.syncQueued = true;
     queueMicrotask(() => {
       this.syncQueued = false;
       if (!this.isConnected) return;
       const next = this.collect();
+      const forced = this.regionsChanged;
+      this.regionsChanged = false;
       const same =
+        !forced &&
         next.length === this.slides.length &&
         next.every(
           (s, i) =>
@@ -458,7 +549,13 @@ export class UvalibLightbox extends UvalibElement {
             s.href === this.slides[i]?.href &&
             s.id === this.slides[i]?.id &&
             s.caption === this.slides[i]?.caption &&
-            s.detailsId === this.slides[i]?.detailsId,
+            s.detailsId === this.slides[i]?.detailsId &&
+            JSON.stringify([s.regions, s.imageWidth, s.imageHeight]) ===
+              JSON.stringify([
+                this.slides[i]?.regions,
+                this.slides[i]?.imageWidth,
+                this.slides[i]?.imageHeight,
+              ]),
         );
       if (!same) {
         const current = this.current?.el;
@@ -542,7 +639,29 @@ export class UvalibLightbox extends UvalibElement {
       caption,
       alt: alt || caption,
       detailsId: normalize(el.dataset.detailsId) || null,
+      regions: this.regionsOf(el, id, href, index),
+      imageWidth: positive(el.dataset.imageWidth),
+      imageHeight: positive(el.dataset.imageHeight),
     };
+  }
+
+  /** `data-regions`, then whatever the `regions` callback adds. */
+  private regionsOf(el: HTMLAnchorElement, id: string, href: string, index: number) {
+    const found = parseRegions(el.dataset.regions);
+    if (typeof this.regions === 'function') {
+      let more: unknown;
+      try {
+        more = this.regions({ element: el, id, href, index });
+      } catch (err) {
+        console.warn(`${this.localName}: the regions callback threw.`, err);
+      }
+      if (Array.isArray(more))
+        for (const r of more) {
+          const region = toRegion(r);
+          if (region) found.push(region);
+        }
+    }
+    return found;
   }
 
   /** The link's own text, not the alt of its image and not a details subtree. */
@@ -1042,11 +1161,41 @@ export class UvalibLightbox extends UvalibElement {
     return '';
   }
 
+  private readonly toggleRegions = (): void => {
+    this.showRegions = !this.showRegions;
+  };
+
+  /** The image, inside `<uvalib-image-regions>` when it has regions. */
+  private renderImage(slide: Slide, src: string, regions: ImageRegion[] | null) {
+    const img = html`<img
+      part="image"
+      slot=${regions ? 'image' : nothing}
+      alt=${slide.alt}
+      src=${src}
+      aria-busy=${this.status === 'loading' ? 'true' : 'false'}
+      @load=${this.onLoad}
+      @error=${this.onError}
+    />`;
+    if (!regions) return img;
+    return html`<uvalib-image-regions
+      class="regions"
+      part="regions"
+      .items=${regions}
+      label=${normalize(this.regionsLabel) || 'Regions'}
+      image-width=${slide.imageWidth ?? nothing}
+      image-height=${slide.imageHeight ?? nothing}
+      ?hide-outlines=${!this.showRegions}
+      ?no-style=${this.noStyle}
+      >${img}</uvalib-image-regions
+    >`;
+  }
+
   protected override render() {
     const slide = this.open ? this.current : undefined;
     const src = slide ? this.displaySrc : '';
     const full = slide && usableImageUrl(slide.href, this.base) ? slide.href : '';
     const shown = this.statusText;
+    const regions = slide?.regions.length ? slide.regions : null;
     const counter = this.multiple
       ? html`<p class="count" aria-live="polite">${this.index + 1} of ${this.slides.length}</p>`
       : nothing;
@@ -1068,22 +1217,21 @@ export class UvalibLightbox extends UvalibElement {
               Close
             </button>
           </div>
-          <figure class="figure">
-            ${
-              src
-                ? html`<img
-                    part="image"
-                    alt=${slide?.alt ?? ''}
-                    src=${src}
-                    aria-busy=${this.status === 'loading' ? 'true' : 'false'}
-                    @load=${this.onLoad}
-                    @error=${this.onError}
-                  />`
-                : nothing
-            }
-          </figure>
+          <figure class="figure">${src ? this.renderImage(slide!, src, regions) : nothing}</figure>
           <p class="status ${shown ? '' : 'visually-hidden'}" role="status">${shown}</p>
           <div class="toolbar" part="controls">
+            ${
+              regions && src
+                ? html`<button
+                    type="button"
+                    class="regions-toggle"
+                    aria-pressed=${this.showRegions ? 'true' : 'false'}
+                    @click=${this.toggleRegions}
+                  >
+                    Show regions
+                  </button>`
+                : nothing
+            }
             ${
               this.multiple
                 ? html`<button type="button" class="prev" @click=${() => this.step(-1)}>

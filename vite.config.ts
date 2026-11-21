@@ -31,6 +31,8 @@ const tags = [
   'bento-box',
   'uvalib-tabs',
   'uvalib-combobox',
+  'uvalib-image-regions',
+  'uvalib-map',
 ];
 
 // Library mode, ES output: one self-contained entry per component, with Lit and shared

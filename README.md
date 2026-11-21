@@ -9,7 +9,8 @@ Reusable web components for UVA Library sites, built with Lit and TypeScript:
 - **Cards:** `<uvalib-card>`, `<uvalib-card-grid>` and `<uvalib-pager>`.
 - **Tabs:** `<uvalib-tabs>`.
 - **Records:** `<uvalib-metadata>` (a record's details, credit, rights and how to cite).
-- **Images:** `<uvalib-lightbox>` (an image viewer over plain links) and `<uvalib-photo-grid>` (justified rows of thumbnails).
+- **Images:** `<uvalib-lightbox>` (an image viewer over plain links), `<uvalib-photo-grid>` (justified rows of thumbnails) and `<uvalib-image-regions>` (numbered region outlines on an image, with their list).
+- **Maps:** `<uvalib-map>` (places on the page's own Leaflet map, sized by a count, with a linked list).
 - **Search:** `<uvalib-filter>`, `<uvalib-date-range>`, `<uvalib-date-histogram>`, `<uvalib-combobox>` (a text field that suggests values as you type) and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
 - **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
 - **Library events:** `<events-section>`.
@@ -359,7 +360,7 @@ connect-src https://d2q6t6fdv76k7r.cloudfront.net wss://*.appsync-realtime-api.u
 - **Previous/next.** `prev-href` and `next-href` (either may be omitted; with neither, nothing is rendered). Each link shows a “Previous” or “Next” kicker and, when set, `prev-label` or `next-label`. A long title truncates; the full text stays in the accessible name. The links use `rel="prev"` and `rel="next"`. The landmark’s name is `label`, or “Sections”.
 - **Numbered pages.** Set `pages` (a positive count; it wins over previous/next, with one warning if those are set too). `page` is the current page, clamped to that range, and is text with `aria-current="page"`, not a link. Other pages use `href-template`, which must contain `{page}` (the default is `?page={page}`). A long range keeps the first page, a window around the current page, the last page, and an ellipsis where numbers are skipped. The landmark’s name is `label`, or “Pagination”.
 - **One landmark name.** Two pagers with the same accessible name fail the accessibility check. Give the second a different `label`.
-- **Load more.** `mode="load-more"` replaces the landmark with a group: a “Load more” button (`.uvalib-button`) and a polite “Showing N of M” (`shown` and `total`). It wins over numbered pages and previous/next, with one warning when those are also set. The button hides once `shown` has reached a positive `total`. `page` is the last loaded page (default 1). A click fires `load-more` with `{ page }` set to the next page. Call `loaded(firstNewElement)`, or set `for` to the list’s id and call `loaded()`, and focus moves to that new item (an element that cannot take focus gets `tabindex="-1"`). The group’s name is `label`, or “More results”.
+- **Load more.** `mode="load-more"` replaces the landmark with a group: a “Load more” button (`.uvalib-button`) and a polite “Showing N of M” (`shown` and `total`). It wins over numbered pages and previous/next, with one warning when those are also set. The button hides once `shown` has reached a positive `total`. Without a known total (ranked or semantic search), leave `total` unset (or 0): the count reads “Showing N” and the button stays. Add `has-more` while there is more and remove it (or set `hasMore = false`; `has-more="false"` also works, for templates that print false) after the last page. Once set, `has-more` alone decides whether the button shows, over `total`; `hasMore = undefined` returns to following `total`. It is one flag rather than a `has-more`/`no-more` pair, so the two can never contradict each other. If the button goes away while it has focus and `loaded()` was not called first, focus moves to the first new item of the `for` list, or else to the count, never to the page. `page` is the last loaded page (default 1). A click fires `load-more` with `{ page }` set to the next page. Call `loaded(firstNewElement)`, or set `for` to the list’s id and call `loaded()`, and focus moves to that new item (an element that cannot take focus gets `tabindex="-1"`). The group’s name is `label`, or “More results”.
 - **Single-page apps.** A plain click fires `uvalib-card-navigate` (`detail: { href, position }`) or `uvalib-pager-navigate` (`detail: { href, kind, page? }`). Cancel it with `preventDefault()` and route in the app. `position` is `'single'` or `'1'`, `'2'`, …. `kind` is `'next'`, `'previous'` or `'number'`, and `page` is set only for `'number'`.
 - **Styles.** A raised surface, a 1px border, and on hover or focus the shadow `0 0 20px 0 #DADADA`. Focusing the heading link draws the focus ring on the card. The chip is `--uva-blue-alt-300` on `--uva-blue-alt-dark` (6.13:1: WCAG AA for normal text, short of AAA’s 7:1). Dark mode follows the role tokens. `no-style` keeps the stretch, the grid and the truncation, and drops the colours.
 
@@ -391,9 +392,20 @@ connect-src https://d2q6t6fdv76k7r.cloudfront.net wss://*.appsync-realtime-api.u
 </uvalib-chip-group>
 ```
 
+A colour key: `data-swatch` (or `swatch` in `items`) draws a small square of that colour before the label, so the filter chips double as a chart's or map's legend.
+
+```html
+<uvalib-chip-group mode="multi" label="Category" count-label="photos" value="athletics">
+  <button value="athletics" data-count="4203" data-swatch="#e57200">Athletics</button>
+  <button value="architecture" data-count="1180" data-swatch="#232d4b">Architecture</button>
+  <button value="traditions" data-count="912" data-swatch="#25cad3">Traditions</button>
+</uvalib-chip-group>
+```
+
 - **Modes.** `single` (the default): native radios drawn as chips in a `role="radiogroup"`. Tab enters at the selected chip and the arrow keys move and select, as in any radio group; `value` is a string. `multi`: toggle buttons with `aria-pressed`; `value` is an array (comma-separated as an attribute). `links`: links (or, without `href`, buttons) that fire `select` and have no selected state.
-- **Chips.** Children: `<button value data-count>` (the value falls back to `data-value`, then the text; `disabled` disables), or `<a href>` in `links` mode (an unsafe href such as `javascript:` makes the chip plain text, with one warning; an empty one makes it a button). Or set `items` (`[{ value, label, count?, href?, disabled? }]`), which wins over the children while set. The chips follow changes to the children.
+- **Chips.** Children: `<button value data-count>` (the value falls back to `data-value`, then the text; `disabled` disables), or `<a href>` in `links` mode (an unsafe href such as `javascript:` makes the chip plain text, with one warning; an empty one makes it a button). Or set `items` (`[{ value, label, count?, href?, disabled?, swatch? }]`), which wins over the children while set. The chips follow changes to the children.
 - **Names.** `label` names the group and is required (one console warning without it). A count is shown smaller and muted, and read as part of the chip's name: “2005, 461 shoots” with `count-label="shoots"` (default “items”). Numbers are formatted for the page's language.
+- **Swatches.** `data-swatch` / `swatch` is any CSS colour (checked with `CSS.supports`; an invalid one is ignored with one console warning) and is set as a style property, never as CSS text. The square is decorative (`aria-hidden="true"`, `part="swatch"`): the chip's name stays its label and count, so the colour is never the only cue; keep the chart's or map's own labels, and use the same label text in both. Its 1px border is the chip's text colour, so it shows against the chip unselected, selected, disabled and in dark mode (at least 3:1, WCAG 1.4.11), and the chip keeps its height. In forced colors the square keeps its real colour (`forced-color-adjust: none` on the square only, since it must match the chart or map, which forced colors leave alone in a canvas or image) with a system-colour border. It works in every mode, with `segmented` and `scroll`, and with `no-style`.
 - **Events.** `change` (`detail: { value }`) on the visitor's change only, never when the app sets `value`; `select` (`detail: { value, href? }`) in `links` mode, cancelable for a plain click on a link: cancel it to route in a single-page app. Both bubble and are composed.
 - **Before the script loads.** `base.css` hides each `<uvalib-chip-group>` and holds one row's height (44px, or the scrolling row's), so nothing below moves when it upgrades; the raw children show after two seconds if the script never arrives.
 - **Look.** The `<uvalib-filter>` scope chip (a pill with a grey border and blue text, filled blue when selected), with a tick on the selected chip so the state never rests on colour alone. `segmented` joins the chips into one bar like the header's Light / Dark / System control; it stays on one row. Each chip is a target at least 44px square; the visible pill is 36px. Chips wrap on narrow screens. `scroll` keeps them on one row that scrolls sideways: the scrollbar stays visible, the edge with more chips fades out, focus scrolls a chip into view, and Tab moves on past the group (no trap). Dark mode follows the role tokens; in forced colors the selected chip is Highlight. `no-style` keeps the layout, the targets and the hidden radios.
@@ -530,6 +542,143 @@ Both follow dark mode through the role tokens and reflow at 320px; `no-style` ke
 - **Details.** A child with `slot="details"` (optional `data-for` equal to the item's id or its position from 1; without `data-for` it shows for every image), or `data-details-id` on a link naming an element elsewhere on the page. It is shown in the dialog and put back when the viewer moves on or closes.
 - **Photo grid.** Each direct child that is an `<a href>` or a `<button>` is one photo. The row is about 220px tall, and 140px when the viewport is 767px or narrower, unless `row-height` is set (a bare number is pixels; `rem`, `em` and the other CSS lengths are kept). Each image keeps its shape from its `width` and `height` attributes, or from the loaded image, so the row does not jump. Every item stays a real link or button. An image with no visible text gets a visible caption from its alt, and an alt that repeats that caption is cleared so it is not announced twice. The original alt is kept for a lightbox. A different alt is kept (the accessible name still contains the visible text). An `aria-label` is left as the name. Generated "Photo N" captions renumber when the photos change order. An item with no name is captioned "Photo N" and warned about once. A child that is not a link or a button is skipped, with one warning. A badge sits on the thumbnail: `<span slot="badge">` inside the item, or `data-badge` on the item (“seq”, “3 photos”). It is part of the item’s accessible name; when the item already has an `aria-label`, the badge is appended and the author’s words stay in `data-uvalib-label`. The grid reports no analytics. Put it inside `<uvalib-lightbox>` and a plain click opens the viewer.
 - **Motion and colour.** `prefers-reduced-motion` turns the dialog's short fade off. The backdrop, surface and focus ring use the dark-mode role tokens. Controls are at least 44px. `no-style` keeps the dialog's structure and, for the grid, the row layout: the thumbnails stay in light DOM, and those rules are what reserve each image's space.
+
+### Image regions
+
+`<uvalib-image-regions>` outlines regions of an image (people, objects, inscriptions, page areas), numbered, with a list of the same regions beside it (under it on a narrow screen). Entry: `uvalib-image-regions.js` on the CDN, `@uvalib/web-components/uvalib-image-regions.js` on npm. See the [Image regions](https://uvalib.github.io/reusable-web-library/#image-regions) example.
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-image-regions.js"
+></script>
+
+<!-- The page's own image and list: it works before the script loads and without it. -->
+<uvalib-image-regions label="People">
+  <img src="group.jpg" alt="Five students on the Rotunda steps" width="1200" height="800" />
+  <ol>
+    <li data-xywh="percent:12,30,10,22">
+      <a href="/people/42">Person 1</a>
+      <button type="button" class="uvalib-button uvalib-button--small">Not this person</button>
+    </li>
+    <li data-xywh="xywh=560,240,120,176">
+      Person 2
+      <button type="button" class="uvalib-button uvalib-button--small">Name this person</button>
+    </li>
+  </ol>
+</uvalib-image-regions>
+
+<!-- Or the items property, and the element draws the list. -->
+<uvalib-image-regions
+  id="page"
+  label="Regions"
+  src="page.jpg"
+  alt="A manuscript page"
+  width="900"
+  height="1200"
+></uvalib-image-regions>
+<script type="module">
+  document.querySelector('#page').items = [
+    { label: 'Inscription', x: 10, y: 8, w: 80, h: 12, unit: 'percent', href: '#inscription' },
+    { label: 'Seal', x: 640, y: 980, w: 160, h: 160, description: 'Wax, red' },
+  ];
+</script>
+
+<!-- In the image viewer: data-regions on a link (or the lightbox's regions callback). -->
+<uvalib-lightbox regions-label="People">
+  <a
+    href="group-large.jpg"
+    data-caption="Students on the Rotunda steps"
+    data-regions="percent:12,30,10,22 Person 1; percent:46,30,10,22 Person 2"
+  >
+    <img src="group-small.jpg" alt="Students on the Rotunda steps" width="300" height="200" />
+  </a>
+</uvalib-lightbox>
+```
+
+- **The list is the way in.** Every region is an entry in the list, with the same name and the page's own links and buttons. The outlines are a visual aid: the overlay is `aria-hidden` and the outlines are not focusable, so no region is a second tab stop. Clicking an outline moves focus to its entry (and fires `select`); from there Tab reaches its links and buttons. Labels shown on a highlighted outline are the list's text, so nothing is only on hover.
+- **Regions.** An `<ol>` child whose `<li>` items carry `data-xywh`, IIIF and Media Fragments style: `percent:x,y,w,h`, or pixels (`x,y,w,h`, `pixel:x,y,w,h` or `xywh=…`) of the image's natural size, or of `image-width` × `image-height` when the image is a smaller derivative of the original (a IIIF `,880` size, say). A label is `data-label`, else the entry's first link, else its text without its buttons. `data-id` (or `id`) is sent back in events. Or set `items` (`{ id?, label, x, y, w, h, unit?: 'px' | 'percent', href?, description? }[]`): it replaces the child list. A pixel region is drawn once the image's size is known.
+- **Host content.** The child list and everything in it stay the page's: the element only numbers, positions and highlights them (it adds `data-uvalib-region` and, while highlighted, `data-uvalib-active` to each `<li>`, and `tabindex="-1"` when an outline moves focus to one). Your buttons' events are yours.
+- **Numbers and highlight.** Outline numbers are the list's numbers (from 1, or the `<ol>`'s `start`); `numbering="none"` hides them on the outlines. Hovering or focusing an entry, or anything in it, highlights its region: a thicker double outline with its label, the others dimmed, and the entry gets a bar at its start and a tint. Hovering an outline highlights its entry. Not colour alone.
+- **Contrast on any image.** Each outline is white inside black (2px each, 4px highlighted), with black number badges, on light and dark photos alike and in dark mode; in forced colors they are Canvas and CanvasText, the highlight is Highlight (the overlay alone has `forced-color-adjust: none`).
+- **Layout.** The image keeps its own width (at most the element's) and the list sits beside it when 14rem is left, else under it, so it reflows at 320px. Outlines are in percent and scale with the image; give the image `width` and `height` so its space is reserved. `base.css` gives the children the same layout before the element upgrades, so the image does not move. `hide-outlines` hides the outlines and keeps the list. `label` (default “Regions”) is the list's heading; `heading-level` sets its level (default: one below the heading before it).
+- **Events.** `highlight` (`detail: { item, index }`, `item` null when none) as hover or focus changes the highlight; `select` (`detail: { item, index }`) when an outline is clicked. Both bubble and are composed.
+- **Lightbox.** On `<uvalib-lightbox>`, `data-regions` on a link is a JSON array of region objects, or `xywh` values each followed by its label, separated by `;` (`percent:10,20,30,40 Person 1; 160,120,320,240 Sign`; use JSON when a label contains `;`). Or set the lightbox's `regions` property to a function from `{ element, id, href, index }` to regions. An image with regions shows the outlines over it and their list beside it, and a “Show regions” toggle (`aria-pressed`) hides the outlines; `regions-label` names the list. `<uvalib-image-regions>` is loaded the first time it is needed. Because the viewer asks for a resized IIIF image, give pixel regions `data-image-width` and `data-image-height` (the original's size), or use percent. Images without regions are unchanged.
+- **Analytics.** `select` when an outline is clicked, with the list's `label` and the region's number. Never a region's label: it may be a person's name. Nothing on hover or focus.
+- **Motion and styles.** The dimming fades only without `prefers-reduced-motion: reduce`. Shadow and light DOM; `no-style` keeps the layout and the outlines.
+
+## Maps
+
+`<uvalib-map>` shows places (buildings, rooms, outdoor spaces) as markers sized by a count, each a link to the place's page, with a list of the same places under the map. It wraps [Leaflet](https://leafletjs.com) 1.9, which **your page provides**: the library never bundles Leaflet, and its CDN entry imports nothing from it. `leaflet` is an optional peer dependency of the npm package. Entry: `uvalib-map.js` on the CDN, `@uvalib/web-components/uvalib-map.js` on npm. See the [Map](https://uvalib.github.io/reusable-web-library/#places-map) example.
+
+```html
+<!-- CDN: Leaflet first (defer keeps it before the module scripts), then the element. -->
+<script
+  defer
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+  crossorigin=""
+></script>
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-map.js"
+></script>
+
+<!-- The child list is the list of places, before the script runs and after. -->
+<uvalib-map label="Places on Grounds" count-label="photos">
+  <ul>
+    <li>
+      <a href="/places/rotunda" data-lat="38.0356" data-lng="-78.5034" data-count="2702"
+        >The Rotunda</a
+      >
+    </li>
+    <li>
+      <a
+        href="/places/alderman"
+        data-lat="38.0367"
+        data-lng="-78.5055"
+        data-count="640"
+        data-description="The main library."
+        >Alderman Library</a
+      >
+    </li>
+  </ul>
+</uvalib-map>
+```
+
+```js
+// npm: give the element the Leaflet module (npm i leaflet).
+import * as L from 'leaflet';
+import '@uvalib/web-components/uvalib-map.js';
+
+const map = document.querySelector('uvalib-map');
+map.leaflet = L;
+map.items = [
+  {
+    id: 'rotunda',
+    name: 'The Rotunda',
+    lat: 38.0356,
+    lng: -78.5034,
+    count: 2702,
+    href: '/places/rotunda',
+  },
+  { id: 'stadium', name: 'Scott Stadium', lat: 38.0311, lng: -78.5137, count: 1150 }, // no href: a button
+];
+map.addEventListener('select', (e) => console.log(e.detail.item.id));
+```
+
+- **Leaflet.** The `leaflet` property (the module namespace, or its `default`) wins; otherwise `window.L` (leaflet.js from a script tag, also loaded `async` or after the element: it looks again once the page has loaded). Without either, only the list is shown, with one console warning a second after the page loads. Leaflet's `leaflet.css` is **optional**: the element carries the layout rules the map needs (panes, tiles, controls, tooltip), in shadow DOM and light DOM alike, so there is nothing to adopt into the shadow root. A page that also loads `leaflet.css` (for its own maps) keeps the element's sizes and colours.
+- **Places.** `items` (`[{ id?, name, lat, lng, count?, href?, description? }]`) wins over the children while non-empty. Children: one `<ul>` or `<ol>` of `<li>`, each with an `<a href>` carrying `data-lat`, `data-lng` and optionally `data-count`, `data-id` and `data-description` (or those on the `<li>` itself, for a place without a page). A place without valid coordinates is listed but has no marker. Hrefs other than relative, http(s), `mailto:` and `tel:` become plain text. The list follows changes to the children.
+- **Markers.** Each is a real link (a button when there is no `href`) named “The Rotunda, 2,702 photos”: `count-label` is the noun (default “items”; a count of one drops a trailing s). The dot is 24 to 56px, by the square root of the count, in a target of at least 44px; smaller dots sit above larger ones. Tab, or the arrow keys, Home and End, move between markers; Enter (or Space) follows the link, or chooses the place. A hover or focus shows a tooltip with the name and count (it is also in the marker's name and the list, never the only source) that stays until another place is hovered or focused, the pointer leaves the map, or Escape.
+- **The list and the map are linked.** Hovering or focusing a list entry highlights its marker (a ring and a larger dot, not colour alone) and brings it into view; hovering or focusing a marker outlines its list entry.
+- **The region.** The map is `role="region"` named “<label>, map” (`label` is required: one console warning without it), after a “Skip map, go to the list” link (shown on focus; it moves focus to the list, which is named “<label>, list”) and a visible line of key instructions. With the map itself focused, Leaflet's own keys pan (arrows) and zoom (+ and −). The wheel does not zoom (no scroll trap); the zoom buttons are 44px with the library focus ring. The attribution stays, readable (13px, underlined links).
+- **Opening view.** The bounds of the places, as close as the largest marker allows (half zoom steps), moved clear of the zoom buttons and attribution when a marker would sit under them; or `center="lat,lng"` and `zoom`. It refits on resize until the visitor moves the map.
+- **Tiles.** `tile-url` (default `https://tile.openstreetmap.org/{z}/{x}/{y}.png`) and `attribution` (HTML; default “© OpenStreetMap contributors”). OpenStreetMap's tiles are for light use only: their [tile usage policy](https://operations.osmfoundation.org/policies/tiles/) asks for the attribution (kept here) and no heavy traffic. For a busy page use a library-hosted tile server or a commercial provider, and set both attributes.
+- **Dark mode.** In the page's dark mode, `dark-tile-url` gives dark tiles; without it the light tiles are inverted with a CSS filter on the tile pane only (`--uvalib-map-dark-filter`, default `invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9)`), so markers, controls, the tooltip and the attribution are never filtered. Everything else follows the role tokens.
+- **Motion, colours and layout.** `prefers-reduced-motion` turns off Leaflet's zoom, fade and marker animations, inertia and the highlight's transition, and panning to a place jumps. In forced colors the markers, controls, tooltip and list entries keep borders, and the highlight is a Highlight outline. The map is `--uvalib-map-height` tall (default `min(24rem, 75vw)`, at least 12rem); the list sits under it in as many columns as fit, one on a phone, with no sideways scroll at 320px.
+- **Before the script loads.** `base.css` shows the key instructions and holds the map's height above the child list, so the list does not move when the map is drawn.
+- **Modes.** Shadow DOM (default) or `no-shadow-dom`; `no-style` keeps Leaflet's layout, the map height, the 44px targets and the hidden marker names, and drops the colours.
+- **Events and analytics.** `select` (`detail: { item }`, bubbling, composed and cancelable) when a marker is chosen; cancel it to stay on the page for a place with an `href`. Analytics: `select` with the map's label and the place's position from 1, and `zoom` with the label and the zoom level, 1 s after the last zoom-button press. Never a place's name, coordinates or URL.
 
 ## Rendering modes
 
@@ -1058,6 +1207,7 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
   | `uvalib-contents`                            | `toggle` (the narrow-screen disclosure)                                                                              | `open` or `close`                                                                                                                         |                                   |
   | `uvalib-metadata`                            | `copy-citation` (downloads are left to Matomo's own download tracking)                                               |                                                                                                                                           |                                   |
   | `uvalib-lightbox`                            | `open`, `next`, `previous`, `full-size`                                                                              | `image N` (never the URL or the caption)                                                                                                  | N, from 1                         |
+  | `uvalib-image-regions`                       | `select` (an outline clicked; nothing on hover or focus)                                                             | the list's `label` (never a region's label)                                                                                               | the region's number, from 1       |
   | `uvalib-tag-list`                            | `tag-click`                                                                                                          | `list N` (the list's place on the page), or with `track-label` the list's own fixed `label`; never the tag's text or URL                  | the tag's place, from 1           |
   | `uvalib-tag-list`                            | `show-all`, `show-fewer`                                                                                             | `list N`, or with `track-label` the `label`                                                                                               |                                   |
   | `site-alerts`                                | a content impression, once per alert per page view: `trackContentImpression('Library alert', '<severity>: <title>')` |                                                                                                                                           |                                   |
@@ -1073,6 +1223,8 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
   | `uvalib-combobox`                            | `select` (a suggestion chosen)                                                                                       | the field's label (never the typed text or the suggestion)                                                                                | the suggestion's position, from 1 |
   | `uvalib-combobox`                            | `clear` (the clear button, or Escape on a closed list)                                                               | the field's label                                                                                                                         |                                   |
   | `uvalib-combobox`                            | `error` (`src` failed to load)                                                                                       | `load`                                                                                                                                    |                                   |
+  | `uvalib-map`                                 | `select` (a marker chosen: click, Enter or Space)                                                                    | the map's label (never the place's name, coordinates or URL)                                                                              | the place's position, from 1      |
+  | `uvalib-map`                                 | `zoom` (1 s after the last zoom-button press)                                                                        | the map's label                                                                                                                           | the zoom level                    |
   | `uvalib-filter`                              | `facet-change`                                                                                                       | `<filter title>: <value>` (the facet value as the search service returns it, such as a format, library or subject; cut at 100 characters) | 1 checked, 0 unchecked            |
   | `uvalib-filter`                              | `scope-change`                                                                                                       | the scope's label                                                                                                                         | 1 pressed, 0 not                  |
   | `uvalib-filter`                              | `see-more`, `see-less`                                                                                               | the filter's title                                                                                                                        |                                   |
@@ -1784,7 +1936,7 @@ A grid of `<uvalib-card>` elements. It is a list, so a screen reader announces h
 
 ### `<uvalib-chip-group>`
 
-A row of chips: a segmented control or single-select filter (`mode="single"`), filter chips that toggle (`mode="multi"`), or suggestion chips that go somewhere (`mode="links"`), as in a year rail with counts (“2005 213”), a sort toggle (“Most photos \| Date \| Title A–Z”) or “Try: snow on the Lawn”. Give the chips as children, `<button value="2005" data-count="213">2005</button>` (the value is the `value` attribute, else `data-value`, else the text; `disabled` disables), or `<a href>` in `links` mode, or set the `items` property (`{ value, label, count?, href?, disabled? }`), which wins over the children while set. The chips follow later changes to the children. `single`: native radios drawn as chips, in a `role="radiogroup"` named by `label`. Tab enters the group at the selected chip, the arrow keys move and select (as any radio group), and `value` is the selected chip's value. `multi`: toggle buttons with `aria-pressed`, and `value` is an array (as an attribute, comma-separated). `links`: links, or buttons that fire `select`, with no selected state; a chip whose href is unsafe (`javascript:`) is plain text, and an empty href is a button. A count is shown in a smaller muted span after the label and read as part of the name: “2005, 213 items”, with `count-label` in place of “items”. A selected chip is filled, keeps its border and shows a tick. Chips wrap on a narrow screen; `scroll` keeps them on one row that scrolls sideways, with its scrollbar shown and a fade at an edge with more chips. Each chip is a target at least 44px square. `segmented` joins the chips into one bar that does not wrap (a long label wraps inside its segment), like the header's Light / Dark / System control. `url-param` (for example `year`) keeps the value in the address (`?year=2005`, a multi value comma-separated, inside the hash on a hash route). It is read on connect; the markup's `value` stands for the address without the parameter, and any other value is written, an empty one as `?year=`. Each change is one `pushState`: in `multi` at once, in `single` once the visitor settles (a second after the last change, so arrowing through a year rail adds one entry, none if it ends where it started). Back and Forward are followed and fire `change` with `restored: true`.
+A row of chips: a segmented control or single-select filter (`mode="single"`), filter chips that toggle (`mode="multi"`), or suggestion chips that go somewhere (`mode="links"`), as in a year rail with counts (“2005 213”), a sort toggle (“Most photos \| Date \| Title A–Z”) or “Try: snow on the Lawn”. Give the chips as children, `<button value="2005" data-count="213">2005</button>` (the value is the `value` attribute, else `data-value`, else the text; `disabled` disables), or `<a href>` in `links` mode, or set the `items` property (`{ value, label, count?, href?, disabled?, swatch? }`), which wins over the children while set. The chips follow later changes to the children. `single`: native radios drawn as chips, in a `role="radiogroup"` named by `label`. Tab enters the group at the selected chip, the arrow keys move and select (as any radio group), and `value` is the selected chip's value. `multi`: toggle buttons with `aria-pressed`, and `value` is an array (as an attribute, comma-separated). `links`: links, or buttons that fire `select`, with no selected state; a chip whose href is unsafe (`javascript:`) is plain text, and an empty href is a button. `data-swatch` (or `swatch` in `items`) is a CSS colour drawn as a small bordered square before the label, so the chips double as a chart's or map's colour key. It is decorative (`aria-hidden`) and never the only cue: the name stays the label. An invalid colour is ignored with one warning. In forced colors the square keeps its colour. A count is shown in a smaller muted span after the label and read as part of the name: “2005, 213 items”, with `count-label` in place of “items”. A selected chip is filled, keeps its border and shows a tick. Chips wrap on a narrow screen; `scroll` keeps them on one row that scrolls sideways, with its scrollbar shown and a fade at an edge with more chips. Each chip is a target at least 44px square. `segmented` joins the chips into one bar that does not wrap (a long label wraps inside its segment), like the header's Light / Dark / System control. `url-param` (for example `year`) keeps the value in the address (`?year=2005`, a multi value comma-separated, inside the hash on a hash route). It is read on connect; the markup's `value` stands for the address without the parameter, and any other value is written, an empty one as `?year=`. Each change is one `pushState`: in `multi` at once, in `single` once the visitor settles (a second after the last change, so arrowing through a year rail adds one entry, none if it ends where it started). Back and Forward are followed and fire `change` with `restored: true`.
 
 #### Attributes
 
@@ -1799,6 +1951,12 @@ A row of chips: a segmented control or single-select filter (`mode="single"`), f
 | `url-param` | `string` | `''` | Query parameter that keeps the value in the address, for example `year` → `?year=2005`. |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
+
+#### CSS parts
+
+| Part | Description |
+|---|---|
+| `swatch` | The colour square before a chip's label (`data-swatch`, `swatch`). |
 
 #### Events
 
@@ -2064,6 +2222,62 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 | `--uva-color-on-accent` |  | Dark-mode role token: pressed chip text (else #fff). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
+### `<uvalib-image-regions>`
+
+An image with numbered region outlines (people, objects, inscriptions) and a list of the same regions beside it (under it on a narrow screen). The list is the way in: the outlines are a visual aid, hidden from assistive technology and not in the tab order, so no region is a second tab stop. Hovering or focusing a list entry (or anything in it) highlights its region with a thicker double outline and its label, and dims the others; hovering a region highlights its entry. Clicking a region moves focus to its entry. The image: an `<img>` (or `<picture>`) child, which keeps its `alt`, or `src` and `alt`. Give it `width` and `height` so its space is reserved before it loads. The regions: an `<ol>` child whose `<li>` items carry `data-xywh` (IIIF / Media Fragments: `percent:10,20,30,40`, or pixels `160,120,320,240` of the image's natural size). The list is shown as written, so it works before the component loads or without JavaScript, and any links and buttons in it stay the page's own (their events are the page's). Or set the `items` property, and the component draws the list. Region numbers are the list's numbers, from 1 (or the `<ol>`'s `start`).
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `src` | `string` | `''` | Image URL, when there is no `<img>` child. |
+| `alt` | `string` | `''` | The image's alternative text (with `src`). |
+| `width` | `number \| undefined` |  | The image's width (with `src`), reserving its space. |
+| `height` | `number \| undefined` |  | The image's height (with `src`). |
+| `image-width` | `number \| undefined` |  | The size pixel regions are measured in, when it is not the image's natural size (for example a IIIF derivative of a larger original: the original's width and height). |
+| `image-height` | `number \| undefined` |  | The height pixel regions are measured in (with `image-width`). |
+| `label` | `string` | `'Regions'` | The list's heading, and the analytics name. |
+| `heading-level` | `number \| undefined` |  | The heading's level (2 to 6). Default: one below the heading before the element. |
+| `numbering` | `'numbers' \| 'none'` | `'numbers'` | `numbers` (default) shows each region's number on its outline; `none` hides them. |
+| `hide-outlines` | `boolean` | `false` | Hide the outlines (the list stays). |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Slots
+
+| Slot | Description |
+|---|---|
+| (default) | The region list (`<ol>` with `<li data-xywh>`), shown as written. Not used with `items`. |
+| `image` | The image. A first `<img>` or `<picture>` child is put here by itself. |
+
+#### CSS parts
+
+| Part | Description |
+|---|---|
+| `layout` | The grid holding the image and the list. |
+| `media` | The image and its overlay. |
+| `overlay` | The outlines over the image (`aria-hidden`). |
+| `region` | One outline. |
+| `list` | The heading and the list. |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `highlight` | The highlighted region changed by hover or focus: `detail` is `{ item, index }` (`item` null and `index` -1 when none is). Bubbles and is composed. |
+| `select` | A region's outline was clicked (focus moved to its list entry): `detail` is `{ item, index }`. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-image-regions', 'select', '<label>', <number>]` when an outline is clicked (the list's `label`, and the region's number from 1). Never a region's label (it may be a person's name). Nothing on hover or focus. Bubbles and is composed. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-text` |  | Dark-mode role token: text (else `--uva-grey-darkest`). |
+| `--uva-color-surface-hover` |  | Dark-mode role token: the highlighted entry's tint (else #f1f1f1). |
+| `--uva-color-link` |  | Dark-mode role token: entry links (else `--uva-brand-blue`). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+| `--uva-color-text-muted` |  | Dark-mode role token: descriptions (else #4b5563). |
+
 ### `<uvalib-lightbox>`
 
 An accessible image viewer over a set of plain links. With JavaScript a primary click opens a modal dialog; without it (or with a modified click) the link opens the image as before. Wrap the links, or point at them with `selector` (for example `a.pb-image` on a reading page). There is no autoplay and no carousel. The dialog is labelled by the caption (`data-caption`, else the image alt, else the link text). Focus moves to Close on open and back to the trigger on close. Escape and a click on the backdrop close it. With more than one image, Previous and Next and the arrow keys move through the set (wrapping), and a polite “3 of 13” counter is shown. Full size opens the original image in a new tab. A IIIF Image API URL keeps its region; only the size becomes `!W,H` for the viewport. TIFF and JPEG2000 URLs are left as written. `url-param` (for example `photo`) keeps `?photo=<id>` in sync, including on a hash route (`#/text?photo=<id>`): opening pushes a history entry, stepping replaces it, and Back closes. Optional details: children with `slot="details"` (and `data-for` equal to the item's id or its position from 1; without `data-for` they show for every image), or `data-details-id` on a link pointing at an element elsewhere on the page. Either is shown inside the dialog and put back when the viewer moves on or closes.
@@ -2074,6 +2288,7 @@ An accessible image viewer over a set of plain links. With JavaScript a primary 
 |---|---|---|---|
 | `selector` | `string` | `''` | CSS selector for image links elsewhere in this root (the page, or the shadow root the component sits in). Combined with any links inside the component. Example: `a.pb-image`. |
 | `url-param` | `string` | `''` | Query parameter kept in sync with the open image, for example `photo` → `?photo=<id>`. The id is the link's `data-id`, else its `id`, else the IIIF identifier, else its position from 1. On a hash route the parameter is written inside the hash. Empty: no deep link. |
+| `regions-label` | `string` | `'Regions'` | The heading of the regions list (for example `People`). |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -2094,6 +2309,7 @@ An accessible image viewer over a set of plain links. With JavaScript a primary 
 | `image` | The image. |
 | `controls` | Previous, Next, the counter and Full size. |
 | `details` | The details panel. |
+| `regions` | The `<uvalib-image-regions>` around an image with regions. |
 
 #### Events
 
@@ -2118,6 +2334,69 @@ An accessible image viewer over a set of plain links. With JavaScript a primary 
 | `--uva-brand-blue` | `#232d4b` | Control background when `--uva-color-accent-bg` is unset. |
 | `--uva-grey-darkest` | `#2b2b2b` | Text when `--uva-color-text` is unset. |
 | `--uva-grey-100` | `#dadada` | Border when `--uva-color-border` is unset. |
+
+### `<uvalib-map>`
+
+A map of places with a linked list of the same places: buildings, rooms or outdoor spaces, each a marker sized by a count, with a link to the place's page. It wraps [Leaflet](https://leafletjs.com) 1.9, which the page provides (the library never bundles it): set the `leaflet` property to the Leaflet module (`import * as L from 'leaflet'`), or load leaflet.js so that `window.L` exists. Without Leaflet only the list is shown, with one console warning. Leaflet's leaflet.css is optional: the element carries the layout rules it needs, in shadow DOM and light DOM alike. Places come from `items` (`{ id?, name, lat, lng, count?, href?, description? }`) or from a child `<ul>`/`<ol>` of `<li><a href data-lat data-lng data-count>Name</a></li>`, which is the list before the script runs (and without it). The list always stays, under the map: it is the text equivalent. Each marker is a real link (a button when the place has no `href`) named like "The Rotunda, 2,702 photos" (`count-label` is the noun), sized by the square root of its count (a 24 to 56px dot in a hit area of at least 44px). Tab or the arrow keys move between markers, Enter follows the link (or chooses the place), and Escape hides the tooltip. Hovering or focusing a marker shows a tooltip with its name and count and highlights its list entry; hovering or focusing a list entry highlights its marker (a ring and a larger dot, not colour alone) and brings it into view. The map is a region named by `label`, after a "Skip map, go to the list" link and a line of key instructions. It opens on the bounds of the places, or on `center` and `zoom`. The zoom buttons are 44px with a visible focus ring; the attribution stays. Tiles come from `tile-url` (OpenStreetMap by default: low-traffic use only) with `attribution`. In the page's dark mode the tiles are inverted with a CSS filter (`--uvalib-map-dark-filter`) unless `dark-tile-url` gives dark tiles; markers and controls are never filtered. With `prefers-reduced-motion` nothing animates.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `items` | `MapItem[]` | `[]` | The places. When non-empty, wins over the child list. Set a new array to update. |
+| `label` | `string` | `''` | The map's name (required): the region's label, the list's label and the analytics name. |
+| `count-label` | `string` | `'items'` | The noun after each count, plural ("photos"); a count of one drops a trailing s. |
+| `tile-url` |  | `OSM_TILE_URL` | The tile URL template (`{z}/{x}/{y}`, optionally `{s}` and `{r}`). |
+| `dark-tile-url` | `string` | `''` | Tiles for the page's dark mode. Without it, dark mode filters the light tiles instead. |
+| `attribution` |  | `OSM_ATTRIBUTION` | The tiles' attribution, as HTML. Required by most tile sources; always shown. |
+| `center` | `string` | `''` | Where the map opens, `"lat,lng"`. Without it the map fits every place. |
+| `zoom` | `number \| undefined` |  | The opening zoom level (with `center`, or centred on the places). |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Slots
+
+| Slot | Description |
+|---|---|
+| (default) | A `<ul>` or `<ol>` of places: each `<li>` holds an `<a href>` (or the `<li>` itself) with `data-lat`, `data-lng` and optionally `data-count`, `data-id` and `data-description`. Used when `items` is empty; without JavaScript it is the list. |
+
+#### CSS parts
+
+| Part | Description |
+|---|---|
+| `map` | The map region (the Leaflet container). |
+| `instructions` | The line of key instructions above the map. |
+| `list` | The list of places. |
+| `place` | Each list entry. |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `select` | A marker was chosen (click, Enter or Space). `detail` is `{ item }`. Cancelable: for a place with `href`, `preventDefault()` keeps the page from following the link. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-map', 'select', '<label>', <position from 1>]` when a marker is chosen, and `['uvalib-map', 'zoom', '<label>', <zoom level>]` 1 s after the last zoom-button press. Never a place's name, coordinates or URL. Bubbles and is composed. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uvalib-map-height` | `min(24rem, 75vw)` | Height of the map. |
+| `--uvalib-map-dark-filter` | `invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9)` | The filter on the tiles in dark mode, when there is no `dark-tile-url`. |
+| `--uva-brand-blue` | `#232d4b` | Marker fill. |
+| `--uva-brand-orange` | `#e57200` | Focus ring when `--uva-color-focus` is unset. |
+| `--uva-font-family` | `inherit` | Font family. |
+| `--uva-color-accent-bg` |  | Dark-mode role token: marker fill (else `--uva-brand-blue`). |
+| `--uva-color-on-accent` |  | Dark-mode role token: marker border (else #fff). |
+| `--uva-color-text` |  | Dark-mode role token: text and the highlight ring (else #2b2b2b). |
+| `--uva-color-text-muted` |  | Dark-mode role token: instructions and descriptions (else #4b5563). |
+| `--uva-color-link` |  | Dark-mode role token: links (else `--uva-brand-blue`). |
+| `--uva-color-surface` |  | Dark-mode role token: attribution background and the highlight ring's gap (else #fff). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: zoom buttons, tooltip and list entries (else #fff). |
+| `--uva-color-surface-hover` |  | Dark-mode role token: hovered zoom button (else #dadada). |
+| `--uva-color-track` |  | Dark-mode role token: the map before tiles load, and count badges (else #e5e7eb). |
+| `--uva-color-control-border` |  | Dark-mode role token: borders (else #808080). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+| `--uva-color-shadow` |  | Dark-mode role token: control and tooltip shadow. |
 
 ### `<uvalib-metadata>`
 
@@ -2188,7 +2467,7 @@ Pagefind's default search UI (`PagefindUI`, from the site's own Pagefind bundle)
 
 ### `<uvalib-pager>`
 
-Previous/next section links, as on a reading page, or a numbered page list. Previous/next: set `prev-href` and `next-href` (either may be omitted). Each link shows a “Previous” or “Next” kicker and, when `prev-label` or `next-label` is set, that title. A visually hidden “: ” sits between them, so the accessible name is punctuated even when CSS is off. A long title truncates visually; the full text stays in the accessible name. The links use `rel="prev"` and `rel="next"`. With neither href, nothing is rendered. Numbered pages: set `pages` (a positive count). `page` is the current page, clamped to `1…pages`. Each link’s href comes from `href-template`, which must contain `{page}` (the default is `?page={page}`). The current page is text with `aria-current="page"`, not a link. Long ranges collapse to the first page, a window around the current page, the last page, and an ellipsis where numbers are skipped. `pages` wins when previous/next attributes are also set, with one console warning. Load more: `mode="load-more"` shows a “Load more” button and “Showing N of M” (`shown` of `total`). It wins over numbered pages and previous/next, with one warning when those are also set. The button is not a link and the control is a group, not a navigation landmark. The button hides once `shown` has reached a positive `total`. `page` is the last loaded page (default 1). A click fires `load-more` with `{ page }` set to the next page and reports `['uvalib-pager', 'load-more', '', page]`. Nothing is reported on render. Call `loaded(firstNewElement)`, or set `for` to a list id and call `loaded()`, and focus moves to that new item. The landmark’s accessible name is `label`, or “Sections” for previous/next and “Pagination” for numbered pages. Load more uses `label` or “More results”. An empty `label` uses that default. Two pagers on one page need different labels: a repeated landmark name fails the accessibility check.
+Previous/next section links, as on a reading page, or a numbered page list. Previous/next: set `prev-href` and `next-href` (either may be omitted). Each link shows a “Previous” or “Next” kicker and, when `prev-label` or `next-label` is set, that title. A visually hidden “: ” sits between them, so the accessible name is punctuated even when CSS is off. A long title truncates visually; the full text stays in the accessible name. The links use `rel="prev"` and `rel="next"`. With neither href, nothing is rendered. Numbered pages: set `pages` (a positive count). `page` is the current page, clamped to `1…pages`. Each link’s href comes from `href-template`, which must contain `{page}` (the default is `?page={page}`). The current page is text with `aria-current="page"`, not a link. Long ranges collapse to the first page, a window around the current page, the last page, and an ellipsis where numbers are skipped. `pages` wins when previous/next attributes are also set, with one console warning. Load more: `mode="load-more"` shows a “Load more” button and “Showing N of M” (`shown` of `total`), or “Showing N” when `total` is unset or 0 (ranked search often cannot know it). It wins over numbered pages and previous/next, with one warning when those are also set. The button is not a link and the control is a group, not a navigation landmark. Once `has-more` has been set (the attribute, or the `hasMore` property), it alone decides whether the button shows: present (or `hasMore = true`) shows it; removed, `has-more="false"` or `hasMore = false` hides it. Left unset, the button hides once `shown` has reached a positive `total`, and stays with no total. `page` is the last loaded page (default 1). A click fires `load-more` with `{ page }` set to the next page and reports `['uvalib-pager', 'load-more', '', page]`. Nothing is reported on render. Call `loaded(firstNewElement)`, or set `for` to a list id and call `loaded()`, and focus moves to that new item. The landmark’s accessible name is `label`, or “Sections” for previous/next and “Pagination” for numbered pages. Load more uses `label` or “More results”. An empty `label` uses that default. Two pagers on one page need different labels: a repeated landmark name fails the accessibility check.
 
 #### Attributes
 
@@ -2200,7 +2479,8 @@ Previous/next section links, as on a reading page, or a numbered page list. Prev
 | `next-label` | `string \| undefined` |  | Title of the next section, under the “Next” kicker. |
 | `mode` | `string \| undefined` |  | `load-more` shows a Load more button instead of previous/next or numbered pages. Any other value, including empty, leaves the pager in its other modes. |
 | `shown` | `number \| undefined` |  | How many results are already shown. Used by `mode="load-more"` as N in “Showing N of M”. |
-| `total` | `number \| undefined` |  | How many results there are. Used by `mode="load-more"` as M in “Showing N of M”. |
+| `total` | `number \| undefined` |  | How many results there are. Used by `mode="load-more"` as M in “Showing N of M”. Unset or 0 (an unknown total), the count reads “Showing N”. |
+| `has-more` | `boolean \| undefined` |  | Whether `mode="load-more"` has more to load, for when `total` is not known. Unset (the default), the button follows `total`. Set, it decides: the attribute present means true; removing it, `has-more="false"` or `hasMore = false` means false. `hasMore = undefined` returns to following `total`. |
 | `for` | `string \| undefined` |  | Id of the list Load more appends to. `loaded()` focuses the first child added after the click. Ignored when `loaded` is passed an element. |
 | `page` | `number \| undefined` |  | Current page, from 1. Clamped to `pages`. Used when `pages` is set. In load-more, the last loaded page (default 1); a click asks for the next one. |
 | `pages` | `number \| undefined` |  | How many pages. A positive number selects numbered pages and ignores previous/next. Zero, negative or non-numeric does not. |

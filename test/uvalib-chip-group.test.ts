@@ -39,6 +39,29 @@ const YEARS = `<button value="">All Years</button>
   <button value="2005" data-count="213">2005</button>
   <button value="2006" data-count="12" disabled>2006</button>`;
 
+const KEY = `<button value="ath" data-count="4203" data-swatch="#e57200">Athletics</button>
+  <button value="arch" data-count="1180" data-swatch="rgb(35 45 75)">Architecture</button>
+  <button value="trad" data-swatch="red; background: url(x)">Traditions</button>
+  <button value="none">Other</button>`;
+const KEY_LINKS = `<a href="#a" data-swatch="#e57200">Athletics</a><a href="#b" data-swatch="teal">Lawn</a>`;
+const swatch = (c: Element) => c.querySelector<HTMLElement>('.swatch');
+
+/** WCAG contrast of two computed `rgb()` colours (opaque). */
+function contrast(a: string, b: string): number {
+  const lum = (c: string) => {
+    const [r, g, bl] = c
+      .match(/[\d.]+/g)!
+      .slice(0, 3)
+      .map((x) => {
+        const v = Number(x) / 255;
+        return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+      });
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * bl!;
+  };
+  const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m);
+  return (x! + 0.05) / (y! + 0.05);
+}
+
 const clean = () => history.replaceState(null, '', location.pathname);
 /** Longer than the shortened settle time. */
 const settle = () => new Promise((r) => setTimeout(r, 150));
@@ -553,6 +576,121 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       } finally {
         await setViewport({ width: 800, height: 600 });
       }
+    });
+
+    it('swatch: a decorative colour square before the label; names unchanged', async () => {
+      let el!: UvalibChipGroup;
+      const warns = await warnings(async () => {
+        el = await make('label="Category" count-label="photos" value="ath"', KEY);
+      });
+      // The invalid colour is ignored with one warning, never written as CSS text.
+      expect(warns.filter((w) => w.includes('swatch'))).to.have.length(1);
+      expect(names(el)).to.deep.equal([
+        'Athletics, 4,203 photos',
+        'Architecture, 1,180 photos',
+        'Traditions',
+        'Other',
+      ]);
+      const [ath, arch, trad, other] = chips(el);
+      expect(getComputedStyle(swatch(ath!)!).backgroundColor).to.equal('rgb(229, 114, 0)');
+      expect(getComputedStyle(swatch(arch!)!).backgroundColor).to.equal('rgb(35, 45, 75)');
+      expect(swatch(trad!)).to.equal(null);
+      expect(swatch(other!)).to.equal(null);
+      const s = swatch(ath!)!;
+      expect([s.getAttribute('aria-hidden'), s.getAttribute('part')]).to.deep.equal([
+        'true',
+        'swatch',
+      ]);
+      // Before the label (after the tick on the selected chip).
+      expect(s.nextElementSibling!.classList.contains('text')).to.equal(true);
+      expect(getComputedStyle(s).borderTopStyle).to.equal('solid');
+      expect(getComputedStyle(s).borderTopWidth).to.equal('1px');
+      // The same height as a chip without one.
+      const h = (c: Element) => face(c).getBoundingClientRect().height;
+      expect(h(arch!)).to.equal(h(other!));
+      await expectNoAxeViolations(el);
+    });
+
+    it('swatch: from items, in multi, links, segmented and scroll', async () => {
+      const el = await make('mode="multi" label="Category" value="a"', '');
+      el.items = [
+        { value: 'a', label: 'Athletics', count: 3, swatch: '#e57200' },
+        { value: 'b', label: 'Lawn', swatch: 'not a colour' },
+        { value: 'c', label: 'Rotunda', swatch: 'hsl(200 60% 40%)' },
+      ];
+      const warns = await warnings(async () => {
+        await el.updateComplete;
+      });
+      expect(warns.filter((w) => w.includes('swatch'))).to.have.length(1);
+      expect(chips(el).map((c) => !!swatch(c))).to.deep.equal([true, false, true]);
+      expect(names(el)).to.deep.equal(['Athletics, 3 items', 'Lawn', 'Rotunda']);
+      await expectNoAxeViolations(el);
+      const links = await make('mode="links" label="Try"', KEY_LINKS);
+      expect(chips(links).map((c) => getComputedStyle(swatch(c)!).backgroundColor)).to.deep.equal([
+        'rgb(229, 114, 0)',
+        'rgb(0, 128, 128)',
+      ]);
+      expect(names(links)).to.deep.equal(['Athletics', 'Lawn']);
+      await expectNoAxeViolations(links);
+      for (const attrs of ['segmented', 'scroll']) {
+        const g = await warnings(async () => {
+          const x = await make(`label="Category" value="arch" ${attrs}`, KEY);
+          expect(chips(x).map((c) => !!swatch(c))).to.deep.equal([true, true, false, false]);
+          await expectNoAxeViolations(x);
+        });
+        expect(g.length).to.equal(1);
+      }
+    });
+
+    it('swatch: its border contrasts 3:1 with the chip, selected or not, light and dark', async () => {
+      const valid = KEY.replace(/<button value="trad".*?<\/button>/, '');
+      const check = async () => {
+        for (const m of ['single', 'multi']) {
+          const el = await make(`mode="${m}" label="Category" value="ath"`, valid);
+          // The first chip selected, the second not.
+          for (const c of chips(el).slice(0, 2)) {
+            const border = getComputedStyle(swatch(c)!).borderTopColor;
+            const bg = getComputedStyle(face(c)).backgroundColor;
+            expect(contrast(border, bg)).to.be.at.least(3);
+          }
+          await expectNoAxeViolations(el);
+        }
+      };
+      await check();
+      await inDarkMode(check);
+    });
+
+    it('swatch: forced colors keep its colour and a system-colour border', async () => {
+      await emulateMedia({ forcedColors: 'active' });
+      try {
+        let el!: UvalibChipGroup;
+        await warnings(async () => {
+          el = await make('label="Category" value="ath"', KEY);
+        });
+        for (const c of chips(el).slice(0, 2)) {
+          const s = getComputedStyle(swatch(c)!);
+          expect(s.forcedColorAdjust).to.equal('none');
+          expect(s.borderTopStyle).to.equal('solid');
+          expect(s.borderTopColor).to.equal(getComputedStyle(face(c)).color);
+          expect(s.borderTopColor).to.not.equal(getComputedStyle(face(c)).backgroundColor);
+        }
+        expect(getComputedStyle(swatch(chips(el)[0]!)!).backgroundColor).to.equal(
+          'rgb(229, 114, 0)',
+        );
+      } finally {
+        await emulateMedia({ forcedColors: 'none' });
+      }
+    });
+
+    it('swatch: kept with no-style', async () => {
+      let el!: UvalibChipGroup;
+      await warnings(async () => {
+        el = await make('no-style label="Category"', KEY);
+      });
+      const s = getComputedStyle(swatch(chips(el)[0]!)!);
+      expect(s.backgroundColor).to.equal('rgb(229, 114, 0)');
+      expect([s.width, s.borderTopStyle]).to.deep.equal([s.height, 'solid']);
+      expect(parseFloat(s.width)).to.be.greaterThan(0);
     });
 
     it('forced colors: no light fade over the scrolling row', async () => {
