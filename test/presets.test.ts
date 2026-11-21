@@ -497,17 +497,23 @@ describe('playground presets', function () {
           'Places on Grounds, map',
         );
         const markers = [...r.querySelectorAll<HTMLElement>('.uvalib-map-marker .marker')];
-        expect(markers).to.have.length(10);
-        expect(markers[0]!.textContent).to.equal('The Rotunda, 2,702 photos');
+        // The Rotunda, its Dome Room and the statue share a point: one group marker, with
+        // whichever neighbours would come within 24px of it at the opening zoom.
+        expect(markers[0]!.textContent).to.match(
+          /^\d+The Rotunda and \d+ more places, [\d,]+ photos$/,
+        );
+        expect(markers.length).to.be.lessThan(12);
         const places = [...r.querySelectorAll<HTMLElement>('li.place')];
-        expect(places).to.have.length(10);
-        places[2]!.querySelector('a')!.focus();
-        await map.updateComplete;
-        expect(
-          r.querySelectorAll('.uvalib-map-marker')[2]!.classList.contains('is-active'),
-        ).to.equal(true);
-        places[2]!.querySelector('a')!.blur();
-        await map.updateComplete;
+        expect(places).to.have.length(12);
+        for (const i of [1, 4]) {
+          places[i]!.querySelector('a')!.focus();
+          await map.updateComplete;
+          const lit = [...r.querySelectorAll('.uvalib-map-marker.is-active')];
+          expect(lit).to.have.length(1);
+          if (i === 1) expect(lit[0]!.classList.contains('is-group')).to.equal(true);
+          places[i]!.querySelector('a')!.blur();
+          await map.updateComplete;
+        }
         // Every marker is inside the map at the opening view.
         const box = r.querySelector('.map')!.getBoundingClientRect();
         for (const m of markers) {
@@ -516,7 +522,7 @@ describe('playground presets', function () {
           expect(b.top >= box.top && b.bottom <= box.bottom, m.textContent!).to.equal(true);
         }
         doc.addEventListener('click', (e) => e.preventDefault());
-        markers[8]!.click();
+        markers.find((m) => m.textContent!.startsWith('Scott Stadium'))!.click();
         expect(doc.querySelector('#chosen')!.textContent).to.equal('You chose Scott Stadium.');
         expect(countMain(doc)).to.equal(1);
         await expectNoPageAxeViolations(doc);
