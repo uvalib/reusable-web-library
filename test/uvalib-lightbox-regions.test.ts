@@ -1,4 +1,5 @@
 import { expect, fixture, nextFrame, waitUntil } from '@open-wc/testing';
+import { sendKeys } from '@web/test-runner-commands';
 import '../src/components/uvalib-lightbox/uvalib-lightbox.js';
 import type { UvalibLightbox } from '../src/components/uvalib-lightbox/UvalibLightbox.js';
 import type { UvalibImageRegions } from '../src/components/uvalib-image-regions/UvalibImageRegions.js';
@@ -175,6 +176,255 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       expect(dialogOf(el).querySelector('figure > img')).to.not.equal(null);
       dialogOf(el).querySelector<HTMLButtonElement>('button.close')!.click();
       await el.updateComplete;
+    });
+  });
+}
+
+/** A page's own region list (issue #22): hidden, outside the lightbox, with its own buttons. */
+const PEOPLE = `
+  <ol id="people" class="people" hidden>
+    <li data-xywh="percent:10,20,30,40">Tim Kaine
+      <button type="button" class="act" data-act="confirm">Confirm Tim Kaine</button>
+      <button type="button" class="act" data-act="not">Not Tim Kaine</button></li>
+    <li data-xywh="percent:55,15,20,30" tabindex="0">Person 2
+      <button type="button" class="act" data-act="name">Name person 2</button></li>
+  </ol>`;
+
+for (const mode of ['shadow', 'no-shadow-dom'] as const) {
+  describe(`uvalib-lightbox regions list (${mode})`, () => {
+    const attr = mode === 'no-shadow-dom' ? 'no-shadow-dom' : '';
+    /** The page: its styles, a lightbox and, after it, the hidden list and a marker. */
+    const page = async (links: string, attrs = '') => {
+      const wrap = await fixture<HTMLDivElement>(`<div>
+        <style>.people .act { margin-inline-start: 7px; }</style>
+        <uvalib-lightbox ${attr} ${attrs}>${links}</uvalib-lightbox>
+        <section class="home">${PEOPLE}<p class="after">after</p></section>
+      </div>`);
+      const el = wrap.querySelector<UvalibLightbox>('uvalib-lightbox')!;
+      await el.updateComplete;
+      return { el, list: wrap.querySelector<HTMLOListElement>('#people')! };
+    };
+
+    beforeEach(() => document.addEventListener('click', cancelNav));
+    afterEach(() => document.removeEventListener('click', cancelNav));
+
+    const open = async (el: UvalibLightbox, i: number) => {
+      el.querySelectorAll<HTMLAnchorElement>(':scope > a')[i]!.click();
+      await el.updateComplete;
+      await nextFrame();
+    };
+    const ready = async (el: UvalibLightbox, n = 2) => {
+      await waitUntil(() => customElements.get('uvalib-image-regions'), 'defined');
+      const r = regionsOf(el)!;
+      await r.updateComplete;
+      await waitUntil(() => outlines(r).length === n, 'outlines drawn');
+      return r;
+    };
+    const close = async (el: UvalibLightbox) => {
+      dialogOf(el).querySelector<HTMLButtonElement>('button.close')!.click();
+      await el.updateComplete;
+    };
+    /** Back home exactly as written: place, hidden, and none of the viewer's marks. */
+    const expectHome = (list: HTMLOListElement) => {
+      expect(list.parentElement!.classList.contains('home')).to.equal(true);
+      expect(list.nextElementSibling!.classList.contains('after')).to.equal(true);
+      expect(list.hidden).to.equal(true);
+      expect(list.hasAttribute('slot')).to.equal(false);
+      const marks = [list, ...list.querySelectorAll('*')].flatMap((n) =>
+        n.getAttributeNames().filter((a) => a.startsWith('data-uvalib-')),
+      );
+      expect(marks).to.deep.equal([]);
+      const tabs = [...list.querySelectorAll('li')].map((li) => li.getAttribute('tabindex'));
+      expect(tabs).to.deep.equal([null, '0']);
+    };
+
+    it('lends the page list to the viewer: same nodes, page listeners and styles, then gives it back', async () => {
+      const { el, list } = await page(
+        `${shot('Group', 'data-regions-list="people"')}${shot('Lawn')}`,
+        'regions-label="People"',
+      );
+      const acts: string[] = [];
+      const confirm = list.querySelector<HTMLButtonElement>('[data-act="confirm"]')!;
+      confirm.addEventListener('click', () => acts.push('confirm'));
+      await open(el, 0);
+      const r = await ready(el);
+      // Shadow: a light-DOM child of the lightbox, slotted on; light DOM: inside the regions element.
+      if (mode === 'shadow') {
+        expect(list.parentElement === el).to.equal(true);
+        expect(list.assignedSlot !== null).to.equal(true);
+      } else expect(list.parentElement === r).to.equal(true);
+      expect(list.hidden).to.equal(false);
+      expect(list.getBoundingClientRect().height).to.be.above(0);
+      expect(list.querySelector('li')!.getAttribute('data-uvalib-region')).to.equal('1');
+      // The outlines are labelled from the entries' text, not their buttons.
+      const names = [...r.shadowRoot!.querySelectorAll('.overlay .name')].map((n) =>
+        n.textContent!.trim(),
+      );
+      expect(names).to.deep.equal(['Tim Kaine', 'Person 2']);
+      // The page's CSS still reaches its buttons.
+      expect(getComputedStyle(confirm).marginInlineStart).to.equal('7px');
+      // The page's listener runs; the button is the same node.
+      confirm.click();
+      expect(acts).to.deep.equal(['confirm']);
+      expect(dialogOf(el).open).to.equal(true);
+      // Highlight both ways: focus in an entry marks its outline; an outline click focuses its entry.
+      list.querySelector<HTMLButtonElement>('[data-act="name"]')!.focus();
+      await r.updateComplete;
+      expect(outlines(r)[1]!.classList.contains('active')).to.equal(true);
+      outlines(r)[0]!.dispatchEvent(
+        new PointerEvent('pointerover', { bubbles: true, composed: true }),
+      );
+      await r.updateComplete;
+      expect(list.querySelector('li')!.hasAttribute('data-uvalib-active')).to.equal(true);
+      // The entry styles reach the page's entries where they are: the bar on the highlighted one.
+      const bar = getComputedStyle(list.querySelector('li')!);
+      expect(bar.borderInlineStartWidth).to.equal('6px');
+      expect(getComputedStyle(list.querySelectorAll('li')[1]!).paddingBlockStart).to.equal('8px');
+      outlines(r)[0]!.click();
+      await r.updateComplete;
+      expect(document.activeElement === list.querySelector('li')).to.equal(true);
+      // The toggle hides the outlines and keeps the list.
+      toggle(el)!.click();
+      await el.updateComplete;
+      await r.updateComplete;
+      expect(getComputedStyle(r.shadowRoot!.querySelector('.overlay')!).display).to.equal('none');
+      expect(list.getBoundingClientRect().height).to.be.above(0);
+      toggle(el)!.click();
+      await el.updateComplete;
+      // Next: the image without regions; the list goes home and focus is not lost.
+      dialogOf(el).querySelector<HTMLButtonElement>('button.next')!.click();
+      await el.updateComplete;
+      expectHome(list);
+      expect(regionsOf(el)).to.equal(null);
+      // The page updates its list while it is home; the next open shows the update.
+      list.insertAdjacentHTML(
+        'beforeend',
+        '<li data-xywh="percent:80,10,10,10">Dog <button type="button" class="act">Name dog</button></li>',
+      );
+      dialogOf(el).querySelector<HTMLButtonElement>('button.prev')!.click();
+      await el.updateComplete;
+      const r2 = await ready(el, 3);
+      expect(r2.shadowRoot!.querySelectorAll('.overlay .region').length).to.equal(3);
+      // A change while it is open is seen too.
+      list.lastElementChild!.remove();
+      await waitUntil(() => outlines(r2).length === 2, 'removed entry seen');
+      confirm.click();
+      expect(acts).to.deep.equal(['confirm', 'confirm']);
+      await close(el);
+      expectHome(list);
+      expect(list.querySelectorAll('li').length).to.equal(2);
+    });
+
+    it('stepping away while focus is in the list moves focus to Close', async () => {
+      const { el, list } = await page(`${shot('A', 'data-regions-list="people"')}${shot('B')}`);
+      await open(el, 0);
+      await ready(el);
+      list.querySelector<HTMLButtonElement>('button')!.focus();
+      await sendKeys({ press: 'ArrowRight' });
+      await el.updateComplete;
+      expectHome(list);
+      const active = el.shadowRoot?.activeElement ?? document.activeElement;
+      expect(active?.classList.contains('close')).to.equal(true);
+      await close(el);
+    });
+
+    it('keyboard: Tab from Close reaches the page buttons in order, each marking its region', async () => {
+      const { el, list } = await page(shot('Group', 'data-regions-list="people"'));
+      const acts: string[] = [];
+      list.addEventListener('click', (e) => {
+        const b = (e.target as Element).closest('button');
+        if (b) acts.push(b.dataset.act ?? '');
+      });
+      await open(el, 0);
+      const r = await ready(el);
+      const close = dialogOf(el).querySelector<HTMLButtonElement>('button.close')!;
+      close.focus();
+      const order: string[] = [];
+      for (let i = 0; i < 4; i++) {
+        await sendKeys({ press: 'Tab' });
+        const a = document.activeElement as HTMLElement | null;
+        order.push(a?.dataset.act ?? (a?.localName === 'li' ? 'li' : (a?.localName ?? '')));
+      }
+      // Entry 2 has the page's own tabindex="0", so it is a stop before its button.
+      expect(order).to.deep.equal(['confirm', 'not', 'li', 'name']);
+      await r.updateComplete;
+      expect(outlines(r)[1]!.classList.contains('active')).to.equal(true);
+      await sendKeys({ press: 'Enter' });
+      expect(acts).to.deep.equal(['name']);
+      await sendKeys({ press: 'Escape' });
+      await el.updateComplete;
+      expectHome(list);
+    });
+
+    it('the regionsList callback, and a list wins over data-regions with one warning', async () => {
+      const warn = console.warn;
+      const warned: unknown[] = [];
+      console.warn = (...a: unknown[]) => warned.push(a[0]);
+      try {
+        const { el, list } = await page(
+          `${shot('A', 'data-id="a" data-regions="percent:0,0,10,10 X"')}${shot('B', 'data-id="b" data-regions="percent:0,0,10,10 Y"')}${shot('C', 'data-id="c"')}`,
+        );
+        el.regionsList = ({ id }) => (id === 'c' ? list : null);
+        await el.updateComplete;
+        await open(el, 2);
+        await ready(el);
+        expect(list.parentElement === el || list.parentElement === regionsOf(el)).to.equal(true);
+        await close(el);
+        expectHome(list);
+        // Now every image names it, and A and B also have data-regions: the list is used.
+        el.regionsList = () => list;
+        await el.updateComplete;
+        await open(el, 0);
+        const r = await ready(el);
+        expect(r.items).to.equal(null);
+        const lists = warned.filter((w) => String(w).includes('regions list'));
+        expect(lists.length).to.equal(1);
+        await close(el);
+        expectHome(list);
+      } finally {
+        console.warn = warn;
+      }
+    });
+
+    it('links in the list are not taken for images; analytics carry no labels', async () => {
+      const rec = recordAnalytics();
+      try {
+        const { el, list } = await page(
+          shot('Group', 'data-regions-list="people"'),
+          'regions-label="People"',
+        );
+        list.querySelector('li')!.insertAdjacentHTML('beforeend', '<a href="#kaine">About</a>');
+        await open(el, 0);
+        const r = await ready(el);
+        await new Promise((res) => setTimeout(res, 0));
+        list.querySelector<HTMLAnchorElement>('a')!.click();
+        await el.updateComplete;
+        expect(dialogOf(el).querySelector('.count')).to.equal(null);
+        expect(dialogOf(el).open).to.equal(true);
+        outlines(r)[1]!.click();
+        const events = rec.of('uvalib-analytics-event').map((d) => d.event);
+        expect(events).to.deep.include(['uvalib-image-regions', 'select', 'People', 2]);
+        expect(JSON.stringify(events)).to.not.include('Kaine');
+        expect(JSON.stringify(events)).to.not.include('Person 2');
+        await close(el);
+        list.querySelector('a')!.remove();
+        expectHome(list);
+      } finally {
+        rec.restore();
+      }
+    });
+
+    it('passes axe with a page list open, light and dark', async () => {
+      const { el, list } = await page(shot('Group', 'data-regions-list="people"'));
+      await open(el, 0);
+      await ready(el);
+      await new Promise((r) => setTimeout(r, 250));
+      await expectNoAxeViolations(el);
+      await inDarkMode(async () => {
+        await expectNoAxeViolations(el);
+      });
+      await close(el);
+      expectHome(list);
     });
   });
 }
