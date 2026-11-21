@@ -323,7 +323,7 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       const tile = root(el).querySelector<HTMLImageElement>('img.leaflet-tile-loaded')!;
       expect(tile.src).to.match(/^https:\/\/tile\.openstreetmap\.org\/\d+\/\d+\/\d+\.png$/);
       expect(tile.alt).to.equal('');
-      expect(tile.getBoundingClientRect().width).to.equal(256);
+      expect(tile.getBoundingClientRect().width).to.be.within(128, 512); // half zoom steps scale tiles
     });
 
     it('turns off zoom, fade and marker animations under reduced motion', async () => {

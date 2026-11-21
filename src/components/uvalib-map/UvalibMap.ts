@@ -111,7 +111,6 @@ const structuralRules = (host: string) => `
   ${host} .leaflet-container .leaflet-tile-pane img, ${host} .leaflet-container .leaflet-tile {
     max-width: none !important; max-height: none !important; width: auto; padding: 0;
   }
-  ${host} .leaflet-container img.leaflet-tile { mix-blend-mode: plus-lighter; }
   ${host} .leaflet-container.leaflet-touch-zoom { touch-action: pan-x pan-y; }
   ${host} .leaflet-container.leaflet-touch-drag { touch-action: pinch-zoom; }
   ${host} .leaflet-container.leaflet-touch-drag.leaflet-touch-zoom { touch-action: none; }
@@ -632,6 +631,8 @@ export class UvalibMap extends UvalibElement {
       markerZoomAnimation: still,
       inertia: still,
       keyboard: true,
+      // Half steps, so the opening view fits the places as closely as it can.
+      zoomSnap: 0.5,
     });
     this.map = map;
     L.control.zoom({ position: 'topleft' }).addTo(map);
@@ -758,18 +759,44 @@ export class UvalibMap extends UvalibElement {
       else if (pts.length === 1) map.setView(pts[0]!, zoom ?? 16, { animate: false });
       else if (pts.length && zoom !== undefined)
         map.setView(L.latLngBounds(pts).getCenter(), zoom, { animate: false });
-      else if (pts.length)
-        map.fitBounds(L.latLngBounds(pts), {
-          // Clear of the zoom buttons (top left) and the attribution (bottom right).
-          paddingTopLeft: [72, 40],
-          paddingBottomRight: [40, 40],
-          maxZoom: 17,
-          animate: false,
-        });
-      else map.setView(GROUNDS, 15, { animate: false });
+      else if (pts.length) {
+        // As close as the largest marker allows; again clear of the zoom buttons (top
+        // left) and the attribution (bottom right) if a marker would sit under them.
+        const bounds = L.latLngBounds(pts);
+        const edge = MAX_DOT / 2 + 4;
+        map.fitBounds(bounds, { padding: [edge, edge], maxZoom: 17, animate: false });
+        if (this.underControls(pts))
+          map.fitBounds(bounds, {
+            paddingTopLeft: [80, 40],
+            paddingBottomRight: [40, 40],
+            maxZoom: 17,
+            animate: false,
+          });
+      } else map.setView(GROUNDS, 15, { animate: false });
     } finally {
       this.fitting = false;
     }
+  }
+
+  /** Whether any of `pts` is under (or within 12px of) the zoom buttons or the attribution. */
+  private underControls(pts: Leaflet.LatLng[]): boolean {
+    const map = this.map!;
+    const box = map.getContainer().getBoundingClientRect();
+    const rects = [
+      ...map.getContainer().querySelectorAll('.leaflet-control-zoom, .leaflet-control-attribution'),
+    ].map((c) => c.getBoundingClientRect());
+    return pts.some((ll) => {
+      const p = map.latLngToContainerPoint(ll);
+      const [x, y] = [p.x + box.left, p.y + box.top];
+      return rects.some(
+        (r) =>
+          r.width > 0 &&
+          x >= r.left - 12 &&
+          x <= r.right + 12 &&
+          y >= r.top - 12 &&
+          y <= r.bottom + 12,
+      );
+    });
   }
 
   private markerEl(i: number): HTMLElement | undefined {
