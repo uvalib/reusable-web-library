@@ -55,6 +55,7 @@ describe('playground presets', function () {
       'photo-grid',
       'photo-grid-badges',
       'page-images',
+      'image-regions',
       'search-facets',
       'search-results',
       'pagefind-search',
@@ -122,7 +123,7 @@ describe('playground presets', function () {
       Chips: ['chip-groups'],
       Contents: ['contents-sidebar'],
       Metadata: ['record-metadata'],
-      Images: ['photo-grid', 'photo-grid-badges', 'page-images'],
+      Images: ['photo-grid', 'photo-grid-badges', 'page-images', 'image-regions'],
       Search: [
         'search-facets',
         'search-results',
@@ -458,6 +459,53 @@ describe('playground presets', function () {
       } finally {
         iframe.remove();
       }
+    }
+  });
+
+  it('image regions: outlines over the photo, the list beside it, the page’s buttons, and the viewer', async function () {
+    this.timeout(10000);
+    const p = presets.find((x) => x.id === 'image-regions')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    try {
+      const doc = iframe.contentDocument!;
+      const win = iframe.contentWindow!;
+      await whenAllDefined(win, ['site-page', 'uvalib-image-regions', 'uvalib-lightbox']);
+      await new Promise((r) => setTimeout(r, 100));
+      type Lit = HTMLElement & { updateComplete: Promise<unknown>; shadowRoot: ShadowRoot };
+      const el = doc.querySelector('uvalib-image-regions') as Lit;
+      await el.updateComplete;
+      const img = el.querySelector('img')!;
+      // The space is reserved from width and height (the stand-in image has its own ratio).
+      expect([img.getAttribute('width'), img.getAttribute('height')]).to.deep.equal(['746', '600']);
+      expect(img.getBoundingClientRect().height).to.be.greaterThan(0);
+      const outlines = [...el.shadowRoot.querySelectorAll<HTMLElement>('.overlay > .region')];
+      expect(outlines.length).to.equal(4);
+      expect(el.shadowRoot.querySelector('.overlay')!.getAttribute('aria-hidden')).to.equal('true');
+      outlines[1]!.click();
+      await el.updateComplete;
+      expect(doc.activeElement === el.querySelectorAll('li')[1]).to.equal(true);
+      expect(doc.querySelector('#said')!.textContent).to.include('Outline 2 chosen');
+      el.querySelector<HTMLButtonElement>('button[data-name]')!.click();
+      expect(doc.querySelector('#said')!.textContent).to.include('Naming Person 1');
+      expect(countMain(doc)).to.equal(1);
+      await expectNoPageAxeViolations(doc);
+      // The viewer shows the same regions with a toggle.
+      const box2 = doc.querySelector('uvalib-lightbox') as Lit;
+      doc.querySelector<HTMLAnchorElement>('uvalib-lightbox a')!.click();
+      await box2.updateComplete;
+      const dialog = box2.shadowRoot.querySelector('dialog')!;
+      expect(dialog.open).to.equal(true);
+      await new Promise((r) => setTimeout(r, 300));
+      const inner = dialog.querySelector('uvalib-image-regions') as Lit;
+      await inner.updateComplete;
+      expect(inner.shadowRoot.querySelectorAll('.overlay > .region').length).to.equal(4);
+      expect(dialog.querySelector('button.regions-toggle')!.getAttribute('aria-pressed')).to.equal(
+        'true',
+      );
+      await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
     }
   });
 
