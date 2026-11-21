@@ -59,7 +59,13 @@ const GROUNDS: [number, number] = [38.0336, -78.5048];
 const MIN_DOT = 24;
 const MAX_DOT = 56;
 const HIT = 44;
-/** Space kept between two markers' hit areas (WCAG 2.5.8's 24px spacing): closer ones are grouped. */
+/**
+ * Space kept between two visible markers' hit areas: closer ones are grouped. Every target is
+ * at least 44px, so WCAG 2.5.8 only needs them not to overlap; a few pixels keep them visibly
+ * apart without grouping places that are merely close.
+ */
+const GROUP_GAP = 4;
+/** Space between the places of an open ring (and the group), generous since they are close by design. */
 const GAP = 24;
 /** A group's dot: big enough for the number of places in it, and never larger than this. */
 const MIN_GROUP_DOT = 32;
@@ -222,8 +228,8 @@ const shadowStructure = unsafeCSS(structuralRules(':host'));
  * list entry; hovering or focusing a list entry highlights its marker (a ring and a larger
  * dot, not colour alone) and brings it into view.
  *
- * Markers whose targets would overlap, or come within 24px of each other, at the current
- * zoom are drawn as one group marker (regrouped after every zoom and resize): a button
+ * Markers whose 44px targets would overlap at the current zoom are drawn as one group
+ * marker (regrouped after every zoom and resize): a button
  * showing how many places it holds, sized by their summed count and named like "The Rotunda
  * and 2 more places, 3,610 photos" (the largest place's name; `place-label` is the noun).
  * Choosing it zooms in until its places part; when they cannot (one point, or the
@@ -877,7 +883,7 @@ export class UvalibMap extends UvalibElement {
 
   /**
    * Greedy screen-space grouping at `zoom`: largest count first, each place takes every
-   * later one whose hit area (plus GAP) would overlap its own; then groups whose larger
+   * later one whose hit area (plus GROUP_GAP) would overlap its own; then groups whose larger
    * markers now overlap merge, until none do. Each group's largest place comes first.
    */
   private cluster(idx: number[], zoom: number): number[][] {
@@ -888,7 +894,7 @@ export class UvalibMap extends UvalibElement {
     const clash = (a: number[], b: number[]) => {
       const p = pt.get(a[0]!)!;
       const q = pt.get(b[0]!)!;
-      const t = (this.hitOf(a) + this.hitOf(b)) / 2 + GAP;
+      const t = (this.hitOf(a) + this.hitOf(b)) / 2 + GROUP_GAP;
       return Math.abs(p.x - q.x) < t && Math.abs(p.y - q.y) < t;
     };
     const sorted = [...idx].sort(byCount);

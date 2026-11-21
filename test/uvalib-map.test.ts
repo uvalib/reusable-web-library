@@ -605,15 +605,15 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         leafletMap(el).setZoom(z, { animate: false });
         await el.updateComplete;
       };
-      /** Whether two markers' hit areas keep 24px apart (WCAG 2.5.8's spacing). */
-      const apart = (a: Element, b: Element) => {
+      /** Whether two markers' hit areas keep `gap` px apart. */
+      const apart = (a: Element, b: Element, gap = 24) => {
         const r = a.getBoundingClientRect();
         const s = b.getBoundingClientRect();
         return (
-          r.right + 24 <= s.left ||
-          s.right + 24 <= r.left ||
-          r.bottom + 24 <= s.top ||
-          s.bottom + 24 <= r.top
+          r.right + gap <= s.left ||
+          s.right + gap <= r.left ||
+          r.bottom + gap <= s.top ||
+          s.bottom + gap <= r.top
         );
       };
 
@@ -743,7 +743,8 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         });
         expect(placeNames(el)).to.deep.equal(['Brooks Hall, 85 photos', 'Brooks Annex, 20 photos']);
         for (const p of NEAR) expect(map.getBounds().contains([p.lat, p.lng])).to.equal(true);
-        expect(apart(icons(el)[0]!, icons(el)[1]!)).to.equal(true);
+        // Parted: their hit areas no longer overlap (GROUP_GAP, 4px; 3 allows for rounding).
+        expect(apart(icons(el)[0]!, icons(el)[1]!, 3)).to.equal(true);
         // Focus moves to the largest place.
         expect(focused(el)?.textContent).to.equal('Brooks Hall, 85 photos');
         await zoomTo(el, z);
@@ -851,9 +852,10 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         }
         const all = await make(undefined, GROUNDS_PLACES);
         await expectNoAxeViolations(all, undefined, { rules: ['target-size'] });
-        // No two visible markers' hit areas come within 24px.
+        // No two visible markers' hit areas overlap (44px targets need no more for WCAG 2.5.8);
+        // they keep a few pixels apart (GROUP_GAP, 4px; 3 allows for rounding).
         const i = icons(all);
-        for (const a of i) for (const b of i) if (a !== b) expect(apart(a, b)).to.equal(true);
+        for (const a of i) for (const b of i) if (a !== b) expect(apart(a, b, 3)).to.equal(true);
       });
 
       it('keeps the group distinct in forced colors (a double border)', async () => {
