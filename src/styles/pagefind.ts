@@ -368,6 +368,10 @@ export const pagefind = css`
     font-weight: 700;
     line-height: 1.5;
   }
+  /* Both set display, which would beat the hidden attribute's (issue #7). */
+  :where(uvalib-pagefind-search, .uvalib-pagefind-search__label)[hidden] {
+    display: none !important;
+  }
 
   ${p} :is(a, button, input, summary):focus-visible {
     outline: 3px solid var(--uva-color-focus, var(--uva-brand-orange, #e57200));
