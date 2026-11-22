@@ -1536,6 +1536,7 @@ export class UvalibLightbox extends UvalibElement {
       image-height=${slide.imageHeight ?? nothing}
       ?hide-outlines=${!this.showRegions}
       ?no-style=${this.noStyle}
+      style=${cmp?.regionsStyle || nothing}
       >${img}${controls}${list}</uvalib-image-regions
     >`;
   }

@@ -770,3 +770,368 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
     });
   });
 }
+
+// A version with a different framing: `frame` is the original's box in it (issue #28).
+const versionsWith = (...more: Record<string, unknown>[]) =>
+  `data-versions='${JSON.stringify([{ label: 'Original' }, ...more])}'`;
+/** The original in the middle of a version twice its size each way. */
+const WIDE = {
+  label: 'Expanded frame',
+  href: COLOR,
+  frame: 'percent:25,25,50,50',
+  note: 'Painted.',
+};
+const near = (a: number, b: number, what: string) => expect(Math.abs(a - b), what).to.be.below(1.5);
+const rectOf = (n: Element) => {
+  const r = n.getBoundingClientRect();
+  return { x: r.left, y: r.top, w: r.width, h: r.height };
+};
+/** A layer's rect from its frame: the original's box within it. */
+const originalIn = (n: Element, f: [number, number, number, number]) => {
+  const r = rectOf(n);
+  return {
+    x: r.x + (r.w * f[0]) / 100,
+    y: r.y + (r.h * f[1]) / 100,
+    w: (r.w * f[2]) / 100,
+    h: (r.h * f[3]) / 100,
+  };
+};
+const sameRect = (a: ReturnType<typeof rectOf>, b: ReturnType<typeof rectOf>, what: string) => {
+  near(a.x, b.x, `${what} x`);
+  near(a.y, b.y, `${what} y`);
+  near(a.w, b.w, `${what} width`);
+  near(a.h, b.h, `${what} height`);
+};
+
+for (const mode of ['shadow', 'no-shadow-dom'] as const) {
+  describe(`uvalib-lightbox versions with a different framing (${mode})`, () => {
+    const attr = mode === 'no-shadow-dom' ? 'no-shadow-dom' : '';
+    const make = (inner: string, attrs = '') =>
+      fixture<UvalibLightbox>(`<uvalib-lightbox ${attr} ${attrs}>${inner}</uvalib-lightbox>`);
+    const framedNow = (el: Element) => stackOf(el)?.classList.contains('framed');
+    const open = async (el: UvalibLightbox) => {
+      el.querySelector('a')!.click();
+      await el.updateComplete;
+      await waitUntil(() => compareOf(el), 'comparison shown');
+      await waitUntil(() => baseImg(el).complete && baseImg(el).naturalWidth > 0);
+      await el.updateComplete;
+    };
+    const hitAt = (el: Element, fx: number, fy: number) => {
+      const s = stackOf(el).getBoundingClientRect();
+      const root = (el.shadowRoot ?? document) as Document | ShadowRoot;
+      return root.elementFromPoint(s.left + s.width * fx, s.top + s.height * fy);
+    };
+    /** Let the layers take hits, to see which one is drawn where (clip-path clips hits too). */
+    const hittable = (el: Element) => {
+      // Only the layers drawn: a hidden one (opacity 0) would still take hits.
+      for (const img of stackOf(el).querySelectorAll<HTMLImageElement>('img'))
+        img.style.pointerEvents = img.matches('.top:not(.on)') ? '' : 'auto';
+    };
+    const what = (el: Element, n: Element | null) =>
+      n === baseImg(el)
+        ? 'original'
+        : n === top(el)
+          ? 'version'
+          : n === stackOf(el) || n?.localName === 'canvas'
+            ? 'empty'
+            : n?.localName;
+
+    before(async () => {
+      const m = await import('../src/components/uvalib-lightbox/compare.js');
+      m.compareTiming.settle = 40;
+    });
+    beforeEach(() => {
+      history.replaceState(null, '', location.pathname);
+      document.addEventListener('click', cancelNav);
+    });
+    afterEach(async () => {
+      document.removeEventListener('click', cancelNav);
+      for (const d of document.querySelectorAll('uvalib-lightbox'))
+        view(d).querySelector<HTMLButtonElement>('dialog[open] button.close')?.click();
+      await nextFrame();
+      history.replaceState(null, '', location.pathname);
+    });
+
+    it("frame: percent and pixels (of the version's width and height) place it alike", async () => {
+      const boxes: ReturnType<typeof rectOf>[] = [];
+      for (const v of [
+        WIDE,
+        { ...WIDE, frame: '200,150,400,300', width: 800, height: 600 },
+        { ...WIDE, frame: 'pixel:200,150,400,300', width: '800', height: '600' },
+      ]) {
+        const el = await make(shot('Street', versionsWith(v)));
+        await open(el);
+        await waitUntil(() => framedNow(el), 'framed');
+        boxes.push(rectOf(baseImg(el)));
+        dialogOf(el).querySelector<HTMLButtonElement>('button.close')!.click();
+        await el.updateComplete;
+      }
+      sameRect(boxes[1]!, boxes[0]!, 'pixel');
+      sameRect(boxes[2]!, boxes[0]!, 'pixel:');
+    });
+
+    it('an unusable frame is ignored with one warning: the same framing as today', async () => {
+      for (const v of [
+        { ...WIDE, frame: 'percent:abc' },
+        { ...WIDE, frame: '200,150,400,300' }, // pixels without width and height
+      ]) {
+        let el!: UvalibLightbox;
+        const warns = await warnings(async () => {
+          el = await make(shot('Street', versionsWith(v)));
+          await open(el);
+        });
+        expect(warns.filter((w) => w.includes('frame'))).to.have.length(1);
+        expect(framedNow(el)).to.equal(false);
+        expect(stackOf(el).querySelector('canvas')).to.equal(null);
+        expect(getComputedStyle(baseImg(el)).position).to.equal('static');
+      }
+      // A frame on the first version (the original) is ignored too.
+      const first = `data-versions='${JSON.stringify([
+        { label: 'Original', frame: 'percent:0,0,50,50' },
+        { label: 'Colour', href: COLOR },
+      ])}'`;
+      const warns = await warnings(async () => {
+        const el = await make(shot('Street', first));
+        await open(el);
+        expect(framedNow(el)).to.equal(false);
+      });
+      expect(warns.filter((w) => w.includes('frame'))).to.have.length(1);
+    });
+
+    it('without a frame nothing changes: no sizer, no framed class, no regions inset', async () => {
+      const el = await make(shot('Street', `${TWO} data-regions="percent:10,20,30,40 P"`));
+      await open(el);
+      expect(framedNow(el)).to.equal(false);
+      expect(stackOf(el).querySelector('canvas')).to.equal(null);
+      const r = dialogOf(el).querySelector<HTMLElement>('uvalib-image-regions')!;
+      expect(r.hasAttribute('style')).to.equal(false);
+    });
+
+    it("the box holds every version at the original's scale; the original lines up in each", async () => {
+      // One version reaches right (the original fills its left 80%), one left and down.
+      const right = { label: 'Right', href: COLOR, frame: 'percent:0,0,80,100' };
+      const left = { label: 'Left', href: THIRD, frame: 'percent:20,0,80,80' };
+      const el = await make(shot('Street', versionsWith(right, left)));
+      await open(el);
+      await waitUntil(() => framedNow(el), 'framed');
+      const s = rectOf(stackOf(el));
+      const o = rectOf(baseImg(el));
+      // Union: 1.5 originals across (0.25 each side), 1.25 down; the original keeps 4:3.
+      near(o.w / o.h, 4 / 3, 'original aspect');
+      near(s.w, o.w * 1.5, 'stack width');
+      near(s.h, o.h * 1.25, 'stack height');
+      near(o.x - s.x, o.w * 0.25, 'original left');
+      near(o.y, s.y, 'original top');
+      const canvas = stackOf(el).querySelector('canvas')!;
+      expect(canvas.getAttribute('aria-hidden')).to.equal('true');
+      expect([canvas.width, canvas.height]).to.deep.equal([600, 375]);
+      for (const [i, label, f] of [
+        [1, 'Right', [0, 0, 80, 100]],
+        [2, 'Left', [20, 0, 80, 80]],
+      ] as const) {
+        btn(el, 'Version shown', label).click();
+        await loadedTop(el, i);
+        await el.updateComplete;
+        sameRect(originalIn(top(el, i), [...f]), o, label);
+        sameRect(rectOf(stackOf(el)), s, `${label}: the stack`);
+        sameRect(rectOf(baseImg(el)), o, `${label}: the original`);
+      }
+    });
+
+    it('switch: each version at its place; around the original, empty (a pattern, not content)', async () => {
+      const el = await make(shot('Street', versionsWith(WIDE)));
+      await open(el);
+      await waitUntil(() => framedNow(el), 'framed');
+      hittable(el);
+      expect(what(el, hitAt(el, 0.5, 0.5))).to.equal('original');
+      expect(what(el, hitAt(el, 0.1, 0.1))).to.equal('empty');
+      expect(getComputedStyle(stackOf(el)).backgroundImage).to.include('gradient');
+      btn(el, 'Version shown', 'Expanded frame').click();
+      await loadedTop(el);
+      await el.updateComplete;
+      hittable(el);
+      sameRect(rectOf(top(el)), rectOf(stackOf(el)), 'the version fills the box');
+      expect(what(el, hitAt(el, 0.1, 0.1))).to.equal('version');
+      expect(what(el, hitAt(el, 0.5, 0.5))).to.equal('version');
+      expect(baseImg(el).getAttribute('alt')).to.equal('Street (Expanded frame)');
+    });
+
+    it('switch: a version inside the original (a crop) hides it', async () => {
+      const crop = { label: 'Crop', href: COLOR, frame: 'percent:0,0,200,200' };
+      const el = await make(shot('Street', versionsWith(crop)));
+      await open(el);
+      await waitUntil(() => framedNow(el), 'framed');
+      sameRect(rectOf(stackOf(el)), rectOf(baseImg(el)), 'the box is the original');
+      btn(el, 'Version shown', 'Crop').click();
+      await loadedTop(el);
+      await el.updateComplete;
+      expect(stackOf(el).classList.contains('hide-base')).to.equal(true);
+      const t = rectOf(top(el));
+      const o = rectOf(baseImg(el));
+      near(t.w, o.w / 2, 'crop width');
+      near(t.x, o.x, 'crop left');
+    });
+
+    it('reveal: the version left of the divider; right of it, the original over its box and empty around it', async () => {
+      const el = await make(shot('Street', versionsWith(WIDE)), 'compare="wipe"');
+      await open(el);
+      await loadedTop(el);
+      await waitUntil(() => framedNow(el), 'framed');
+      await el.updateComplete;
+      hittable(el);
+      // The original spans 25%–75% of the box; the divider is at 50%.
+      expect(what(el, hitAt(el, 0.1, 0.5))).to.equal('version');
+      expect(what(el, hitAt(el, 0.4, 0.5))).to.equal('version');
+      expect(what(el, hitAt(el, 0.6, 0.5))).to.equal('original');
+      expect(what(el, hitAt(el, 0.9, 0.5))).to.equal('empty');
+      expect(what(el, hitAt(el, 0.6, 0.1))).to.equal('empty');
+      // The divider spans the whole box, and the photo maps clicks across it.
+      const s = rectOf(stackOf(el));
+      const d = rectOf(stackOf(el).querySelector('.divider')!);
+      near(d.y, s.y, 'divider top');
+      near(d.h, s.h, 'divider height');
+      near(d.x, s.x + s.w / 2, 'divider at 50%');
+      range(el).value = '20';
+      range(el).dispatchEvent(new Event('input'));
+      await el.updateComplete;
+      hittable(el);
+      expect(what(el, hitAt(el, 0.15, 0.5))).to.equal('version');
+      expect(what(el, hitAt(el, 0.3, 0.5))).to.equal('original');
+      near(rectOf(stackOf(el).querySelector('.divider')!).x, s.x + s.w * 0.2, 'divider at 20%');
+    });
+
+    it('reveal in right-to-left: the version on the right of the divider', async () => {
+      const el = await make(shot('Street', versionsWith(WIDE)), 'compare="wipe" dir="rtl"');
+      await open(el);
+      await loadedTop(el);
+      await waitUntil(() => framedNow(el), 'framed');
+      await el.updateComplete;
+      hittable(el);
+      expect(what(el, hitAt(el, 0.9, 0.5))).to.equal('version');
+      expect(what(el, hitAt(el, 0.6, 0.5))).to.equal('version');
+      expect(what(el, hitAt(el, 0.4, 0.5))).to.equal('original');
+      expect(what(el, hitAt(el, 0.1, 0.5))).to.equal('empty');
+    });
+
+    it('fade: the original fades over its box; outside it, the version', async () => {
+      const el = await make(shot('Street', versionsWith(WIDE)), 'compare="fade"');
+      await open(el);
+      expect(getComputedStyle(baseImg(el)).opacity).to.equal('1');
+      btn(el, 'Jump to', '50/50').click();
+      await loadedTop(el);
+      await waitUntil(() => framedNow(el), 'framed');
+      await el.updateComplete;
+      expect(getComputedStyle(baseImg(el)).opacity).to.equal('0.5');
+      expect(getComputedStyle(top(el)).opacity).to.equal('1');
+      hittable(el);
+      expect(what(el, hitAt(el, 0.5, 0.5))).to.equal('original');
+      expect(what(el, hitAt(el, 0.1, 0.5))).to.equal('version');
+      expect(baseImg(el).getAttribute('alt')).to.equal(
+        'Street (Original and Expanded frame, blended)',
+      );
+      // Hold shows the original alone.
+      const hold = compareOf(el)!.querySelector<HTMLButtonElement>('button.hold')!;
+      hold.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+      await el.updateComplete;
+      expect(getComputedStyle(baseImg(el)).opacity).to.equal('1');
+      expect(getComputedStyle(top(el)).opacity).to.equal('0');
+      hold.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+    });
+
+    it("regions stay on the original's box in every mode and version", async () => {
+      const el = await make(
+        shot('Group', `${versionsWith(WIDE)} data-regions="percent:10,20,30,40 Person 1"`),
+      );
+      await open(el);
+      await waitUntil(() => customElements.get('uvalib-image-regions'));
+      const r = dialogOf(el).querySelector<UvalibImageRegions>('uvalib-image-regions')!;
+      const rv = (r.shadowRoot ?? r) as ParentNode;
+      await waitUntil(() => rv.querySelector('.overlay > .region:not([hidden])'));
+      await waitUntil(() => framedNow(el), 'framed');
+      await el.updateComplete;
+      const check = (label: string) => {
+        const o = rectOf(baseImg(el));
+        sameRect(rectOf(rv.querySelector('.overlay')!), o, `${label}: overlay`);
+        const box = rectOf(rv.querySelector('.overlay > .region')!);
+        near(box.x, o.x + o.w * 0.1, `${label}: outline left`);
+        near(box.w, o.w * 0.3, `${label}: outline width`);
+        near(box.y, o.y + o.h * 0.2, `${label}: outline top`);
+      };
+      check('switch, original');
+      btn(el, 'Version shown', 'Expanded frame').click();
+      await loadedTop(el);
+      await el.updateComplete;
+      check('switch, version');
+      for (const m of ['Reveal', 'Fade']) {
+        btn(el, 'Compare versions', m).click();
+        await el.updateComplete;
+        await nextFrame();
+        check(m);
+      }
+    });
+
+    it('no layout shift: when the framed version loads, and on mode change at 375px', async () => {
+      await setViewport({ width: 375, height: 812 });
+      try {
+        const el = await make(shot('Street', versionsWith(WIDE)));
+        await open(el);
+        await waitUntil(() => framedNow(el), 'framed');
+        const at = () => {
+          const r = stackOf(el).getBoundingClientRect();
+          return [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)];
+        };
+        const first = at();
+        expect(top(el).hasAttribute('src')).to.equal(false);
+        btn(el, 'Version shown', 'Expanded frame').click();
+        await loadedTop(el);
+        await el.updateComplete;
+        await nextFrame();
+        expect(at(), 'version loaded').to.deep.equal(first);
+        for (const m of ['Reveal', 'Fade', 'Switch', 'Reveal']) {
+          btn(el, 'Compare versions', m).click();
+          await el.updateComplete;
+          await nextFrame();
+          expect(at(), m).to.deep.equal(first);
+        }
+        expect(document.documentElement.scrollWidth).to.be.at.most(375);
+      } finally {
+        await setViewport({ width: 800, height: 600 });
+      }
+    });
+
+    it('reflows at 320px', async () => {
+      await setViewport({ width: 320, height: 640 });
+      try {
+        const el = await make(shot('Street', versionsWith(WIDE)), 'compare="wipe"');
+        await open(el);
+        await waitUntil(() => framedNow(el), 'framed');
+        await nextFrame();
+        expect(stackOf(el).getBoundingClientRect().right).to.be.at.most(320);
+        const panel = dialogOf(el).querySelector('.panel')!;
+        expect(panel.scrollWidth).to.be.at.most(panel.clientWidth);
+        expect(document.documentElement.scrollWidth).to.be.at.most(320);
+      } finally {
+        await setViewport({ width: 800, height: 600 });
+      }
+    });
+
+    for (const m of ['switch', 'wipe'] as const) {
+      it(`passes axe with a frame in ${m}, light and dark`, async () => {
+        const el = await make(
+          shot('Street', `${versionsWith(WIDE)} data-regions="percent:10,20,30,40 Person 1"`),
+          `compare="${m}"`,
+        );
+        await open(el);
+        if (m === 'switch') btn(el, 'Version shown', 'Expanded frame').click();
+        await loadedTop(el);
+        await waitUntil(() => customElements.get('uvalib-image-regions'));
+        await waitUntil(() => framedNow(el), 'framed');
+        await new Promise((r) => setTimeout(r, 250));
+        await expectNoAxeViolations(el);
+        await inDarkMode(async () => {
+          await expectNoAxeViolations(el);
+        });
+      });
+    }
+  });
+}
