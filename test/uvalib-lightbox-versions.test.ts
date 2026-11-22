@@ -260,6 +260,37 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       expect([t.width, t.height]).to.deep.equal([before.width, before.height]);
     });
 
+    it('changing mode never moves the photo, even on a phone where the controls wrap', async () => {
+      // The control row keeps the height of its tallest mode, so the dialog, which is centred,
+      // never re-centres when Switch's short row replaces Reveal's slider and jump buttons.
+      await setViewport({ width: 375, height: 812 });
+      try {
+        const el = await make(shot('Street', THREE), 'compare="wipe"');
+        await open(el);
+        await waitUntil(() => baseImg(el).complete && baseImg(el).naturalWidth > 0);
+        const at = () => {
+          const r = stackOf(el).getBoundingClientRect();
+          return [Math.round(r.x), Math.round(r.y), Math.round(r.height)];
+        };
+        const first = at();
+        for (const mode of ['Switch', 'Fade', 'Switch', 'Reveal']) {
+          btn(el, 'Compare versions', mode).click();
+          await el.updateComplete;
+          await nextFrame();
+          expect(at(), mode).to.deep.equal(first);
+        }
+        // The hidden panel is out of the tab order and the accessibility tree.
+        btn(el, 'Compare versions', 'Switch').click();
+        await el.updateComplete;
+        const off = compareOf(el)!.querySelector<HTMLElement>('.mode-panel[data-off]')!;
+        expect(off.inert).to.equal(true);
+        expect(getComputedStyle(off).visibility).to.equal('hidden');
+        expect(off.contains(range(el))).to.equal(true);
+      } finally {
+        await setViewport({ width: 800, height: 600 });
+      }
+    });
+
     it('wipe: a labelled slider, the divider, side labels and both notes', async () => {
       const el = await make(shot('Street', TWO), 'compare="wipe"');
       await open(el);
@@ -524,21 +555,21 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       expect(location.search).to.equal('?photo=A');
     });
 
-    it('Full size: the version shown, or both (named) in Reveal and Fade', async () => {
+    it('Full size: the original and the version shown or compared, named, in every mode', async () => {
       const el = await make(shot('Street', TWO));
       await open(el);
-      expect(fullLinks(el)).to.deep.equal([{ href: ORIG, text: 'Full size (opens in a new tab)' }]);
-      btn(el, 'Version shown', 'AI colorization').click();
-      await el.updateComplete;
-      expect(fullLinks(el)).to.deep.equal([
-        { href: COLOR, text: 'Full size (opens in a new tab)' },
-      ]);
-      btn(el, 'Compare versions', 'Reveal').click();
-      await el.updateComplete;
-      expect(fullLinks(el)).to.deep.equal([
+      const both = [
         { href: ORIG, text: 'Full size, Original (opens in a new tab)' },
         { href: COLOR, text: 'Full size, AI colorization (opens in a new tab)' },
-      ]);
+      ];
+      // Switch, showing the original: still both, so the toolbar keeps its height.
+      expect(fullLinks(el)).to.deep.equal(both);
+      btn(el, 'Version shown', 'AI colorization').click();
+      await el.updateComplete;
+      expect(fullLinks(el)).to.deep.equal(both);
+      btn(el, 'Compare versions', 'Reveal').click();
+      await el.updateComplete;
+      expect(fullLinks(el)).to.deep.equal(both);
     });
 
     it('no-analytics: the event still fires, nothing is reported', async () => {

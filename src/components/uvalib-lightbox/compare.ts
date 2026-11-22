@@ -96,6 +96,9 @@ const structure = (h: string) => `
   ${h} .side-end { inset-inline-end: 0.5rem; }
   ${h} .compare { display: flex; flex-direction: column; gap: 0.5rem; margin-block-start: 0.75rem; }
   ${h} .compare-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
+  ${h} .mode-panels { display: grid; flex: 1 1 auto; min-width: 0; }
+  ${h} .mode-panel { grid-area: 1 / 1; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
+  ${h} .mode-panel[data-off] { visibility: hidden; }
   ${h} .seg-group { display: flex; flex-wrap: wrap; }
   ${h} .slider { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; flex: 1 1 14rem; min-width: 0; }
   ${h} .slider input { flex: 1 1 8rem; min-width: 0; min-height: 44px; margin: 0; }
@@ -581,85 +584,93 @@ export class Compare {
       </button>`;
     const l0 = this.label(0);
     const lk = this.label(this.other);
-    const sliding =
-      this.mode === 'switch'
-        ? html`<div class="seg-group" role="group" aria-label="Version shown">
-            ${this.list.map((v, i) =>
-              seg(this.shown === i, v.label, () => this.change(() => (this.shown = i))),
-            )}
-          </div>`
-        : html`${
-              this.list.length > 2
-                ? html`<div class="seg-group" role="group" aria-label="Compare ${l0} with">
-                    ${this.list.map((v, i) =>
-                      i
-                        ? seg(this.other === i, v.label, () => this.change(() => (this.other = i)))
-                        : nothing,
-                    )}
-                  </div>`
-                : nothing
-            }
-            <div class="slider">
-              <label for=${this.uid}>${this.mode === 'wipe' ? 'Reveal' : 'Fade to'} ${lk}</label>
-              <input
-                id=${this.uid}
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                .value=${String(this.value)}
-                aria-valuetext="${this.value}% ${lk}"
-                @input=${this.onInput}
-                @keydown=${this.onSliderKey}
-              />
-            </div>
-            <div class="seg-group" role="group" aria-label="Jump to">
-              ${[
-                [0, l0],
-                [50, '50/50'],
-                [100, lk],
-              ].map(
-                ([v, text]) =>
-                  html`<button
-                    type="button"
-                    class="jump"
-                    @click=${() => this.change(() => (this.value = v as number))}
-                  >
-                    ${text}
-                  </button>`,
+    // Both panels are always drawn, in one grid cell: the row is as tall as the taller one,
+    // so changing mode never moves the photo (the dialog re-centres on any height change).
+    // The other panel is inert and hidden, out of the tab order and the accessibility tree.
+    const switching = this.mode === 'switch';
+    const panel = (on: boolean, body: unknown) =>
+      html`<div class="mode-panel" ?inert=${!on} ?data-off=${!on}>${body}</div>`;
+    const switchPanel = html`<div class="seg-group" role="group" aria-label="Version shown">
+      ${this.list.map((v, i) =>
+        seg(this.shown === i, v.label, () => this.change(() => (this.shown = i))),
+      )}
+    </div>`;
+    const sliding = html`${
+        this.list.length > 2
+          ? html`<div class="seg-group" role="group" aria-label="Compare ${l0} with">
+              ${this.list.map((v, i) =>
+                i
+                  ? seg(this.other === i, v.label, () => this.change(() => (this.other = i)))
+                  : nothing,
               )}
-            </div>
-            <button
+            </div>`
+          : nothing
+      }
+      <div class="slider">
+        <label for=${this.uid}>${this.mode === 'fade' ? 'Fade to' : 'Reveal'} ${lk}</label>
+        <input
+          id=${this.uid}
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          .value=${String(this.value)}
+          aria-valuetext="${this.value}% ${lk}"
+          @input=${this.onInput}
+          @keydown=${this.onSliderKey}
+        />
+      </div>
+      <div class="seg-group" role="group" aria-label="Jump to">
+        ${[
+          [0, l0],
+          [50, '50/50'],
+          [100, lk],
+        ].map(
+          ([v, text]) =>
+            html`<button
               type="button"
-              class="hold"
-              aria-keyshortcuts="O"
-              ?data-held=${this.holding}
-              @pointerdown=${this.onHold}
-              @pointerup=${this.onHold}
-              @pointerleave=${this.onHold}
-              @pointercancel=${this.onHold}
-              @keydown=${this.onHold}
-              @keyup=${this.onHold}
-              @blur=${() => this.hold(false)}
-              @contextmenu=${(e: Event) => e.preventDefault()}
+              class="jump"
+              @click=${() => this.change(() => (this.value = v as number))}
             >
-              Hold for ${l0}
-            </button>`;
+              ${text}
+            </button>`,
+        )}
+      </div>
+      <button
+        type="button"
+        class="hold"
+        aria-keyshortcuts="O"
+        ?data-held=${this.holding}
+        @pointerdown=${this.onHold}
+        @pointerup=${this.onHold}
+        @pointerleave=${this.onHold}
+        @pointercancel=${this.onHold}
+        @keydown=${this.onHold}
+        @keyup=${this.onHold}
+        @blur=${() => this.hold(false)}
+        @contextmenu=${(e: Event) => e.preventDefault()}
+      >
+        Hold for ${l0}
+      </button>`;
     return html`<div class="compare" part="compare" slot=${slot || nothing}>
       ${notes}${failed}
       <div class="compare-bar">
         <div class="seg-group" role="group" aria-label="Compare versions">
           ${MODES.map((m) => seg(this.mode === m, MODE_NAMES[m], () => this.setMode(m)))}
         </div>
-        ${sliding}
+        <div class="mode-panels">${panel(switching, switchPanel)}${panel(!switching, sliding)}</div>
       </div>
       <p class="visually-hidden" role="status">${this.message}</p>
     </div>`;
   }
 
-  /** Full size: the version shown (Switch), or both compared (Reveal, Fade), each named. */
+  /**
+   * Full size, in every mode: the original and the version shown (Switch) or compared (Reveal,
+   * Fade), each named. The same two links in every mode keep the toolbar's height, so changing
+   * mode never moves the photo; and a visitor can always open the original at full size.
+   */
   full(): { href: string; label: string }[] {
-    if (this.mode === 'switch') return [{ href: this.list[this.shown]!.href, label: '' }];
-    return [0, this.other].map((i) => ({ href: this.list[i]!.href, label: this.label(i) }));
+    const k = this.mode === 'switch' ? this.shown || this.other : this.other;
+    return [0, k].map((i) => ({ href: this.list[i]!.href, label: this.label(i) }));
   }
 }
