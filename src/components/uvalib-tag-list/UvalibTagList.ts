@@ -3,6 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import { trackEvent } from '../../base/analytics.js';
 import { inlineCopy, langDir } from '../../base/inline-copy.js';
 import { normalize, safeHref, SourceChildren } from '../../base/source-children.js';
+import { attachStateInternals, setState } from '../../base/states.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
 import { accessible } from '../../styles/accessible.js';
@@ -89,7 +90,8 @@ let instances = 0;
  *
  * `label` names the list (shown above it, or visually hidden with `hide-label`); without one
  * a console warning is logged. `limit` shows that many tags and a “Show all N” button
- * (`aria-expanded`, `aria-controls`), which reveals the rest in place and keeps focus.
+ * (`aria-expanded`, `aria-controls`), which reveals the rest in place and keeps focus. Pages
+ * can style the list while every tag is shown with `:state(expanded)`.
  *
  * Analytics never sends a tag's text (record tags can be user-submitted or machine-made), and
  * by default not the label either, which a template may fill from a record: the name is the
@@ -99,6 +101,7 @@ let instances = 0;
  * @tagname uvalib-tag-list
  * @fires uvalib-analytics-event - For `<site-analytics>`: a primary-button click on a tag link, `['uvalib-tag-list', 'tag-click', '<name>', <n>]` (n from 1, the tag's place in the list), and the toggle, `['uvalib-tag-list', 'show-all'|'show-fewer', '<name>']`. The name is `list N` (N from 1, the list's place among the tag lists in its document or shadow root), or with `track-label` the list's `label`; never the tag text or URL. Bubbles and is composed.
  * @fires uvalib-tag-list-navigate - A plain click on a tag link: `detail` is `{ href, tag, index }` (index from 0). Cancel it (`preventDefault()`) to route in the app; the click's default is then prevented. Bubbles and is composed.
+ * @cssstate expanded - Show all was pressed: every tag is shown (the toggle's `aria-expanded="true"`).
  * @cssprop [--uva-blue-alt-300=#BFE7F7] - Plain tag background (the card chip's).
  * @cssprop [--uva-blue-alt-dark=#005679] - Plain tag text.
  * @cssprop --uva-color-link - Dark-mode role token: link tag text (else `--uva-brand-blue`).
@@ -205,6 +208,7 @@ export class UvalibTagList extends UvalibElement {
 
   private readonly uid = `uvalib-tag-list-${++instances}`;
   private warned = new Set<string>();
+  private readonly internals = attachStateInternals(this);
 
   constructor() {
     super();
@@ -365,7 +369,10 @@ export class UvalibTagList extends UvalibElement {
 
   protected override updated(changed: PropertyValues): void {
     super.updated(changed);
-    this.toggleAttribute('data-empty', !this.tags.length);
+    const tags = this.tags;
+    this.toggleAttribute('data-empty', !tags.length);
+    const max = this.max;
+    setState(this.internals, 'expanded', this.expanded && max > 0 && tags.length > max);
   }
 
   private renderTag(t: Tag, i: number) {

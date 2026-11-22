@@ -76,6 +76,7 @@ Theme only through the documented surface, never by reaching into internals:
 
 - Inherited `--uva-*` custom properties (colors such as `--uva-brand-blue`, `--uva-brand-orange`; `--uva-font-family`, `--uva-font-size-base`). Set them on `:root` or an ancestor of `<site-page>`. The full set is in `tokens.css`; per-component ones are in reference/components.md. Prefer the library's values; override only with a stated reason.
 - `::part()` in shadow mode. On a page, use `site-page::part(header)`, `site-page::part(footer)` and `site-page::part(main)` (`<site-page>` re-exports the header and footer parts; `site-header::part(header)` cannot reach through its shadow root). For a standalone `<site-header>` or `<site-footer>` use `site-header::part(header)` / `site-footer::part(footer)`. In light mode there are no shadow parts; style the elements with ordinary selectors.
+- Custom states for runtime state, in shadow and light mode: `uvalib-combobox:state(open)`, `:state(invalid)`, `:state(loading)`; `uvalib-filter-drawer:state(modal)` (phone layout), `:state(open)`; `uvalib-lightbox:state(open)`; `uvalib-tag-list:state(expanded)`. Style them; never add or watch attributes for that state (there are none) or set it yourself (a page cannot). Browsers without custom states just never match.
 - Never pierce shadow roots with JS, depend on internal class names, or use `!important` to fight the chrome.
 
 ### Dark mode (opt-in)
