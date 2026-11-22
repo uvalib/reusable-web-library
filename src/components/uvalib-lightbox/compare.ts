@@ -6,6 +6,7 @@
 import { html, nothing, unsafeCSS } from 'lit';
 import { trackEvent } from '../../base/analytics.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
+import { parseXywh } from '../uvalib-image-regions/regions.js';
 
 export type CompareMode = 'switch' | 'wipe' | 'fade';
 
@@ -19,11 +20,64 @@ const MODE_NAMES: Record<CompareMode, string> = {
 /** How long (ms) after the last slider or drag change it counts as settled. Tests shorten it. */
 export const compareTiming = { settle: 400 };
 
+/** A box in percent: of a version (its `frame`), or of the box that holds every version. */
+interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 interface Version {
   label: string;
   href: string;
   note: string;
+  /** Where the original sits in this version, in percent of the version; null: the same framing. */
+  frame: Box | null;
 }
+
+/**
+ * Versions with a different framing: every version's box (and the original's, first) in
+ * percent of the box that holds them all, at the original's scale; `uw` × `uh` is that box in
+ * original widths and heights; `covers` says whether a version covers the whole original.
+ */
+interface Framing {
+  boxes: Box[];
+  uw: number;
+  uh: number;
+  covers: boolean[];
+}
+
+/** The largest side of the sizer (a canvas never drawn on, so nothing is allocated). */
+const MAX_SIDE = 4096;
+
+function framing(list: Version[]): Framing | null {
+  if (!list.some((v) => v.frame)) return null;
+  // Each version's extent in original units: the original is 0..1 across and down.
+  const ext = list.map(({ frame: f }) =>
+    f ? { x: -f.x / f.w, y: -f.y / f.h, w: 100 / f.w, h: 100 / f.h } : { x: 0, y: 0, w: 1, h: 1 },
+  );
+  const x0 = Math.min(...ext.map((e) => e.x));
+  const y0 = Math.min(...ext.map((e) => e.y));
+  const uw = Math.max(...ext.map((e) => e.x + e.w)) - x0;
+  const uh = Math.max(...ext.map((e) => e.y + e.h)) - y0;
+  return {
+    uw,
+    uh,
+    boxes: ext.map((e) => ({
+      x: ((e.x - x0) / uw) * 100,
+      y: ((e.y - y0) / uh) * 100,
+      w: (e.w / uw) * 100,
+      h: (e.h / uh) * 100,
+    })),
+    covers: list.map(({ frame: f }) => !f || (f.x + f.w <= 100.001 && f.y + f.h <= 100.001)),
+  };
+}
+
+const r4 = (n: number) => Math.round(n * 1e4) / 1e4;
+/** Custom properties placing a layer (numbers, percent of the stack). */
+const place = (b: Box) =>
+  `--uvalib-frame-x: ${r4(b.x)}; --uvalib-frame-y: ${r4(b.y)}; --uvalib-frame-w: ${r4(b.w)}; --uvalib-frame-h: ${r4(b.h)}`;
 
 /** What the lightbox lends the comparison. */
 export interface CompareHost {
@@ -67,6 +121,26 @@ const structure = (h: string) => `
   ${h} .compare-wipe:dir(rtl) > img.top.on { clip-path: inset(0 0 0 calc(100% - var(--uvalib-compare, 50%))); }
   ${h} .compare-wipe { touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: col-resize; }
   ${h} .compare-wipe img { -webkit-user-drag: none; }
+  ${h} .stack.framed > img {
+    position: absolute; inset: auto;
+    left: calc(var(--uvalib-frame-x) * 1%); top: calc(var(--uvalib-frame-y) * 1%);
+    width: calc(var(--uvalib-frame-w) * 1%); height: calc(var(--uvalib-frame-h) * 1%);
+    max-width: none; max-height: none; margin: 0;
+  }
+  ${h} .stack.framed > canvas.frame-box {
+    display: block; width: auto; height: auto; max-width: 100%; max-height: 70dvh; margin: auto;
+  }
+  ${h} .stack.framed.hide-base > img:not(.top) { opacity: 0; }
+  ${h} .stack.framed.compare-fade > img.top.on { opacity: 1; }
+  ${h} .stack.framed.compare-fade.top-on > img:not(.top) {
+    z-index: 1; opacity: calc(1 - var(--uvalib-compare-opacity, 1));
+  }
+  ${h} .stack.framed.compare-wipe > img.top.on {
+    clip-path: inset(0 max(0%, calc((var(--uvalib-frame-x) + var(--uvalib-frame-w) - var(--uvalib-compare-n, 50)) / var(--uvalib-frame-w) * 100%)) 0 0);
+  }
+  ${h} .stack.framed.compare-wipe:dir(rtl) > img.top.on {
+    clip-path: inset(0 0 0 max(0%, calc((100 - var(--uvalib-compare-n, 50) - var(--uvalib-frame-x)) / var(--uvalib-frame-w) * 100%)));
+  }
   ${h} .divider {
     position: absolute; inset-block: 0; inset-inline-start: var(--uvalib-compare, 50%);
     width: 0; pointer-events: none; forced-color-adjust: none;
@@ -147,8 +221,11 @@ const look = (h: string) => `
     outline-offset: 2px;
   }
   ${h} .note { font-size: 0.9375rem; line-height: 1.5; }
+  ${h} .stack.framed {
+    background: repeating-linear-gradient(135deg, transparent 0 7px, rgb(128 128 128 / 0.2) 7px 9px);
+  }
   @media (prefers-reduced-motion: no-preference) {
-    ${h} .compare-switch > img.top { transition: opacity 0.2s ease; }
+    ${h} .compare-switch > img.top, ${h} .compare-switch.framed > img { transition: opacity 0.2s ease; }
   }
   @media (forced-colors: active) {
     ${h} .compare button.seg, ${h} .compare button.jump, ${h} .compare button.hold { border-color: ButtonText; }
@@ -191,6 +268,9 @@ export class Compare {
   private slideKey = '';
   private id = '';
   private warned = false;
+  private warnedFrame = false;
+  private geo: Framing | null = null;
+  private baseHref = '';
   /** The mode the visitor (or the address) chose; else the lightbox's `compare`. */
   private chosen: CompareMode | null = null;
   mode: CompareMode = 'switch';
@@ -231,6 +311,8 @@ export class Compare {
       this.slideKey = key;
       this.id = slide.id;
       this.list = this.parse(slide);
+      this.geo = framing(this.list);
+      this.baseHref = slide.href;
       this.mode =
         this.chosen ??
         (MODES.includes(this.host.mode() as CompareMode)
@@ -249,6 +331,7 @@ export class Compare {
     if (this.settleTimer) this.settle(false);
     this.slideKey = '';
     this.list = [];
+    this.geo = null;
     this.other = 1;
     this.shown = 0;
     this.holding = false;
@@ -277,7 +360,8 @@ export class Compare {
         const o = v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
         const label = norm(o.label) || (i === 0 ? 'Original' : '');
         const href = i === 0 ? slide.href : norm(o.href);
-        if (label && href && this.host.size(href)) out.push({ label, href, note: norm(o.note) });
+        if (label && href && this.host.size(href))
+          out.push({ label, href, note: norm(o.note), frame: this.frame(o, i) });
         else if (i === 0) out.length = 0;
         else bad = true;
       });
@@ -289,6 +373,47 @@ export class Compare {
       );
     }
     return out.length > 1 ? out : [];
+  }
+
+  /**
+   * A version's `frame`: the original's box in it, `percent:x,y,w,h`, or pixels
+   * (`x,y,w,h` / `pixel:`) of the version's `width` × `height`. Anything else is ignored
+   * (the same framing), with one warning.
+   */
+  private frame(o: Record<string, unknown>, i: number): Box | null {
+    if (o.frame == null || o.frame === '') return null;
+    const box = i > 0 && typeof o.frame === 'string' ? parseXywh(o.frame) : null;
+    const size = (v: unknown) => (typeof v === 'number' || typeof v === 'string' ? Number(v) : 0);
+    const w = size(o.width);
+    const h = size(o.height);
+    if (box?.unit === 'percent') return { x: box.x, y: box.y, w: box.w, h: box.h };
+    if (box && w > 0 && h > 0)
+      return {
+        x: (box.x / w) * 100,
+        y: (box.y / h) * 100,
+        w: (box.w / w) * 100,
+        h: (box.h / h) * 100,
+      };
+    if (!this.warnedFrame) {
+      this.warnedFrame = true;
+      console.warn(
+        "uvalib-lightbox: a version has a frame that is not usable (on the first version, not percent:x,y,w,h, or pixels without the version's width and height); it is shown with the original's framing.",
+      );
+    }
+    return null;
+  }
+
+  /**
+   * The original's natural size, once its image (the one rendered now) has loaded: the framed
+   * layout needs it, and is used only from then on (before, the original sizes the stack).
+   */
+  private natural(): { w: number; h: number } | null {
+    if (!this.geo) return null;
+    const scope = (this.host.light ? this.host.el : this.host.root) as ParentNode;
+    const img = scope.querySelector<HTMLImageElement>('dialog .stack > img:not(.top)');
+    if (!img?.complete || !img.naturalWidth || !img.naturalHeight) return null;
+    if (img.getAttribute('src') !== this.host.size(this.baseHref)) return null;
+    return { w: img.naturalWidth, h: img.naturalHeight };
   }
 
   /** `2`, `switch:2`, `wipe:40`, `fade:60`, `wipe:40:2` (the version compared, from 1). */
@@ -523,23 +648,60 @@ export class Compare {
   }
 
   get stackClass(): string {
-    return `compare-${this.mode}`;
+    const geo = this.natural() ? this.geo : null;
+    if (!geo) return `compare-${this.mode}`;
+    const on = this.seen > 0;
+    // Switch: a version that does not cover the whole original (a crop) hides it.
+    const hide = this.mode === 'switch' && on && this.seen >= 100 && !geo.covers[this.top];
+    return `compare-${this.mode} framed${on ? ' top-on' : ''}${hide ? ' hide-base' : ''}`;
   }
 
   get stackStyle(): string {
     const a = this.mode === 'switch' ? 100 : this.value;
-    return `--uvalib-compare: ${a}%; --uvalib-compare-opacity: ${a / 100}`;
+    const base = `--uvalib-compare: ${a}%; --uvalib-compare-opacity: ${a / 100}`;
+    const geo = this.natural() ? this.geo : null;
+    return geo ? `${base}; --uvalib-compare-n: ${a}; ${place(geo.boxes[0]!)}` : base;
+  }
+
+  /**
+   * With a different framing, where the outlines of regions go: the original's box in the
+   * stack, as `<uvalib-image-regions>`'s overlay inset. Empty otherwise.
+   */
+  get regionsStyle(): string {
+    const geo = this.natural() ? this.geo : null;
+    if (!geo) return '';
+    const b = geo.boxes[0]!;
+    return `--uvalib-image-regions-inset: ${r4(b.y)}% ${r4(100 - b.x - b.w)}% ${r4(100 - b.y - b.h)}% ${r4(b.x)}%`;
   }
 
   /** The other versions' images (each requested on first use), the divider and the side labels. */
   layers() {
     const top = this.top;
     const on = this.seen > 0;
+    const size = this.natural();
+    const geo = size ? this.geo : null;
+    // The stack's size, reserved from the frames and the original: a canvas of the whole box
+    // at the original's scale (never drawn on), sized like the image it stands for.
+    const sizer =
+      geo && size
+        ? (() => {
+            const w = size.w * geo.uw;
+            const h = size.h * geo.uh;
+            const k = Math.min(1, MAX_SIDE / Math.max(w, h));
+            return html`<canvas
+              class="frame-box"
+              aria-hidden="true"
+              width=${Math.max(1, Math.round(w * k))}
+              height=${Math.max(1, Math.round(h * k))}
+            ></canvas>`;
+          })()
+        : nothing;
     const layers = this.list.map((v, i) =>
       i === 0
         ? nothing
         : html`<img
             class="top ${i === top && on ? 'on' : ''}"
+            style=${geo && v.frame ? place(geo.boxes[i]!) : nothing}
             data-version=${i}
             alt=""
             decoding="async"
@@ -549,9 +711,9 @@ export class Compare {
             @error=${() => this.errored(i)}
           />`,
     );
-    if (this.mode !== 'wipe') return layers;
+    if (this.mode !== 'wipe') return html`${sizer}${layers}`;
     const a = this.seen;
-    return html`${layers}
+    return html`${sizer}${layers}
       <div class="divider" aria-hidden="true"><span class="handle"></span></div>
       <span class="side side-start" aria-hidden="true" ?hidden=${a <= 0}>${this.label(top)}</span>
       <span class="side side-end" aria-hidden="true" ?hidden=${a >= 100}>${this.label(0)}</span>`;

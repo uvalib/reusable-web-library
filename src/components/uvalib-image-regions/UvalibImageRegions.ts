@@ -54,7 +54,7 @@ const structuralRules = (host: string) => `
   } { display: block; max-width: 100%; height: auto; }
   ${host} .overlay {
     position: absolute;
-    inset: 0;
+    inset: var(--uvalib-image-regions-inset, 0);
     overflow: clip;
     overflow-clip-margin: 0.5rem;
     pointer-events: none;
@@ -174,6 +174,7 @@ const entryStyles = unsafeCSS(entryRules(''));
  * @cssprop --uva-color-link - Dark-mode role token: entry links (else `--uva-brand-blue`).
  * @cssprop --uva-color-focus - Dark-mode role token: focus ring (else `--uva-brand-orange`).
  * @cssprop --uva-color-text-muted - Dark-mode role token: descriptions (else #4b5563).
+ * @cssprop --uvalib-image-regions-inset - Where the outlines sit inside the image slot (an `inset` value, default 0): set by `<uvalib-lightbox>` when the slot holds versions with a wider framing, so the outlines stay on the original.
  */
 export class UvalibImageRegions extends UvalibElement {
   static styles = [
