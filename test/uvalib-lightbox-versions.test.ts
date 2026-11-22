@@ -898,6 +898,120 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       expect(warns.filter((w) => w.includes('frame'))).to.have.length(1);
     });
 
+    // Issue #30: a crop's frame (the original's box in the crop) is larger than the crop and
+    // starts left of or above it.
+    const crops: [string, Record<string, unknown>, [number, number, number, number]][] = [
+      ['centred', { frame: 'percent:-25,-25,150,150' }, [-25, -25, 150, 150]],
+      ['off-centre', { frame: 'percent:-50,-10,200,125' }, [-50, -10, 200, 125]],
+      // A 200 × 300 crop of a 400 × 300 original, its right half: the original starts 200px left.
+      ['pixels', { frame: '-200,0,400,300', width: 200, height: 300 }, [-100, 0, 200, 100]],
+    ];
+    for (const [name, frame, f] of crops) {
+      it(`a crop (${name}): negative x/y and w/h over 100; the box is the original's, the crop at its place`, async () => {
+        const crop = { label: 'Crop', href: COLOR, ...frame };
+        let el!: UvalibLightbox;
+        const warns = await warnings(async () => {
+          el = await make(shot('Street', versionsWith(crop)));
+          await open(el);
+          await waitUntil(() => framedNow(el), 'framed');
+        });
+        expect(warns.filter((w) => w.includes('frame'))).to.deep.equal([]);
+        const o = rectOf(baseImg(el));
+        sameRect(rectOf(stackOf(el)), o, 'the box is the original');
+        btn(el, 'Version shown', 'Crop').click();
+        await loadedTop(el);
+        await el.updateComplete;
+        // The original's pixels line up: the crop's layer is the original's matching part.
+        sameRect(originalIn(top(el), f), o, 'the original within the crop');
+        sameRect(rectOf(baseImg(el)), o, 'the original stays put');
+        expect(stackOf(el).classList.contains('hide-base')).to.equal(true);
+        await waitUntil(() => getComputedStyle(baseImg(el)).opacity === '0', 'original hidden');
+        hittable(el);
+        // The original is hidden (opacity 0), so it must not count as drawn.
+        baseImg(el).style.pointerEvents = 'none';
+        const t = rectOf(top(el));
+        const s = rectOf(stackOf(el));
+        const cx = (t.x + t.w / 2 - s.x) / s.w;
+        const cy = (t.y + t.h / 2 - s.y) / s.h;
+        expect(what(el, hitAt(el, cx, cy))).to.equal('version');
+        // Around the crop (none of them keeps the top-left corner): the pattern, the original
+        // hidden in Switch.
+        expect(what(el, hitAt(el, 0.02, 0.02))).to.equal('empty');
+      });
+    }
+
+    it('a crop in Reveal: the crop where it exists, the pattern elsewhere on its side; the original on the other', async () => {
+      const crop = { label: 'Crop', href: COLOR, frame: 'percent:-25,-25,150,150' };
+      const el = await make(shot('Street', versionsWith(crop)), 'compare="wipe"');
+      await open(el);
+      await loadedTop(el);
+      await waitUntil(() => framedNow(el), 'framed');
+      await el.updateComplete;
+      hittable(el);
+      // The crop spans 16.7%–83.3% of the box each way; the divider is at 50%.
+      expect(what(el, hitAt(el, 0.1, 0.5))).to.equal('empty');
+      expect(what(el, hitAt(el, 0.3, 0.05))).to.equal('empty');
+      expect(what(el, hitAt(el, 0.3, 0.5))).to.equal('version');
+      expect(what(el, hitAt(el, 0.7, 0.5))).to.equal('original');
+      expect(what(el, hitAt(el, 0.9, 0.05))).to.equal('original');
+      range(el).value = '90';
+      range(el).dispatchEvent(new Event('input'));
+      await el.updateComplete;
+      hittable(el);
+      expect(what(el, hitAt(el, 0.87, 0.5))).to.equal('empty');
+      expect(what(el, hitAt(el, 0.95, 0.5))).to.equal('original');
+    });
+
+    it('a crop in Reveal, right to left: the crop side is on the right', async () => {
+      const crop = { label: 'Crop', href: COLOR, frame: 'percent:-25,-25,150,150' };
+      const el = await make(shot('Street', versionsWith(crop)), 'compare="wipe" dir="rtl"');
+      await open(el);
+      await loadedTop(el);
+      await waitUntil(() => framedNow(el), 'framed');
+      await el.updateComplete;
+      hittable(el);
+      expect(what(el, hitAt(el, 0.9, 0.5))).to.equal('empty');
+      expect(what(el, hitAt(el, 0.7, 0.5))).to.equal('version');
+      expect(what(el, hitAt(el, 0.3, 0.5))).to.equal('original');
+      expect(what(el, hitAt(el, 0.1, 0.5))).to.equal('original');
+    });
+
+    it("a crop in Fade: the original fades over its box; regions stay on the original's box", async () => {
+      const crop = { label: 'Crop', href: COLOR, frame: 'percent:-25,-25,150,150' };
+      const el = await make(
+        shot('Street', `${versionsWith(crop)} data-regions="percent:10,20,30,40 Person 1"`),
+        'compare="fade"',
+      );
+      await open(el);
+      btn(el, 'Jump to', '50/50').click();
+      await loadedTop(el);
+      await waitUntil(() => framedNow(el), 'framed');
+      await el.updateComplete;
+      expect(getComputedStyle(baseImg(el)).opacity).to.equal('0.5');
+      hittable(el);
+      expect(what(el, hitAt(el, 0.05, 0.05))).to.equal('original');
+      sameRect(originalIn(top(el), [-25, -25, 150, 150]), rectOf(baseImg(el)), 'crop placed');
+      await waitUntil(() => customElements.get('uvalib-image-regions'));
+      const r = dialogOf(el).querySelector<UvalibImageRegions>('uvalib-image-regions')!;
+      const rv = (r.shadowRoot ?? r) as ParentNode;
+      await waitUntil(() => rv.querySelector('.overlay > .region:not([hidden])'));
+      sameRect(rectOf(rv.querySelector('.overlay')!), rectOf(baseImg(el)), 'overlay');
+    });
+
+    it('a frame still needs a positive width and height (one warning)', async () => {
+      for (const frame of ['percent:-10,-10,0,50', 'percent:-10,-10,-50,50', 'percent:10,10,50,-5']) {
+        let el!: UvalibLightbox;
+        const warns = await warnings(async () => {
+          el = await make(shot('Street', versionsWith({ ...WIDE, frame })));
+          await open(el);
+        });
+        expect(warns.filter((w) => w.includes('frame')), frame).to.have.length(1);
+        expect(framedNow(el), frame).to.equal(false);
+        dialogOf(el).querySelector<HTMLButtonElement>('button.close')!.click();
+        await el.updateComplete;
+      }
+    });
+
     it('without a frame nothing changes: no sizer, no framed class, no regions inset', async () => {
       const el = await make(shot('Street', `${TWO} data-regions="percent:10,20,30,40 P"`));
       await open(el);

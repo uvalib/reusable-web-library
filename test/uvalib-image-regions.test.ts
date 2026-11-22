@@ -82,6 +82,23 @@ describe('image regions parsing', () => {
       expect(parseXywh(bad), bad).to.equal(null);
   });
 
+  it('signed: negative x and y for a lightbox frame (issue #30); regions stay unsigned', () => {
+    expect(parseXywh('percent:-25,-25.5,150,150', { signed: true })).to.deep.equal({
+      x: -25,
+      y: -25.5,
+      w: 150,
+      h: 150,
+      unit: 'percent',
+    });
+    expect(parseXywh('-200,0,400,300', { signed: true })!.x).to.equal(-200);
+    for (const bad of ['-1,2,0,4', '1,2,-3,4', '1,2,3,-4', '-,2,3,4', '1,2,3'])
+      expect(parseXywh(bad, { signed: true }), bad).to.equal(null);
+    expect(parseXywh('percent:-25,-25,150,150')).to.equal(null);
+    expect(parseRegions('percent:-10,20,30,40 Person; percent:10,20,30,40 Sign')).to.have.length(1);
+    expect(toRegion({ label: 'A', xywh: 'percent:-1,2,3,4' })).to.equal(null);
+    expect(toRegion({ label: 'A', x: -1, y: 2, w: 3, h: 4 })).to.equal(null);
+  });
+
   it('converts to percent and clamps to the image', () => {
     const px = toPercent({ x: 160, y: 120, w: 80, h: 60, unit: 'px' }, 400, 300)!;
     expect(px).to.deep.equal({ x: 40, y: 40, w: 20, h: 20, unit: 'percent' });

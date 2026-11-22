@@ -70,7 +70,11 @@ function framing(list: Version[]): Framing | null {
       w: (e.w / uw) * 100,
       h: (e.h / uh) * 100,
     })),
-    covers: list.map(({ frame: f }) => !f || (f.x + f.w <= 100.001 && f.y + f.h <= 100.001)),
+    // A version covers the original when the original's box lies inside it.
+    covers: list.map(
+      ({ frame: f }) =>
+        !f || (f.x >= -0.001 && f.y >= -0.001 && f.x + f.w <= 100.001 && f.y + f.h <= 100.001),
+    ),
   };
 }
 
@@ -140,6 +144,12 @@ const structure = (h: string) => `
   }
   ${h} .stack.framed.compare-wipe:dir(rtl) > img.top.on {
     clip-path: inset(0 0 0 max(0%, calc((100 - var(--uvalib-compare-n, 50) - var(--uvalib-frame-x)) / var(--uvalib-frame-w) * 100%)));
+  }
+  ${h} .stack.framed.compare-wipe.top-part > img:not(.top) {
+    clip-path: inset(0 0 0 max(0%, calc((var(--uvalib-compare-n, 50) - var(--uvalib-frame-x)) / var(--uvalib-frame-w) * 100%)));
+  }
+  ${h} .stack.framed.compare-wipe.top-part:dir(rtl) > img:not(.top) {
+    clip-path: inset(0 max(0%, calc((var(--uvalib-compare-n, 50) + var(--uvalib-frame-x) + var(--uvalib-frame-w) - 100) / var(--uvalib-frame-w) * 100%)) 0 0);
   }
   ${h} .divider {
     position: absolute; inset-block: 0; inset-inline-start: var(--uvalib-compare, 50%);
@@ -377,12 +387,13 @@ export class Compare {
 
   /**
    * A version's `frame`: the original's box in it, `percent:x,y,w,h`, or pixels
-   * (`x,y,w,h` / `pixel:`) of the version's `width` × `height`. Anything else is ignored
-   * (the same framing), with one warning.
+   * (`x,y,w,h` / `pixel:`) of the version's `width` × `height`. `x` and `y` may be negative
+   * and `w` and `h` over the version (a crop: the original reaches past it); `w` and `h` must
+   * be positive. Anything else is ignored (the same framing), with one warning.
    */
   private frame(o: Record<string, unknown>, i: number): Box | null {
     if (o.frame == null || o.frame === '') return null;
-    const box = i > 0 && typeof o.frame === 'string' ? parseXywh(o.frame) : null;
+    const box = i > 0 && typeof o.frame === 'string' ? parseXywh(o.frame, { signed: true }) : null;
     const size = (v: unknown) => (typeof v === 'number' || typeof v === 'string' ? Number(v) : 0);
     const w = size(o.width);
     const h = size(o.height);
@@ -651,9 +662,11 @@ export class Compare {
     const geo = this.natural() ? this.geo : null;
     if (!geo) return `compare-${this.mode}`;
     const on = this.seen > 0;
-    // Switch: a version that does not cover the whole original (a crop) hides it.
-    const hide = this.mode === 'switch' && on && this.seen >= 100 && !geo.covers[this.top];
-    return `compare-${this.mode} framed${on ? ' top-on' : ''}${hide ? ' hide-base' : ''}`;
+    // A version that does not cover the whole original (a crop): Switch hides the original;
+    // Reveal shows only the version on its side of the divider, the pattern around it.
+    const part = on && !geo.covers[this.top];
+    const hide = this.mode === 'switch' && part && this.seen >= 100;
+    return `compare-${this.mode} framed${on ? ' top-on' : ''}${hide ? ' hide-base' : ''}${part && this.mode === 'wipe' ? ' top-part' : ''}`;
   }
 
   get stackStyle(): string {
