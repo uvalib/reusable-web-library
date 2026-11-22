@@ -5,6 +5,7 @@ import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
 import { accessible } from '../../styles/accessible.js';
 import { parseRegions, toRegion, type ImageRegion } from '../uvalib-image-regions/regions.js';
+import type { Compare, CompareMode } from './compare.js';
 import {
   hrefWithParam,
   iiifIdentifier,
@@ -34,6 +35,8 @@ interface Slide {
   /** `data-image-width` / `data-image-height`: the size pixel regions are measured in. */
   imageWidth?: number;
   imageHeight?: number;
+  /** `data-versions` as written, or what the `versions` callback returned (checked on use). */
+  versions: string | unknown[] | null;
 }
 
 /** What the `regions` callback is given for each image. */
@@ -52,6 +55,21 @@ export interface LightboxRegionsItem {
 export type LightboxRegions = (
   item: LightboxRegionsItem,
 ) => readonly ImageRegion[] | null | undefined;
+
+/** One version of an image: the first is the link's own `href` (which it may omit). */
+export interface LightboxVersion {
+  /** Its name, shown on the controls and at the end of the image's accessible name. */
+  label: string;
+  /** The image (http(s), relative, or a PNG, JPEG, GIF or WebP `data:` URL). */
+  href?: string;
+  /** Shown under the photo while this version is visible (for example how it was made). */
+  note?: string;
+}
+
+/** Maps an image to its versions (none: null or undefined). */
+export type LightboxVersions = (
+  item: LightboxRegionsItem,
+) => readonly LightboxVersion[] | null | undefined;
 
 /** Returns the page's own region list for an image: an `<ol>` or `<ul>` of `<li data-xywh>`. */
 export type LightboxRegionsList = (item: LightboxRegionsItem) => Element | null | undefined;
@@ -119,6 +137,7 @@ const structuralRules = (host: string) => `
     font: inherit;
   }
   ${host} .regions { display: block; }
+  ${host} .stack { position: relative; width: fit-content; max-width: 100%; margin-inline: auto; }
   ${host} .details:empty { display: none; }
   ${host} > [slot="details"] { display: none; }
   ${host}[hidden], ${host} [hidden] { display: none !important; }
@@ -126,6 +145,10 @@ const structuralRules = (host: string) => `
 const shadowStructure = unsafeCSS(structuralRules(':host'));
 
 let nextCaption = 0;
+
+/** The comparison UI, loaded the first time an open image has versions. */
+let compareModule: typeof import('./compare.js') | null = null;
+let compareLoading: Promise<unknown> | null = null;
 
 /** `<uvalib-image-regions>` is loaded the first time an open image has regions. */
 let regionsLoading: Promise<unknown> | null = null;
@@ -174,6 +197,17 @@ function loadRegions(): void {
  * the image changes or the viewer closes it goes back where it was, `hidden` as before. It wins
  * over `data-regions`.
  *
+ * Optional versions of an image (an original scan and an AI colorization, a restoration, an
+ * infrared capture): `data-versions` on a link, a JSON array of `{ label, href?, note? }`
+ * whose first entry is the link's own image, or the `versions` callback. The viewer then
+ * compares them over the photo (loaded on first use): Switch (a segmented control), Reveal
+ * (a divider: click or tap the photo, or use the slider) or Fade (a slider), `compare`
+ * choosing the first. A version's `note` shows under the photo while it is visible, and
+ * the image's accessible name ends with the label of the version shown. `version-param`
+ * (with `url-param`) keeps the comparison in the address: `?version=2` (Switch, the version
+ * from 0), `?version=wipe:40` or `?version=fade:60` (the percentage of the other version
+ * shown; `wipe:40:2` compares the original with version 2).
+ *
  * @tagname uvalib-lightbox
  * @slot - The image links. A plain click opens the viewer; without JavaScript they open the image.
  * @slot details - Details for the open image. `data-for` selects one item by its id or position (from 1); without it the details show for every image.
@@ -184,7 +218,9 @@ function loadRegions(): void {
  * @csspart controls - Previous, Next, the counter and Full size.
  * @csspart details - The details panel.
  * @csspart regions - The `<uvalib-image-regions>` around an image with regions.
- * @fires uvalib-analytics-event - For `<site-analytics>`: `['uvalib-lightbox', 'open'|'next'|'previous'|'full-size', 'image N', N]` (N from 1, the image's place in the set). Never the URL or the caption. Not fired for a viewer restored from the URL or from Back and Forward. Bubbles and is composed.
+ * @csspart compare - The version comparison controls and notes under the photo.
+ * @fires uvalib-lightbox-version - The visitor changed the comparison (mode, version or position; once a slider settles): `detail` is `{ id, mode, index, value }` (`mode` `switch`, `wipe` or `fade`; `index` the version shown or compared, from 0; `value` the percentage of it shown, null for Switch). Not fired on open or for a comparison restored from the URL. Bubbles and is composed.
+ * @fires uvalib-analytics-event - For `<site-analytics>`: `['uvalib-lightbox', 'open'|'next'|'previous'|'full-size', 'image N', N]` (N from 1, the image's place in the set), and `['uvalib-lightbox', 'compare', 'switch'|'wipe'|'fade', N]` when the visitor changes a comparison (N the version's place from 1; once a slider settles). Never the URL, the caption or a version's label. Not fired for a viewer restored from the URL or from Back and Forward. Bubbles and is composed.
  * @cssprop --uva-color-surface-raised - Dark-mode role token: dialog surface (else `--uva-color-surface`, else #fff).
  * @cssprop --uva-color-surface - Dark-mode role token: the figure behind the image (else #fff).
  * @cssprop --uva-color-text - Dark-mode role token: text (else `--uva-grey-darkest`).
@@ -333,6 +369,27 @@ export class UvalibLightbox extends UvalibElement {
   /** The heading of the regions list (for example `People`). */
   @property({ attribute: 'regions-label' }) regionsLabel = 'Regions';
 
+  /**
+   * Versions of each image, instead of `data-versions`: called with
+   * `{ element, id, href, index }`, it returns `{ label, href?, note? }` objects, the first
+   * being the link's own image (null: none).
+   */
+  @property({ attribute: false }) versions?: LightboxVersions;
+
+  /**
+   * How an image's versions are compared first: `switch` (default: one at a time, any number
+   * of versions), `wipe` (a divider over the photo) or `fade` (a cross-fade). The viewer
+   * offers the others.
+   */
+  @property() compare: CompareMode = 'switch';
+
+  /**
+   * Query parameter for the comparison (with `url-param`), for example `version`:
+   * `?version=1`, `?version=wipe:40`, `?version=fade:60`. Written with replaceState once the
+   * visitor's change settles; read when the viewer opens from the address.
+   */
+  @property({ attribute: 'version-param' }) versionParam = '';
+
   @state() private slides: Slide[] = [];
   @state() private index = 0;
   @state() private open = false;
@@ -398,6 +455,10 @@ export class UvalibLightbox extends UvalibElement {
   private entryTabindex = new WeakMap<Element, string | null>();
   private warnedList = false;
   private refocus = false;
+  /** The comparison controller, once its module has loaded. */
+  private cmp?: Compare;
+  /** The comparison from the address, for the image opened from it. */
+  private pendingVersion: string | null = null;
 
   /** Shadow mode follows the base class. Light mode renders into `.viewer`. */
   private get isLight(): boolean {
@@ -465,6 +526,11 @@ export class UvalibLightbox extends UvalibElement {
       this.lastSrc = '';
       return;
     }
+    const slide = this.current;
+    if (this.cmp && slide) {
+      this.cmp.sync(slide, this.index, this.pendingVersion);
+      this.pendingVersion = null;
+    }
     const src = this.displaySrc;
     if (src !== this.lastSrc) {
       this.lastSrc = src;
@@ -479,7 +545,10 @@ export class UvalibLightbox extends UvalibElement {
   protected override updated(changed: PropertyValues): void {
     super.updated(changed);
     if (changed.has('selector')) this.watch();
-    if ((changed.has('regions') || changed.has('regionsList')) && this.isConnected)
+    if (
+      (changed.has('regions') || changed.has('regionsList') || changed.has('versions')) &&
+      this.isConnected
+    )
       this.scheduleSync(true);
     if (!this.open) {
       if (changed.has('open')) this.restoreDetails();
@@ -487,6 +556,7 @@ export class UvalibLightbox extends UvalibElement {
     }
     if (changed.has('open') || changed.has('index') || changed.has('slides')) this.placeDetails();
     if (this.current?.regions.length || this.current?.list) loadRegions();
+    if (this.current?.versions) this.loadCompare();
     this.lendList(true);
     if (this.refocus) {
       this.refocus = false;
@@ -569,6 +639,7 @@ export class UvalibLightbox extends UvalibElement {
         'data-details-id',
         'data-regions',
         'data-regions-list',
+        'data-versions',
         'data-image-width',
         'data-image-height',
         'slot',
@@ -601,11 +672,12 @@ export class UvalibLightbox extends UvalibElement {
             s.caption === this.slides[i]?.caption &&
             s.detailsId === this.slides[i]?.detailsId &&
             s.list === this.slides[i]?.list &&
-            JSON.stringify([s.regions, s.imageWidth, s.imageHeight]) ===
+            JSON.stringify([s.regions, s.imageWidth, s.imageHeight, s.versions]) ===
               JSON.stringify([
                 this.slides[i]?.regions,
                 this.slides[i]?.imageWidth,
                 this.slides[i]?.imageHeight,
+                this.slides[i]?.versions,
               ]),
         );
       this.noteEntries();
@@ -705,9 +777,62 @@ export class UvalibLightbox extends UvalibElement {
       list,
       imageWidth: positive(el.dataset.imageWidth),
       imageHeight: positive(el.dataset.imageHeight),
+      versions: this.versionsOf(el, id, href, index),
     };
   }
 
+  /** `data-versions` (checked by the comparison module), else the `versions` callback's list. */
+  private versionsOf(el: HTMLAnchorElement, id: string, href: string, index: number) {
+    const raw = el.dataset.versions?.trim();
+    if (raw) return raw;
+    if (typeof this.versions !== 'function') return null;
+    try {
+      const list = this.versions({ element: el, id, href, index });
+      return Array.isArray(list) && list.length ? [...list] : null;
+    } catch (err) {
+      console.warn(`${this.localName}: the versions callback threw.`, err);
+      return null;
+    }
+  }
+
+  /** Load the comparison module (once per page), then make this viewer's controller. */
+  private loadCompare(): void {
+    if (this.cmp) return;
+    if (compareModule) {
+      this.cmp = new compareModule.Compare(this.compareHost());
+      this.requestUpdate();
+      return;
+    }
+    compareLoading ??= import('./compare.js')
+      .then((m) => {
+        compareModule = m;
+      })
+      .catch((err) => {
+        compareLoading = null;
+        console.warn('uvalib-lightbox: could not load the version comparison.', err);
+      });
+    void compareLoading.then(() => {
+      if (compareModule && this.isConnected) this.loadCompare();
+    });
+  }
+
+  /** What the comparison module may use of this viewer. */
+  private compareHost() {
+    return {
+      el: this as HTMLElement,
+      light: this.isLight,
+      root: this.isLight ? this.scope : this.renderRoot,
+      noStyle: this.noStyle,
+      base: () => this.base,
+      mode: () => this.compare,
+      size: (href: string) => this.sized(href),
+      write: (value: string | null) => {
+        if (this.versionParam && this.open)
+          this.writeParam(this.current?.id ?? null, 'replace', undefined, value);
+      },
+      update: () => this.requestUpdate(),
+    };
+  }
   /** `data-regions`, then whatever the `regions` callback adds. */
   private regionsOf(el: HTMLAnchorElement, id: string, href: string, index: number) {
     const found = parseRegions(el.dataset.regions);
@@ -785,7 +910,10 @@ export class UvalibLightbox extends UvalibElement {
 
   /** The URL the `<img>` should load: a viewport-sized IIIF request, or the href itself. */
   private get displaySrc(): string {
-    const href = this.current?.href ?? '';
+    return this.sized(this.current?.href ?? '');
+  }
+
+  private sized(href: string): string {
     if (!usableImageUrl(href, this.base)) return '';
     const w = this.fitW || viewportIiifSize(window).w;
     const h = this.fitH || viewportIiifSize(window).h;
@@ -841,6 +969,8 @@ export class UvalibLightbox extends UvalibElement {
     this.index = i;
     this.trigger = slides[i]?.el ?? null;
     this.userClosed = false;
+    this.pendingVersion = null;
+    this.cmp?.reset();
     this.measure();
     this.open = true;
     if (this.pendingBack) {
@@ -876,12 +1006,18 @@ export class UvalibLightbox extends UvalibElement {
     this.index = i;
     this.trigger = slides[i]?.el ?? null;
     this.measure();
+    const version = this.versionFromUrl();
+    this.pendingVersion = version;
     // Make Back close the viewer onto this page instead of leaving it. Remember the hash
     // route before the first write removes the `?` that marked it.
     const hashMode = usesHashParam(location.hash);
     this.writeParam(null, 'replace', hashMode);
-    this.historyPushed = this.writeParam(id, 'push', hashMode);
+    this.historyPushed = this.writeParam(id, 'push', hashMode, version);
     this.open = true;
+  }
+
+  private versionFromUrl(): string | null {
+    return this.versionParam ? paramFromLocation(this.loc(), this.versionParam) : null;
   }
 
   private step(delta: number): void {
@@ -889,6 +1025,7 @@ export class UvalibLightbox extends UvalibElement {
     if (n < 2) return;
     const i = (this.index + delta + n) % n;
     this.index = i;
+    this.pendingVersion = null;
     this.trigger = this.slides[i]?.el ?? this.trigger;
     if (this.urlParam) this.writeParam(this.slides[i]?.id ?? null, 'replace');
     const action = delta < 0 ? 'previous' : 'next';
@@ -905,6 +1042,7 @@ export class UvalibLightbox extends UvalibElement {
     const dialog = this.dialogEl;
     if (!this.open && !dialog?.open) return;
     this.dismissing = true;
+    this.cmp?.reset();
     try {
       const pushed = this.historyPushed;
       this.historyPushed = false;
@@ -936,10 +1074,23 @@ export class UvalibLightbox extends UvalibElement {
     }
   }
 
-  /** Returns false when this document cannot change the address (for example an iframe srcdoc). */
-  private writeParam(id: string | null, mode: 'push' | 'replace', hashMode?: boolean): boolean {
+  /**
+   * Returns false when this document cannot change the address (for example an iframe
+   * srcdoc). `version` is the comparison (`version-param`), dropped with the image.
+   */
+  private writeParam(
+    id: string | null,
+    mode: 'push' | 'replace',
+    hashMode?: boolean,
+    version: string | null = null,
+  ): boolean {
     if (!this.urlParam) return false;
-    const next = hrefWithParam(this.loc(), this.urlParam, id, hashMode);
+    let next = hrefWithParam(this.loc(), this.urlParam, id, hashMode);
+    const vp = this.versionParam;
+    if (vp && vp !== this.urlParam) {
+      const u = new URL(next, location.href);
+      next = hrefWithParam(u, vp, id === null ? null : version, hashMode);
+    }
     const now = location.pathname + location.search + location.hash;
     if (next === now) return false;
     const prev = history.state && typeof history.state === 'object' ? history.state : {};
@@ -987,6 +1138,7 @@ export class UvalibLightbox extends UvalibElement {
       if (this.open) this.dismiss('pop');
       return;
     }
+    this.pendingVersion = this.versionFromUrl();
     this.slides = slides;
     this.index = i;
     this.trigger = slides[i]?.el ?? null;
@@ -1007,7 +1159,8 @@ export class UvalibLightbox extends UvalibElement {
   }
 
   private readonly onKey = (e: KeyboardEvent): void => {
-    if (!this.multiple || this.typing(e)) return;
+    if (this.typing(e)) return;
+    if (this.cmp?.key(e) || !this.multiple || e.type !== 'keydown') return;
     // Left is previous in LTR and next in RTL, so the key matches the direction of the set.
     const rtl = getComputedStyle(this).direction === 'rtl';
     const back = rtl ? 'ArrowRight' : 'ArrowLeft';
@@ -1025,7 +1178,12 @@ export class UvalibLightbox extends UvalibElement {
   }
 
   private readonly onDialogClick = (e: MouseEvent): void => {
-    if (e.target === this.dialogEl) this.dismiss('ui');
+    // A drag over the photo that ends on the backdrop is not a click on it.
+    if (e.target === this.dialogEl && !this.cmp?.dragged()) this.dismiss('ui');
+  };
+
+  private readonly onStack = (e: PointerEvent): void => {
+    this.cmp?.pointer(e);
   };
 
   /** The dialog element is stable across renders. Watch `open` on whichever node is current. */
@@ -1325,18 +1483,40 @@ export class UvalibLightbox extends UvalibElement {
     this.showRegions = !this.showRegions;
   };
 
-  /** The image, inside `<uvalib-image-regions>` when it has regions (or the page's list). */
+  /**
+   * The image, inside `<uvalib-image-regions>` when it has regions (or the page's list). An
+   * image with versions sits in a `.stack` (the same element before and after the comparison
+   * loads, so the image is not loaded again), with the comparison's layers over it and its
+   * controls under it.
+   */
   private renderImage(slide: Slide, src: string, regions: ImageRegion[] | null) {
-    const img = html`<img
+    const outlined = !!(regions || slide.list);
+    const cmp = slide.versions && this.cmp?.active ? this.cmp : null;
+    let img = html`<img
       part="image"
-      slot=${regions || slide.list ? 'image' : nothing}
-      alt=${slide.alt}
+      slot=${outlined && !slide.versions ? 'image' : nothing}
+      alt=${cmp ? cmp.alt(slide.alt) : slide.alt}
       src=${src}
       aria-busy=${this.status === 'loading' ? 'true' : 'false'}
       @load=${this.onLoad}
       @error=${this.onError}
     />`;
-    if (!regions && !slide.list) return img;
+    let controls: unknown = nothing;
+    if (slide.versions) {
+      img = html`<div
+        class="stack ${cmp?.stackClass ?? ''}"
+        slot=${outlined ? 'image' : nothing}
+        style=${cmp?.stackStyle ?? nothing}
+        @pointerdown=${this.onStack}
+        @pointermove=${this.onStack}
+        @pointerup=${this.onStack}
+        @pointercancel=${this.onStack}
+      >
+        ${img}${cmp ? cmp.layers() : nothing}
+      </div>`;
+      if (cmp) controls = cmp.controls(outlined ? 'controls' : '');
+    }
+    if (!outlined) return html`${img}${controls}`;
     // The page's list: slotted on from the lightbox's light DOM (shadow mode), or moved in
     // after render (light DOM).
     const list = slide.list && !this.isLight ? html`<slot name=${LIST_SLOT}></slot>` : nothing;
@@ -1349,7 +1529,7 @@ export class UvalibLightbox extends UvalibElement {
       image-height=${slide.imageHeight ?? nothing}
       ?hide-outlines=${!this.showRegions}
       ?no-style=${this.noStyle}
-      >${img}${list}</uvalib-image-regions
+      >${img}${controls}${list}</uvalib-image-regions
     >`;
   }
 
@@ -1357,6 +1537,7 @@ export class UvalibLightbox extends UvalibElement {
     const slide = this.open ? this.current : undefined;
     const src = slide ? this.displaySrc : '';
     const full = slide && usableImageUrl(slide.href, this.base) ? slide.href : '';
+    const fullLinks = full && slide?.versions && this.cmp?.active ? this.cmp.full() : null;
     const shown = this.statusText;
     const regions = slide?.regions.length ? slide.regions : null;
     const outlined = !!(regions || slide?.list);
@@ -1373,6 +1554,7 @@ export class UvalibLightbox extends UvalibElement {
         @click=${this.onDialogClick}
         @close=${this.onDialogClose}
         @keydown=${this.onKey}
+        @keyup=${this.onKey}
       >
         <div class="panel" part="panel">
           <div class="head">
@@ -1405,18 +1587,19 @@ export class UvalibLightbox extends UvalibElement {
                     ${counter}`
                 : nothing
             }
-            ${
-              full
-                ? html`<a
-                    class="full"
-                    href=${full}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    @click=${this.onFullSize}
-                    >Full size<span class="visually-hidden"> (opens in a new tab)</span></a
-                  >`
-                : nothing
-            }
+            ${(fullLinks ?? (full ? [{ href: full, label: '' }] : [])).map(
+              (link) =>
+                html`<a
+                  class="full"
+                  href=${link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  @click=${this.onFullSize}
+                  >Full size${link.label ? `, ${link.label}` : ''}<span class="visually-hidden">
+                    (opens in a new tab)</span
+                  ></a
+                >`,
+            )}
           </div>
           <div class="details" part="details"></div>
         </div>
