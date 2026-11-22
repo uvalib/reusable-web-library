@@ -165,7 +165,8 @@ const entryStyles = unsafeCSS(entryRules(''));
  * @csspart region - One outline.
  * @csspart list - The heading and the list.
  * @fires highlight - The highlighted region changed by hover or focus: `detail` is `{ item, index }` (`item` null and `index` -1 when none is). Bubbles and is composed.
- * @fires select - A region's outline was clicked (focus moved to its list entry): `detail` is `{ item, index }`. Bubbles and is composed.
+ * @fires uvalib-image-regions-activate - A region's outline was clicked, before its list entry takes focus: `detail` is `{ index, item, entry }` (`index` from 0; `item` the region's record; `entry` the page's own `<li>`, from its child list or a lightbox's lent list, or null when this element drew the list from `items`). Cancelable: `preventDefault()` keeps the entry from taking focus, so the page can focus its own control in it instead (a "Who is this?" field). Bubbles and is composed.
+ * @fires select - A region's outline was clicked, after its entry took focus (or the page took the activate over): `detail` is `{ item, index, entry }`. Bubbles and is composed. Prefer `uvalib-image-regions-activate`: `select` is also the name of the native text-selection event.
  * @fires uvalib-analytics-event - For `<site-analytics>`: `['uvalib-image-regions', 'select', '<label>', <number>]` when an outline is clicked (the list's `label`, and the region's number from 1). Never a region's label (it may be a person's name). Nothing on hover or focus. Bubbles and is composed.
  * @cssprop --uva-color-text - Dark-mode role token: text (else `--uva-grey-darkest`).
  * @cssprop --uva-color-surface-hover - Dark-mode role token: the highlighted entry's tint (else #f1f1f1).
@@ -607,17 +608,32 @@ export class UvalibImageRegions extends UvalibElement {
     this.choose(hit.i);
   };
 
-  /** An outline was clicked: focus its entry, and say so. */
+  /**
+   * An outline was clicked: say so first (`uvalib-image-regions-activate`, cancelable), then,
+   * unless the page took it over, focus the entry; then `select`. `entry` is the page's own
+   * `<li>` (its child list or a lightbox's lent list), never one this element drew from `items`.
+   */
   private choose(i: number): void {
     const entry = this.entries[i];
     const el = this.entryEl(i);
     if (!entry || !el) return;
-    if (!el.hasAttribute('tabindex')) el.tabIndex = -1;
-    el.focus();
-    el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    const detail = { index: i, item: entry.item, entry: entry.el ?? null };
+    const go = this.dispatchEvent(
+      new CustomEvent('uvalib-image-regions-activate', {
+        detail,
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+      }),
+    );
+    if (go) {
+      if (!el.hasAttribute('tabindex')) el.tabIndex = -1;
+      el.focus();
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
     this.dispatchEvent(
       new CustomEvent('select', {
-        detail: { item: entry.item, index: i },
+        detail: { item: entry.item, index: i, entry: detail.entry },
         bubbles: true,
         composed: true,
       }),

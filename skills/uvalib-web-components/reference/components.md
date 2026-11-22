@@ -1118,7 +1118,8 @@ An image with numbered region outlines (people, objects, inscriptions) and a lis
 | Event | Description |
 |---|---|
 | `highlight` | The highlighted region changed by hover or focus: `detail` is `{ item, index }` (`item` null and `index` -1 when none is). Bubbles and is composed. |
-| `select` | A region's outline was clicked (focus moved to its list entry): `detail` is `{ item, index }`. Bubbles and is composed. |
+| `uvalib-image-regions-activate` | A region's outline was clicked, before its list entry takes focus: `detail` is `{ index, item, entry }` (`index` from 0; `item` the region's record; `entry` the page's own `<li>`, from its child list or a lightbox's lent list, or null when this element drew the list from `items`). Cancelable: `preventDefault()` keeps the entry from taking focus, so the page can focus its own control in it instead (a "Who is this?" field). Bubbles and is composed. |
+| `select` | A region's outline was clicked, after its entry took focus (or the page took the activate over): `detail` is `{ item, index, entry }`. Bubbles and is composed. Prefer `uvalib-image-regions-activate`: `select` is also the name of the native text-selection event. |
 | `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-image-regions', 'select', '<label>', <number>]` when an outline is clicked (the list's `label`, and the region's number from 1). Never a region's label (it may be a person's name). Nothing on hover or focus. Bubbles and is composed. |
 
 ### CSS custom properties

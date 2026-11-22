@@ -198,6 +198,15 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       expect(view(el).querySelector('ol.items')!.getAttribute('aria-labelledby')).to.equal(
         view(el).querySelector('[role="heading"]')!.id,
       );
+      // A list drawn from items: activate gives the item, and no entry (the drawn <li> is ours).
+      let detail: { index: number; item: { label: string }; entry: unknown } | undefined;
+      el.addEventListener('uvalib-image-regions-activate', (e) => {
+        detail = (e as CustomEvent).detail;
+      });
+      outlines(el)[1]!.click();
+      expect(detail!.index).to.equal(1);
+      expect(detail!.item.label).to.equal('Sign');
+      expect(detail!.entry).to.equal(null);
     });
 
     it('image-width and image-height set the pixel space (a IIIF derivative)', async () => {
@@ -343,6 +352,71 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         outlines(el)[0]!.click();
         expect(rec.of('uvalib-analytics-event').length).to.equal(1);
         expect(got.length).to.equal(2);
+      } finally {
+        rec.restore();
+      }
+    });
+
+    it('fires a cancelable activate before focus moves, with index, item and entry', async () => {
+      const el = await make();
+      await loaded(el);
+      const order: string[] = [];
+      let detail: { index: number; item: { label: string } | null; entry: Element } | undefined;
+      let focusAtActivate: Element | null = null;
+      // On the document: the event bubbles and is composed.
+      const onActivate = (e: Event) => {
+        order.push('activate');
+        detail = (e as CustomEvent).detail;
+        focusAtActivate = document.activeElement;
+        expect(e.cancelable).to.equal(true);
+      };
+      document.addEventListener('uvalib-image-regions-activate', onActivate);
+      const selects: { entry?: Element }[] = [];
+      el.addEventListener('select', (e) => {
+        order.push('select');
+        selects.push((e as CustomEvent).detail);
+      });
+      try {
+        outlines(el)[1]!.click();
+        await el.updateComplete;
+        const li = entries(el)[1]!;
+        expect(order).to.deep.equal(['activate', 'select']);
+        // Fired before the entry took focus.
+        expect(focusAtActivate === li).to.equal(false);
+        expect(detail!.index).to.equal(1);
+        expect(detail!.item!.label).to.equal('Sign');
+        expect(detail!.entry === li).to.equal(true);
+        // Default action: the entry takes focus, as before; select now carries the entry too.
+        expect(document.activeElement === li).to.equal(true);
+        expect(selects[0]!.entry === li).to.equal(true);
+      } finally {
+        document.removeEventListener('uvalib-image-regions-activate', onActivate);
+      }
+    });
+
+    it('preventDefault on activate lets the page focus its own control in the entry', async () => {
+      const rec = recordAnalytics();
+      try {
+        const el = await make();
+        await loaded(el);
+        const button = el.querySelector<HTMLButtonElement>('button.name-it')!;
+        let selects = 0;
+        el.addEventListener('select', () => selects++);
+        el.addEventListener('uvalib-image-regions-activate', (e) => {
+          e.preventDefault();
+          ((e as CustomEvent).detail.entry as Element).querySelector('button')!.focus();
+        });
+        outlines(el)[0]!.click();
+        await el.updateComplete;
+        // The page's button keeps focus; the entry is not focused over it.
+        expect(document.activeElement === button).to.equal(true);
+        expect(entries(el)[0]!.hasAttribute('tabindex')).to.equal(false);
+        // Still a choice: highlighted, select fires, and it is reported.
+        expect(activeOf(el)).to.equal(0);
+        expect(selects).to.equal(1);
+        expect(rec.of('uvalib-analytics-event')).to.deep.equal([
+          { event: ['uvalib-image-regions', 'select', 'People', 1] },
+        ]);
       } finally {
         rec.restore();
       }
