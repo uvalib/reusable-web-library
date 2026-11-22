@@ -5,7 +5,7 @@ import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
 import { accessible } from '../../styles/accessible.js';
 import { parseRegions, toRegion, type ImageRegion } from '../uvalib-image-regions/regions.js';
-import type { Compare, CompareMode } from './compare.js';
+import type { Compare } from './compare.js';
 import {
   hrefWithParam,
   iiifIdentifier,
@@ -381,7 +381,7 @@ export class UvalibLightbox extends UvalibElement {
    * of versions), `wipe` (a divider over the photo) or `fade` (a cross-fade). The viewer
    * offers the others.
    */
-  @property() compare: CompareMode = 'switch';
+  @property() compare: 'switch' | 'wipe' | 'fade' = 'switch';
 
   /**
    * Query parameter for the comparison (with `url-param`), for example `version`:
@@ -823,7 +823,6 @@ export class UvalibLightbox extends UvalibElement {
       light: this.isLight,
       root: this.isLight ? this.scope : this.renderRoot,
       noStyle: this.noStyle,
-      base: () => this.base,
       mode: () => this.compare,
       size: (href: string) => this.sized(href),
       write: (value: string | null) => {
@@ -1085,11 +1084,19 @@ export class UvalibLightbox extends UvalibElement {
     version: string | null = null,
   ): boolean {
     if (!this.urlParam) return false;
-    let next = hrefWithParam(this.loc(), this.urlParam, id, hashMode);
+    const loc = this.loc();
+    let next = hrefWithParam(loc, this.urlParam, id, hashMode);
     const vp = this.versionParam;
     if (vp && vp !== this.urlParam) {
-      const u = new URL(next, location.href);
-      next = hrefWithParam(u, vp, id === null ? null : version, hashMode);
+      // The path is unchanged; a search string never contains `#`.
+      const rest = next.slice(loc.pathname.length);
+      const h = rest.indexOf('#');
+      const at = {
+        pathname: loc.pathname,
+        search: h < 0 ? rest : rest.slice(0, h),
+        hash: h < 0 ? '' : rest.slice(h),
+      };
+      next = hrefWithParam(at, vp, id === null ? null : version, hashMode);
     }
     const now = location.pathname + location.search + location.hash;
     if (next === now) return false;
