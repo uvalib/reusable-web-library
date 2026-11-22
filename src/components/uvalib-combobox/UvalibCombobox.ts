@@ -3,6 +3,7 @@ import { property, state } from 'lit/decorators.js';
 import { trackError, trackEvent } from '../../base/analytics.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
+import { setState } from '../../base/states.js';
 import { normalize, SourceChildren } from '../../base/source-children.js';
 import { accessible } from '../../styles/accessible.js';
 
@@ -27,6 +28,31 @@ export type ComboboxTransform = (data: unknown, query: string) => (ComboboxItem 
  * milliseconds the suggestion count must stay put before it is announced. Tests may shorten them.
  */
 export const comboboxTiming = { debounce: 250, announce: 500 };
+
+/** The CSS the top-layer popup needs, as one `@supports` condition (also what JS checks). */
+const ANCHORING =
+  '(anchor-name: --a) and (position-try-fallbacks: flip-block) and (inline-size: anchor-size(inline))';
+
+/** Popover API and CSS anchor positioning both supported (not in Firefox today). */
+function detectTopLayer(): boolean {
+  try {
+    return (
+      typeof HTMLElement !== 'undefined' &&
+      Object.hasOwn(HTMLElement.prototype, 'popover') &&
+      typeof CSS !== 'undefined' &&
+      CSS.supports(ANCHORING)
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * `topLayer`: whether a new element puts its popup in the top layer, anchored to the field
+ * (where the browser supports the Popover API and CSS anchor positioning). Read when each
+ * element is created; tests may turn it off to check the fallback.
+ */
+export const comboboxSupport = { topLayer: detectTopLayer() };
 
 const TAG = 'uvalib-combobox';
 /** How long an announcement stays in the live region before it is cleared. */
@@ -138,6 +164,21 @@ const structuralRules = (host: string) => `
     overflow-y: auto;
     overscroll-behavior: contain;
   }
+  /* Where supported, the popup is a manual popover in the top layer, so no ancestor's
+     overflow clips it: anchored under the field, as wide as it, above it when there is no
+     room below. Elsewhere it stays absolutely positioned (no popover attribute). */
+  @supports ${ANCHORING} {
+    ${host} .popup[popover] {
+      position: fixed;
+      inset: auto;
+      inline-size: anchor-size(inline);
+      max-inline-size: 100vw;
+      margin: 0;
+      margin-block-start: 2px;
+      position-area: block-end span-inline-end;
+      position-try-fallbacks: flip-block;
+    }
+  }
   ${host} .listbox { margin: 0; padding: 0; list-style: none; }
   ${host} .option {
     display: flex;
@@ -209,6 +250,14 @@ const CLEAR_ICON = svg`<svg viewBox="0 0 16 16" width="16" height="16" aria-hidd
  * (never on the first render); the popup shows the same notes visibly. A failed load never
  * throws.
  *
+ * Where the browser supports the Popover API and CSS anchor positioning, the popup is a manual
+ * popover in the top layer, anchored under the field and as wide as it (above it when there is
+ * no room below), so an ancestor with `overflow: hidden` or a scrolling panel never clips it.
+ * Elsewhere it is positioned under the field inside the element, as before.
+ *
+ * Pages can style the runtime state with `:state(open)`, `:state(invalid)` and
+ * `:state(loading)` (no attributes are added).
+ *
  * Before it upgrades, `base.css` shows the label (from the attribute) and holds the field's
  * height. A fallback `<input list>` child works as a plain field meanwhile; on upgrade its
  * text, `name` and `placeholder` carry over, and it is disabled so it does not submit twice.
@@ -224,6 +273,9 @@ const CLEAR_ICON = svg`<svg viewBox="0 0 16 16" width="16" height="16" aria-hidd
  * @csspart popup - The popup under the field.
  * @csspart option - Each suggestion.
  * @csspart description - The hint under the field.
+ * @cssstate open - The popup is showing (suggestions or a note such as “No suggestions”).
+ * @cssstate invalid - The text was shown as invalid (`aria-invalid="true"`: `must-choose` text that is not a suggestion, after leaving the field or pressing Enter).
+ * @cssstate loading - Suggestions from `src` are loading.
  * @cssprop --uva-color-surface-raised - Dark-mode role token: field and popup background (else #fff).
  * @cssprop --uva-color-control-border - Dark-mode role token: field and popup border (else `--uva-grey`, #808080).
  * @cssprop --uva-color-input-text - Dark-mode role token: field and suggestion text (else #2b2b2b).
@@ -282,6 +334,7 @@ export class UvalibCombobox extends UvalibElement {
       }
       .popup {
         padding-block: 0.25rem;
+        padding-inline: 0;
         border: 1px solid ${BORDER};
         border-radius: 5px;
         background: ${RAISED};
@@ -423,6 +476,8 @@ export class UvalibCombobox extends UvalibElement {
   private lastAnnounced = '';
   private adopted = new WeakSet<HTMLInputElement>();
   private started = false;
+  /** The popup is a popover in the top layer, anchored to the field (see `comboboxSupport`). */
+  private readonly topLayer = comboboxSupport.topLayer;
 
   constructor() {
     super();
@@ -967,12 +1022,43 @@ export class UvalibCombobox extends UvalibElement {
       changed.has('loading')
     )
       this.scheduleAnnouncement();
+    this.syncPopup();
     if (changed.has('active') && this.active >= 0) this.reveal();
+  }
+
+  private get popup(): HTMLElement | null {
+    return this.renderRoot.querySelector<HTMLElement>('.popup');
+  }
+
+  /**
+   * Custom states, and in the top layer: show or hide the popover with the popup, and name
+   * the field as its anchor (an instance-unique name, so light-DOM comboboxes never share one).
+   */
+  private syncPopup(): void {
+    const popup = this.popup;
+    const showing = !!popup && !popup.hidden;
+    setState(this.internals, 'open', showing);
+    setState(this.internals, 'invalid', this.invalidShown);
+    setState(this.internals, 'loading', this.loading === 'loading');
+    if (!this.topLayer || !popup) return;
+    const name = `--${this.uid}`;
+    const field = this.input;
+    if (field && field.style.getPropertyValue('anchor-name') !== name) {
+      field.style.setProperty('anchor-name', name);
+      popup.style.setProperty('position-anchor', name);
+    }
+    const isOpen = popup.matches(':popover-open');
+    try {
+      if (showing && !isOpen && this.isConnected) popup.showPopover();
+      else if (!showing && isOpen) popup.hidePopover();
+    } catch {
+      // Not connected, or mid-transition: the next update tries again.
+    }
   }
 
   /** Scroll the active suggestion into view inside the popup (not the page). */
   private reveal(): void {
-    const popup = this.renderRoot.querySelector<HTMLElement>('.popup');
+    const popup = this.popup;
     const opt = this.renderRoot.querySelector<HTMLElement>(`#${this.uid}-opt-${this.active}`);
     if (!popup || !opt) return;
     const top = opt.offsetTop;
@@ -1051,6 +1137,7 @@ export class UvalibCombobox extends UvalibElement {
         <div
           class="popup"
           part="popup"
+          popover=${this.topLayer ? 'manual' : nothing}
           ?hidden=${!this.open || (!this.shown.length && !note)}
           @mousedown=${(e: MouseEvent) => e.preventDefault()}
         >

@@ -79,6 +79,13 @@ export function renderComponents(manifest, { level = 2, title = true } = {}) {
       out.push('');
     }
 
+    if (d.cssStates?.length) {
+      out.push(`${h(1)} CSS states`, '', '| State | Description |', '|---|---|');
+      for (const s of d.cssStates)
+        out.push(`| ${code(`:state(${s.name})`)} | ${cell(s.description)} |`);
+      out.push('');
+    }
+
     if (d.events?.length) {
       // SiteAnalytics listens for these on `document` rather than firing them.
       const listened = d.events.every((e) => /listened for/i.test(e.description ?? ''));
