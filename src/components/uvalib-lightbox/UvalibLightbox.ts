@@ -214,7 +214,14 @@ function loadRegions(): void {
  * Optional details: children with `slot="details"` (and `data-for` equal to the item's id or
  * its position from 1; without `data-for` they show for every image), or `data-details-id` on
  * a link pointing at an element elsewhere on the page. Either is shown inside the dialog and
- * put back when the viewer moves on or closes.
+ * put back exactly (same place, `hidden` and `slot`) when the viewer moves on or closes. The
+ * `data-details-id` element stays in the page (in shadow mode it becomes a child of the
+ * lightbox slotted into the dialog), so `getElementById`, the page's CSS (except selectors
+ * through its old ancestors) and listeners keep working; nothing is cloned. Details that appear
+ * while their image is open (rendered after a fetch) are shown then.
+ *
+ * `open(idOrIndex)` and `close({ focus })` let the page open or close the viewer itself;
+ * `uvalib-lightbox-open` and `uvalib-lightbox-close` say when it did.
  *
  * Optional regions (people, objects, inscriptions): `data-regions` on a link, a JSON array of
  * `{ label, x, y, w, h, unit? }` or `xywh` values each followed by its label, separated by
@@ -254,6 +261,8 @@ function loadRegions(): void {
  * @csspart details - The details panel.
  * @csspart regions - The `<uvalib-image-regions>` around an image with regions.
  * @csspart compare - The version comparison controls and notes under the photo.
+ * @fires uvalib-lightbox-open - The viewer opened (a click, `open()`, or restored from the address): `detail` is `{ id, index, restored }` (`index` from 0; `restored` true for the address, Back and Forward). Not fired when it moves to another image. Bubbles and is composed.
+ * @fires uvalib-lightbox-close - The viewer closed: `detail` is `{ id, index, reason }`, the image shown and `reason` `close` (Close, Escape, the backdrop), `api` (`close()`), `history` (Back or Forward) or `empty` (the last image left the page). Not fired when the element is removed. Bubbles and is composed.
  * @fires uvalib-lightbox-version - The visitor changed the comparison (mode, version or position; once a slider settles): `detail` is `{ id, mode, index, value }` (`mode` `switch`, `wipe` or `fade`; `index` the version shown or compared, from 0; `value` the percentage of it shown, null for Switch). Not fired on open or for a comparison restored from the URL. Bubbles and is composed.
  * @fires uvalib-analytics-event - For `<site-analytics>`: `['uvalib-lightbox', 'open'|'next'|'previous'|'full-size', 'image N', N]` (N from 1, the image's place in the set), and `['uvalib-lightbox', 'compare', 'switch'|'wipe'|'fade', N]` when the visitor changes a comparison (N the version's place from 1; once a slider settles). Never the URL, the caption or a version's label. Not fired for a viewer restored from the URL or from Back and Forward. Bubbles and is composed.
  * @cssprop --uva-color-surface-raised - Dark-mode role token: dialog surface (else `--uva-color-surface`, else #fff).
