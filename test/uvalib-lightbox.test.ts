@@ -483,9 +483,12 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       await (el as UvalibLightbox).updateComplete;
       await nextFrame();
       expect(box().textContent).to.include('Shared');
-      expect(box().textContent).to.include('External note');
       expect(box().textContent).to.not.include('Only A');
-      expect(view(el).querySelector('#ext')!.parentElement).to.equal(box());
+      // Shadow mode slots it from the lightbox's light DOM (issue #27); light DOM moves it in.
+      const ext0 = ui(root, '#ext');
+      const shown = mode === 'shadow' ? box().contains(ext0.assignedSlot) : box().contains(ext0);
+      expect(shown, 'external details shown').to.equal(true);
+      expect(ext0.hidden).to.equal(false);
       const input = document.createElement('input');
       box().append(input);
       input.focus();
