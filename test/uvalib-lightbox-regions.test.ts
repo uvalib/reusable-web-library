@@ -386,6 +386,41 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       }
     });
 
+    it('an outline click reaches the page as activate with its own entry, and can open its form', async () => {
+      const { el, list } = await page(
+        shot('Group', 'data-regions-list="people"'),
+        'regions-label="People"',
+      );
+      const name = list.querySelector<HTMLButtonElement>('[data-act="name"]')!;
+      const got: { index: number; entry: Element }[] = [];
+      const onActivate = (e: Event) => {
+        const d = (e as CustomEvent).detail;
+        got.push(d);
+        // An unknown face: the page focuses its own "Name person 2" instead of the entry.
+        if (d.entry.querySelector('[data-act="name"]')) {
+          e.preventDefault();
+          d.entry.querySelector('[data-act="name"]').focus();
+        }
+      };
+      document.addEventListener('uvalib-image-regions-activate', onActivate);
+      try {
+        await open(el, 0);
+        const r = await ready(el);
+        outlines(r)[1]!.click();
+        await r.updateComplete;
+        expect(got.length).to.equal(1);
+        expect(got[0]!.index).to.equal(1);
+        // The page's own <li>, the same node it wrote.
+        expect(got[0]!.entry === list.querySelectorAll('li')[1]).to.equal(true);
+        // The lent list stays in the page's light DOM, so the page's button is the active element.
+        expect(document.activeElement === name).to.equal(true);
+        await close(el);
+        expectHome(list);
+      } finally {
+        document.removeEventListener('uvalib-image-regions-activate', onActivate);
+      }
+    });
+
     it('links in the list are not taken for images; analytics carry no labels', async () => {
       const rec = recordAnalytics();
       try {
