@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.8.0 — 2026-11-22
+
+### Features
+
+- text-wrap balance on short headings, pretty on longer text
+- container queries for the toolbar, result list and photo grid; text-wrap in base.css
+- custom states for the filter drawer, lightbox and tag list; CSS states in the reference
+- the popup in the top layer, anchored to the field, where supported
+- data-version, a link's starting version, issue #31
+
+### Fixes
+
+- a version's frame may start left of or above it (crops), issue #30
+
+### Other
+
+- Merge branch 'integrate/modern-web': combobox top layer, custom states, container queries, text-wrap, ES2024
+- ES2024 lib; toSorted and Promise.withResolvers for the copy-sorts and the ready deferred
+- Merge branch 'feat/container-queries-text-wrap' into integrate/modern-web
+- Merge branch 'feat/combobox-top-layer-states' into integrate/modern-web
+- Merge branch 'fix/version-frame-start': crop frames (#30), a link's starting version (#31)
+- uvalib-lightbox.js budget to about 12% over its measured size
+
 ## v1.7.0 — 2026-11-22
 
 ### Features
