@@ -777,6 +777,18 @@ describe('playground presets', function () {
       await expectNoPageAxeViolations(doc);
       box.shadowRoot.querySelector<HTMLButtonElement>('button.close')!.click();
       await box.updateComplete;
+      // The detail and its Full plate: a frame, so the plate is drawn around the detail.
+      const detail = box.querySelectorAll('a')[1]!;
+      expect(detail.querySelector('img')!.getAttribute('width')).to.equal('249');
+      detail.addEventListener('click', (e) => e.preventDefault());
+      detail.click();
+      await box.updateComplete;
+      await waitUntil(() => dialog.querySelector('.stack.framed'), 'framed', { timeout: 5000 });
+      const stack = dialog.querySelector('.stack')!.getBoundingClientRect();
+      const orig = dialog.querySelector('.stack > img:not(.top)')!.getBoundingClientRect();
+      expect(Math.abs(stack.width * 0.7 - orig.width)).to.be.below(1.5);
+      box.shadowRoot.querySelector<HTMLButtonElement>('button.close')!.click();
+      await box.updateComplete;
       expect(errors).to.deep.equal([]);
     } finally {
       iframe.remove();

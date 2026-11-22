@@ -206,7 +206,10 @@ function loadRegions(): void {
  * the image's accessible name ends with the label of the version shown. `version-param`
  * (with `url-param`) keeps the comparison in the address: `?version=2` (Switch, the version
  * from 0), `?version=wipe:40` or `?version=fade:60` (the percentage of the other version
- * shown; `wipe:40:2` compares the original with version 2).
+ * shown; `wipe:40:2` compares the original with version 2). A version with a different
+ * framing (an AI-expanded frame, a crop, the whole plate) gives `frame`, the original's box
+ * in it (`percent:x,y,w,h`, or pixels of its `width` × `height`): the viewer draws every
+ * version at the original's scale in one box, the original lined up, and regions stay on it.
  *
  * @tagname uvalib-lightbox
  * @slot - The image links. A plain click opens the viewer; without JavaScript they open the image.
