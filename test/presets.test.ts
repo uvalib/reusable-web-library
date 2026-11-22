@@ -789,6 +789,29 @@ describe('playground presets', function () {
       expect(Math.abs(stack.width * 0.7 - orig.width)).to.be.below(1.5);
       box.shadowRoot.querySelector<HTMLButtonElement>('button.close')!.click();
       await box.updateComplete;
+      // The whole photo, opening on its cropped detail (data-version="1"): the crop at its
+      // place inside the original's box.
+      const cropped = box.querySelectorAll('a')[2]!;
+      expect(cropped.querySelector('img')!.getAttribute('width')).to.equal('249');
+      cropped.addEventListener('click', (e) => e.preventDefault());
+      cropped.click();
+      await box.updateComplete;
+      await waitUntil(
+        () => dialog.querySelector('.stack.framed:not(.starting) > img.top.on'),
+        'opened on the crop',
+        { timeout: 5000 },
+      );
+      expect(dialog.querySelector('.stack > img:not(.top)')!.getAttribute('alt')).to.equal(
+        'Lawn games, the right side (Cropped detail)',
+      );
+      const box3 = dialog.querySelector('.stack')!.getBoundingClientRect();
+      const crop = dialog.querySelector('.stack > img.top.on')!.getBoundingClientRect();
+      const orig3 = dialog.querySelector('.stack > img:not(.top)')!.getBoundingClientRect();
+      expect(Math.abs(box3.width - orig3.width)).to.be.below(1.5);
+      expect(Math.abs(crop.width - orig3.width * 0.4)).to.be.below(1.5);
+      expect(Math.abs(crop.left - (orig3.left + orig3.width * 0.5))).to.be.below(1.5);
+      box.shadowRoot.querySelector<HTMLButtonElement>('button.close')!.click();
+      await box.updateComplete;
       expect(errors).to.deep.equal([]);
     } finally {
       iframe.remove();

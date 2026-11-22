@@ -37,6 +37,8 @@ interface Slide {
   imageHeight?: number;
   /** `data-versions` as written, or what the `versions` callback returned (checked on use). */
   versions: string | unknown[] | null;
+  /** `data-version`: the comparison it opens on (the `version-param` format), or null. */
+  start: string | null;
 }
 
 /** What the `regions` callback is given for each image. */
@@ -173,6 +175,7 @@ const structuralRules = (host: string) => `
   }
   ${host} .regions { display: block; }
   ${host} .stack { position: relative; width: fit-content; max-width: 100%; margin-inline: auto; }
+  ${host} .stack.starting > * { visibility: hidden !important; }
   ${host} .details:empty { display: none; }
   ${host} > [slot="details"] { display: none; }
   ${host}[hidden], ${host} [hidden] { display: none !important; }
@@ -184,6 +187,8 @@ let nextCaption = 0;
 /** The comparison UI, loaded the first time an open image has versions. */
 let compareModule: typeof import('./compare.js') | null = null;
 let compareLoading: Promise<unknown> | null = null;
+/** The comparison could not be loaded: an image opening on another version shows the original. */
+let compareFailed = false;
 
 /** `<uvalib-image-regions>` is loaded the first time an open image has regions. */
 let regionsLoading: Promise<unknown> | null = null;
@@ -248,7 +253,9 @@ function loadRegions(): void {
  * the image's accessible name ends with the label of the version shown. `version-param`
  * (with `url-param`) keeps the comparison in the address: `?version=2` (Switch, the version
  * from 0), `?version=wipe:40` or `?version=fade:60` (the percentage of the other version
- * shown; `wipe:40:2` compares the original with version 2). A version with a different
+ * shown; `wipe:40:2` compares the original with version 2). `data-version` on a link (the
+ * same values) opens that image on that version, from a click, `open()` or Previous and
+ * Next; an address with `version-param` wins. A version with a different
  * framing (an AI-expanded frame, a crop, the whole plate) gives `frame`, the original's box
  * in it (`percent:x,y,w,h`, or pixels of its `width` × `height`): the viewer draws every
  * version at the original's scale in one box, the original lined up, and regions stay on it.
@@ -419,7 +426,8 @@ export class UvalibLightbox extends UvalibElement {
   /**
    * Versions of each image, instead of `data-versions`: called with
    * `{ element, id, href, index }`, it returns `{ label, href?, note? }` objects, the first
-   * being the link's own image (null: none).
+   * being the link's own image (null: none). The link's `data-version` still picks the
+   * version it opens on.
    */
   @property({ attribute: false }) versions?: LightboxVersions;
 
@@ -704,6 +712,7 @@ export class UvalibLightbox extends UvalibElement {
         'data-regions',
         'data-regions-list',
         'data-versions',
+        'data-version',
         'data-image-width',
         'data-image-height',
         'slot',
@@ -736,12 +745,13 @@ export class UvalibLightbox extends UvalibElement {
             s.caption === this.slides[i]?.caption &&
             s.detailsId === this.slides[i]?.detailsId &&
             s.list === this.slides[i]?.list &&
-            JSON.stringify([s.regions, s.imageWidth, s.imageHeight, s.versions]) ===
+            JSON.stringify([s.regions, s.imageWidth, s.imageHeight, s.versions, s.start]) ===
               JSON.stringify([
                 this.slides[i]?.regions,
                 this.slides[i]?.imageWidth,
                 this.slides[i]?.imageHeight,
                 this.slides[i]?.versions,
+                this.slides[i]?.start,
               ]),
         );
       this.noteEntries();
@@ -859,6 +869,7 @@ export class UvalibLightbox extends UvalibElement {
       imageWidth: positive(el.dataset.imageWidth),
       imageHeight: positive(el.dataset.imageHeight),
       versions: this.versionsOf(el, id, href, index),
+      start: normalize(el.dataset.version) || null,
     };
   }
 
@@ -887,9 +898,11 @@ export class UvalibLightbox extends UvalibElement {
     compareLoading ??= import('./compare.js')
       .then((m) => {
         compareModule = m;
+        compareFailed = false;
       })
       .catch((err) => {
         compareLoading = null;
+        compareFailed = true;
         console.warn('uvalib-lightbox: could not load the version comparison.', err);
       });
     void compareLoading.then(() => {
@@ -1760,8 +1773,10 @@ export class UvalibLightbox extends UvalibElement {
     />`;
     let controls: unknown = nothing;
     if (slide.versions) {
+      // Opening on another version: hidden until the comparison has loaded and drawn it.
+      const waiting = !this.cmp && slide.start && !compareFailed ? 'starting' : '';
       img = html`<div
-        class="stack ${cmp?.stackClass ?? ''}"
+        class="stack ${cmp?.stackClass ?? waiting}"
         slot=${outlined ? 'image' : nothing}
         style=${cmp?.stackStyle ?? nothing}
         @pointerdown=${this.onStack}

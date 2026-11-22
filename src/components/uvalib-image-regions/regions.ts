@@ -41,9 +41,14 @@ export interface RegionBox {
 /**
  * A IIIF / Media Fragments `xywh` value: `percent:10,20,30,40`, `pixel:160,120,320,240`
  * or `160,120,320,240` (pixels), optionally as `xywh=…` or a URL ending `#xywh=…`.
- * Returns null for anything else, and for a zero width or height.
+ * Returns null for anything else, and for a zero width or height. Regions are unsigned;
+ * `signed` also takes a negative `x` and `y` (a lightbox version's `frame`: the original's
+ * box in a crop starts left of or above it). The width and height stay positive.
  */
-export function parseXywh(value: string | null | undefined): RegionBox | null {
+export function parseXywh(
+  value: string | null | undefined,
+  options: { signed?: boolean } = {},
+): RegionBox | null {
   let s = String(value ?? '').trim();
   const at = s.lastIndexOf('xywh=');
   if (at >= 0) s = s.slice(at + 5);
@@ -55,7 +60,8 @@ export function parseXywh(value: string | null | undefined): RegionBox | null {
     s = s.slice(prefix[0].length);
   }
   const parts = s.split(',');
-  if (parts.length !== 4 || parts.some((p) => !/^\s*\d+(\.\d+)?\s*$/.test(p))) return null;
+  const num = options.signed ? /^\s*-?\d+(\.\d+)?\s*$/ : /^\s*\d+(\.\d+)?\s*$/;
+  if (parts.length !== 4 || parts.some((p) => !num.test(p))) return null;
   const [x, y, w, h] = parts.map(Number) as [number, number, number, number];
   if (w <= 0 || h <= 0) return null;
   return { x, y, w, h, unit };
