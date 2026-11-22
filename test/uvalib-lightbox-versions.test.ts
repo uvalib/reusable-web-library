@@ -999,13 +999,20 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
     });
 
     it('a frame still needs a positive width and height (one warning)', async () => {
-      for (const frame of ['percent:-10,-10,0,50', 'percent:-10,-10,-50,50', 'percent:10,10,50,-5']) {
+      for (const frame of [
+        'percent:-10,-10,0,50',
+        'percent:-10,-10,-50,50',
+        'percent:10,10,50,-5',
+      ]) {
         let el!: UvalibLightbox;
         const warns = await warnings(async () => {
           el = await make(shot('Street', versionsWith({ ...WIDE, frame })));
           await open(el);
         });
-        expect(warns.filter((w) => w.includes('frame')), frame).to.have.length(1);
+        expect(
+          warns.filter((w) => w.includes('frame')),
+          frame,
+        ).to.have.length(1);
         expect(framedNow(el), frame).to.equal(false);
         dialogOf(el).querySelector<HTMLButtonElement>('button.close')!.click();
         await el.updateComplete;
@@ -1247,5 +1254,223 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         });
       });
     }
+  });
+}
+
+// Issue #31: a link's starting version, `data-version` (the `version-param` format).
+for (const mode of ['shadow', 'no-shadow-dom'] as const) {
+  describe(`uvalib-lightbox starting version (${mode})`, () => {
+    const attr = mode === 'no-shadow-dom' ? 'no-shadow-dom' : '';
+    const make = (inner: string, attrs = '') =>
+      fixture<UvalibLightbox>(`<uvalib-lightbox ${attr} ${attrs}>${inner}</uvalib-lightbox>`);
+    let rec: ReturnType<typeof recordAnalytics>;
+    let events: Record<string, unknown>[];
+    const onVersion = (e: Event) => events.push((e as CustomEvent).detail);
+    const compares = () =>
+      rec.of('uvalib-analytics-event').filter((d) => (d.event as unknown[])[1] === 'compare');
+
+    /**
+     * What is on screen after every render and every frame from the click on: `original`
+     * (the original drawn, no version over it), `version` or `framed version`. Nothing while
+     * the stack is hidden. Data URLs load at once, so renders are checked as well as frames.
+     */
+    const watch = (el: Element) => {
+      const seen: string[] = [];
+      let on = true;
+      const check = () => {
+        const st = dialogOf(el)?.querySelector<HTMLElement>('.stack');
+        const b = st?.querySelector<HTMLImageElement>('img:not(.top)');
+        if (!st || !b || getComputedStyle(b).visibility === 'hidden') return;
+        const t = st.querySelector('img.top.on');
+        const state = !t
+          ? 'original'
+          : st.classList.contains('framed')
+            ? 'framed version'
+            : 'version';
+        if (seen.at(-1) !== state) seen.push(state);
+      };
+      const mo = new MutationObserver(check);
+      mo.observe(view(el), { subtree: true, childList: true, attributes: true });
+      const tick = () => {
+        if (!on) return;
+        check();
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      return {
+        seen,
+        stop: () => {
+          on = false;
+          mo.disconnect();
+        },
+      };
+    };
+
+    before(async () => {
+      const m = await import('../src/components/uvalib-lightbox/compare.js');
+      m.compareTiming.settle = 40;
+    });
+    beforeEach(() => {
+      rec = recordAnalytics();
+      events = [];
+      history.replaceState(null, '', location.pathname);
+      document.addEventListener('click', cancelNav);
+      document.addEventListener('uvalib-lightbox-version', onVersion);
+    });
+    afterEach(async () => {
+      rec.restore();
+      document.removeEventListener('click', cancelNav);
+      document.removeEventListener('uvalib-lightbox-version', onVersion);
+      for (const d of document.querySelectorAll('uvalib-lightbox'))
+        view(d).querySelector<HTMLButtonElement>('dialog[open] button.close')?.click();
+      await nextFrame();
+      history.replaceState(null, '', location.pathname);
+    });
+
+    it('a click opens on the link’s starting version: its name, note and image first; no event', async () => {
+      const el = await make(`${shot('A', `${TWO} data-version="1"`)}${shot('B')}`);
+      const frames = watch(el);
+      el.querySelector('a')!.click();
+      await el.updateComplete;
+      await waitUntil(() => compareOf(el), 'comparison shown');
+      await el.updateComplete;
+      expect(pressed(el, 'Compare versions')).to.deep.equal(['Switch']);
+      expect(pressed(el, 'Version shown')).to.deep.equal(['AI colorization']);
+      expect(baseImg(el).getAttribute('alt')).to.equal('A (AI colorization)');
+      expect(notes(el)).to.deep.equal([`AI colorization: ${NOTE}`]);
+      await loadedTop(el);
+      await nextFrame();
+      await nextFrame();
+      frames.stop();
+      expect(frames.seen).to.deep.equal(['version']);
+      expect(fullLinks(el).map((l) => l.text)).to.deep.equal([
+        'Full size, Original (opens in a new tab)',
+        'Full size, AI colorization (opens in a new tab)',
+      ]);
+      await settle();
+      expect(events).to.deep.equal([]);
+      expect(compares()).to.deep.equal([]);
+      expect(status(el)).to.equal('');
+      // The visitor can still go back to the original.
+      btn(el, 'Version shown', 'Original').click();
+      await el.updateComplete;
+      expect(events).to.deep.equal([{ id: 'A', mode: 'switch', index: 0, value: null }]);
+    });
+
+    it('Reveal and Fade starts: wipe:50, fade:30:2', async () => {
+      const el = await make(
+        `${shot('A', `${TWO} data-version="wipe:50"`)}${shot('B', `${THREE} data-version="fade:30:2"`)}`,
+      );
+      el.querySelector('a')!.click();
+      await waitUntil(() => compareOf(el), 'comparison shown');
+      await el.updateComplete;
+      expect(pressed(el, 'Compare versions')).to.deep.equal(['Reveal']);
+      expect(range(el).value).to.equal('50');
+      await loadedTop(el);
+      await el.updateComplete;
+      expect(baseImg(el).getAttribute('alt')).to.equal(
+        'A (Original and AI colorization, compared side by side)',
+      );
+      dialogOf(el).querySelector<HTMLButtonElement>('button.next')!.click();
+      await el.updateComplete;
+      await el.updateComplete;
+      expect(pressed(el, 'Compare versions')).to.deep.equal(['Fade']);
+      expect(pressed(el, 'Compare Original with')).to.deep.equal(['Infrared']);
+      expect(range(el).value).to.equal('30');
+      await loadedTop(el, 2);
+      await settle();
+      expect(events).to.deep.equal([]);
+      expect(compares()).to.deep.equal([]);
+    });
+
+    it('open() honours it; Previous and Next arrive on each link’s own start', async () => {
+      const el = await make(
+        `${shot('A', `${TWO} data-version="1"`)}${shot('B', TWO)}${shot('C', `${THREE} data-version="2"`)}`,
+      );
+      expect(el.open('A')).to.equal(true);
+      await waitUntil(() => compareOf(el), 'comparison shown');
+      await el.updateComplete;
+      expect(pressed(el, 'Version shown')).to.deep.equal(['AI colorization']);
+      const step = async (cls: string) => {
+        dialogOf(el).querySelector<HTMLButtonElement>(`button.${cls}`)!.click();
+        await el.updateComplete;
+        await el.updateComplete;
+        return pressed(el, 'Version shown');
+      };
+      expect(await step('next')).to.deep.equal(['Original']);
+      expect(await step('next')).to.deep.equal(['Infrared']);
+      expect(await step('prev')).to.deep.equal(['Original']);
+      expect(await step('prev')).to.deep.equal(['AI colorization']);
+      await settle();
+      expect(events).to.deep.equal([]);
+      expect(compares()).to.deep.equal([]);
+    });
+
+    it('a version-param in the address wins on a restore; a click uses the start', async () => {
+      history.replaceState(null, '', `${location.pathname}?photo=A&version=fade:60`);
+      const el = await make(
+        `${shot('A', `${TWO} data-version="1"`)}`,
+        'url-param="photo" version-param="version"',
+      );
+      await waitUntil(() => compareOf(el), 'restored');
+      await el.updateComplete;
+      expect(pressed(el, 'Compare versions')).to.deep.equal(['Fade']);
+      expect(range(el).value).to.equal('60');
+      dialogOf(el).querySelector<HTMLButtonElement>('button.close')!.click();
+      await el.updateComplete;
+      await waitUntil(() => !location.search.includes('photo'), 'closed');
+      el.querySelector('a')!.click();
+      await el.updateComplete;
+      await el.updateComplete;
+      expect(pressed(el, 'Compare versions')).to.deep.equal(['Switch']);
+      expect(pressed(el, 'Version shown')).to.deep.equal(['AI colorization']);
+      // The start is not written to the address: it is not the visitor's change.
+      expect(location.search).to.equal('?photo=A');
+      expect(events).to.deep.equal([]);
+    });
+
+    it('an unusable start is ignored with one warning: the original first', async () => {
+      let el!: UvalibLightbox;
+      const warns = await warnings(async () => {
+        el = await make(
+          `${shot('A', `${TWO} data-version="7"`)}${shot('B', `${TWO} data-version="nope"`)}${shot('C', `${TWO} data-version="wipe:50:4"`)}`,
+        );
+        el.querySelector('a')!.click();
+        await waitUntil(() => compareOf(el), 'comparison shown');
+        await el.updateComplete;
+        expect(pressed(el, 'Version shown'), 'A').to.deep.equal(['Original']);
+        for (const name of ['B', 'C']) {
+          dialogOf(el).querySelector<HTMLButtonElement>('button.next')!.click();
+          await el.updateComplete;
+          await el.updateComplete;
+          expect(pressed(el, 'Compare versions'), name).to.deep.equal(['Switch']);
+          expect(pressed(el, 'Version shown'), name).to.deep.equal(['Original']);
+        }
+      });
+      expect(warns.filter((w) => w.includes('data-version'))).to.have.length(1);
+    });
+
+    it('a framed start (the original first, the link opens on its expanded frame): framed from the first paint', async () => {
+      const el = await make(`${shot('Street', `${versionsWith(WIDE)} data-version="1"`)}`);
+      const frames = watch(el);
+      el.querySelector('a')!.click();
+      await waitUntil(() => compareOf(el), 'comparison shown');
+      await el.updateComplete;
+      expect(baseImg(el).getAttribute('alt')).to.equal('Street (Expanded frame)');
+      expect(notes(el)).to.deep.equal(['Expanded frame: Painted.']);
+      await loadedTop(el);
+      await waitUntil(() => stackOf(el).classList.contains('framed'), 'framed');
+      await el.updateComplete;
+      await nextFrame();
+      await nextFrame();
+      frames.stop();
+      expect(frames.seen).to.deep.equal(['framed version']);
+      const o = rectOf(baseImg(el));
+      const s = rectOf(stackOf(el));
+      near(s.w, o.w * 2, 'the box holds the expanded frame');
+      sameRect(rectOf(top(el)), s, 'the version fills the box');
+      sameRect(originalIn(top(el), [25, 25, 50, 50]), o, 'the original lines up');
+      expect(events).to.deep.equal([]);
+    });
   });
 }

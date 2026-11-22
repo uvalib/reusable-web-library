@@ -103,6 +103,18 @@ export interface CompareSlide {
   id: string;
   href: string;
   versions: string | unknown[] | null;
+  /** `data-version`: the comparison the image opens on (the `version-param` format). */
+  start?: string | null;
+}
+
+/** A comparison state: `version-param`'s value, parsed. */
+interface State {
+  mode: CompareMode;
+  /** The version shown (Switch). */
+  shown: number;
+  /** The version compared (Reveal, Fade), and the percentage of it shown. */
+  other: number;
+  value: number;
 }
 
 const norm = (s: unknown) => (typeof s === 'string' ? s.replace(/\s+/g, ' ').trim() : '');
@@ -231,7 +243,7 @@ const look = (h: string) => `
     outline-offset: 2px;
   }
   ${h} .note { font-size: 0.9375rem; line-height: 1.5; }
-  ${h} .stack.framed {
+  ${h} .stack.framed:not(.starting) {
     background: repeating-linear-gradient(135deg, transparent 0 7px, rgb(128 128 128 / 0.2) 7px 9px);
   }
   @media (prefers-reduced-motion: no-preference) {
@@ -279,6 +291,9 @@ export class Compare {
   private id = '';
   private warned = false;
   private warnedFrame = false;
+  private warnedStart = false;
+  /** The image opened on another version (`data-version`): hidden until that version is drawn. */
+  private startPending = false;
   private geo: Framing | null = null;
   private baseHref = '';
   /** The mode the visitor (or the address) chose; else the lightbox's `compare`. */
@@ -331,6 +346,9 @@ export class Compare {
       this.value = this.mode === 'wipe' ? 50 : 0;
       this.need();
       this.settled = this.encode();
+      // The link's own start, unless the address says otherwise.
+      const fromUrl = restore != null && this.active && this.parseState(restore, false);
+      if (slide.start && this.active && !fromUrl) this.begin(slide.start);
     }
     if (restore != null && this.active) this.restore(restore);
   }
@@ -351,6 +369,7 @@ export class Compare {
     this.failed = new Set();
     this.message = '';
     this.pendingAnnounce = false;
+    this.startPending = false;
   }
 
   private parse(slide: CompareSlide): Version[] {
@@ -420,30 +439,86 @@ export class Compare {
    */
   private natural(): { w: number; h: number } | null {
     if (!this.geo) return null;
-    const scope = (this.host.light ? this.host.el : this.host.root) as ParentNode;
-    const img = scope.querySelector<HTMLImageElement>('dialog .stack > img:not(.top)');
+    const img = this.baseImg();
     if (!img?.complete || !img.naturalWidth || !img.naturalHeight) return null;
-    if (img.getAttribute('src') !== this.host.size(this.baseHref)) return null;
     return { w: img.naturalWidth, h: img.naturalHeight };
   }
 
-  /** `2`, `switch:2`, `wipe:40`, `fade:60`, `wipe:40:2` (the version compared, from 1). */
-  private restore(param: string): void {
+  /**
+   * `2`, `switch:2`, `wipe:40`, `fade:60`, `wipe:40:2` (the version compared, from 1), or
+   * null. `strict` (`data-version`) refuses what the address forgives: a percentage over 100
+   * or a version compared that does not exist.
+   */
+  private parseState(param: string, strict: boolean): State | null {
     const m = /^(?:(switch|wipe|fade):)?(\d{1,3})(?::(\d{1,3}))?$/.exec(param.trim().toLowerCase());
-    if (!m) return;
+    if (!m) return null;
     const mode = (m[1] ?? 'switch') as CompareMode;
     const n = Number(m[2]);
-    if (mode === 'switch') {
-      if (n >= this.list.length) return;
-      this.shown = n;
-    } else {
-      const other = m[3] ? Number(m[3]) : 1;
-      this.other = other >= 1 && other < this.list.length ? other : 1;
-      this.value = clamp(n);
-    }
-    this.mode = this.chosen = mode;
+    if (mode === 'switch')
+      return n < this.list.length && !m[3]
+        ? { mode, shown: n, other: this.other, value: this.value }
+        : null;
+    const other = m[3] ? Number(m[3]) : 1;
+    const ok = other >= 1 && other < this.list.length;
+    if (strict && (!ok || n > 100)) return null;
+    return { mode, shown: this.shown, other: ok ? other : 1, value: clamp(n) };
+  }
+
+  private apply(st: State): void {
+    this.mode = st.mode;
+    this.shown = st.shown;
+    this.other = st.other;
+    this.value = st.value;
     this.need();
     this.settled = this.encode();
+  }
+
+  /** The comparison from the address: the visitor's mode from now on. */
+  private restore(param: string): void {
+    const st = this.parseState(param, false);
+    if (!st) return;
+    this.apply(st);
+    this.chosen = st.mode;
+  }
+
+  /**
+   * The link's starting version (`data-version`): not the visitor's change, so no event, no
+   * analytics, nothing written to the address, and the mode chosen stays for other images.
+   */
+  private begin(start: string): void {
+    const st = this.parseState(start, true);
+    if (!st) {
+      if (!this.warnedStart) {
+        this.warnedStart = true;
+        console.warn(
+          `uvalib-lightbox: data-version "${start.slice(0, 40)}" is not a version of its image (1, wipe:50, fade:50, wipe:40:2); it opens on the original.`,
+        );
+      }
+      return;
+    }
+    this.apply(st);
+    this.startPending = this.amount > 0;
+  }
+
+  /** The open image's own image element (the original). */
+  private baseImg(): HTMLImageElement | null {
+    const scope = (this.host.light ? this.host.el : this.host.root) as ParentNode;
+    const img = scope.querySelector<HTMLImageElement>('dialog .stack > img:not(.top)');
+    return img && img.getAttribute('src') === this.host.size(this.baseHref) ? img : null;
+  }
+
+  /**
+   * Opening on another version: the photo stays hidden until that version (and the
+   * original, which sizes a framed stack) has loaded, so the original never flashes first.
+   */
+  private get starting(): boolean {
+    if (!this.startPending || this.failed.has(this.top)) return false;
+    return !(this.ready.has(this.top) && this.baseImg()?.complete);
+  }
+
+  /** The percentage of the top version named and noted: the start's at once, else what is drawn. */
+  private get named(): number {
+    return this.startPending && !this.failed.has(this.top) ? this.amount : this.seen;
   }
 
   private encode(): string {
@@ -482,6 +557,7 @@ export class Compare {
   private set(v: number, announce: boolean): void {
     const next = clamp(v);
     if (next === this.value) return;
+    this.startPending = false;
     this.value = next;
     this.need();
     this.host.update();
@@ -491,6 +567,7 @@ export class Compare {
   }
 
   private change(fn: () => void): void {
+    this.startPending = false;
     fn();
     this.need();
     this.host.update();
@@ -646,7 +723,7 @@ export class Compare {
 
   /** The image's accessible name ends with what is on screen. */
   alt(base: string): string {
-    const a = this.seen;
+    const a = this.named;
     const l0 = this.label(0);
     const lk = this.label(this.top);
     const what =
@@ -659,14 +736,15 @@ export class Compare {
   }
 
   get stackClass(): string {
+    const starting = this.starting ? ' starting' : '';
     const geo = this.natural() ? this.geo : null;
-    if (!geo) return `compare-${this.mode}`;
+    if (!geo) return `compare-${this.mode}${starting}`;
     const on = this.seen > 0;
     // A version that does not cover the whole original (a crop): Switch hides the original;
     // Reveal shows only the version on its side of the divider, the pattern around it.
     const part = on && !geo.covers[this.top];
     const hide = this.mode === 'switch' && part && this.seen >= 100;
-    return `compare-${this.mode} framed${on ? ' top-on' : ''}${hide ? ' hide-base' : ''}${part && this.mode === 'wipe' ? ' top-part' : ''}`;
+    return `compare-${this.mode} framed${on ? ' top-on' : ''}${hide ? ' hide-base' : ''}${part && this.mode === 'wipe' ? ' top-part' : ''}${starting}`;
   }
 
   get stackStyle(): string {
@@ -734,7 +812,7 @@ export class Compare {
 
   /** Notes of the versions on screen, then the controls. `slot` puts them under regions' image. */
   controls(slot: string) {
-    const a = this.seen;
+    const a = this.named;
     const top = this.top;
     // Every note keeps its line (hidden while its version is not on screen), so showing
     // another version never moves the photo or the controls.
