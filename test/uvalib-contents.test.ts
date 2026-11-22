@@ -3,6 +3,7 @@ import { sendKeys, setViewport } from '@web/test-runner-commands';
 import '../src/components/uvalib-contents/uvalib-contents.js';
 import type { UvalibContents } from '../src/components/uvalib-contents/UvalibContents.js';
 import { expectNoAxeViolations } from './helpers/axe.js';
+import { wrapStyle } from './helpers/text-wrap.js';
 import { recordAnalytics } from './helpers/analytics.js';
 import { inDarkMode } from './helpers/dark.js';
 
@@ -270,6 +271,19 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
         document.removeEventListener('uvalib-contents-navigate', route);
         el.removeEventListener('click', spy);
       }
+    });
+
+    it('balances the headline, but not the narrow disclosure button', async () => {
+      const el = await make();
+      await settle(el);
+      const headline = () => nav(el).querySelector('.headline')!;
+      const balance = wrapStyle(headline(), 'balance');
+      if (balance === null) return;
+      expect(balance).to.equal('balance');
+      await setViewport({ width: 600, height: 800 });
+      await settle(el);
+      expect(el.hasAttribute('data-narrow')).to.equal(true);
+      expect(wrapStyle(headline(), 'balance')).to.not.equal('balance');
     });
 
     describe('narrow screens', () => {

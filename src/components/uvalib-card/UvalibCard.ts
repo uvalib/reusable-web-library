@@ -240,10 +240,16 @@ export class UvalibCard extends UvalibElement {
         padding: 1rem 1.25rem;
         flex: 1 1 auto;
       }
+      /* Short heading: balanced lines. Longer excerpt: no one-word last line. Both are
+         look, not structure (dropped with no-style), and ignored where unsupported. */
       .title {
         font-size: 1.25rem;
         line-height: 1.3;
         font-weight: 600;
+        text-wrap: balance;
+      }
+      .excerpt {
+        text-wrap: pretty;
       }
       .title-link {
         color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));

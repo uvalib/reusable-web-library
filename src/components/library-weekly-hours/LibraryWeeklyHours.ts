@@ -142,6 +142,7 @@ export class LibraryWeeklyHours extends UvalibElement {
         font-size: 1.25rem;
         font-weight: bold;
         color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
+        text-wrap: balance;
       }
     `,
   ];

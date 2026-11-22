@@ -215,6 +215,7 @@ export class UvalibFilterDrawer extends UvalibElement {
       font-size: 1.25rem;
       line-height: 1.2;
       overflow-wrap: anywhere;
+      text-wrap: balance;
     }
     .fd-panel > .fd-body {
       padding: 1rem;

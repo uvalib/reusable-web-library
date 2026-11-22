@@ -188,6 +188,11 @@ export class UvalibContents extends UvalibElement {
         font-weight: 700;
         line-height: 1.3;
       }
+      /* Balanced, but not when narrow: the headline is then a bordered button, and balanced
+         lines would leave empty space inside its box. */
+      :host(:not([data-narrow])) .headline {
+        text-wrap: balance;
+      }
       .panel {
         max-height: var(--uvalib-contents-max-height, none);
         overflow-y: auto;

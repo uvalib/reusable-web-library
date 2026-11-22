@@ -170,6 +170,7 @@ export class EventsSection extends UvalibElement {
         font-size: 1rem;
         line-height: 1.3;
         color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
+        text-wrap: balance;
       }
       .event-time {
         grid-area: 2 / 2 / 3 / 3;
