@@ -1482,6 +1482,31 @@ ${[286686, 286687, 286688, 286689].map((id, i) => pageLink(String(id), i + 2)).j
     },
   },
   {
+    id: 'image-versions',
+    group: 'Images',
+    title: 'Image versions',
+    description:
+      'data-versions on a lightbox link names other versions of the same picture (an AI colorization, a restoration, an infrared capture), and the viewer compares them over the photo: Reveal moves a divider (click or tap the photo, or use the slider: arrows, Shift+arrow, Home and End), Fade cross-fades, and Switch shows one at a time. compare="wipe" starts with Reveal. The other version loads only when it is first shown, the image keeps its place, and its accessible name ends with what is on screen. version-param="version" keeps the comparison in the address (?version=wipe:40). Here the second version is the same Library IIIF image in its bitonal quality; a real colorization would add a note saying the colours are an AI model’s guess.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Image versions',
+          components: ['uvalib-lightbox'],
+          body: `    <site-page>
+      <h1>Lawn games, two ways</h1>
+      <uvalib-lightbox url-param="photo" version-param="version" compare="wipe">
+        <a href="${iiif('1040162', '!1600,1600')}" data-caption="Lawn games" data-versions='[{"label":"Original"},{"label":"Bitonal","href":"${iiif('1040162', '!1600,1600').replace('default.jpg', 'bitonal.jpg')}","note":"The IIIF server’s bitonal rendering: every pixel black or white."}]'><img src="${iiif('1040162', ',200')}" alt="Lawn games" width="249" height="200" loading="lazy"></a>
+        <p slot="details">
+          Holsinger Studio Collection (MSS 9862), Albert and Shirley Small Special Collections
+          Library, University of Virginia. Shown from the Library's IIIF image server.
+        </p>
+      </uvalib-lightbox>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'places-map',
     group: 'Maps',
     title: 'Map: places on Grounds',
