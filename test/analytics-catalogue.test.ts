@@ -412,6 +412,31 @@ describe('analytics catalogue', () => {
         expect((el.shadowRoot ?? el).querySelector('dialog')!.open).to.equal(true);
         expect(events(), 'reported on restore').to.deep.equal([]);
       });
+
+      it('compare: the mode and the version place, never its label or URL; not on open or restore', async () => {
+        history.replaceState(null, '', `${location.pathname}?photo=1&version=fade:40`);
+        const versions = `data-versions='[{"label":"Original"},{"label":"Secret colour","href":"${PNG}"}]'`;
+        const el = await fixture<HTMLElement & { updateComplete: Promise<unknown> }>(
+          `<uvalib-lightbox ${attr(mode)} url-param="photo" version-param="version"><a href="${PNG}" data-id="1" ${versions}><img alt="Page one" width="2" height="1"></a></uvalib-lightbox>`,
+        );
+        const r = root(el);
+        await waitUntil(() => r.querySelector('.compare'), 'comparison shown');
+        await el.updateComplete;
+        expect(events(), 'reported on restore').to.deep.equal([]);
+        const seg = (name: string) =>
+          [...r.querySelectorAll<HTMLButtonElement>('.compare button.seg')].find(
+            (b) => b.textContent!.trim() === name,
+          )!;
+        seg('Switch').click();
+        await el.updateComplete;
+        seg('Reveal').click();
+        await el.updateComplete;
+        expect(events()).to.deep.equal([
+          ['uvalib-lightbox', 'compare', 'switch', 1],
+          ['uvalib-lightbox', 'compare', 'wipe', 2],
+        ]);
+        expect(JSON.stringify(events())).to.not.match(/data:|Secret|Original|Page/);
+      });
     });
 
     describe(`uvalib-filter (${mode})`, () => {

@@ -40,9 +40,9 @@ const structuralRules = (host: string) => `
     gap: 1rem;
     align-items: flex-start;
   }
+  ${host} .column { flex: 0 1 auto; min-width: 0; max-width: 100%; }
   ${host} .media {
     position: relative;
-    flex: 0 1 auto;
     width: fit-content;
     min-width: 0;
     max-width: 100%;
@@ -159,6 +159,7 @@ const entryStyles = unsafeCSS(entryRules(''));
  * @tagname uvalib-image-regions
  * @slot - The region list (`<ol>` with `<li data-xywh>`), shown as written. Not used with `items`.
  * @slot image - The image. A first `<img>` or `<picture>` child is put here by itself.
+ * @slot controls - Controls for the image (a lightbox's version comparison), under the image and before the list in reading order. Not covered by the outlines.
  * @csspart layout - The grid holding the image and the list.
  * @csspart media - The image and its overlay.
  * @csspart overlay - The outlines over the image (`aria-hidden`).
@@ -370,6 +371,10 @@ export class UvalibImageRegions extends UvalibElement {
     return this.lightDom ? this.querySelector(':scope > .layout .list-host') : null;
   }
 
+  private get controlsHost(): HTMLElement | null {
+    return this.lightDom ? this.querySelector(':scope > .layout .controls-host') : null;
+  }
+
   /** The `<img>` whose natural size measures pixel regions. */
   private imageEl(): HTMLImageElement | null {
     if (this.src) return this.renderRoot.querySelector<HTMLImageElement>('.media > img');
@@ -459,6 +464,8 @@ export class UvalibImageRegions extends UvalibElement {
     const list = this.items ? null : this.sourceList();
     const listHost = this.listHost;
     if (list && listHost && list.parentElement !== listHost) listHost.append(list);
+    const controls = this.querySelector(':scope > [slot="controls"]');
+    if (controls) this.controlsHost?.append(controls);
   }
 
   private watchImage(img: HTMLImageElement | null): void {
@@ -684,30 +691,33 @@ export class UvalibImageRegions extends UvalibElement {
         : html`<slot @slotchange=${() => this.sync()}></slot>`;
     const hasActive = this.active >= 0 && !!this.entries[this.active]?.box;
     return html`<div class="layout" part="layout">
-      <div class="media" part="media">
-        ${image}
-        <div
-          class="overlay ${hasActive ? 'has-active' : ''}"
-          part="overlay"
-          aria-hidden="true"
-          ?hidden=${this.hideOutlines}
-        >
-          ${this.entries.map((e, i) =>
-            e.box
-              ? html`<div
-                  class="region ${i === this.active ? 'active' : ''}"
-                  part="region"
-                  data-index=${i}
-                >
-                  <span class="badge ${numbers ? '' : 'no-number'}"
-                    >${numbers ? html`<span class="number">${e.number}</span>` : nothing}${
-                      e.item.label ? html`<span class="name">${e.item.label}</span>` : nothing
-                    }</span
+      <div class="column">
+        <div class="media" part="media">
+          ${image}
+          <div
+            class="overlay ${hasActive ? 'has-active' : ''}"
+            part="overlay"
+            aria-hidden="true"
+            ?hidden=${this.hideOutlines}
+          >
+            ${this.entries.map((e, i) =>
+              e.box
+                ? html`<div
+                    class="region ${i === this.active ? 'active' : ''}"
+                    part="region"
+                    data-index=${i}
                   >
-                </div>`
-              : nothing,
-          )}
+                    <span class="badge ${numbers ? '' : 'no-number'}"
+                      >${numbers ? html`<span class="number">${e.number}</span>` : nothing}${
+                        e.item.label ? html`<span class="name">${e.item.label}</span>` : nothing
+                      }</span
+                    >
+                  </div>`
+                : nothing,
+            )}
+          </div>
         </div>
+        ${light ? html`<div class="controls-host"></div>` : html`<slot name="controls"></slot>`}
       </div>
       <div class="list" part="list">
         <div class="heading" role="heading" aria-level=${this.level} id=${this.headingId}>

@@ -1,4 +1,4 @@
-import { expect } from '@open-wc/testing';
+import { expect, waitUntil } from '@open-wc/testing';
 import { countMain, mount, whenAllDefined } from './helpers/page-probe.js';
 import { setClock } from './helpers/hours.js';
 import { expectNoPageAxeViolations } from './helpers/axe.js';
@@ -60,6 +60,7 @@ describe('playground presets', function () {
       'photo-grid-badges',
       'page-images',
       'image-regions',
+      'image-versions',
       'places-map',
       'search-facets',
       'search-results',
@@ -134,7 +135,7 @@ describe('playground presets', function () {
       Chips: ['chip-groups'],
       Contents: ['contents-sidebar', 'contents-headings'],
       Metadata: ['record-metadata'],
-      Images: ['photo-grid', 'photo-grid-badges', 'page-images', 'image-regions'],
+      Images: ['photo-grid', 'photo-grid-badges', 'page-images', 'image-regions', 'image-versions'],
       Maps: ['places-map'],
       Search: [
         'search-facets',
@@ -739,6 +740,46 @@ describe('playground presets', function () {
       } finally {
         iframe.remove();
       }
+    }
+  });
+
+  it('image versions: the viewer compares the two versions over the photo', async function () {
+    this.timeout(10000);
+    const p = presets.find((x) => x.id === 'image-versions')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    try {
+      const doc = iframe.contentDocument!;
+      const win = iframe.contentWindow!;
+      await whenAllDefined(win, ['site-page', 'uvalib-lightbox']);
+      type Lit = HTMLElement & { updateComplete: Promise<unknown>; shadowRoot: ShadowRoot };
+      const box = doc.querySelector('uvalib-lightbox') as Lit;
+      const thumb = box.querySelector('img')!;
+      expect([thumb.getAttribute('width'), thumb.getAttribute('height')]).to.deep.equal([
+        '249',
+        '200',
+      ]);
+      box.querySelector('a')!.addEventListener('click', (e) => e.preventDefault());
+      box.querySelector('a')!.click();
+      await box.updateComplete;
+      const dialog = box.shadowRoot.querySelector('dialog')!;
+      expect(dialog.open).to.equal(true);
+      await waitUntil(() => dialog.querySelector('.compare'), 'comparison shown', {
+        timeout: 5000,
+      });
+      const range = dialog.querySelector<HTMLInputElement>('.compare input[type="range"]')!;
+      expect(dialog.querySelector(`label[for="${range.id}"]`)!.textContent!.trim()).to.equal(
+        'Reveal Bitonal',
+      );
+      const top = dialog.querySelector<HTMLImageElement>('.stack img.top')!;
+      expect(top.getAttribute('src')).to.include('/bitonal.jpg');
+      await waitUntil(() => top.classList.contains('on'), 'other version drawn', { timeout: 5000 });
+      await new Promise((r) => setTimeout(r, 300));
+      await expectNoPageAxeViolations(doc);
+      box.shadowRoot.querySelector<HTMLButtonElement>('button.close')!.click();
+      await box.updateComplete;
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
     }
   });
 
