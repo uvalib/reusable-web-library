@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.7.0 — 2026-11-22
+
+### Features
+
+- details stay in the page; open(), close() and open/close events (issues #27, #26)
+- versions with a different framing: frame says where the original sits (issue #28)
+
+### Other
+
+- Merge branch 'integrate/lightbox-1.7': lightbox open()/close() and events (#26), details kept in the page (#27), version framing (#28), React docs (#29)
+- Merge branch 'feat/version-framing' into integrate/lightbox-1.7
+- Merge branch 'feat/lightbox-api-details' into integrate/lightbox-1.7
+
 ## v1.6.0 — 2026-11-22
 
 ### Features
