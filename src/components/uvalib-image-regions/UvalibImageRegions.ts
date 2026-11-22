@@ -189,6 +189,7 @@ export class UvalibImageRegions extends UvalibElement {
         font-size: 1.125rem;
         font-weight: 700;
         line-height: 1.3;
+        text-wrap: balance;
       }
       .items {
         padding-inline-start: 1.75rem;
@@ -200,6 +201,7 @@ export class UvalibImageRegions extends UvalibElement {
         display: block;
         color: var(--uva-color-text-muted, #4b5563);
         font-size: 0.9375rem;
+        text-wrap: pretty;
       }
       @media (prefers-reduced-motion: no-preference) {
         .region {

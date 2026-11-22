@@ -24,9 +24,6 @@ const structuralRules = (host: string) => `
     margin: 0;
     padding: 0;
   }
-  @media (max-width: 767px) {
-    ${host}:not([row-height]) { --_row: 140px; }
-  }
   ${host}::after {
     content: "";
     flex-grow: 1000000000;
@@ -43,13 +40,24 @@ const shadowStructure = unsafeCSS(structuralRules(':host'));
  * Rules for the thumbnails themselves. They live in light DOM, including inside a shadow
  * root's slot, so shadow CSS cannot reach the image. Kept even with `no-style`: the ratio
  * is what stops the page jumping.
+ *
+ * The shorter phone row follows the grid's own width, not the viewport's: the grid is a
+ * size container, and below 48rem (767px at the usual 16px root) its photos and its
+ * `::after` (a pseudo-element can query its own element) take 140px rows, so a grid in a
+ * sidebar or a drawer gets them too. A container cannot query itself, so the row is set on
+ * those children rather than on the grid. The container is declared here, in the same
+ * sheet as the query, so the name matches in shadow DOM too. The grid is a block-level flex
+ * box, so inline-size containment changes nothing in normal flow; in a shrink-wrapped flex
+ * or grid item, give it a width.
  */
 const descendantRules = (tag: string) => `
   ${tag} {
     --_row: var(--uvalib-photo-row, 220px);
+    container: uvalib-photo-grid / inline-size;
   }
-  @media (max-width: 767px) {
-    ${tag}:not([row-height]) { --_row: 140px; }
+  @container uvalib-photo-grid (width < 48rem) {
+    ${tag}:not([row-height]) > *,
+    ${tag}:not([row-height])::after { --_row: 140px; }
   }
   ${tag} > a, ${tag} > button {
     flex: calc(var(--ar, 1) * 1000) 1 calc(var(--_row) * var(--ar, 1));
@@ -145,7 +153,7 @@ const LENGTH = /^\d+(\.\d+)?(px|rem|em|vh|vw|vmin|vmax|ch|%)?$/;
  * Justified rows of thumbnails. Each direct child that is a link or a button is one photo;
  * its image keeps its shape from the `width` and `height` attributes, or from the loaded
  * image, so the row does not jump when the picture arrives. The row is about 220px tall and
- * shorter on a phone; `row-height` sets that height.
+ * shorter when the grid is narrow (a phone, a sidebar); `row-height` sets that height.
  *
  * Every item stays a real link or button. An image with no visible text gets a visible
  * caption from its alt (the caption is then the accessible name, and a repeated alt is
@@ -174,8 +182,8 @@ export class UvalibPhotoGrid extends UvalibElement {
 
   /**
    * Row height. A bare number is pixels (`220` is 220px); `px`, `rem`, `em`, `vh`, `vw`,
-   * `vmin`, `vmax`, `ch` and `%` are kept. Empty uses 220px, or 140px when the viewport is
-   * 767px or narrower.
+   * `vmin`, `vmax`, `ch` and `%` are kept. Empty uses 220px, or 140px when the grid itself
+   * is narrower than 48rem (a phone, a sidebar, a drawer).
    */
   @property({ attribute: 'row-height' }) rowHeight = '';
 

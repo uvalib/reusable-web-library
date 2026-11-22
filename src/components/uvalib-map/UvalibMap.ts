@@ -897,7 +897,7 @@ export class UvalibMap extends UvalibElement {
       const t = (this.hitOf(a) + this.hitOf(b)) / 2 + GROUP_GAP;
       return Math.abs(p.x - q.x) < t && Math.abs(p.y - q.y) < t;
     };
-    const sorted = [...idx].sort(byCount);
+    const sorted = idx.toSorted(byCount);
     const out: number[][] = [];
     const taken = new Set<number>();
     for (const i of sorted) {
@@ -971,7 +971,7 @@ export class UvalibMap extends UvalibElement {
     this.groupOf.clear();
     for (const c of this.cluster(idx, map.getZoom())) {
       if (c.length < 2) continue;
-      const key = [...c].sort((a, b) => a - b).join(',');
+      const key = c.toSorted((a, b) => a - b).join(',');
       groups.set(key, this.groups.get(key) ?? this.makeGroup(key, c));
       for (const i of c) this.groupOf.set(i, key);
     }

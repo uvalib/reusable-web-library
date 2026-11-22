@@ -1,6 +1,7 @@
 import { css, html, nothing, unsafeCSS, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { trackEvent } from '../../base/analytics.js';
+import { attachStateInternals, setState } from '../../base/states.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
 import { accessible } from '../../styles/accessible.js';
@@ -260,9 +261,12 @@ function loadRegions(): void {
  * in it (`percent:x,y,w,h`, or pixels of its `width` × `height`): the viewer draws every
  * version at the original's scale in one box, the original lined up, and regions stay on it.
  *
+ * Pages can style the element while the viewer is open with `:state(open)`.
+ *
  * @tagname uvalib-lightbox
  * @slot - The image links. A plain click opens the viewer; without JavaScript they open the image.
  * @slot details - Details for the open image. `data-for` selects one item by its id or position (from 1); without it the details show for every image.
+ * @cssstate open - The viewer is open.
  * @csspart dialog - The modal dialog.
  * @csspart panel - The surface inside the dialog.
  * @csspart caption - The caption that names the dialog.
@@ -312,6 +316,7 @@ export class UvalibLightbox extends UvalibElement {
         font-size: 1.125rem;
         line-height: 1.4;
         font-weight: 600;
+        text-wrap: balance;
       }
       .count {
         font-variant-numeric: tabular-nums;
@@ -455,6 +460,7 @@ export class UvalibLightbox extends UvalibElement {
   @state() private showRegions = true;
 
   private readonly captionId = `uvalib-lightbox-caption-${++nextCaption}`;
+  private readonly internals = attachStateInternals(this);
   /** Where the dialog is rendered. Light DOM renders here so the author's links stay put. */
   private mount?: HTMLElement;
   private trigger: HTMLAnchorElement | null = null;
@@ -614,6 +620,7 @@ export class UvalibLightbox extends UvalibElement {
 
   protected override updated(changed: PropertyValues): void {
     super.updated(changed);
+    if (changed.has('shown')) setState(this.internals, 'open', this.shown);
     if (changed.has('selector')) this.watch();
     if (
       (changed.has('regions') || changed.has('regionsList') || changed.has('versions')) &&

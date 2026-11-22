@@ -221,7 +221,7 @@ export function resetHoursCache(): void {
 /** Libraries by priority placement (missing last), then title. Returns a new array. */
 export function sortLibraries(libs: readonly LibraryInfo[]): LibraryInfo[] {
   const rank = (l: LibraryInfo) => l.priorityPlacement || Infinity;
-  return [...libs].sort((a, b) => rank(a) - rank(b) || a.title.localeCompare(b.title));
+  return libs.toSorted((a, b) => rank(a) - rank(b) || a.title.localeCompare(b.title));
 }
 
 // --- dates: all arithmetic on YYYY-MM-DD strings, in UTC -------------------------------

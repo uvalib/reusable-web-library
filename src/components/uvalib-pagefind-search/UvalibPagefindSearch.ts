@@ -157,7 +157,9 @@ export class UvalibPagefindSearch extends HTMLElement {
   private readonly onPopState = () => this.followUrl();
 
   private newReady(): Promise<PagefindUIInstance> {
-    return new Promise((r) => (this.resolveReady = r));
+    const { promise, resolve } = Promise.withResolvers<PagefindUIInstance>();
+    this.resolveReady = resolve;
+    return promise;
   }
 
   /**

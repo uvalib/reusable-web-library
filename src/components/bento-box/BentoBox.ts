@@ -148,6 +148,7 @@ export class BentoBox extends UvalibElement {
         font-size: 1.5rem;
         font-weight: 500;
         line-height: 1.3;
+        text-wrap: balance;
       }
       .bs-search-term {
         font-style: italic;

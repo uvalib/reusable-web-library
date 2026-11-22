@@ -1,6 +1,7 @@
 import { css, html, nothing, type PropertyValues } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { trackEvent } from '../../base/analytics.js';
+import { attachStateInternals, setState } from '../../base/states.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 
 const TAG = 'uvalib-filter-drawer';
@@ -75,11 +76,16 @@ function deepActive(): Element | null {
  * `count` (the page's number of active filters) is shown on the button when above 0. The
  * drawer never counts by itself: only the page knows which inputs are filters.
  *
+ * Pages can style the runtime layout with `:state(modal)` (at or below the breakpoint: the
+ * button and panel) and `:state(open)` (the panel is open).
+ *
  * @tagname uvalib-filter-drawer
  * @slot - The search form and filters. Shown as the sidebar on wide screens and inside the panel on narrow ones.
  * @fires open - The panel opened. Does not bubble.
  * @fires close - The panel closed (Close, Escape, the backdrop, `close()`, or the window widening past the breakpoint). Does not bubble.
  * @fires uvalib-analytics-event - For `<site-analytics>`: `['uvalib-filter-drawer', 'open', '<label>']` when the visitor opens the panel, and `['uvalib-filter-drawer', 'close', '<label>']` when they close it (Close, Escape or the backdrop; not when the window widens or a script closes it). Bubbles and is composed.
+ * @cssstate modal - The viewport is at or below the breakpoint: the button and panel, not the sidebar.
+ * @cssstate open - The panel is open.
  * @csspart toggle - The “Search and filters” button (narrow screens only).
  * @csspart count - The number of active filters on the button.
  * @csspart sidebar - The wrapper of the children on wide screens.
@@ -215,6 +221,7 @@ export class UvalibFilterDrawer extends UvalibElement {
       font-size: 1.25rem;
       line-height: 1.2;
       overflow-wrap: anywhere;
+      text-wrap: balance;
     }
     .fd-panel > .fd-body {
       padding: 1rem;
@@ -266,6 +273,7 @@ export class UvalibFilterDrawer extends UvalibElement {
   @state() private isOpen = false;
 
   private readonly uid = `${TAG}-${++instances}`;
+  private readonly internals = attachStateInternals(this);
   private media?: MediaQueryList;
   private body?: HTMLDivElement;
   /** Light mode: the nodes this element rendered (never adopted as content). */
@@ -398,6 +406,8 @@ export class UvalibFilterDrawer extends UvalibElement {
 
   protected override updated(changed: PropertyValues): void {
     super.updated(changed);
+    setState(this.internals, 'modal', this.narrow);
+    setState(this.internals, 'open', this.isOpen);
     this.place();
     if (changed.has('live') && this.isOpen) this.startMirror();
   }
