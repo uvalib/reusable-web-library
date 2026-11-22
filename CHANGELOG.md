@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.6.0 — 2026-11-22
+
+### Features
+
+- versions of an image compared over the photo: switch, reveal, fade (issue #25)
+
+### Fixes
+
+- changing the comparison mode never moves the photo
+- version-param without parsing the URL (an iframe srcdoc), analytics catalogue entry (issue #25)
+
+### Other
+
+- Merge branch 'feat/lightbox-versions': image versions compared in the lightbox (issue #25)
+
 ## v1.5.0 — 2026-11-21
 
 ### Features
