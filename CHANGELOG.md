@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.5.0 — 2026-11-21
+
+### Features
+
+- a cancelable activate event when an outline is clicked (issue #24)
+
+### Other
+
+- Merge branch 'feat/regions-activate': image-regions activate event (issue #24)
+
 ## v1.4.0 — 2026-11-21
 
 ### Features
