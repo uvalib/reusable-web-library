@@ -316,6 +316,7 @@ export class UvalibLightbox extends UvalibElement {
         font-size: 1.125rem;
         line-height: 1.4;
         font-weight: 600;
+        text-wrap: balance;
       }
       .count {
         font-variant-numeric: tabular-nums;

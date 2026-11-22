@@ -3,6 +3,7 @@
 import { expect } from '@open-wc/testing';
 import { emulateMedia } from '@web/test-runner-commands';
 import { expectNoAxeViolations } from './helpers/axe.js';
+import { wrapStyle } from './helpers/text-wrap.js';
 
 const SAMPLE = `
   <main>
@@ -246,6 +247,52 @@ describe('base.css badges, toolbar, empty state and skeletons', function () {
     }
     expect($('category').getBoundingClientRect().right).to.be.at.most(320);
     expect(doc.documentElement.scrollWidth).to.be.at.most(320);
+  });
+
+  const TOOLBAR = (style = '') => `<div class="uvalib-toolbar" id="toolbar" style="${style}">
+      <div class="uvalib-toolbar__field uvalib-toolbar__field--grow" id="grow"><label for="q">Filter</label><input class="uvalib-input" id="q" type="search" /></div>
+      <div class="uvalib-toolbar__field" id="field"><label for="c">Category</label><select class="uvalib-input" id="c"><option>All</option></select></div>
+      <p class="uvalib-toolbar__summary" id="summary">Showing 48 of 3,694 shoots</p>
+    </div>`;
+
+  it('the toolbar follows its own width: in a 250px sidebar of a wide page it stacks', async () => {
+    await open(
+      { width: 1200 },
+      `<main><h1>T</h1><div style="display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 1rem">
+        <aside>${TOOLBAR()}</aside><p>Results.</p></div></main>`,
+    );
+    expect(cs('toolbar').containerType).to.equal('inline-size');
+    expect(cs('toolbar').containerName).to.equal('uvalib-toolbar');
+    const bar = $('toolbar').getBoundingClientRect();
+    expect(bar.width).to.be.closeTo(250, 1);
+    for (const id of ['grow', 'field', 'summary'])
+      expect($(id).getBoundingClientRect().width, id).to.be.closeTo(bar.width, 1);
+    expect($('field').getBoundingClientRect().top).to.be.greaterThan(
+      $('grow').getBoundingClientRect().bottom - 1,
+    );
+    expect(cs('summary').marginInlineStart).to.equal('0px');
+  });
+
+  it('the toolbar follows its own width: wider than a narrow page, it stays a row', async () => {
+    await open(
+      { width: 400 },
+      `<main><h1>T</h1><div style="overflow-x: auto" tabindex="0" role="region" aria-label="Filters">${TOOLBAR('width: 800px')}</div></main>`,
+    );
+    const grow = $('grow').getBoundingClientRect();
+    const field = $('field').getBoundingClientRect();
+    expect(Math.abs(grow.bottom - field.bottom)).to.be.below(2);
+    expect(field.left).to.be.greaterThan(grow.right);
+  });
+
+  it('the empty state heading is balanced and its sentence wraps pretty; badges are not balanced', async () => {
+    await open();
+    const balance = wrapStyle(doc.querySelector('#empty h2')!, 'balance');
+    if (balance !== null) {
+      expect(balance).to.equal('balance');
+      expect(wrapStyle($('category'), 'balance')).to.not.equal('balance');
+    }
+    const pretty = wrapStyle(doc.querySelector('#empty p')!, 'pretty');
+    if (pretty !== null) expect(pretty).to.equal('pretty');
   });
 
   it('the empty state centres a heading, a sentence and an action', async () => {

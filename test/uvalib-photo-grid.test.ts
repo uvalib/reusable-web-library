@@ -96,6 +96,37 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       expect(px(img, 'height')).to.be.closeTo(220, 1);
     });
 
+    it('follows its own width: 140px rows in a 250px sidebar of a wide page, 220px in a wide grid on a phone', async () => {
+      const wrap = await fixture<HTMLElement>(
+        `<div style="display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 1rem">
+          <aside><uvalib-photo-grid ${attr} id="narrow"><a href="${PNG}"><img alt="Lawn" width="80" height="40"></a></uvalib-photo-grid></aside>
+          <uvalib-photo-grid ${attr} id="wide"><a href="${PNG}"><img alt="Seal" width="80" height="40"></a></uvalib-photo-grid>
+        </div>`,
+      );
+      const narrow = wrap.querySelector<HTMLElement>('#narrow')!;
+      const wide = wrap.querySelector<HTMLElement>('#wide')!;
+      await nextFrame();
+      expect(getComputedStyle(narrow).containerType).to.equal('inline-size');
+      expect(narrow.getBoundingClientRect().width).to.be.closeTo(250, 1);
+      expect(px(narrow.querySelector('img')!, 'height')).to.be.closeTo(140, 1);
+      expect(getComputedStyle(narrow, '::after').minWidth).to.equal('140px');
+      expect(px(wide.querySelector('img')!, 'height')).to.be.closeTo(220, 1);
+      expect(getComputedStyle(wide, '::after').minWidth).to.equal('220px');
+      // row-height still wins in a narrow grid.
+      narrow.setAttribute('row-height', '180');
+      await (narrow as HTMLElement & { updateComplete: Promise<unknown> }).updateComplete;
+      await nextFrame();
+      expect(px(narrow.querySelector('img')!, 'height')).to.be.closeTo(180, 1);
+
+      // The reverse: a phone-width viewport, but a grid 900px wide (in a scroller) keeps 220px.
+      await setViewport({ width: 390, height: 800 });
+      const scroller = await fixture<HTMLElement>(
+        `<div style="overflow-x: auto"><uvalib-photo-grid ${attr} style="width: 900px"><a href="${PNG}"><img alt="Lawn" width="80" height="40"></a></uvalib-photo-grid></div>`,
+      );
+      await nextFrame();
+      expect(px(scroller.querySelector('img')!, 'height')).to.be.closeTo(220, 1);
+    });
+
     it('shows a caption from the alt when the control has no visible text, and clears a repeated alt', async () => {
       const el = await make(
         `<a href="${PNG}"><img alt="Rotunda" width="80" height="40"></a>

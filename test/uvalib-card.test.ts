@@ -6,6 +6,7 @@ import type { UvalibCard } from '../src/components/uvalib-card/UvalibCard.js';
 import type { UvalibCardGrid } from '../src/components/uvalib-card-grid/UvalibCardGrid.js';
 import { expectNoAxeViolations } from './helpers/axe.js';
 import { recordAnalytics } from './helpers/analytics.js';
+import { wrapStyle } from './helpers/text-wrap.js';
 
 const IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
@@ -59,6 +60,23 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
 
     beforeEach(() => document.addEventListener('click', cancel));
     afterEach(() => document.removeEventListener('click', cancel));
+
+    it('balances the title and wraps the excerpt pretty; no-style (shadow) drops them', async () => {
+      const el = await make(
+        `<span slot="heading">A collection of early American fiction</span>One hundred texts from the first decades of the republic.`,
+        'href="#early"',
+      );
+      const excerpt = () => root(el).querySelector('.excerpt')!;
+      const balance = wrapStyle(titleOf(el), 'balance');
+      if (balance !== null) expect(balance).to.equal('balance');
+      const pretty = wrapStyle(excerpt(), 'pretty');
+      if (pretty !== null) expect(pretty).to.equal('pretty');
+      // In light DOM the look is a document sheet another card may already have installed.
+      if (mode === 'shadow' && balance !== null) {
+        const bare = await make(`<span slot="heading">Plain</span>Text.`, 'no-style');
+        expect(wrapStyle(titleOf(bare), 'balance')).to.not.equal('balance');
+      }
+    });
 
     it('makes the heading the link and stretches it over the card', async () => {
       const el = await make(`<span slot="heading">Early fiction</span>100 texts`, 'href="#early"');

@@ -14,6 +14,9 @@ import { css } from 'lit';
 //
 // In forced colors, where backgrounds are dropped, every message keeps a system-colour border
 // (thicker at the start), as <site-alerts> does.
+//
+// The text wraps with `text-wrap: pretty` (no one-word last line; ignored where unsupported),
+// not `balance`: the message is a box, and balanced lines would leave empty space in it.
 export const message = css`
   .uvalib-message {
     display: block;
@@ -28,6 +31,7 @@ export const message = css`
     color: var(--uva-color-alert-text, var(--uva-grey-darkest, #2b2b2b));
     line-height: 1.5;
     overflow-wrap: anywhere;
+    text-wrap: pretty;
   }
   .uvalib-message > :first-child {
     margin-block-start: 0;

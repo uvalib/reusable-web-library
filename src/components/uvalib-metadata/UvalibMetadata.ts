@@ -153,13 +153,16 @@ export class UvalibMetadata extends UvalibElement {
       .row:first-child {
         border-top: 0;
       }
+      /* Short labels balanced; values and the citation without a one-word last line. */
       dt {
         grid-column: 1;
         color: var(--uva-color-text-muted, #4b5563);
         font-weight: 700;
+        text-wrap: balance;
       }
       dd {
         grid-column: 2;
+        text-wrap: pretty;
       }
       @container (width < 36rem) {
         .row {

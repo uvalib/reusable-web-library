@@ -4,7 +4,23 @@ import { css } from 'lit';
 // into `controls`): plain `<ul>` / `<li>` rows a page can render by the thousand, with no
 // element per row. A row holds optional meta (badges, a date), the title (the row's one
 // link), a snippet with the search terms in `<mark>`, and optional secondary actions, which
-// sit at the end of the row on wide screens and wrap below it on phones.
+// sit at the end of the row when the list is wide and wrap below it when the list is narrow.
+//
+// Narrow is the list's own width, not the viewport's: the list is a named size container
+// (`container: uvalib-result-list / inline-size`), so in a 250px sidebar or a drawer the
+// actions wrap below as on a phone. Inline-size containment means the list no longer sizes
+// to its content across: it is a block-level box, so it fills its parent as before; inside a
+// shrink-wrapped flex or grid item, give it a width. Ems in `@container` resolve against the
+// container's own font size (CSS Containment 3), so 40em is 40 of the list's ems: at the
+// usual 16px the same 640px as the old 40em media query, which read the browser's initial
+// font size. The rows' `content-visibility: auto` is unaffected (it contains the row, not
+// the list).
+//
+// Typography: a non-link title is balanced (`text-wrap: balance`, short multi-line
+// headings); a title that is itself the link is not, so balancing cannot leave clickable
+// empty space beside it. The snippet uses `text-wrap: pretty` (no one-word last line).
+// Both are ignored where unsupported. Off-screen rows are skipped by content-visibility, so
+// the extra wrapping cost is paid only for the rows on screen.
 //
 // Speed: each row has `content-visibility: auto`, so the browser skips layout and paint for
 // rows off screen, with `contain-intrinsic-block-size: auto 7rem` (a typical row) so the
@@ -21,6 +37,7 @@ import { css } from 'lit';
 export const resultList = css`
   .uvalib-result-list {
     display: block;
+    container: uvalib-result-list / inline-size;
     margin: 0 0 1rem;
     padding: 0;
     list-style: none;
@@ -59,6 +76,9 @@ export const resultList = css`
     font-weight: 600;
     line-height: 1.4;
   }
+  .uvalib-result__title:not(a) {
+    text-wrap: balance;
+  }
   :is(a.uvalib-result__title, .uvalib-result__title a) {
     color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
     text-decoration: underline;
@@ -75,6 +95,7 @@ export const resultList = css`
   .uvalib-result__snippet {
     display: block;
     margin-block-start: 0.25rem;
+    text-wrap: pretty;
   }
   .uvalib-result__snippet mark {
     padding-inline: 0.1em;
@@ -83,7 +104,7 @@ export const resultList = css`
     color: var(--uva-color-on-highlight, var(--uva-grey-darkest, #2b2b2b));
     font-weight: 700;
   }
-  /* Wide: the actions at the end of the row, beside its first lines. */
+  /* A wide list: the actions at the end of the row, beside its first lines. */
   .uvalib-result > .uvalib-result__actions {
     display: flex;
     flex-wrap: wrap;
@@ -92,8 +113,8 @@ export const resultList = css`
     grid-column: 2;
     grid-row: 1 / span 4;
   }
-  /* Phones: the actions below the row's text, wrapping. */
-  @media (max-width: 40em) {
+  /* A narrow list (a phone, a sidebar, a drawer): the actions below the row's text, wrapping. */
+  @container uvalib-result-list (width <= 40em) {
     .uvalib-result > .uvalib-result__actions {
       justify-content: flex-start;
       grid-column: 1;
