@@ -3,6 +3,7 @@
 import { expect } from '@open-wc/testing';
 import { emulateMedia } from '@web/test-runner-commands';
 import { expectNoAxeViolations } from './helpers/axe.js';
+import { wrapStyle } from './helpers/text-wrap.js';
 
 const row = (n: number) => `<li class="uvalib-result" id="r${n}">
   <p class="uvalib-result__meta"><span class="uvalib-badge uvalib-badge--category">March ${n}, 1999</span><span>12 pages</span></p>
@@ -132,6 +133,54 @@ describe('base.css .uvalib-result-list', function () {
     expect(rect('a1').left).to.be.closeTo(rect('s1').left, 1);
     for (const id of ['r1', 'a1', 's1', 't1']) expect(rect(id).right, id).to.be.at.most(320);
     expect(doc.documentElement.scrollWidth).to.be.at.most(320);
+  });
+
+  it('follows its own width: in a 250px sidebar of a wide page the actions wrap below', async () => {
+    await open(
+      { width: 1200 },
+      `<main><h1>Results</h1><div style="display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 1rem">
+        <aside><ul class="uvalib-result-list" id="list">${row(1)}</ul></aside>
+        <ul class="uvalib-result-list" id="wide">${row(2)}</ul>
+      </div></main>`,
+    );
+    expect(cs('list').containerType).to.equal('inline-size');
+    expect(cs('list').containerName).to.equal('uvalib-result-list');
+    expect(rect('list').width).to.be.closeTo(250, 1);
+    expect(rect('a1').top).to.be.at.least(rect('s1').bottom);
+    expect(rect('a1').left).to.be.closeTo(rect('s1').left, 1);
+    expect(rect('a1').right).to.be.at.most(rect('list').right);
+    // The wide list beside it, in the same page, keeps its actions at the end.
+    expect(rect('a2').left).to.be.greaterThan(rect('s2').right - 1);
+    // The rows still skip rendering off screen inside the container.
+    expect(cs('r1').contentVisibility).to.equal('auto');
+  });
+
+  it('follows its own width: a list wider than a narrow page keeps its actions at the end', async () => {
+    await open(
+      { width: 400 },
+      `<main><h1>Results</h1><div style="overflow-x: auto" tabindex="0" role="region" aria-label="Results">
+        <ul class="uvalib-result-list" id="list" style="width: 800px">${row(1)}</ul>
+      </div></main>`,
+    );
+    expect(rect('a1').left).to.be.greaterThan(rect('s1').right - 1);
+    expect(rect('a1').top).to.be.below(rect('t1').bottom);
+  });
+
+  it('a heading title is balanced and the snippet wraps pretty; a title that is the link is not balanced', async () => {
+    await open(
+      {},
+      `<main><h1>Results</h1><ul class="uvalib-result-list">${row(1)}
+        <li class="uvalib-result"><a class="uvalib-result__title" id="ta" href="#a">A title that is the link</a></li>
+      </ul></main>`,
+    );
+    const heading = doc.querySelector('#r1 .uvalib-result__title')!;
+    const balance = wrapStyle(heading, 'balance');
+    if (balance !== null) {
+      expect(balance).to.equal('balance');
+      expect(wrapStyle($('ta'), 'balance')).to.not.equal('balance');
+    }
+    const pretty = wrapStyle($('s1'), 'pretty');
+    if (pretty !== null) expect(pretty).to.equal('pretty');
   });
 
   it('rows skip rendering off screen (content-visibility) with a steady placeholder size', async () => {

@@ -3,6 +3,7 @@
 import { expect } from '@open-wc/testing';
 import { emulateMedia } from '@web/test-runner-commands';
 import { expectNoAxeViolations } from './helpers/axe.js';
+import { wrapStyle } from './helpers/text-wrap.js';
 
 const KINDS = ['error', 'warning', 'info', 'notice', 'success', 'plain'] as const;
 
@@ -137,6 +138,12 @@ describe('base.css .uvalib-message', function () {
       expect($(id).querySelector('.uvalib-message__label')!.textContent!.trim(), id).to.match(/:$/);
     expect($('error').getAttribute('role')).to.equal('alert');
     expect($('info').getAttribute('role')).to.equal('status');
+  });
+
+  it('wraps its text pretty (no one-word last line), never balanced in its box', async () => {
+    await open();
+    const pretty = wrapStyle($('error'), 'pretty');
+    if (pretty !== null) expect(pretty).to.equal('pretty');
   });
 
   it('reflows at 320px with no horizontal scroll', async () => {

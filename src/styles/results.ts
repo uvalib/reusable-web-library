@@ -11,6 +11,17 @@ import { css } from 'lit';
 // read the alert role tokens (7:1 or more in both schemes) plus two success tokens, and always
 // carry a text label; an icon is decorative. Every badge has a transparent border that shows
 // in forced colors, where backgrounds are dropped.
+//
+// The toolbar stacks by its own width, not the viewport's: it is a named size container
+// (`container: uvalib-toolbar / inline-size`), so in a sidebar or a drawer it stacks as on a
+// phone. It is a block-level box, so inline-size containment (it no longer sizes to its
+// content across) changes nothing in normal flow; inside a shrink-wrapped flex or grid item,
+// give it a width. 30em in `@container` is 30 of the toolbar's own ems (the old media query
+// read the browser's initial font size): 480px at the usual 16px.
+//
+// The empty state's heading is balanced and its sentence wraps with `text-wrap: pretty`;
+// both are ignored where unsupported. Badges are never balanced: a balanced line in a box
+// leaves empty space inside it.
 export const results = css`
   .uvalib-badge {
     display: inline-flex;
@@ -104,6 +115,7 @@ export const results = css`
 
   /* A results toolbar: search, selects, chip groups and the count, wrapping on phones. */
   .uvalib-toolbar {
+    container: uvalib-toolbar / inline-size;
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
@@ -123,7 +135,7 @@ export const results = css`
   .uvalib-toolbar__field > .uvalib-input {
     inline-size: 100%;
   }
-  /* :where keeps it as specific as the phone rule below, which then wins. */
+  /* :where keeps it as specific as the narrow rule below, which then wins. */
   .uvalib-toolbar > :where(.uvalib-toolbar__field--grow, .uvalib-search-form) {
     flex: 1 1 16rem;
   }
@@ -138,7 +150,8 @@ export const results = css`
     margin-inline-start: auto;
     color: var(--uva-color-text-muted, var(--uva-grey-A, #4f4f4f));
   }
-  @media (max-width: 30em) {
+  /* A narrow toolbar (a phone, a sidebar, a drawer): every item on its own line. */
+  @container uvalib-toolbar (width <= 30em) {
     .uvalib-toolbar > * {
       flex: 1 1 100%;
     }
@@ -171,9 +184,11 @@ export const results = css`
   .uvalib-empty-state > :is(h2, h3, h4, .uvalib-empty-state__heading) {
     font-size: 1.25rem;
     line-height: 1.3;
+    text-wrap: balance;
   }
   .uvalib-empty-state > p {
     color: var(--uva-color-text-muted, var(--uva-grey-A, #4f4f4f));
+    text-wrap: pretty;
   }
 
   /* Loading placeholders: a box (give it a height or an aspect ratio) and a text line, which
