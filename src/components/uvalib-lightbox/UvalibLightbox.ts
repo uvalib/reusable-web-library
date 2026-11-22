@@ -79,6 +79,41 @@ type RegionsListElement = HTMLOListElement | HTMLUListElement;
 /** The slot (shadow mode) a page's region list is lent to while its image is open. */
 const LIST_SLOT = 'uvalib-regions-list';
 
+/** The slot (shadow mode) a `data-details-id` element is lent to while its image is open. */
+const DETAILS_SLOT = 'uvalib-details';
+
+/** Why the viewer closed, in `uvalib-lightbox-close`. */
+export type LightboxCloseReason = 'close' | 'api' | 'history' | 'empty';
+
+/** `detail` of `uvalib-lightbox-open`. */
+export interface LightboxOpenDetail {
+  /** The item's id (as `url-param` writes it). */
+  id: string;
+  /** Its place in the set, from 0. */
+  index: number;
+  /** True when the viewer was restored from the address (a reload, Back or Forward). */
+  restored: boolean;
+}
+
+/** `detail` of `uvalib-lightbox-close`. */
+export interface LightboxCloseDetail {
+  /** The item that was shown. */
+  id: string;
+  /** Its place in the set, from 0. */
+  index: number;
+  /**
+   * `close` (Close, Escape or the backdrop), `api` (`close()`), `history` (Back or Forward)
+   * or `empty` (the last image left the page).
+   */
+  reason: LightboxCloseReason;
+}
+
+/** Options for `close()`. */
+export interface LightboxCloseOptions {
+  /** Where focus goes instead of the item's link (for example the page's heading). */
+  focus?: HTMLElement | null;
+}
+
 /** Attributes `<uvalib-image-regions>` puts on a list's entries. */
 const ENTRY_MARKS = ['data-uvalib-region', 'data-uvalib-active'];
 
@@ -179,7 +214,14 @@ function loadRegions(): void {
  * Optional details: children with `slot="details"` (and `data-for` equal to the item's id or
  * its position from 1; without `data-for` they show for every image), or `data-details-id` on
  * a link pointing at an element elsewhere on the page. Either is shown inside the dialog and
- * put back when the viewer moves on or closes.
+ * put back exactly (same place, `hidden` and `slot`) when the viewer moves on or closes. The
+ * `data-details-id` element stays in the page (in shadow mode it becomes a child of the
+ * lightbox slotted into the dialog), so `getElementById`, the page's CSS (except selectors
+ * through its old ancestors) and listeners keep working; nothing is cloned. Details that appear
+ * while their image is open (rendered after a fetch) are shown then.
+ *
+ * `open(idOrIndex)` and `close({ focus })` let the page open or close the viewer itself;
+ * `uvalib-lightbox-open` and `uvalib-lightbox-close` say when it did.
  *
  * Optional regions (people, objects, inscriptions): `data-regions` on a link, a JSON array of
  * `{ label, x, y, w, h, unit? }` or `xywh` values each followed by its label, separated by
@@ -219,6 +261,8 @@ function loadRegions(): void {
  * @csspart details - The details panel.
  * @csspart regions - The `<uvalib-image-regions>` around an image with regions.
  * @csspart compare - The version comparison controls and notes under the photo.
+ * @fires uvalib-lightbox-open - The viewer opened (a click, `open()`, or restored from the address): `detail` is `{ id, index, restored }` (`index` from 0; `restored` true for the address, Back and Forward). Not fired when it moves to another image. Bubbles and is composed.
+ * @fires uvalib-lightbox-close - The viewer closed: `detail` is `{ id, index, reason }`, the image shown and `reason` `close` (Close, Escape, the backdrop), `api` (`close()`), `history` (Back or Forward) or `empty` (the last image left the page). Not fired when the element is removed. Bubbles and is composed.
  * @fires uvalib-lightbox-version - The visitor changed the comparison (mode, version or position; once a slider settles): `detail` is `{ id, mode, index, value }` (`mode` `switch`, `wipe` or `fade`; `index` the version shown or compared, from 0; `value` the percentage of it shown, null for Switch). Not fired on open or for a comparison restored from the URL. Bubbles and is composed.
  * @fires uvalib-analytics-event - For `<site-analytics>`: `['uvalib-lightbox', 'open'|'next'|'previous'|'full-size', 'image N', N]` (N from 1, the image's place in the set), and `['uvalib-lightbox', 'compare', 'switch'|'wipe'|'fade', N]` when the visitor changes a comparison (N the version's place from 1; once a slider settles). Never the URL, the caption or a version's label. Not fired for a viewer restored from the URL or from Back and Forward. Bubbles and is composed.
  * @cssprop --uva-color-surface-raised - Dark-mode role token: dialog surface (else `--uva-color-surface`, else #fff).
@@ -392,7 +436,7 @@ export class UvalibLightbox extends UvalibElement {
 
   @state() private slides: Slide[] = [];
   @state() private index = 0;
-  @state() private open = false;
+  @state() private shown = false;
   @state() private status: 'loading' | 'ready' | 'error' = 'loading';
   @state() private fitW = 0;
   @state() private fitH = 0;
@@ -441,8 +485,23 @@ export class UvalibLightbox extends UvalibElement {
    */
   private reopenGuard = false;
   /** Details elements moved into the dialog, and where they go back to. */
-  private parked: { el: HTMLElement; parent: Node; next: ChildNode | null; hidden: boolean }[] = [];
+  private parked: {
+    el: HTMLElement;
+    parent: Node;
+    next: ChildNode | null;
+    hidden: boolean;
+    slot: string | null;
+    /** Where the viewer put it: the details panel, or the lightbox itself (slotted). */
+    at: Node;
+  }[] = [];
   private parkedKey = '';
+  /** Watches for the open image's `data-details-id` element while it is missing. */
+  private lateDetails?: MutationObserver;
+  private lateDetailsId = '';
+  /** The details panel, observed (shadow mode) for `data-for` changes on details moved into it. */
+  private watchedBox?: HTMLElement;
+  /** The open image after its link left the page: still shown, dropped once the viewer moves on. */
+  private orphan: Slide | null = null;
   /** The page's region list lent to the viewer, and how to give it back as it was. */
   private lent: {
     el: RegionsListElement;
@@ -513,7 +572,7 @@ export class UvalibLightbox extends UvalibElement {
     // it: do not run history.back(), which could leave the page. `open` goes false so a later
     // connect can open again from the URL.
     this.suppressClose = true;
-    this.open = false;
+    this.shown = false;
     const dialog = this.dialogEl;
     if (dialog?.open) dialog.close();
     this.suppressClose = false;
@@ -522,7 +581,7 @@ export class UvalibLightbox extends UvalibElement {
 
   protected override willUpdate(): void {
     this.lendList();
-    if (!this.open) {
+    if (!this.shown) {
       this.lastSrc = '';
       return;
     }
@@ -550,11 +609,11 @@ export class UvalibLightbox extends UvalibElement {
       this.isConnected
     )
       this.scheduleSync(true);
-    if (!this.open) {
-      if (changed.has('open')) this.restoreDetails();
+    if (!this.shown) {
+      if (changed.has('shown')) this.restoreDetails();
       return;
     }
-    if (changed.has('open') || changed.has('index') || changed.has('slides')) this.placeDetails();
+    if (changed.has('shown') || changed.has('index') || changed.has('slides')) this.placeDetails();
     if (this.current?.regions.length || this.current?.list) loadRegions();
     if (this.current?.versions) this.loadCompare();
     this.lendList(true);
@@ -563,7 +622,7 @@ export class UvalibLightbox extends UvalibElement {
       this.closeBtn?.focus();
     }
     this.bindDialogObserver();
-    if (changed.has('open')) this.reveal();
+    if (changed.has('shown')) this.reveal();
     // Reading the image and writing `status` from inside `updated` makes Lit warn and schedule
     // a nested update. A microtask is still before the next paint.
     queueMicrotask(() => {
@@ -626,6 +685,7 @@ export class UvalibLightbox extends UvalibElement {
 
   private watch(): void {
     this.observer?.disconnect();
+    this.watchedBox = undefined;
     this.observer = new MutationObserver(() => this.scheduleSync());
     this.observer.observe(this, {
       attributes: true,
@@ -637,6 +697,7 @@ export class UvalibLightbox extends UvalibElement {
         'data-caption',
         'data-id',
         'data-details-id',
+        'data-for',
         'data-regions',
         'data-regions-list',
         'data-versions',
@@ -682,16 +743,33 @@ export class UvalibLightbox extends UvalibElement {
         );
       this.noteEntries();
       if (!same) {
-        const current = this.current?.el;
-        this.slides = next;
-        if (this.open) {
-          const at = current ? next.findIndex((s) => s.el === current) : -1;
-          if (at >= 0) this.index = at;
-          else if (!next.length) this.dismiss('empty');
-          else this.index = Math.min(this.index, next.length - 1);
+        const current = this.current;
+        if (!this.shown) this.slides = next;
+        else {
+          const at = current ? next.findIndex((s) => s.el === current.el) : -1;
+          if (at >= 0 || !current) {
+            this.slides = next;
+            this.index = Math.max(at, 0);
+            this.orphan = null;
+          } else if (!next.length) {
+            this.dismiss('empty');
+            this.slides = next;
+            this.index = 0;
+          } else {
+            // The open image's link left the page (the page deleted it). Keep showing it, so
+            // the viewer does not jump to another image while the address names this one; it
+            // drops out when the visitor moves on, and the page can call close().
+            const k = Math.min(this.index, next.length);
+            next.splice(k, 0, current);
+            this.slides = next;
+            this.index = k;
+            this.orphan = current;
+          }
         }
       }
-      if (!this.open) this.openFromUrl();
+      // Details added, removed or retargeted (`data-for`) while an image is open.
+      if (this.shown) this.placeDetails();
+      else this.openFromUrl();
     });
   }
 
@@ -723,7 +801,7 @@ export class UvalibLightbox extends UvalibElement {
       if (!(a instanceof HTMLAnchorElement) || !a.hasAttribute('href')) return;
       if (a.closest('[hidden]')) return;
       if (this.mount?.contains(a) || a.closest('dialog')) return;
-      if (a.closest('[slot="details"]')) return;
+      if (a.closest(`[slot="details"], [slot="${DETAILS_SLOT}"]`)) return;
       // Links in a page's region list are its actions, not images (and it may be lent here).
       if (this.lent?.el.contains(a)) return;
       for (const root of detailRoots) {
@@ -826,7 +904,7 @@ export class UvalibLightbox extends UvalibElement {
       mode: () => this.compare,
       size: (href: string) => this.sized(href),
       write: (value: string | null) => {
-        if (this.versionParam && this.open)
+        if (this.versionParam && this.shown)
           this.writeParam(this.current?.id ?? null, 'replace', undefined, value);
       },
       update: () => this.requestUpdate(),
@@ -926,10 +1004,10 @@ export class UvalibLightbox extends UvalibElement {
   }
 
   private readonly onResize = (): void => {
-    if (!this.open) return;
+    if (!this.shown) return;
     window.clearTimeout(this.resizeTimer);
     this.resizeTimer = window.setTimeout(() => {
-      if (this.isConnected && this.open) this.measure();
+      if (this.isConnected && this.shown) this.measure();
     }, 150);
   };
 
@@ -960,18 +1038,60 @@ export class UvalibLightbox extends UvalibElement {
     return t instanceof Element ? t.closest('a[href]') : null;
   }
 
+  /**
+   * Opens an item as a click on its link would: `item` is its id (as `url-param` writes it)
+   * or its place in the set from 0. Returns false when there is no such item. Focus goes back
+   * to the item's link on close. With the viewer open it shows that item instead. Fires
+   * `uvalib-lightbox-open` (when the viewer was closed), not analytics: it is the page's call.
+   */
+  open(item: string | number): boolean {
+    if (!this.isConnected) return false;
+    const slides = this.collect();
+    const i =
+      typeof item === 'number'
+        ? Number.isInteger(item) && item >= 0 && item < slides.length
+          ? item
+          : -1
+        : slides.findIndex((s) => s.id === item);
+    if (i < 0) return false;
+    this.activate(i, slides, false);
+    return true;
+  }
+
+  /**
+   * Closes the viewer as Close does, `url-param` and `version-param` included (Back when the
+   * viewer pushed the entry, else they are removed). Focus goes to `focus` when given, else to
+   * the item's link; when that link has left the page, to the first image link left, else to
+   * the lightbox itself (made focusable with `tabindex="-1"` until it loses focus). Returns
+   * false when the viewer was not open.
+   */
+  close(options: LightboxCloseOptions = {}): boolean {
+    if (!this.shown && !this.dialogEl?.open) return false;
+    this.dismiss('api', options.focus ?? null);
+    return true;
+  }
+
+  private announce(type: 'open', detail: LightboxOpenDetail): void;
+  private announce(type: 'close', detail: LightboxCloseDetail): void;
+  private announce(type: string, detail: unknown): void {
+    this.dispatchEvent(
+      new CustomEvent(`uvalib-lightbox-${type}`, { detail, bubbles: true, composed: true }),
+    );
+  }
+
   /** A visitor chose `slides[i]`. The first open pushes a history entry; a later choice replaces it. */
-  private activate(i: number, slides: Slide[]): void {
-    const already = this.open;
+  private activate(i: number, slides: Slide[], track = true): void {
+    const already = this.shown;
     if (already && this.index === i) return;
     this.slides = slides;
     this.index = i;
+    this.orphan = null;
     this.trigger = slides[i]?.el ?? null;
     this.userClosed = false;
     this.pendingVersion = null;
     this.cmp?.reset();
     this.measure();
-    this.open = true;
+    this.shown = true;
     if (this.pendingBack) {
       // Close already asked for history.back(). Writing now would push on the entry that
       // popstate is about to remove, and that pop would shut the viewer again.
@@ -990,12 +1110,13 @@ export class UvalibLightbox extends UvalibElement {
         this.historyPushed = this.writeParam(id, 'push', hashMode);
       }
     }
-    trackEvent(this, ['uvalib-lightbox', 'open', `image ${i + 1}`, i + 1]);
+    if (track) trackEvent(this, ['uvalib-lightbox', 'open', `image ${i + 1}`, i + 1]);
+    if (!already) this.announce('open', { id: slides[i]?.id ?? '', index: i, restored: false });
   }
 
   /** Restore a viewer the URL already points at. No analytics: it is not a new action. */
   private openFromUrl(): void {
-    if (this.open || this.userClosed || !this.urlParam) return;
+    if (this.shown || this.userClosed || !this.urlParam) return;
     const id = paramFromLocation(this.loc(), this.urlParam);
     if (!id) return;
     const slides = this.slides.length ? this.slides : this.collect();
@@ -1012,7 +1133,9 @@ export class UvalibLightbox extends UvalibElement {
     const hashMode = usesHashParam(location.hash);
     this.writeParam(null, 'replace', hashMode);
     this.historyPushed = this.writeParam(id, 'push', hashMode, version);
-    this.open = true;
+    this.orphan = null;
+    this.shown = true;
+    this.announce('open', { id, index: i, restored: true });
   }
 
   private versionFromUrl(): string | null {
@@ -1020,9 +1143,17 @@ export class UvalibLightbox extends UvalibElement {
   }
 
   private step(delta: number): void {
-    const n = this.slides.length;
+    let n = this.slides.length;
     if (n < 2) return;
-    const i = (this.index + delta + n) % n;
+    let i = (this.index + delta + n) % n;
+    if (this.orphan && this.current === this.orphan) {
+      // Moving on from an image whose link has gone: it leaves the set.
+      const at = this.index;
+      this.slides = this.slides.filter((s) => s !== this.orphan);
+      this.orphan = null;
+      n = this.slides.length;
+      i = delta > 0 ? at % n : (at - 1 + n) % n;
+    }
     this.index = i;
     this.pendingVersion = null;
     this.trigger = this.slides[i]?.el ?? this.trigger;
@@ -1036,23 +1167,25 @@ export class UvalibLightbox extends UvalibElement {
    * param). `pop` is the browser already moving: the URL is already right. `empty` is the
    * last image leaving the page: drop the param and do not reopen from it.
    */
-  private dismiss(source: 'ui' | 'pop' | 'empty'): void {
+  private dismiss(source: 'ui' | 'api' | 'pop' | 'empty', focus: HTMLElement | null = null): void {
     if (this.dismissing) return;
     const dialog = this.dialogEl;
-    if (!this.open && !dialog?.open) return;
+    if (!this.shown && !dialog?.open) return;
     this.dismissing = true;
+    const was = { id: this.current?.id ?? '', index: this.index };
+    const fromUi = source === 'ui' || source === 'api';
     this.cmp?.reset();
     try {
       const pushed = this.historyPushed;
       this.historyPushed = false;
       this.ignoreClose = true;
       this.cancelReveal();
-      this.open = false;
-      if (source === 'ui' || source === 'empty') this.userClosed = true;
+      this.shown = false;
+      if (fromUi || source === 'empty') this.userClosed = true;
       this.restoreDetails();
       if (dialog?.open) dialog.close();
-      this.focusTrigger();
-      if (source === 'ui' && this.urlParam) {
+      this.focusAfterClose(focus);
+      if (fromUi && this.urlParam) {
         if (pushed) {
           this.backInHash = usesHashParam(location.hash);
           this.pendingBack = true;
@@ -1063,6 +1196,9 @@ export class UvalibLightbox extends UvalibElement {
         this.queuedOpen = null;
         this.writeParam(null, 'replace', usesHashParam(location.hash));
       }
+      this.orphan = null;
+      const reason = source === 'ui' ? 'close' : source === 'pop' ? 'history' : source;
+      this.announce('close', { ...was, reason });
     } finally {
       // Leave `ignoreClose` set. `dialog.close()` can queue a second close event for the
       // next task; clearing the guard here lets that event dismiss a viewer that has
@@ -1129,20 +1265,20 @@ export class UvalibLightbox extends UvalibElement {
       this.measure();
       const id = queued.slides[queued.i]?.id ?? null;
       this.historyPushed = this.writeParam(id, 'push', this.backInHash);
-      if (!this.open) this.open = true;
+      if (!this.shown) this.shown = true;
       return;
     }
     const id = paramFromLocation(this.loc(), this.urlParam);
     if (!id) {
       this.historyPushed = false;
-      if (this.open) this.dismiss('pop');
+      if (this.shown) this.dismiss('pop');
       return;
     }
     this.userClosed = false;
     const slides = this.collect();
     const i = slides.findIndex((s) => s.id === id);
     if (i < 0) {
-      if (this.open) this.dismiss('pop');
+      if (this.shown) this.dismiss('pop');
       return;
     }
     this.pendingVersion = this.versionFromUrl();
@@ -1150,9 +1286,13 @@ export class UvalibLightbox extends UvalibElement {
     this.index = i;
     this.trigger = slides[i]?.el ?? null;
     this.historyPushed = true;
+    this.orphan = null;
     this.measure();
     this.armReopenGuard();
-    if (!this.open) this.open = true;
+    if (!this.shown) {
+      this.shown = true;
+      this.announce('open', { id, index: i, restored: true });
+    }
   };
 
   /** Ignore the close event a history traversal fires on the dialog it just opened. */
@@ -1215,12 +1355,12 @@ export class UvalibLightbox extends UvalibElement {
    * event after `showModal`, or a history traversal) is not the visitor dismissing it.
    */
   private onNativeClose(): void {
-    if (this.ignoreClose || this.suppressClose || !this.open) return;
+    if (this.ignoreClose || this.suppressClose || !this.shown) return;
     if (this.dialogEl?.open) return;
     if (this.reopenGuard) {
       const view = this.ownerDocument.defaultView;
       view?.queueMicrotask(() => {
-        if (this.open && this.isConnected && !this.dialogEl?.open) this.reveal();
+        if (this.shown && this.isConnected && !this.dialogEl?.open) this.reveal();
       });
       return;
     }
@@ -1244,9 +1384,32 @@ export class UvalibLightbox extends UvalibElement {
     return this.renderRoot.querySelector('.details');
   }
 
-  private focusTrigger(): void {
+  /**
+   * Focus after a close: `focus` when the page gave one, else the trigger; when the trigger
+   * has left the page, the first image link left, else the lightbox itself (focusable with
+   * `tabindex="-1"` until it loses focus), so focus is never dropped on the body.
+   */
+  private focusAfterClose(focus: HTMLElement | null): void {
+    if (focus?.isConnected) {
+      focus.focus();
+      return;
+    }
     const trigger = this.trigger;
-    if (trigger?.isConnected) trigger.focus();
+    if (trigger?.isConnected && !trigger.closest('[hidden]')) {
+      trigger.focus();
+      return;
+    }
+    if (!this.isConnected) return;
+    const first = this.collect()[0]?.el;
+    if (first) {
+      first.focus();
+      return;
+    }
+    if (!this.hasAttribute('tabindex')) {
+      this.setAttribute('tabindex', '-1');
+      this.addEventListener('blur', () => this.removeAttribute('tabindex'), { once: true });
+    }
+    this.focus();
   }
 
   /**
@@ -1274,7 +1437,7 @@ export class UvalibLightbox extends UvalibElement {
   private reveal(): void {
     this.ensureRoot();
     const dialog = this.dialogEl;
-    if (!this.open || !dialog) return;
+    if (!this.shown || !dialog) return;
     const again = () => {
       if (this.revealTries++ > 8) {
         this.ignoreClose = false;
@@ -1284,7 +1447,7 @@ export class UvalibLightbox extends UvalibElement {
       if (!view) return;
       this.revealFrame = view.requestAnimationFrame(() => {
         this.revealFrame = 0;
-        if (this.open) this.reveal();
+        if (this.shown) this.reveal();
       });
     };
     if (!dialog.isConnected) {
@@ -1363,51 +1526,135 @@ export class UvalibLightbox extends UvalibElement {
     });
   }
 
+  /**
+   * Show the open image's details. `slot="details"` children move into the details panel. A
+   * `data-details-id` element stays in the page: in shadow mode it becomes a light-DOM child of
+   * the lightbox slotted into the panel (so `getElementById`, the page's CSS and its listeners
+   * keep working); in light DOM it moves into the panel, which is in the page too. Nothing is
+   * cloned. Called again for late details; a key keeps it from moving anything twice.
+   */
   private placeDetails(): void {
     const want = this.matchingDetails();
     const key = `${want.map((el) => this.detailToken(el)).join('|')}@${this.index}`;
-    if (key === this.parkedKey) return;
-    const keep = new Set(want);
-    const still: typeof this.parked = [];
-    for (const item of this.parked) {
-      if (keep.has(item.el) && this.detailsBox?.contains(item.el)) still.push(item);
-      else this.putBack(item);
-    }
-    this.parked = still;
-    const box = this.detailsBox;
-    if (box) {
-      for (const el of want) {
-        if (box.contains(el)) continue;
-        const parent = el.parentNode;
-        if (!parent) continue;
-        this.parked.push({ el, parent, next: el.nextSibling, hidden: el.hidden });
-        el.hidden = false;
-        box.append(el);
+    if (key !== this.parkedKey) {
+      const keep = new Set(want);
+      const still: typeof this.parked = [];
+      for (const item of this.parked) {
+        if (keep.has(item.el) && item.el.parentNode === item.at) still.push(item);
+        else this.putBack(item);
       }
+      this.parked = still;
+      const box = this.detailsBox;
+      if (box) {
+        for (const el of want) {
+          if (still.some((item) => item.el === el)) continue;
+          const parent = el.parentNode;
+          if (!parent) continue;
+          const slotted = !this.isLight && el.getAttribute('slot') !== 'details';
+          const at: Node = slotted ? this : box;
+          this.parked.push({
+            el,
+            parent,
+            next: el.nextSibling,
+            hidden: el.hidden,
+            slot: el.getAttribute('slot'),
+            at,
+          });
+          el.hidden = false;
+          if (slotted) el.setAttribute('slot', DETAILS_SLOT);
+          at.appendChild(el);
+        }
+      }
+      this.parkedKey = key;
     }
-    this.parkedKey = key;
+    this.markDetailsBox();
+    this.awaitDetails();
+  }
+
+  /** The panel shows only while it has something in it. */
+  private markDetailsBox(): void {
+    const box = this.detailsBox;
+    if (!box) return;
+    box.hidden = !this.parked.some((item) => item.el.parentNode === item.at);
+    if (!this.isLight && box !== this.watchedBox && this.observer) {
+      // Details moved into the shadow panel leave the lightbox's subtree; a change to their
+      // `data-for` must still be seen.
+      this.watchedBox = box;
+      this.observer.observe(box, {
+        attributes: true,
+        attributeFilter: ['data-for', 'slot'],
+        subtree: true,
+      });
+    }
   }
 
   /**
-   * Put a parked element back. Restoring later siblings first keeps `next` inside `parent`;
-   * if it is not (it was parked too), insert at the end instead of throwing NotFoundError.
+   * The open image names a details element that is not in the page yet (a framework renders
+   * it after a fetch): watch this root, only while open and only for that id, and show it
+   * when it appears.
+   */
+  private awaitDetails(): void {
+    const id = this.shown ? (this.current?.detailsId ?? '') : '';
+    const missing = !!id && !this.scope.getElementById(id);
+    if (!missing) {
+      this.stopAwaitingDetails();
+      return;
+    }
+    if (this.lateDetails && this.lateDetailsId === id) return;
+    this.stopAwaitingDetails();
+    this.lateDetailsId = id;
+    this.lateDetails = new MutationObserver(() => {
+      if (!this.shown || this.current?.detailsId !== id) {
+        this.stopAwaitingDetails();
+        return;
+      }
+      if (this.scope.getElementById(id)) {
+        this.stopAwaitingDetails();
+        this.placeDetails();
+      }
+    });
+    this.lateDetails.observe(this.scope, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['id'],
+    });
+  }
+
+  private stopAwaitingDetails(): void {
+    this.lateDetails?.disconnect();
+    this.lateDetails = undefined;
+    this.lateDetailsId = '';
+  }
+
+  /**
+   * Put a parked element back as it was: same parent and place, same `hidden` and `slot`.
+   * Restoring later siblings first keeps `next` inside `parent`; if it is not (it was parked
+   * too), insert at the end instead of throwing NotFoundError. An element the page has
+   * removed or moved meanwhile stays where the page put it.
    */
   private putBack(item: (typeof this.parked)[number]): void {
-    item.el.hidden = item.hidden;
+    const { el } = item;
+    el.hidden = item.hidden;
+    if (item.slot == null) el.removeAttribute('slot');
+    else el.setAttribute('slot', item.slot);
+    if (el.parentNode !== item.at) return;
     const next = item.next?.parentNode === item.parent ? item.next : null;
-    item.parent.insertBefore(item.el, next);
+    item.parent.insertBefore(el, next);
   }
 
   private restoreDetails(): void {
+    this.stopAwaitingDetails();
     for (let i = this.parked.length - 1; i >= 0; i--) this.putBack(this.parked[i]!);
     this.parked = [];
     this.parkedKey = '';
+    this.markDetailsBox();
     this.returnList();
   }
 
   /** The list the open image shows (none while its image cannot be drawn). */
   private get wantedList(): RegionsListElement | null {
-    if (!this.open) return null;
+    if (!this.shown) return null;
     const list = this.current?.list ?? null;
     return list && this.displaySrc ? list : null;
   }
@@ -1462,7 +1709,7 @@ export class UvalibLightbox extends UvalibElement {
     const { el } = lent;
     const active = this.shadowRoot?.activeElement ?? this.ownerDocument.activeElement;
     // Focus in the list would be lost with it; Close takes it while the viewer stays open.
-    if (this.open && active && el.contains(active)) this.refocus = true;
+    if (this.shown && active && el.contains(active)) this.refocus = true;
     for (const li of el.children) {
       for (const name of ENTRY_MARKS) li.removeAttribute(name);
       if (this.entryTabindex.has(li)) {
@@ -1480,7 +1727,7 @@ export class UvalibLightbox extends UvalibElement {
   }
 
   private get statusText(): string {
-    if (!this.open) return '';
+    if (!this.shown) return '';
     if (this.status === 'loading') return 'Loading image.';
     if (this.status === 'error') return 'This image could not be loaded.';
     return '';
@@ -1541,7 +1788,7 @@ export class UvalibLightbox extends UvalibElement {
   }
 
   protected override render() {
-    const slide = this.open ? this.current : undefined;
+    const slide = this.shown ? this.current : undefined;
     const src = slide ? this.displaySrc : '';
     const full = slide && usableImageUrl(slide.href, this.base) ? slide.href : '';
     const fullLinks = full && slide?.versions && this.cmp?.active ? this.cmp.full() : null;
@@ -1608,7 +1855,9 @@ export class UvalibLightbox extends UvalibElement {
                 >`,
             )}
           </div>
-          <div class="details" part="details"></div>
+          <div class="details" part="details" hidden>
+            ${this.isLight ? nothing : html`<slot name=${DETAILS_SLOT}></slot>`}
+          </div>
         </div>
       </dialog>
     `;
