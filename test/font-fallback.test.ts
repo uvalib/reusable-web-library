@@ -27,12 +27,27 @@ describe('<site-page> installs the Franklin Gothic fallback', () => {
 
 describe('the Franklin Gothic fallback face', () => {
   let sheet: CSSStyleSheet;
+  // An unscaled twin: the same faces and src lists, without size-adjust and the overrides. The
+  // system font each src resolves to differs by platform (Arial on macOS and Windows; on Linux,
+  // whatever fontconfig gives for Liberation Sans), so the fallback is measured against its twin,
+  // never against a separately named font, which may resolve to another face.
+  const twin = new CSSStyleSheet();
+  twin.replaceSync(
+    fontFallback.cssText
+      .replaceAll(/UVA Franklin Fallback/g, 'UVA Franklin Fallback Unscaled')
+      .replaceAll(
+        /\s*(size-adjust|ascent-override|descent-override|line-gap-override):[^;]+;/g,
+        '',
+      ),
+  );
   before(() => {
     sheet = fontFallback.styleSheet!;
-    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet, twin];
   });
   after(() => {
-    document.adoptedStyleSheets = document.adoptedStyleSheets.filter((s) => s !== sheet);
+    document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
+      (s) => s !== sheet && s !== twin,
+    );
   });
 
   const SAMPLE =
@@ -48,14 +63,18 @@ describe('the Franklin Gothic fallback face', () => {
     return loaded.length > 0;
   };
 
-  for (const [weight, ratio, base] of [
-    [400, 0.9452, '400 100px Arial, "Liberation Sans"'],
-    [700, 0.9132, '700 100px Arial, "Liberation Sans"'],
+  for (const [weight, style, ratio] of [
+    [400, 'normal', 0.9452],
+    [500, 'normal', 0.9599],
+    [700, 'normal', 0.9132],
+    [400, 'italic', 0.9506],
   ] as const) {
-    it(`is ${(ratio * 100).toFixed(2)}% of Arial's width at ${weight}`, async function () {
+    it(`is ${(ratio * 100).toFixed(2)}% of its system font's width at ${style} ${weight}`, async function () {
       if (!(await available(weight))) this.skip();
-      const fallback = width(`${weight} 100px "UVA Franklin Fallback"`);
-      expect(fallback / width(base)).to.be.closeTo(ratio, 0.002);
+      await document.fonts.load(`${style} ${weight} 16px "UVA Franklin Fallback Unscaled"`);
+      const fallback = width(`${style} ${weight} 100px "UVA Franklin Fallback"`);
+      const unscaled = width(`${style} ${weight} 100px "UVA Franklin Fallback Unscaled"`);
+      expect(fallback / unscaled).to.be.closeTo(ratio, 0.001);
     });
   }
 
