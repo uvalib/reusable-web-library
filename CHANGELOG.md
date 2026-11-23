@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.8.4 — 2026-11-23
+
+### Fixes
+
+- hold the upgraded layout before <uvalib-metadata> is defined (issue #34)
+
+### Other
+
+- Merge branch 'fix/metadata-preupgrade': hold <uvalib-metadata>'s layout before it upgrades (issue #34)
+
 ## v1.8.3 — 2026-11-23
 
 ### Other
