@@ -72,9 +72,13 @@ describe('the Franklin Gothic fallback face', () => {
     it(`is ${(ratio * 100).toFixed(2)}% of its system font's width at ${style} ${weight}`, async function () {
       if (!(await available(weight))) this.skip();
       await document.fonts.load(`${style} ${weight} 16px "UVA Franklin Fallback Unscaled"`);
-      const fallback = width(`${style} ${weight} 100px "UVA Franklin Fallback"`);
-      const unscaled = width(`${style} ${weight} 100px "UVA Franklin Fallback Unscaled"`);
-      expect(fallback / unscaled).to.be.closeTo(ratio, 0.001);
+      // At 1000px, and within 1%: Linux Chromium rounds each glyph's advance to a whole pixel,
+      // so the measured ratio drifts by a few tenths of a percent from size-adjust (0.9487
+      // for 0.9452 at 100px on CI); macOS measures it exactly. Unscaled would be 1.0, and the
+      // weights differ by 1.5% or more, so 1% still shows the right face is scaled.
+      const fallback = width(`${style} ${weight} 1000px "UVA Franklin Fallback"`);
+      const unscaled = width(`${style} ${weight} 1000px "UVA Franklin Fallback Unscaled"`);
+      expect(fallback / unscaled).to.be.closeTo(ratio, 0.01);
     });
   }
 
