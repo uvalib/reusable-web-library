@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.8.2 — 2026-11-22
+
+### Other
+
+- Merge branch 'fix/font-test-linux': measure the font fallback against an unscaled twin
+- measure the fallback against an unscaled twin, not "Arial"
+
 ## v1.8.1 — 2026-11-22
 
 ### Fixes
