@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.8.3 — 2026-11-23
+
+### Other
+
+- Merge pull request #33 from uvalib/fix/font-test-tolerance
+- measure the fallback scale at 1000px within 1%
+
 ## v1.8.2 — 2026-11-22
 
 ### Other
