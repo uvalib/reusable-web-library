@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.8.1 — 2026-11-22
+
+### Fixes
+
+- a metric-matched fallback for Franklin Gothic URW (issue #32)
+
+### Other
+
+- Merge branch 'fix/font-fallback': a metric-matched fallback for Franklin Gothic (issue #32)
+- a longer debounce for the typing-fast step
+
 ## v1.8.0 — 2026-11-22
 
 ### Features
