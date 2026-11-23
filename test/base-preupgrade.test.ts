@@ -372,3 +372,84 @@ describe('base.css before <uvalib-filter-drawer> is defined', function () {
     }
   });
 });
+
+/**
+ * base.css before <uvalib-metadata> is defined (issue #34): the rows already sit as the upgraded
+ * element lays them out (label beside value from 36rem, stacked below), and a list-limit list
+ * shows only its first N values and a line for its "Show all" button, so nothing below moves
+ * when the element upgrades.
+ */
+describe('base.css before <uvalib-metadata> is defined', function () {
+  this.timeout(12000);
+  const names = Array.from({ length: 39 }, (_, i) => `<li>Person ${i + 1}</li>`).join('');
+  const short = '<li>One</li><li>Two</li><li>Three</li>';
+  const dl = (extra = '') => `<dl>
+      <dt>Date</dt><dd>September 12, 2019</dd>
+      <dt>Location</dt><dd>The Rotunda, Charlottesville, Virginia</dd>
+      <dt>Participants</dt><dd><ul>${names}</ul></dd>
+      <dt>Committees</dt><dd><ul>${short}</ul></dd>
+      ${extra}
+      <dt>Downloads</dt><dd><a href="#pdf">PDF</a></dd>
+    </dl>`;
+  const rows = [
+    `<uvalib-metadata id="shadow" list-limit="8">${dl()}</uvalib-metadata>`,
+    `<uvalib-metadata id="light" no-shadow-dom list-limit="8">${dl()}</uvalib-metadata>`,
+    // A row's own data-limit wins over list-limit (0: no limit).
+    `<uvalib-metadata id="row" list-limit="8">${dl(
+      `<dt>Guests</dt><dd data-limit="3"><ul>${names}</ul></dd><dt>All</dt><dd data-limit="0"><ul>${short}${short}${short}</ul></dd>`,
+    )}</uvalib-metadata>`,
+  ];
+
+  async function metadataFrame(width: number): Promise<HTMLIFrameElement> {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = `width: ${width}px; height: 3000px; border: 0`;
+    iframe.srcdoc = `<!doctype html><html lang="en"><head>
+      <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+      </head><body><p>Before</p>${rows.join('<p class="gap">Between</p>')}<p id="after">After</p></body></html>`;
+    document.body.append(iframe);
+    await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+    return iframe;
+  }
+
+  for (const width of [1000, 375]) {
+    it(`holds the upgraded height, so nothing below moves, at ${width}px`, async () => {
+      const iframe = await metadataFrame(width);
+      try {
+        const doc = iframe.contentDocument!;
+        const win = iframe.contentWindow!;
+        const el = (id: string) => doc.getElementById(id)!;
+        expect(win.customElements.get('uvalib-metadata')).to.equal(undefined);
+        const ids = ['shadow', 'light', 'row'];
+        const heights = () => ids.map((id) => Math.round(el(id).getBoundingClientRect().height));
+        const tops = () =>
+          [...ids, 'after'].map((id) => Math.round(el(id).getBoundingClientRect().top));
+        const before = { heights: heights(), tops: tops() };
+        const script = doc.createElement('script');
+        script.type = 'module';
+        script.src = `${location.origin}/dist-cdn/uvalib-metadata.js`;
+        doc.head.append(script);
+        await new Promise((r) => script.addEventListener('load', r, { once: true }));
+        await Promise.all(
+          ids.map(
+            (id) => (el(id) as unknown as { updateComplete: Promise<unknown> }).updateComplete,
+          ),
+        );
+        await new Promise((r) => setTimeout(r, 50));
+        const after = { heights: heights(), tops: tops() };
+        // Within 2px each: browsers round line boxes; a missing button line or an unshortened
+        // list would be 30px to 800px off.
+        for (const [i, h] of after.heights.entries())
+          expect(
+            Math.abs(h - before.heights[i]!),
+            `${ids[i]} height ${before.heights[i]}→${h}`,
+          ).to.be.at.most(2);
+        expect(
+          Math.abs(after.tops.at(-1)! - before.tops.at(-1)!),
+          `after moved ${before.tops.at(-1)}→${after.tops.at(-1)}`,
+        ).to.be.at.most(4);
+      } finally {
+        iframe.remove();
+      }
+    });
+  }
+});

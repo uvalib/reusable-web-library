@@ -531,6 +531,28 @@ Two components for Library sites with records and long texts, such as the Electr
 - **The rows as a `<dl>` child**, so the page reads the same before the script runs: `<dt>` labels and `<dd>` values, optionally a `<div>` per row; several `<dd>` are several values. Values are copied as written (links, lists such as subjects, `download` attributes, and `lang`/`dir` on the `<dt>` and `<dd>`); a link whose href is not relative, http(s), `mailto:` or `tel:` is shown as its text, with one console warning. A link with `data-size` is shown as a download, "EPUB · 184 KB", read as "EPUB, 184 KB" (not added again when the link's text already ends with the size). Apps set `items` instead: `[{ label, value }]`, a value being text, a link `{ label, href, size?, download? }` or an array of them (a list).
 - **Credit and rights**, as Special Collections asks: `creator` and `organization` rows first; `rights` last, a rightsstatements.org or Creative Commons URL shown as its short name ("In Copyright", "No Copyright – United States", "CC BY 4.0", "CC0 1.0") linked with `rel="license"`, another URL as `rights-label` (else "Rights statement"), or plain text; `rights-info` adds a "More about rights and permissions" link (the library's is `https://www.library.virginia.edu/policies/use-of-materials`).
 - **Long lists.** `list-limit="8"` on the element shortens every value that is a list (a `<ul>` or `<ol>` directly in the `<dd>`) of more than 8 items: the first 8 show, then a real button, “Show all 34 participants” (`aria-expanded`, `aria-controls`; the count in its name), reveals the rest in place and moves focus to the first one revealed (its link, or the item itself with `tabindex="-1"`); it then reads “Show fewer”, which hides them again and keeps focus on the button. `data-limit` on a `<dd>` or its list sets that row's own limit and wins (`data-limit="0"`: never shortened). The noun is the row's label with a lowercase first letter (“Participants” → “participants”; a label that starts with an acronym, “ORCID iDs”, is kept as written); set `data-limit-label="people"` when that does not read well (a singular label, say). Apps set `limit` and `limitLabel` on an `items` row. The hidden values carry `hidden`, so they are not read until shown, and every value stays in the markup: without JavaScript the whole list shows. Before the script loads the element is hidden at its full height, so content below moves up once when it upgrades. The button is an underlined text button like `<uvalib-tag-list>`'s Show all: at least 2rem (34px) square (24px with `no-style`), `ButtonText` in forced colors, no animation (nothing to reduce). Analytics: `show-all` / `show-fewer` with `row N`, the row's place, never its label or values.
+- **No jump on upgrade.** `base.css` lays the `<dl>` out as the element will (label beside value from 36rem, stacked below) and, for limits 1 to 12 (`list-limit`, or `data-limit` on a row's `<dd>`), already shows only the first N values and a line for the button, so the page does not move when the script runs. For a larger limit, add the same rule for your number to the page, here for 20:
+
+  ```css
+  uvalib-metadata[list-limit='20']:not(:defined)
+    > dl
+    > dd:not([data-limit])
+    > :is(ul, ol)
+    > li:nth-child(n + 21) {
+    display: none;
+  }
+  uvalib-metadata[list-limit='20']:not(:defined)
+    > dl
+    > dd:not([data-limit])
+    > :is(ul, ol):has(> li:nth-child(21))::after {
+    content: '';
+    display: block;
+    block-size: 2.25rem;
+  }
+  ```
+
+  The rows the attributes add (`creator`, `organization`, `rights`, a citation) are drawn by the script, so `base.css` cannot hold their height: the page moves by those rows, which are usually few and short.
+
 - **How to cite.** `citation` (as written), or `citation-title` for the Special Collections formula "<title or collection>, Albert and Shirley Small Special Collections Library, University of Virginia". A Copy citation button copies it and says "Copied" in a polite status; where the clipboard is unavailable it selects the citation and says so.
 - **Layout.** Label and value side by side when the element is 36rem wide or more, stacked below that (a container query: the element's own width). Labels in `--uva-color-text-muted`, rows divided by `--uva-color-border`.
 
