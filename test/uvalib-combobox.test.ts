@@ -488,9 +488,13 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
           await waitUntil(() => options(el).length === 1, 'no results');
           expect(labels(el)).to.deep.equal(['Ada Ellis']);
           expect(options(el)[0]!.querySelector('mark')!.textContent).to.equal('Ada');
-          // Typing fast: one request for the last text.
+          // Typing fast: one request for the last text. A longer pause for this step only: the
+          // suite's 30ms debounce can be shorter than the gap between two keys when every test
+          // file runs at once, which made a request per key (4, not 3).
+          comboboxTiming.debounce = 200;
           await type(el, 'ms');
           await waitUntil(() => stub.calls.length === 3, 'no request after typing');
+          comboboxTiming.debounce = 30;
           await wait(80);
           expect(stub.calls).to.have.length(3);
           expect(stub.calls[2]!.url).to.include('q=adams');
