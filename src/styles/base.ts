@@ -1,4 +1,26 @@
-import { css } from 'lit';
+import { css, unsafeCSS } from 'lit';
+
+/**
+ * `<uvalib-metadata>` long lists before it upgrades (issue #34): a list of more than N values
+ * shows its first N and a line for its "Show all" button (4px above a 32px button), as the
+ * upgraded element does. CSS cannot read N from the attribute into :nth-child(), so the rules
+ * are written out for limits 1 to 12; a page with a larger limit adds its own (README). A row's
+ * own data-limit on its <dd> wins over list-limit (data-limit="0" shows them all); a data-limit
+ * on the list itself works once upgraded but is not held before.
+ */
+const METADATA_LIMITS = Array.from({ length: 12 }, (_, i) => i + 1);
+const metadataLimits = unsafeCSS(
+  METADATA_LIMITS.map((n) => {
+    const lists = [
+      `uvalib-metadata[list-limit="${n}"]:not(:defined) > dl > dd:not([data-limit]) > :is(ul, ol):not([data-limit])`,
+      `uvalib-metadata:not(:defined) > dl > dd[data-limit="${n}"] > :is(ul, ol)`,
+    ];
+    return (
+      `${lists.map((l) => `${l} > li:nth-child(n + ${n + 1})`).join(',\n')} { display: none; }\n` +
+      `${lists.map((l) => `${l}:has(> li:nth-child(${n + 1}))::after`).join(',\n')} { content: ''; display: block; block-size: 2.25rem; }`
+    );
+  }).join('\n'),
+);
 
 export const TYPEKIT_URL = 'https://use.typekit.net/oym8nvz.css';
 
@@ -100,6 +122,62 @@ export const base = css`
   :where(uvalib-combobox, uvalib-image-regions):not(:defined) > [hidden] {
     display: none;
   }
+  /* A record's details before <uvalib-metadata> upgrades (issue #34): the rows already laid
+     out as it lays them out (label beside value from 36rem of its own width, stacked below;
+     8px above and below each row, a 1px rule between rows; lists without bullets, 4px apart),
+     so the page does not move when it upgrades. Rows the attributes add (creator, rights,
+     citation) are not in the page's <dl> and cannot be held. */
+  uvalib-metadata:not(:defined) {
+    container-type: inline-size;
+    font-size: 1rem;
+  }
+  uvalib-metadata:not(:defined) > dl {
+    display: grid;
+    grid-template-columns: minmax(7rem, 12rem) minmax(0, 1fr);
+    column-gap: 1.5rem;
+    margin: 0;
+  }
+  uvalib-metadata:not(:defined) > dl > dt {
+    grid-column: 1;
+    margin: 0;
+    padding-block: 0.5rem;
+    font-weight: 700;
+  }
+  uvalib-metadata:not(:defined) > dl > dd {
+    grid-column: 2;
+    margin: 0;
+    padding-block: 0.5rem;
+  }
+  uvalib-metadata:not(:defined) > dl > dt:not(:first-child),
+  uvalib-metadata:not(:defined) > dl > dt:not(:first-child) + dd {
+    border-block-start: 1px solid transparent;
+  }
+  uvalib-metadata:not(:defined) > dl > dd > :is(ul, ol) {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  uvalib-metadata:not(:defined) > dl > dd li + li {
+    margin-block-start: 0.25rem;
+  }
+  @container (width < 36rem) {
+    uvalib-metadata:not(:defined) > dl {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    uvalib-metadata:not(:defined) > dl > :is(dt, dd) {
+      grid-column: 1;
+    }
+    uvalib-metadata:not(:defined) > dl > dt {
+      padding-block-end: 0;
+    }
+    uvalib-metadata:not(:defined) > dl > dd {
+      padding-block-start: 0;
+    }
+    uvalib-metadata:not(:defined) > dl > dt:not(:first-child) + dd {
+      border-block-start: 0;
+    }
+  }
+  ${metadataLimits}
   /* Tabs stay readable before the script runs: a block, one panel, and a gap the
      size of the tab row (44px) plus its 1rem margin, so the first panel does not
      jump when the element upgrades. Later data-tab panels stay hidden. */
