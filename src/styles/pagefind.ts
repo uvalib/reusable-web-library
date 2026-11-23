@@ -45,7 +45,14 @@ const props = css`
     --pagefind-ui-border-radius: 5px;
     --pagefind-ui-image-border-radius: 5px;
     --pagefind-ui-image-box-ratio: 3 / 2;
-    --pagefind-ui-font: var(--uva-font-family, franklin-gothic-urw, Arial, Helvetica, sans-serif);
+    --pagefind-ui-font: var(
+      --uva-font-family,
+      franklin-gothic-urw,
+      'UVA Franklin Fallback',
+      Arial,
+      Helvetica,
+      sans-serif
+    );
   }
 `;
 

@@ -3,6 +3,7 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { property, state } from 'lit/decorators.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
+import { fontFallback } from '../../styles/font-fallback.js';
 import { tokens } from '../../styles/tokens.js';
 import { base, TYPEKIT_URL } from '../../styles/base.js';
 import { accessible } from '../../styles/accessible.js';
@@ -66,7 +67,7 @@ const slotOf = (n: Node): string | null => (n instanceof Element ? n.getAttribut
  * @csspart footer - The `<footer>` element inside `<site-footer>` (shadow mode; exported through `exportparts`).
  * @cssprop [--uva-brand-blue=#232d4b] - Skip link background.
  * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour (focus-visible outline).
- * @cssprop [--uva-font-family=franklin-gothic-urw, Arial, Helvetica, sans-serif] - Page font family (global styles).
+ * @cssprop [--uva-font-family=franklin-gothic-urw, "UVA Franklin Fallback", Arial, Helvetica, sans-serif] - Page font family (global styles).
  * @cssprop [--uva-font-size-base=17px] - Page base font size (global styles).
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Page text colour (global styles).
  * @cssprop --uva-color-surface - Dark-mode role token: page background (global styles; else none).
@@ -344,7 +345,7 @@ export class SitePage extends UvalibElement {
     // Tokens stay layered so a host's own `:root { --uva-*: … }` wins; base and accessibility
     // rules are unlayered so they beat host resets.
     installLightDomStyles('uvalib-tokens', [tokens], { root: doc, scope: false });
-    installLightDomStyles('uvalib-global', [base, accessible], {
+    installLightDomStyles('uvalib-global', [fontFallback, base, accessible], {
       root: doc,
       scope: false,
       layer: false,

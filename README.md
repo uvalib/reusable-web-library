@@ -977,6 +977,7 @@ An inline message for the page's own content: a search error, a notice that resu
 - **Tokens:** inherited `--uva-*` custom properties (for example `--uva-brand-blue`, `--uva-font-family`), set on `:root` or an ancestor of the component. The full set is in `tokens.css`. Components read tokens with fallbacks and never set them.
 - **Parts (shadow mode):** on a page, `site-page::part(header)`, `site-page::part(footer)` and `site-page::part(main)`. For a standalone element, `site-header::part(header)` or `site-footer::part(footer)`.
 - **Light mode** has no shadow parts; use ordinary selectors, which win over the layered component styles.
+- **Fonts and layout shift:** `<site-page>` and `<site-style>` load the Library's Adobe Fonts kit (Franklin Gothic URW). On a slow connection the page is drawn first in the next font of `--uva-font-family` and redrawn when the kit arrives. That next font is **"UVA Franklin Fallback"**: the system's Arial (Liberation Sans on Linux) scaled to Franklin Gothic's widths at each weight (400, 500, 700 and italic), with its line height, so paragraphs wrap the same before and after and the page does not move. `tokens.css`, `base.css` and the styles `<site-page>` and `<site-style>` install all define it. If you set your own `--uva-font-family`, keep `"UVA Franklin Fallback"` right after `franklin-gothic-urw`. Where neither Arial nor Liberation Sans is installed (Android), the next font in the stack is used, as before. The kit's `font-display` is set in the Adobe Fonts project (today `auto`: text can stay hidden for up to about 3 seconds before the fallback shows), not by these components. Other kit families, such as LTC Caslon Pro, have no fallback here.
 - **States:** runtime state you can style without new attributes, in both modes, through custom states (`ElementInternals.states`): `uvalib-combobox:state(open)` (the popup is showing), `:state(invalid)` (shown as invalid, with `aria-invalid`) and `:state(loading)`; `uvalib-filter-drawer:state(modal)` (at or below the breakpoint) and `:state(open)`; `uvalib-lightbox:state(open)`; `uvalib-tag-list:state(expanded)` (after Show all). They are read-only from the page and never appear as attributes; in a browser without custom states they simply never match, so use them for extra styling, not for anything the page needs.
 - **Own width, not the viewport's:** `<uvalib-photo-grid>`, `<uvalib-card-grid>`, `<uvalib-metadata>`, `<events-section>`, `<bento-box>` and base.css's `.uvalib-toolbar` and `.uvalib-result-list` are CSS size containers (`container-type: inline-size`) and change layout by their own width, so they adapt in a sidebar or a drawer. Container query `em`s are the container's own; inline-size containment means they fill their parent but do not size to their content, so give one a width in a shrink-to-fit box. To query them from your own CSS, name your own container rather than relying on the nearest one.
 - **Line wrapping:** short headings the components render (card titles, list and section headings, the lightbox caption, the empty state's heading, a non-link result title) use `text-wrap: balance`, and longer text (card excerpts, result snippets, metadata values, messages, the empty state's sentence) `text-wrap: pretty`. Never on badges or buttons: balanced lines leave empty space in a box. It is look, so `no-style` drops it in the components (base.css keeps it); browsers without it wrap as before. Override with `text-wrap: wrap`.
@@ -2131,7 +2132,7 @@ The UVA Library main navigation (About, Using the Library, Research & teaching s
 | `--uva-brand-blue` | `#232d4b` | Bar bottom border, chevrons, panel links, and the hover and expanded button text. |
 | `--uva-grey-100` | `#dadada` | Hover and expanded button background, and panel link hover background. |
 | `--uva-brand-orange` | `#e57200` | Focus ring colour, and the underline of the current page's link and group (also bold, with a 3px underline). |
-| `--uva-font-family` | `franklin-gothic-urw, Arial, Helvetica, sans-serif` | Font family. |
+| `--uva-font-family` | `franklin-gothic-urw, "UVA Franklin Fallback", Arial, Helvetica, sans-serif` | Font family. |
 | `--uva-color-text` |  | Dark-mode role token: top-level button text (else `--uva-grey-darkest`). |
 | `--uva-color-link` |  | Dark-mode role token: chevrons, panel links, hover text and the focus ring over hover (else `--uva-brand-blue`). |
 | `--uva-color-surface-hover` |  | Dark-mode role token: hover and open-group background (else `--uva-grey-100`). |
@@ -2195,7 +2196,7 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 |---|---|---|
 | `--uva-brand-blue` | `#232d4b` | Skip link background. |
 | `--uva-brand-orange` | `#e57200` | Focus ring colour (focus-visible outline). |
-| `--uva-font-family` | `franklin-gothic-urw, Arial, Helvetica, sans-serif` | Page font family (global styles). |
+| `--uva-font-family` | `franklin-gothic-urw, "UVA Franklin Fallback", Arial, Helvetica, sans-serif` | Page font family (global styles). |
 | `--uva-font-size-base` | `17px` | Page base font size (global styles). |
 | `--uva-grey-darkest` | `#2b2b2b` | Page text colour (global styles). |
 | `--uva-color-surface` |  | Dark-mode role token: page background (global styles; else none). |
@@ -2227,7 +2228,7 @@ Compatibility element. Light mode (`no-shadow-dom`) installs the tokens and base
 
 | Property | Default | Description |
 |---|---|---|
-| `--uva-font-family` | `franklin-gothic-urw, Arial, Helvetica, sans-serif` | Font family. |
+| `--uva-font-family` | `franklin-gothic-urw, "UVA Franklin Fallback", Arial, Helvetica, sans-serif` | Font family. |
 | `--uva-font-size-base` | `17px` | Base font size. |
 | `--uva-grey-darkest` | `#2b2b2b` | Text colour. |
 | `--uva-color-text` |  | Dark-mode role token: text colour (else `--uva-grey-darkest`). |

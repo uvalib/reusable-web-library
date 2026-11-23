@@ -2,6 +2,7 @@ import { html, nothing } from 'lit';
 import { property } from 'lit/decorators.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
+import { fontFallback } from '../../styles/font-fallback.js';
 import { tokens } from '../../styles/tokens.js';
 import { base } from '../../styles/base.js';
 
@@ -13,7 +14,7 @@ import { base } from '../../styles/base.js';
  *
  * @tagname site-style
  * @slot - Content rendered in shadow mode; it is not restyled by this element. In light mode there is no shadow root and the children stay in place.
- * @cssprop [--uva-font-family=franklin-gothic-urw, Arial, Helvetica, sans-serif] - Font family.
+ * @cssprop [--uva-font-family=franklin-gothic-urw, "UVA Franklin Fallback", Arial, Helvetica, sans-serif] - Font family.
  * @cssprop [--uva-font-size-base=17px] - Base font size.
  * @cssprop [--uva-grey-darkest=#2b2b2b] - Text colour.
  * @cssprop --uva-color-text - Dark-mode role token: text colour (else `--uva-grey-darkest`).
@@ -40,7 +41,7 @@ export class SiteStyle extends UvalibElement {
   protected override installLightStyles(): void {
     // Tokens layered (host `:root` overrides win), base unlayered (beats host resets).
     installLightDomStyles('uvalib-tokens', [tokens], { root: this.ownerDocument, scope: false });
-    installLightDomStyles('uvalib-site-style', [base], {
+    installLightDomStyles('uvalib-site-style', [fontFallback, base], {
       root: this.ownerDocument,
       scope: false,
       layer: false,

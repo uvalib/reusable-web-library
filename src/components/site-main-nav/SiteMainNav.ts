@@ -104,7 +104,7 @@ const hashOf = (href: string, base: string): string => {
  * @cssprop [--uva-brand-blue=#232d4b] - Bar bottom border, chevrons, panel links, and the hover and expanded button text.
  * @cssprop [--uva-grey-100=#dadada] - Hover and expanded button background, and panel link hover background.
  * @cssprop [--uva-brand-orange=#e57200] - Focus ring colour, and the underline of the current page's link and group (also bold, with a 3px underline).
- * @cssprop [--uva-font-family=franklin-gothic-urw, Arial, Helvetica, sans-serif] - Font family.
+ * @cssprop [--uva-font-family=franklin-gothic-urw, "UVA Franklin Fallback", Arial, Helvetica, sans-serif] - Font family.
  * @cssprop --uva-color-text - Dark-mode role token: top-level button text (else `--uva-grey-darkest`).
  * @cssprop --uva-color-link - Dark-mode role token: chevrons, panel links, hover text and the focus ring over hover (else `--uva-brand-blue`).
  * @cssprop --uva-color-surface-hover - Dark-mode role token: hover and open-group background (else `--uva-grey-100`).
@@ -120,7 +120,14 @@ export class SiteMainNav extends UvalibElement {
     css`
       :host {
         display: block;
-        font-family: var(--uva-font-family, franklin-gothic-urw, Arial, Helvetica, sans-serif);
+        font-family: var(
+          --uva-font-family,
+          franklin-gothic-urw,
+          'UVA Franklin Fallback',
+          Arial,
+          Helvetica,
+          sans-serif
+        );
         font-size: 17px;
         line-height: 1.5;
       }

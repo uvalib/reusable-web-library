@@ -453,7 +453,7 @@ The UVA Library main navigation (About, Using the Library, Research & teaching s
 | `--uva-brand-blue` | `#232d4b` | Bar bottom border, chevrons, panel links, and the hover and expanded button text. |
 | `--uva-grey-100` | `#dadada` | Hover and expanded button background, and panel link hover background. |
 | `--uva-brand-orange` | `#e57200` | Focus ring colour, and the underline of the current page's link and group (also bold, with a 3px underline). |
-| `--uva-font-family` | `franklin-gothic-urw, Arial, Helvetica, sans-serif` | Font family. |
+| `--uva-font-family` | `franklin-gothic-urw, "UVA Franklin Fallback", Arial, Helvetica, sans-serif` | Font family. |
 | `--uva-color-text` |  | Dark-mode role token: top-level button text (else `--uva-grey-darkest`). |
 | `--uva-color-link` |  | Dark-mode role token: chevrons, panel links, hover text and the focus ring over hover (else `--uva-brand-blue`). |
 | `--uva-color-surface-hover` |  | Dark-mode role token: hover and open-group background (else `--uva-grey-100`). |
@@ -517,7 +517,7 @@ Page wrapper: skip link (inside the header landmark in shadow mode), header, a s
 |---|---|---|
 | `--uva-brand-blue` | `#232d4b` | Skip link background. |
 | `--uva-brand-orange` | `#e57200` | Focus ring colour (focus-visible outline). |
-| `--uva-font-family` | `franklin-gothic-urw, Arial, Helvetica, sans-serif` | Page font family (global styles). |
+| `--uva-font-family` | `franklin-gothic-urw, "UVA Franklin Fallback", Arial, Helvetica, sans-serif` | Page font family (global styles). |
 | `--uva-font-size-base` | `17px` | Page base font size (global styles). |
 | `--uva-grey-darkest` | `#2b2b2b` | Page text colour (global styles). |
 | `--uva-color-surface` |  | Dark-mode role token: page background (global styles; else none). |
@@ -549,7 +549,7 @@ Compatibility element. Light mode (`no-shadow-dom`) installs the tokens and base
 
 | Property | Default | Description |
 |---|---|---|
-| `--uva-font-family` | `franklin-gothic-urw, Arial, Helvetica, sans-serif` | Font family. |
+| `--uva-font-family` | `franklin-gothic-urw, "UVA Franklin Fallback", Arial, Helvetica, sans-serif` | Font family. |
 | `--uva-font-size-base` | `17px` | Base font size. |
 | `--uva-grey-darkest` | `#2b2b2b` | Text colour. |
 | `--uva-color-text` |  | Dark-mode role token: text colour (else `--uva-grey-darkest`). |
