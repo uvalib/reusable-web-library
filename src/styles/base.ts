@@ -17,7 +17,14 @@ export const base = css`
   }
   html,
   body {
-    font-family: var(--uva-font-family, franklin-gothic-urw, Arial, Helvetica, sans-serif);
+    font-family: var(
+      --uva-font-family,
+      franklin-gothic-urw,
+      'UVA Franklin Fallback',
+      Arial,
+      Helvetica,
+      sans-serif
+    );
   }
   html {
     font-size: var(--uva-font-size-base, 17px);

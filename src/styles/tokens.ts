@@ -79,7 +79,7 @@ export const tokens = css`
     --uva-grey: #808080;
     --uva-grey-A: #4F4F4F;
     --uva-grey-B: #2B2B2B;
-    --uva-font-family: franklin-gothic-urw, Arial, Helvetica, sans-serif;
+    --uva-font-family: franklin-gothic-urw, "UVA Franklin Fallback", Arial, Helvetica, sans-serif;
     --uva-font-size-base: 17px;
   }
 `;

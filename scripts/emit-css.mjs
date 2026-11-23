@@ -16,7 +16,12 @@ const load = (name) => import(pathToFileURL(join(root, 'dist/styles', `${name}.j
 // tokens.css: the generated palette, then the hand-written opt-in dark-mode role tokens.
 const { tokens } = await load('tokens');
 const { colorScheme } = await load('color-scheme');
-writeFileSync(join(outDir, 'tokens.css'), `${tokens.cssText}\n${colorScheme.cssText}`);
+// The metric-matched fallback for Franklin Gothic, which --uva-font-family names (issue #32).
+const { fontFallback } = await load('font-fallback');
+writeFileSync(
+  join(outDir, 'tokens.css'),
+  `${fontFallback.cssText}\n${tokens.cssText}\n${colorScheme.cssText}`,
+);
 // base.css: the page-level base rules (which <site-page> also installs), the dark-mode role
 // tokens those rules and the controls read (so a page that links base.css alone, without
 // tokens.css, is still readable under data-uva-color-scheme), then the button, toggle and
@@ -53,7 +58,7 @@ ${schemes}
 }
 writeFileSync(
   join(outDir, 'base.css'),
-  `${base.cssText}\n${pageRoles(`${base.cssText}${controls.cssText}`, 'base.css')}\n${controls.cssText}`,
+  `${fontFallback.cssText}\n${base.cssText}\n${pageRoles(`${base.cssText}${controls.cssText}`, 'base.css')}\n${controls.cssText}`,
 );
 writeFileSync(
   join(outDir, 'pagefind.css'),
