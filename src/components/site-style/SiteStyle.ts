@@ -2,7 +2,7 @@ import { html, nothing } from 'lit';
 import { property } from 'lit/decorators.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
-import { fontFallback } from '../../styles/font-fallback.js';
+import { fontFallback, loadFontFallback } from '../../styles/font-fallback.js';
 import { tokens } from '../../styles/tokens.js';
 import { base } from '../../styles/base.js';
 
@@ -46,6 +46,7 @@ export class SiteStyle extends UvalibElement {
       scope: false,
       layer: false,
     });
+    loadFontFallback(this.ownerDocument);
   }
 
   protected override firstUpdated(): void {

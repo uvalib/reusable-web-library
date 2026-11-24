@@ -3,7 +3,7 @@ import { ifDefined } from 'lit/directives/if-defined.js';
 import { property, state } from 'lit/decorators.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
-import { fontFallback } from '../../styles/font-fallback.js';
+import { fontFallback, loadFontFallback } from '../../styles/font-fallback.js';
 import { tokens } from '../../styles/tokens.js';
 import { base, TYPEKIT_URL } from '../../styles/base.js';
 import { accessible } from '../../styles/accessible.js';
@@ -350,6 +350,7 @@ export class SitePage extends UvalibElement {
       scope: false,
       layer: false,
     });
+    loadFontFallback(doc);
     if (!doc.head.querySelector(`link[href="${TYPEKIT_URL}"]`)) {
       const link = doc.createElement('link');
       link.rel = 'stylesheet';
