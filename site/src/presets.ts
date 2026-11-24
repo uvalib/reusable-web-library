@@ -1698,7 +1698,7 @@ ${[286686, 286687, 286688, 286689].map((id, i) => pageLink(String(id), i + 2)).j
     group: 'Search',
     title: 'Search facets',
     description:
-      'uvalib-filter (checkbox facet with scope chips and a limit) and uvalib-date-range (year slider plus date inputs). Both are controlled: set their properties from your search state and listen for filter-change, scope-change and date-range-change.',
+      'uvalib-filter (checkbox facet with scope chips and a limit) and uvalib-date-range (year slider plus date inputs). Both are controlled: set their properties from your search state and listen for filter-change, scope-change and date-range-change. The Subject group (150 made-up subjects) shows the filter-group options: collapsible with the library caret (the selected count shows while closed), searchable (accent-insensitive; checked subjects stay at the top), sortable (Count | Name (A–Z)), clearable and match="any". The Format group uses apply-button: changes are staged until Apply, so one search runs per Apply.',
     files: {
       'index.html': {
         content: page({
@@ -1709,6 +1709,25 @@ ${[286686, 286687, 286688, 286689].map((id, i) => pageLink(String(id), i + 2)).j
       <h1>Search facets</h1>
       <div class="facets">
         <uvalib-filter id="people" limit="3"></uvalib-filter>
+        <uvalib-filter
+          id="subjects"
+          collapsible
+          heading-level="2"
+          searchable
+          sortable
+          clearable
+          match="any"
+          unit="subjects"
+          limit="5"
+        ></uvalib-filter>
+        <uvalib-filter
+          id="formats"
+          collapsible
+          heading-level="2"
+          apply-button
+          clearable
+          match="any"
+        ></uvalib-filter>
         <uvalib-date-range
           id="dates"
           min="1819-01-01"
@@ -1741,6 +1760,46 @@ ${[286686, 286687, 286688, 286689].map((id, i) => pageLink(String(id), i + 2)).j
       people.scopesLabel = 'Show participants by role';
       people.addEventListener('filter-change', (e) => log('filter-change', e.detail));
       people.addEventListener('scope-change', (e) => log('scope-change', e.detail));
+
+      // 150 made-up subjects: 30 topics, each alone and with four subdivisions.
+      const topics = ['Agriculture', 'Architecture', 'Astronomy', 'Botany', 'Café culture', 'Cartography',
+        'Ceramics', 'Climate', 'Dance', 'Écologie', 'Economics', 'Education', 'Engineering', 'Folklore',
+        'Geology', 'Glassmaking', 'Horticulture', 'Journalism', 'Linguistics', 'Mathematics', 'Medicine',
+        'Música', 'Navigation', 'Philosophy', 'Photography', 'Poetry', 'Railroads', 'Rivers', 'Textiles',
+        'Weather'];
+      const parts = ['', ' — History', ' — Maps', ' — Periodicals', ' — Biography'];
+      const subjects = document.querySelector('#subjects');
+      subjects.filter = {
+        name: 'subject',
+        title: 'Subject',
+        position: 1,
+        buckets: parts
+          .flatMap((part) => topics.map((topic) => topic + part))
+          .map((key, i) => ({ key, doc_count: ((i * 37) % 97) + 1, selected: false }))
+          .sort((a, b) => b.doc_count - a.doc_count),
+      };
+      subjects.addEventListener('filter-change', (e) => {
+        subjects.value = e.detail.value;
+        log('filter-change', e.detail);
+      });
+
+      const formats = document.querySelector('#formats');
+      formats.filter = {
+        name: 'format',
+        title: 'Format',
+        position: 2,
+        buckets: ['Book', 'Manuscript', 'Map', 'Photograph', 'Sound recording', 'Video'].map(
+          (key, i) => ({ key, doc_count: 120 - i * 17, selected: false }),
+        ),
+      };
+      formats.addEventListener('filter-change', (e) => {
+        formats.value = e.detail.value;
+        log('filter-change (applied)', e.detail);
+      });
+      for (const el of [subjects, formats]) {
+        el.addEventListener('toggle', (e) => log('toggle', e.detail));
+        el.addEventListener('sort', (e) => log('sort', e.detail));
+      }
 
       const dates = document.querySelector('#dates');
       await customElements.whenDefined('uvalib-date-range');

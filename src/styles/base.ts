@@ -117,7 +117,8 @@ export const base = css`
       uvalib-combobox,
       uvalib-image-regions,
       uvalib-map,
-      uvalib-filter-drawer
+      uvalib-filter-drawer,
+      uvalib-filter
     ):not(:defined)[hidden],
   :where(uvalib-combobox, uvalib-image-regions):not(:defined) > [hidden] {
     display: none;
@@ -248,6 +249,13 @@ export const base = css`
     font-size: 0.875rem;
     line-height: 1.5;
     color: var(--uva-color-text-muted, #4b5563);
+  }
+  /* A collapsed filter group (<uvalib-filter collapsible collapsed>) draws only its 44px
+     legend button once it upgrades: hold that height. Low specificity, so the [hidden] rule
+     above still wins. */
+  :where(uvalib-filter[collapsible][collapsed]):not(:defined) {
+    display: block;
+    min-block-size: 44px;
   }
   /* A filter drawer on a phone (the default 48rem breakpoint): once it upgrades only its 44px
      "Search and filters" button shows, so hold that height and keep the form and filters out

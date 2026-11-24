@@ -1091,7 +1091,7 @@ A modal dialog for content and short forms: search tips, Cite, a sign-in prompt,
 
 ## `<uvalib-filter>`
 
-A faceted-search filter: a fieldset of checkboxes (value plus result count), optional toggle chips ("scopes") above them, and "See more" / "See less" buttons when `limit` is set. It is controlled: set `filter`, `value` and `scopeValue` from your search state and listen for the change events.
+A faceted-search filter: a fieldset of checkboxes (value plus result count), optional toggle chips ("scopes") above them, and "See more" / "See less" buttons when `limit` is set. It is controlled: set `filter`, `value` and `scopeValue` from your search state and listen for the change events. Optional filter-group features, each off by default (without them the markup, events and order are as before): `collapsible` (a caret disclosure button in the legend, with the selected count while collapsed), `searchable` (search within the values), `sortable` (Count \| Name (A–Z)), `clearable` (a Clear button), `apply-button` (stage changes until Apply) and `match` (says how the values combine).
 
 ### Attributes
 
@@ -1103,6 +1103,17 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 | `scopevalue` | `string[]` | `[]` | Pressed scope values (matched case-insensitively). |
 | `scopes-label` | `string` | `''` | Accessible name of the scope chip group. Empty (the default) means `Filter <title> by type`. |
 | `limit` | `number` | `0` | Maximum buckets to show at first; 0 shows all. "See more" doubles it, "See less" halves it back. |
+| `collapsible` | `boolean` | `false` | The legend becomes a disclosure button (with the library's caret) that shows and hides the group. |
+| `collapsed` | `boolean` | `false` | With `collapsible`: the group is closed (its legend button and selected count only). The visitor's toggle updates it; nothing is remembered. |
+| `heading-level` | `number` | `0` | Wrap the legend's text (or disclosure button) in a heading of this level, 2 to 6. Unset (the default): no heading, as before. |
+| `searchable` | `boolean` | `false` | A search field above the values that narrows them as the visitor types. |
+| `search-label` | `string` | `''` | The search field's visible label. Empty (the default) means `Search <title>`. |
+| `unit` | `string` | `'values'` | What the values are, plural, for the search status ("12 of 340 subjects"). |
+| `sortable` | `boolean` | `false` | A "Sort by: Count \| Name (A–Z)" control. |
+| `sort` | `'count' \| 'name'` | `'count'` | The order: `count` (most results first; without `sortable`, the data's own order) or `name` (A–Z). The visitor's choice updates it. |
+| `clearable` | `boolean` | `false` | A Clear button, shown while something in the group is selected. |
+| `apply-button` | `boolean` | `false` | Stage checkbox changes until the visitor presses Apply (with Reset back to the applied state); `filter-change` fires on Apply only. |
+| `match` | `'any' \| 'all' \| undefined` |  | Say how the selected values combine, under the legend: `any` ("Matches any selected value") or `all`. Unset: no text. |
 | `no-shadow-dom` | `boolean` | `false` |  |
 | `no-style` | `boolean` | `false` |  |
 
@@ -1112,14 +1123,21 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 |---|---|
 | `see-more` | The "See more" button (shadow mode). |
 | `see-less` | The "See less" button (shadow mode). |
+| `toggle` | The disclosure button in the legend (`collapsible`). |
+| `search` | The search-within field (`searchable`). |
+| `clear` | The Clear button (`clearable`). |
+| `apply` | The Apply button (`apply-button`). |
+| `reset` | The Reset button (`apply-button`). |
 
 ### Events
 
 | Event | Description |
 |---|---|
-| `filter-change` | A checkbox was toggled. `detail` is `{ name, value }`: the facet name and the new array of selected keys. Does not bubble. |
+| `filter-change` | A checkbox was toggled, Clear was pressed, or (with `apply-button`) Apply was pressed. `detail` is `{ name, value }`: the facet name and the new array of selected keys (`[]` after Clear). Does not bubble. |
 | `scope-change` | A scope chip was toggled. `detail` is `{ value }`: the new array of pressed scope values. Does not bubble. |
-| `uvalib-analytics-event` | For `<site-analytics>`, on the visitor's changes only: `['uvalib-filter', 'facet-change', '<title>: <value>', 1 \| 0]` (checked or unchecked), `['uvalib-filter', 'scope-change', <scope label>, 1 \| 0]` (pressed or not), and `['uvalib-filter', 'see-more' \| 'see-less', <title>]`. Bubbles and is composed. |
+| `toggle` | With `collapsible`: the visitor opened or closed the group. `detail` is `{ open }`. Does not bubble. |
+| `sort` | With `sortable`: the visitor chose a sort. `detail` is `{ sort }` (`count` or `name`). Does not bubble. |
+| `uvalib-analytics-event` | For `<site-analytics>`, on the visitor's changes only: `['uvalib-filter', 'facet-change', '<title>: <value>', 1 \| 0]` (checked or unchecked; with `apply-button`, one per value when Apply is pressed), `['uvalib-filter', 'scope-change', <scope label>, 1 \| 0]` (pressed or not), `['uvalib-filter', 'see-more' \| 'see-less', <title>]`, `['uvalib-filter', 'toggle', <title>, 1 \| 0]` (opened or closed), `['uvalib-filter', 'sort', '<title>: count' \| '<title>: name']`, `['uvalib-filter', 'clear', <title>, <number cleared>]`, `['uvalib-filter', 'apply', <title>, <number of changes>]` and `['uvalib-filter', 'search', <title>, <number of matches>]` once a search-within settles (never the typed text). Bubbles and is composed. |
 
 ### CSS custom properties
 
@@ -1128,11 +1146,13 @@ A faceted-search filter: a fieldset of checkboxes (value plus result count), opt
 | `--uva-brand-blue` | `#232d4b` | Scope chip text, hover border and pressed background. |
 | `--uva-brand-orange` | `#e57200` | Focus ring colour (focus-visible outline). |
 | `--uva-color-border` |  | Dark-mode role token: divider under the scope chips (else #e5e7eb). |
-| `--uva-color-control-border` |  | Dark-mode role token: scope chip border (else `--uva-grey`, #808080). |
-| `--uva-color-surface-raised` |  | Dark-mode role token: scope chip background (else #fff). |
-| `--uva-color-link` |  | Dark-mode role token: scope chip text and hover border (else `--uva-brand-blue`). |
-| `--uva-color-accent-bg` |  | Dark-mode role token: pressed chip background and border (else `--uva-brand-blue`). |
-| `--uva-color-on-accent` |  | Dark-mode role token: pressed chip text (else #fff). |
+| `--uva-color-control-border` |  | Dark-mode role token: scope chip, search field, sort and button borders (else `--uva-grey`, #808080). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: scope chip, search field, sort and button background (else #fff). |
+| `--uva-color-link` |  | Dark-mode role token: scope chip and button text, the caret, hover border (else `--uva-brand-blue`). |
+| `--uva-color-accent-bg` |  | Dark-mode role token: pressed chip, current sort and Apply background (else `--uva-brand-blue`). |
+| `--uva-color-on-accent` |  | Dark-mode role token: pressed chip, current sort and Apply text (else #fff). |
+| `--uva-color-text-muted` |  | Dark-mode role token: the match text, selected count, search status and staged note (else #4f4f4f). |
+| `--uva-color-input-text` |  | Dark-mode role token: search field text (else #1f2937). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ## `<uvalib-filter-drawer>`

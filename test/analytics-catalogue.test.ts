@@ -36,7 +36,7 @@ import type { SitePage } from '../src/components/site-page/SitePage.js';
 import type { EventsSection } from '../src/components/events-section/EventsSection.js';
 import type { SiteHoursSection } from '../src/components/site-hours-section/SiteHoursSection.js';
 import type { LibraryWeeklyHours } from '../src/components/library-weekly-hours/LibraryWeeklyHours.js';
-import type { UvalibFilter } from '../src/components/uvalib-filter/UvalibFilter.js';
+import { filterTiming, type UvalibFilter } from '../src/components/uvalib-filter/UvalibFilter.js';
 import {
   dateRangeTiming,
   type UvalibDateRange,
@@ -492,6 +492,60 @@ describe('analytics catalogue', () => {
           ['uvalib-filter', 'see-more', 'Format'],
           ['uvalib-filter', 'see-less', 'Format'],
         ]);
+      });
+
+      it('group features: toggle, sort, clear, apply (with each change), search; never the typed text', async () => {
+        const saved = { ...filterTiming };
+        Object.assign(filterTiming, { announce: 20, track: 40 });
+        try {
+          const el = await fixture<UvalibFilter>(
+            `<uvalib-filter ${attr(mode)} collapsible collapsed searchable sortable clearable apply-button></uvalib-filter>`,
+          );
+          Object.assign(el, { filter: facet, value: ['Map'] }); // restored: not reported
+          await quietRender(el);
+          const r = root(el);
+          const btn = (p: string) => r.querySelector<HTMLButtonElement>(`[part=${p}]`)!;
+          const box = (key: string) =>
+            [...r.querySelectorAll<HTMLInputElement>('input[type=checkbox]')].find(
+              (b) => b.value === key,
+            )!;
+          btn('toggle').click(); // open
+          await el.updateComplete;
+          r.querySelectorAll<HTMLInputElement>('.sort input')[1]!.click(); // name
+          await el.updateComplete;
+          box('Book').click();
+          box('Map').click();
+          await el.updateComplete;
+          btn('apply').click();
+          await el.updateComplete;
+          const input = r.querySelector<HTMLInputElement>('[part=search]')!;
+          input.value = 'Secret word';
+          input.dispatchEvent(new Event('input'));
+          input.value = 'o';
+          input.dispatchEvent(new Event('input'));
+          await waitUntil(() => JSON.stringify(events()).includes('"search"'), 'search reported');
+          btn('clear').click();
+          await el.updateComplete;
+          btn('toggle').click(); // close
+          // New data from the app: nothing.
+          el.filter = { ...facet };
+          el.value = [];
+          await el.updateComplete;
+          await nextFrame();
+          expect(events()).to.deep.equal([
+            ['uvalib-filter', 'toggle', 'Format', 1],
+            ['uvalib-filter', 'sort', 'Format: name'],
+            ['uvalib-filter', 'facet-change', 'Format: Book', 1],
+            ['uvalib-filter', 'facet-change', 'Format: Map', 0],
+            ['uvalib-filter', 'apply', 'Format', 2],
+            ['uvalib-filter', 'search', 'Format', 4],
+            ['uvalib-filter', 'clear', 'Format', 1],
+            ['uvalib-filter', 'toggle', 'Format', 0],
+          ]);
+          expect(JSON.stringify(events())).to.not.match(/Secret/);
+        } finally {
+          Object.assign(filterTiming, saved);
+        }
       });
     });
 
