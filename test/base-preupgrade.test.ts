@@ -374,6 +374,73 @@ describe('base.css before <uvalib-filter-drawer> is defined', function () {
 });
 
 /**
+ * base.css before <uvalib-filter> is defined: a collapsed filter group (collapsible collapsed)
+ * upgrades to its 44px legend button alone, so that height is held and nothing below moves.
+ * An open group is left alone (its values come from script, so it grows whatever base.css does),
+ * and `hidden` still hides.
+ */
+describe('base.css before <uvalib-filter> is defined', function () {
+  this.timeout(12000);
+  it('holds a collapsed group at 44px, and nothing moves when it upgrades', async () => {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'width: 375px; height: 600px; border: 0';
+    iframe.srcdoc = `<!doctype html><html lang="en"><head>
+      <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+      </head><body><p>Before</p>
+      <uvalib-filter id="shadow" collapsible collapsed searchable sortable></uvalib-filter>
+      <uvalib-filter id="light" no-shadow-dom collapsible collapsed match="any"></uvalib-filter>
+      <uvalib-filter id="hid" collapsible collapsed hidden></uvalib-filter>
+      <p id="after">After</p>
+      <uvalib-filter id="open" collapsible></uvalib-filter></body></html>`;
+    document.body.append(iframe);
+    await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+    try {
+      const doc = iframe.contentDocument!;
+      const win = iframe.contentWindow!;
+      const el = (id: string) => doc.getElementById(id)!;
+      expect(win.customElements.get('uvalib-filter')).to.equal(undefined);
+      for (const id of ['shadow', 'light'])
+        expect(el(id).getBoundingClientRect().height, id).to.equal(44);
+      expect(win.getComputedStyle(el('hid')).display).to.equal('none');
+      expect(el('open').getBoundingClientRect().height).to.equal(0);
+      const tops = () =>
+        ['shadow', 'light', 'after'].map((id) => el(id).getBoundingClientRect().top);
+      const before = tops();
+      const script = doc.createElement('script');
+      script.type = 'module';
+      script.src = `${location.origin}/dist-cdn/uvalib-filter.js`;
+      doc.head.append(script);
+      await new Promise((r) => script.addEventListener('load', r, { once: true }));
+      type Lit = HTMLElement & {
+        updateComplete: Promise<unknown>;
+        filter: unknown;
+        value: string[];
+      };
+      for (const id of ['shadow', 'light']) {
+        const f = el(id) as Lit;
+        f.filter = {
+          name: 'subject',
+          title: 'Subject',
+          position: 0,
+          buckets: [{ key: 'History', doc_count: 3, selected: false }],
+        };
+        f.value = ['History'];
+        await f.updateComplete;
+      }
+      await new Promise((r) => setTimeout(r, 50));
+      expect(el('shadow').shadowRoot!.querySelector('button[part=toggle]')).to.not.equal(null);
+      expect(['shadow', 'light'].map((id) => el(id).getBoundingClientRect().height)).to.deep.equal([
+        44, 44,
+      ]);
+      expect(tops()).to.deep.equal(before);
+      expect(win.getComputedStyle(el('hid')).display).to.equal('none');
+    } finally {
+      iframe.remove();
+    }
+  });
+});
+
+/**
  * base.css before <uvalib-metadata> is defined (issue #34): the rows already sit as the upgraded
  * element lays them out (label beside value from 36rem, stacked below), and a list-limit list
  * shows only its first N values and a line for its "Show all" button, so nothing below moves
@@ -447,6 +514,136 @@ describe('base.css before <uvalib-metadata> is defined', function () {
           Math.abs(after.tops.at(-1)! - before.tops.at(-1)!),
           `after moved ${before.tops.at(-1)}→${after.tops.at(-1)}`,
         ).to.be.at.most(4);
+      } finally {
+        iframe.remove();
+      }
+    });
+  }
+});
+
+/**
+ * base.css before <uvalib-dialog> is defined: the children are a dialog's content, so they are
+ * never shown in the page, before the element upgrades or after (closed). Nothing moves when it
+ * upgrades.
+ */
+describe('base.css before <uvalib-dialog> is defined', function () {
+  this.timeout(12000);
+
+  it('hides the content before and after upgrading, and nothing moves', async () => {
+    const content =
+      '<p class="tip">Put a phrase in quotes.</p><form method="dialog"><label>Email <input name="e"></label></form>';
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'width: 600px; height: 600px; border: 0';
+    iframe.srcdoc = `<!doctype html><html lang="en"><head>
+      <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+      </head><body><p>Before</p>
+      <uvalib-dialog id="shadow" label="Search tips">${content}</uvalib-dialog>
+      <uvalib-dialog id="light" no-shadow-dom label="Search tips">${content}</uvalib-dialog>
+      <p id="after">After</p></body></html>`;
+    document.body.append(iframe);
+    await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+    try {
+      const doc = iframe.contentDocument!;
+      const win = iframe.contentWindow!;
+      const el = (id: string) => doc.getElementById(id)!;
+      const shown = (id: string) =>
+        [...el(id).querySelectorAll('.tip, form')].some((n) => n.getClientRects().length > 0);
+      expect(win.customElements.get('uvalib-dialog')).to.equal(undefined);
+      for (const id of ['shadow', 'light']) {
+        expect(win.getComputedStyle(el(id)).display, id).to.equal('none');
+        expect(shown(id), id).to.equal(false);
+      }
+      const before = el('after').getBoundingClientRect().top;
+      const script = doc.createElement('script');
+      script.type = 'module';
+      script.src = `${location.origin}/dist-cdn/uvalib-dialog.js`;
+      doc.head.append(script);
+      await new Promise((r) => script.addEventListener('load', r, { once: true }));
+      type Dialog = HTMLElement & { updateComplete: Promise<unknown>; show(): void; close(): void };
+      await Promise.all(['shadow', 'light'].map((id) => (el(id) as Dialog).updateComplete));
+      await new Promise((r) => setTimeout(r, 50));
+      for (const id of ['shadow', 'light']) expect(shown(id), `${id} upgraded`).to.equal(false);
+      expect(el('after').getBoundingClientRect().top).to.equal(before);
+      (el('shadow') as Dialog).show();
+      await (el('shadow') as Dialog).updateComplete;
+      expect(shown('shadow')).to.equal(true);
+      expect(el('after').getBoundingClientRect().top).to.equal(before);
+      (el('shadow') as Dialog).close();
+    } finally {
+      iframe.remove();
+    }
+  });
+});
+
+/**
+ * base.css before <uvalib-citation> is defined: only the first format's citation, boxed as it
+ * will be, with the label and format bar held above it and the Copy citation row below, so
+ * nothing moves when it upgrades (shadow, light DOM and hide-label).
+ */
+describe('base.css before <uvalib-citation> is defined', function () {
+  this.timeout(12000);
+  const formats = `<blockquote data-format="MLA">Jefferson, Thomas. <i>Notes on the State of Virginia</i>. Edited by William Peden, U of North Carolina P, 1955.</blockquote>
+    <blockquote data-format="APA">Jefferson, T. (1955). <i>Notes on the state of Virginia</i> (W. Peden, Ed.). University of North Carolina Press.</blockquote>
+    <blockquote data-format="Chicago">Jefferson, Thomas. <i>Notes on the State of Virginia</i>. Edited by William Peden. Chapel Hill: University of North Carolina Press, 1955.</blockquote>`;
+  const rows = [
+    `<uvalib-citation id="shadow" ris-href="/x.ris">${formats}</uvalib-citation>`,
+    `<uvalib-citation id="light" no-shadow-dom>${formats}</uvalib-citation>`,
+    `<uvalib-citation id="hidden-label" hide-label>${formats}</uvalib-citation>`,
+  ];
+
+  for (const width of [1000, 375]) {
+    it(`shows only the first citation and holds the upgraded height at ${width}px`, async () => {
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = `width: ${width}px; height: 1500px; border: 0`;
+      iframe.srcdoc = `<!doctype html><html lang="en"><head>
+        <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+        </head><body><p>Before</p>${rows.join('<p>Between</p>')}<p id="after">After</p></body></html>`;
+      document.body.append(iframe);
+      await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+      try {
+        const doc = iframe.contentDocument!;
+        const win = iframe.contentWindow!;
+        const el = (id: string) => doc.getElementById(id)!;
+        expect(win.customElements.get('uvalib-citation')).to.equal(undefined);
+        const shownQuotes = [...doc.querySelectorAll('#shadow > blockquote')].filter(
+          (b) => b.getClientRects().length > 0,
+        );
+        expect(shownQuotes.length).to.equal(1);
+        const ids = ['shadow', 'light', 'hidden-label'];
+        const heights = () => ids.map((id) => Math.round(el(id).getBoundingClientRect().height));
+        const quoteTop = (id: string) =>
+          Math.round(el(id).querySelector('blockquote')!.getBoundingClientRect().top);
+        const before = {
+          heights: heights(),
+          after: Math.round(el('after').getBoundingClientRect().top),
+          quote: quoteTop('shadow'),
+        };
+        const script = doc.createElement('script');
+        script.type = 'module';
+        script.src = `${location.origin}/dist-cdn/uvalib-citation.js`;
+        doc.head.append(script);
+        await new Promise((r) => script.addEventListener('load', r, { once: true }));
+        await Promise.all(
+          ids.map(
+            (id) => (el(id) as unknown as { updateComplete: Promise<unknown> }).updateComplete,
+          ),
+        );
+        await new Promise((r) => setTimeout(r, 50));
+        for (const [i, h] of heights().entries())
+          expect(
+            Math.abs(h - before.heights[i]!),
+            `${ids[i]} height ${before.heights[i]}→${h}`,
+          ).to.be.at.most(2);
+        const after = Math.round(el('after').getBoundingClientRect().top);
+        expect(
+          Math.abs(after - before.after),
+          `after moved ${before.after}→${after}`,
+        ).to.be.at.most(4);
+        // The citation text itself stays where it was.
+        const shown = el('shadow').shadowRoot!.querySelector('.citation')!;
+        expect(
+          Math.abs(Math.round(shown.getBoundingClientRect().top) - before.quote),
+        ).to.be.at.most(2);
       } finally {
         iframe.remove();
       }

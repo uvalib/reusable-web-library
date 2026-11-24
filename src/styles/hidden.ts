@@ -39,10 +39,22 @@ export const HIDDEN_CLASSES = [
   'uvalib-result__meta',
   'uvalib-result__snippet',
   'uvalib-result__actions',
+  // Tables (table.ts): the scroll wrapper, and a stacked table on a narrow wrapper
+  'uvalib-table',
+  'uvalib-table-scroll',
+  'uvalib-table-stack',
+  // Field help text (field-text.ts)
+  'uvalib-help',
 ];
 
 /** Children that base.css itself gives a `display`, by their parent's class. */
-const HIDDEN_CHILDREN = ['.uvalib-media > :is(img, video, picture)'];
+const HIDDEN_CHILDREN = [
+  '.uvalib-media > :is(img, video, picture)',
+  // A stacked table's sections, rows and cells (display: block on a narrow wrapper).
+  '.uvalib-table--stack > :is(tbody, tfoot, caption)',
+  '.uvalib-table--stack > :is(tbody, tfoot) > tr',
+  '.uvalib-table--stack > :is(tbody, tfoot) > tr > :is(th, td)',
+];
 
 export const hidden = unsafeCSS(`
   /* hidden hides every base.css class, though each sets display (see hidden.ts). */

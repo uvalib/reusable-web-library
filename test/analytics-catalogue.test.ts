@@ -26,6 +26,8 @@ import '../src/components/uvalib-image-regions/uvalib-image-regions.js';
 import '../src/components/uvalib-map/uvalib-map.js';
 import '../src/components/uvalib-filter-drawer/uvalib-filter-drawer.js';
 import '../src/components/uvalib-back-to-top/uvalib-back-to-top.js';
+import '../src/components/uvalib-dialog/uvalib-dialog.js';
+import '../src/components/uvalib-citation/uvalib-citation.js';
 import * as Leaflet from 'leaflet/dist/leaflet-src.esm.js';
 import '../src/components/bento-box/bento-box.js';
 import type { SiteHeader } from '../src/components/site-header/SiteHeader.js';
@@ -34,7 +36,7 @@ import type { SitePage } from '../src/components/site-page/SitePage.js';
 import type { EventsSection } from '../src/components/events-section/EventsSection.js';
 import type { SiteHoursSection } from '../src/components/site-hours-section/SiteHoursSection.js';
 import type { LibraryWeeklyHours } from '../src/components/library-weekly-hours/LibraryWeeklyHours.js';
-import type { UvalibFilter } from '../src/components/uvalib-filter/UvalibFilter.js';
+import { filterTiming, type UvalibFilter } from '../src/components/uvalib-filter/UvalibFilter.js';
 import {
   dateRangeTiming,
   type UvalibDateRange,
@@ -46,6 +48,11 @@ import type { UvalibImageRegions } from '../src/components/uvalib-image-regions/
 import type { UvalibMap } from '../src/components/uvalib-map/UvalibMap.js';
 import type { UvalibFilterDrawer } from '../src/components/uvalib-filter-drawer/UvalibFilterDrawer.js';
 import type { UvalibBackToTop } from '../src/components/uvalib-back-to-top/UvalibBackToTop.js';
+import type { UvalibDialog } from '../src/components/uvalib-dialog/UvalibDialog.js';
+import {
+  citationTiming,
+  type UvalibCitation,
+} from '../src/components/uvalib-citation/UvalibCitation.js';
 import { recordAnalytics } from './helpers/analytics.js';
 import { resetEvents, useEventsHost } from './helpers/events.js';
 import { resetHours, setClock, settled, useHoursHost } from './helpers/hours.js';
@@ -486,6 +493,60 @@ describe('analytics catalogue', () => {
           ['uvalib-filter', 'see-less', 'Format'],
         ]);
       });
+
+      it('group features: toggle, sort, clear, apply (with each change), search; never the typed text', async () => {
+        const saved = { ...filterTiming };
+        Object.assign(filterTiming, { announce: 20, track: 40 });
+        try {
+          const el = await fixture<UvalibFilter>(
+            `<uvalib-filter ${attr(mode)} collapsible collapsed searchable sortable clearable apply-button></uvalib-filter>`,
+          );
+          Object.assign(el, { filter: facet, value: ['Map'] }); // restored: not reported
+          await quietRender(el);
+          const r = root(el);
+          const btn = (p: string) => r.querySelector<HTMLButtonElement>(`[part=${p}]`)!;
+          const box = (key: string) =>
+            [...r.querySelectorAll<HTMLInputElement>('input[type=checkbox]')].find(
+              (b) => b.value === key,
+            )!;
+          btn('toggle').click(); // open
+          await el.updateComplete;
+          r.querySelectorAll<HTMLInputElement>('.sort input')[1]!.click(); // name
+          await el.updateComplete;
+          box('Book').click();
+          box('Map').click();
+          await el.updateComplete;
+          btn('apply').click();
+          await el.updateComplete;
+          const input = r.querySelector<HTMLInputElement>('[part=search]')!;
+          input.value = 'Secret word';
+          input.dispatchEvent(new Event('input'));
+          input.value = 'o';
+          input.dispatchEvent(new Event('input'));
+          await waitUntil(() => JSON.stringify(events()).includes('"search"'), 'search reported');
+          btn('clear').click();
+          await el.updateComplete;
+          btn('toggle').click(); // close
+          // New data from the app: nothing.
+          el.filter = { ...facet };
+          el.value = [];
+          await el.updateComplete;
+          await nextFrame();
+          expect(events()).to.deep.equal([
+            ['uvalib-filter', 'toggle', 'Format', 1],
+            ['uvalib-filter', 'sort', 'Format: name'],
+            ['uvalib-filter', 'facet-change', 'Format: Book', 1],
+            ['uvalib-filter', 'facet-change', 'Format: Map', 0],
+            ['uvalib-filter', 'apply', 'Format', 2],
+            ['uvalib-filter', 'search', 'Format', 4],
+            ['uvalib-filter', 'clear', 'Format', 1],
+            ['uvalib-filter', 'toggle', 'Format', 0],
+          ]);
+          expect(JSON.stringify(events())).to.not.match(/Secret/);
+        } finally {
+          Object.assign(filterTiming, saved);
+        }
+      });
     });
 
     describe(`uvalib-date-range (${mode})`, () => {
@@ -677,6 +738,32 @@ describe('analytics catalogue', () => {
       });
     });
 
+    describe(`uvalib-dialog (${mode})`, () => {
+      it('open and close by the visitor, with the dialog label; never its content or what is typed', async () => {
+        const wrap = await fixture<HTMLDivElement>(
+          `<div><button type="button" data-uvalib-dialog="cat-dlg">Email</button>
+            <uvalib-dialog ${attr(mode)} id="cat-dlg" label="Email this citation">
+              <form method="dialog"><input aria-label="Email" value="ada@example.com" /><button value="send">Send</button></form>
+            </uvalib-dialog></div>`,
+        );
+        const el = wrap.querySelector<UvalibDialog>('uvalib-dialog')!;
+        await quietRender(el);
+        el.show(); // script opens and closes are not reported
+        await el.updateComplete;
+        el.close();
+        expect(rec.events).to.deep.equal([]);
+        wrap.querySelector<HTMLButtonElement>('[data-uvalib-dialog]')!.click();
+        await el.updateComplete;
+        wrap.querySelector<HTMLButtonElement>('button[value="send"]')!.click();
+        expect(events()).to.deep.equal([
+          ['uvalib-dialog', 'open', 'Email this citation'],
+          ['uvalib-dialog', 'close', 'Email this citation'],
+        ]);
+        expect(JSON.stringify(rec.events)).to.not.include('ada');
+        (document.activeElement as HTMLElement | null)?.blur();
+      });
+    });
+
     describe(`uvalib-back-to-top (${mode})`, () => {
       it('a click reports the fixed verb only', async () => {
         const wrap = await fixture<HTMLDivElement>(
@@ -687,6 +774,38 @@ describe('analytics catalogue', () => {
         root(el).querySelector<HTMLButtonElement>('button.btt-button')!.click();
         expect(events()).to.deep.equal([['uvalib-back-to-top', 'click']]);
         (document.activeElement as HTMLElement | null)?.blur();
+      });
+    });
+
+    describe(`uvalib-citation (${mode})`, () => {
+      it('format (settled), copy and download with the format name, never the citation', async () => {
+        const restore = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+        Object.defineProperty(navigator, 'clipboard', {
+          value: { writeText: () => Promise.resolve(), write: () => Promise.resolve() },
+          configurable: true,
+        });
+        const settle = citationTiming.settle;
+        citationTiming.settle = 20;
+        try {
+          const el = await fixture<UvalibCitation>(
+            `<uvalib-citation ${attr(mode)} ris-href="/secret.ris"><blockquote data-format="MLA">Secret, <i>Title</i>.</blockquote><blockquote data-format="APA">Secret (1836). <i>Title</i>.</blockquote></uvalib-citation>`,
+          );
+          await quietRender(el);
+          root(el).querySelectorAll<HTMLInputElement>('input[type=radio]')[1]!.click();
+          await waitUntil(() => events().length === 1, 'no format event');
+          root(el).querySelector<HTMLButtonElement>('.actions button')!.click();
+          root(el).querySelector<HTMLAnchorElement>('.actions a[download]')!.click();
+          expect(events()).to.deep.equal([
+            ['uvalib-citation', 'format', 'APA'],
+            ['uvalib-citation', 'copy', 'APA'],
+            ['uvalib-citation', 'download', 'ris'],
+          ]);
+          expect(JSON.stringify(rec.events)).to.not.match(/Secret|Title|secret/);
+        } finally {
+          citationTiming.settle = settle;
+          if (restore) Object.defineProperty(navigator, 'clipboard', restore);
+          else delete (navigator as { clipboard?: unknown }).clipboard;
+        }
       });
     });
 

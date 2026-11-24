@@ -1,6 +1,7 @@
 import { css, html, nothing, unsafeCSS, type PropertyValues, type TemplateResult } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { trackEvent } from '../../base/analytics.js';
+import { copyText, selectContents } from '../../base/clipboard.js';
 import { UvalibElement } from '../../base/UvalibElement.js';
 import { installLightDomStyles } from '../../base/light-dom-styles.js';
 import { langDir } from '../../base/inline-copy.js';
@@ -535,10 +536,9 @@ export class UvalibMetadata extends UvalibElement {
     await this.updateComplete;
     let message = 'Copied';
     try {
-      await navigator.clipboard.writeText(this.citationText);
+      await copyText(this.citationText);
     } catch {
-      const p = this.renderRoot.querySelector('.citation');
-      if (p) this.ownerDocument.getSelection()?.selectAllChildren(p);
+      selectContents(this.renderRoot.querySelector('.citation'));
       message = 'Could not copy: the citation is selected, copy it with your keyboard';
     }
     this.status = message;

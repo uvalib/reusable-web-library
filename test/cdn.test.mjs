@@ -42,6 +42,8 @@ const TAGS = [
   'uvalib-map',
   'uvalib-filter-drawer',
   'uvalib-back-to-top',
+  'uvalib-dialog',
+  'uvalib-citation',
 ];
 
 const manifest = () => JSON.parse(readFileSync(join(cdn, 'manifest.json'), 'utf8'));

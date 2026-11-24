@@ -56,6 +56,8 @@ describe('playground presets', function () {
       'contents-sidebar',
       'contents-headings',
       'record-metadata',
+      'citation',
+      'tables',
       'photo-grid',
       'photo-grid-badges',
       'page-images',
@@ -71,6 +73,7 @@ describe('playground presets', function () {
       'date-histogram-decades',
       'combobox',
       'filter-drawer',
+      'dialog',
       'todays-hours',
       'weekly-hours',
       'events',
@@ -88,6 +91,7 @@ describe('playground presets', function () {
       'Chips',
       'Contents',
       'Metadata',
+      'Tables',
       'Images',
       'Maps',
       'Search',
@@ -134,7 +138,8 @@ describe('playground presets', function () {
       ],
       Chips: ['chip-groups'],
       Contents: ['contents-sidebar', 'contents-headings'],
-      Metadata: ['record-metadata'],
+      Metadata: ['record-metadata', 'citation'],
+      Tables: ['tables'],
       Images: ['photo-grid', 'photo-grid-badges', 'page-images', 'image-regions', 'image-versions'],
       Maps: ['places-map'],
       Search: [
@@ -147,6 +152,7 @@ describe('playground presets', function () {
         'date-histogram-decades',
         'combobox',
         'filter-drawer',
+        'dialog',
         'uvalib-filter-shadow',
         'uvalib-filter-light',
         'uvalib-date-range-shadow',
@@ -363,6 +369,62 @@ describe('playground presets', function () {
     }
   });
 
+  it('search-facets: the Subject group searches, sorts and clears; Format applies; axe passes', async () => {
+    const p = presets.find((x) => x.id === 'search-facets')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    try {
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(iframe.contentWindow!, ['site-page', 'uvalib-filter']);
+      await new Promise((r) => setTimeout(r, 100));
+      type Lit = HTMLElement & { updateComplete: Promise<unknown>; shadowRoot: ShadowRoot };
+      const subjects = doc.querySelector('#subjects') as Lit;
+      const formats = doc.querySelector('#formats') as Lit;
+      await subjects.updateComplete;
+      const s = subjects.shadowRoot;
+      const boxes = (r: ShadowRoot) => [
+        ...r.querySelectorAll<HTMLInputElement>('input[type=checkbox]'),
+      ];
+      expect(
+        s.querySelector('legend h2 button[part=toggle]')!.getAttribute('aria-expanded'),
+      ).to.equal('true');
+      expect(s.querySelector('.match')!.textContent!.trim()).to.equal('Matches any selected value');
+      expect(boxes(s)).to.have.length(5);
+      const input = s.querySelector<HTMLInputElement>('[part=search]')!;
+      input.value = 'ecolo';
+      input.dispatchEvent(new Event('input'));
+      await subjects.updateComplete;
+      expect(boxes(s).map((b) => b.value)).to.have.length(5); // Écologie and its four subdivisions
+      expect(s.querySelector('.search-status')!.textContent!.trim()).to.equal('5 of 150 subjects');
+      expect(s.querySelector('label mark')!.textContent).to.equal('Écolo');
+      boxes(s)[0]!.click();
+      await subjects.updateComplete;
+      input.value = '';
+      input.dispatchEvent(new Event('input'));
+      s.querySelectorAll<HTMLInputElement>('.sort input')[1]!.click();
+      await subjects.updateComplete;
+      expect(boxes(s)[0]!.value).to.equal('Agriculture');
+      s.querySelector<HTMLButtonElement>('[part=clear]')!.click();
+      await subjects.updateComplete;
+      expect(boxes(s).some((b) => b.checked)).to.equal(false);
+      await formats.updateComplete;
+      const f = formats.shadowRoot;
+      boxes(f)[0]!.click();
+      boxes(f)[2]!.click();
+      await formats.updateComplete;
+      expect(doc.querySelector('#log')!.textContent).to.not.include('applied');
+      const apply = f.querySelector<HTMLButtonElement>('[part=apply]')!;
+      expect(apply.textContent!.replace(/\s+/g, ' ').trim()).to.equal('Apply 2 changes to Format');
+      apply.click();
+      await formats.updateComplete;
+      expect(doc.querySelector('#log')!.textContent).to.include('filter-change (applied)');
+      expect(doc.querySelector('#log')!.textContent).to.include('"Map"');
+      await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  });
+
   it('combobox: choosing a person and a subject fills the form, and the page passes axe', async () => {
     const p = presets.find((x) => x.id === 'combobox')!;
     const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
@@ -444,6 +506,57 @@ describe('playground presets', function () {
       }
     }).timeout(10000);
   }
+
+  it('dialog: search tips and the email form open, validate, close and return focus; axe passes', async () => {
+    const p = presets.find((x) => x.id === 'dialog')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    iframe.style.width = '400px';
+    iframe.style.height = '800px';
+    try {
+      const doc = iframe.contentDocument!;
+      const win = iframe.contentWindow!;
+      await whenAllDefined(win, ['site-page', 'uvalib-dialog']);
+      type Dialog = HTMLElement & {
+        updateComplete: Promise<unknown>;
+        shadowRoot: ShadowRoot;
+        open: boolean;
+      };
+      const tips = doc.querySelector('#search-tips') as Dialog;
+      const cite = doc.querySelector('#email-cite') as Dialog;
+      await tips.updateComplete;
+      await cite.updateComplete;
+      const tipsBtn = doc.querySelector<HTMLButtonElement>('[data-uvalib-dialog="search-tips"]')!;
+      const citeBtn = doc.querySelector<HTMLButtonElement>('[data-uvalib-dialog="email-cite"]')!;
+      tipsBtn.focus();
+      tipsBtn.click();
+      await tips.updateComplete;
+      expect(tips.open).to.equal(true);
+      expect(tips.shadowRoot.activeElement?.classList.contains('dlg-heading')).to.equal(true);
+      await expectNoPageAxeViolations(doc);
+      tips.shadowRoot.querySelector<HTMLButtonElement>('.dlg-close')!.click();
+      expect(doc.activeElement === tipsBtn).to.equal(true);
+      citeBtn.focus();
+      citeBtn.click();
+      await cite.updateComplete;
+      const email = doc.querySelector<HTMLInputElement>('#cite-email')!;
+      expect(doc.activeElement === email).to.equal(true);
+      const send = doc.querySelector<HTMLButtonElement>('#cite-form button[value="send"]')!;
+      send.click();
+      expect(cite.open, 'an empty email keeps it open').to.equal(true);
+      expect(doc.querySelector('#cite-errors')!.textContent).to.include('Error:');
+      expect(email.getAttribute('aria-invalid')).to.equal('true');
+      await expectNoPageAxeViolations(doc);
+      email.value = 'ada@virginia.edu';
+      send.click();
+      await waitUntil(() => !cite.open, 'Send did not close');
+      expect(doc.activeElement === citeBtn).to.equal(true);
+      expect(doc.querySelector('#sent')!.textContent).to.include('would be sent');
+      expect(countMain(doc)).to.equal(1);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  }).timeout(10000);
 
   it('back-to-top: shown after scrolling, back to the h1, and axe passes', async () => {
     const p = presets.find((x) => x.id === 'back-to-top')!;
@@ -643,6 +756,44 @@ describe('playground presets', function () {
       await el.updateComplete;
       expect(shown()).to.equal(34);
       expect(b.getAttribute('aria-expanded')).to.equal('true');
+      await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  });
+
+  it('citation: four formats, the arrow keys choose, Copy citation, and axe passes', async () => {
+    const p = presets.find((x) => x.id === 'citation')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    iframe.style.width = '400px';
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-page', 'uvalib-citation']);
+      const el = doc.querySelector('uvalib-citation')! as HTMLElement & {
+        updateComplete: Promise<unknown>;
+      };
+      await el.updateComplete;
+      const r = el.shadowRoot!;
+      const radios = [...r.querySelectorAll<HTMLInputElement>('input[type=radio]')];
+      expect(radios.map((x) => x.closest('label')!.textContent!.trim())).to.deep.equal([
+        'MLA',
+        'APA',
+        'Chicago',
+        'Bluebook',
+      ]);
+      expect(r.querySelector('.citation')!.getAttribute('aria-label')).to.equal('MLA citation');
+      radios[3]!.click();
+      await el.updateComplete;
+      expect(r.querySelector('.citation')!.textContent).to.contain('Thomas Jefferson,');
+      expect(r.querySelector('.citation i')!.textContent).to.equal(
+        'Notes on the State of Virginia',
+      );
+      const ris = r.querySelector<HTMLAnchorElement>('a[download]')!;
+      expect(ris.textContent!.trim()).to.equal('Download RIS');
+      expect(doc.documentElement.scrollWidth).to.be.at.most(400);
+      expect(countMain(doc)).to.equal(1);
       await expectNoPageAxeViolations(doc);
       expect(errors).to.deep.equal([]);
     } finally {
@@ -1151,6 +1302,32 @@ describe('playground presets', function () {
       expect([...doc.querySelectorAll('.year')].every((y) => (y as HTMLElement).hidden)).to.equal(
         true,
       );
+      expect(countMain(doc)).to.equal(1);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  }).timeout(15000);
+
+  it('tables: holdings, a striped schedule and a scrolling wide table fit a phone and pass axe', async () => {
+    const p = presets.find((x) => x.id === 'tables')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    iframe.style.width = '320px';
+    iframe.style.height = '900px';
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-page']);
+      await new Promise((r) => setTimeout(r, 100));
+      expect(doc.querySelectorAll('table.uvalib-table').length).to.equal(4);
+      for (const t of doc.querySelectorAll('table'))
+        expect(t.querySelector('caption')!.textContent!.trim()).to.not.equal('');
+      // Nothing scrolls the page sideways: the long barcode wraps, the wide table scrolls inside.
+      expect(doc.documentElement.scrollWidth).to.be.at.most(win.innerWidth);
+      const scroller = doc.querySelector<HTMLElement>('.uvalib-table-scroll')!;
+      expect(scroller.scrollWidth).to.be.greaterThan(scroller.clientWidth);
+      expect(scroller.tabIndex).to.equal(0);
+      await expectNoPageAxeViolations(doc);
       expect(countMain(doc)).to.equal(1);
       expect(errors).to.deep.equal([]);
     } finally {

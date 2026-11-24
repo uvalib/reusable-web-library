@@ -117,7 +117,8 @@ export const base = css`
       uvalib-combobox,
       uvalib-image-regions,
       uvalib-map,
-      uvalib-filter-drawer
+      uvalib-filter-drawer,
+      uvalib-filter
     ):not(:defined)[hidden],
   :where(uvalib-combobox, uvalib-image-regions):not(:defined) > [hidden] {
     display: none;
@@ -249,6 +250,13 @@ export const base = css`
     line-height: 1.5;
     color: var(--uva-color-text-muted, #4b5563);
   }
+  /* A collapsed filter group (<uvalib-filter collapsible collapsed>) draws only its 44px
+     legend button once it upgrades: hold that height. Low specificity, so the [hidden] rule
+     above still wins. */
+  :where(uvalib-filter[collapsible][collapsed]):not(:defined) {
+    display: block;
+    min-block-size: 44px;
+  }
   /* A filter drawer on a phone (the default 48rem breakpoint): once it upgrades only its 44px
      "Search and filters" button shows, so hold that height and keep the form and filters out
      of sight meanwhile; nothing moves when it upgrades. A page with its own breakpoint adds the
@@ -262,6 +270,38 @@ export const base = css`
     :where(uvalib-filter-drawer:not([breakpoint])):not(:defined) > * {
       display: none;
     }
+  }
+  /* A dialog before <uvalib-dialog> upgrades: its children are the dialog's content, never
+     shown in the page, so nothing flashes or moves. Once defined, a closed dialog renders
+     nothing (its host is display: contents around a closed <dialog>). */
+  uvalib-dialog:not(:defined) {
+    display: none;
+  }
+  /* A citation before <uvalib-citation> upgrades: only the first format's citation, boxed
+     as it will be, with the label and 44px format bar held above it (none for hide-label)
+     and the 44px Copy citation row below, so nothing moves when it upgrades (an app's
+     citations property cannot be held). */
+  uvalib-citation:not(:defined) {
+    display: block;
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+  uvalib-citation:not(:defined):has(> [data-format]) {
+    padding-block: calc(2rem + 44px + 0.75rem) calc(0.75rem + 44px);
+  }
+  uvalib-citation[hide-label]:not(:defined):has(> [data-format]) {
+    padding-block-start: calc(44px + 0.75rem);
+  }
+  uvalib-citation:not(:defined) > [data-format] {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid transparent;
+    overflow-wrap: anywhere;
+    text-wrap: pretty;
+  }
+  uvalib-citation:not(:defined) > [data-format] ~ [data-format],
+  uvalib-citation:not(:defined) > [slot] {
+    display: none;
   }
   /* Printing a <site-page> (issue #20; its own styles leave out the chrome): a dark scheme
      prints light (the role tokens resolve to their light values), and the content's links

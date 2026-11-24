@@ -2,7 +2,9 @@ import { css, unsafeCSS } from 'lit';
 import { results } from './results.js';
 import { message } from './message.js';
 import { resultList } from './result-list.js';
+import { table } from './table.js';
 import { hidden } from './hidden.js';
+import { fieldText } from './field-text.js';
 
 // Buttons, toggles and form fields for host content, in base.css only: no component
 // installs them, so no component bundle carries them. Like the rest of base.css they are
@@ -209,5 +211,7 @@ export const controls = css`
   ${results}
   ${message}
   ${resultList}
+  ${table}
   ${hidden}
+  ${fieldText}
 `;
