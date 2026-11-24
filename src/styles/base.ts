@@ -263,6 +263,32 @@ export const base = css`
       display: none;
     }
   }
+  /* A citation before <uvalib-citation> upgrades: only the first format's citation, boxed
+     as it will be, with the label and 44px format bar held above it (none for hide-label)
+     and the 44px Copy citation row below, so nothing moves when it upgrades (an app's
+     citations property cannot be held). */
+  uvalib-citation:not(:defined) {
+    display: block;
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+  uvalib-citation:not(:defined):has(> [data-format]) {
+    padding-block: calc(2rem + 44px + 0.75rem) calc(0.75rem + 44px);
+  }
+  uvalib-citation[hide-label]:not(:defined):has(> [data-format]) {
+    padding-block-start: calc(44px + 0.75rem);
+  }
+  uvalib-citation:not(:defined) > [data-format] {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid transparent;
+    overflow-wrap: anywhere;
+    text-wrap: pretty;
+  }
+  uvalib-citation:not(:defined) > [data-format] ~ [data-format],
+  uvalib-citation:not(:defined) > [slot] {
+    display: none;
+  }
   /* Printing a <site-page> (issue #20; its own styles leave out the chrome): a dark scheme
      prints light (the role tokens resolve to their light values), and the content's links
      are black and underlined, so they are told apart without colour. Content is <main> in

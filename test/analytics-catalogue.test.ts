@@ -26,6 +26,7 @@ import '../src/components/uvalib-image-regions/uvalib-image-regions.js';
 import '../src/components/uvalib-map/uvalib-map.js';
 import '../src/components/uvalib-filter-drawer/uvalib-filter-drawer.js';
 import '../src/components/uvalib-back-to-top/uvalib-back-to-top.js';
+import '../src/components/uvalib-citation/uvalib-citation.js';
 import * as Leaflet from 'leaflet/dist/leaflet-src.esm.js';
 import '../src/components/bento-box/bento-box.js';
 import type { SiteHeader } from '../src/components/site-header/SiteHeader.js';
@@ -46,6 +47,10 @@ import type { UvalibImageRegions } from '../src/components/uvalib-image-regions/
 import type { UvalibMap } from '../src/components/uvalib-map/UvalibMap.js';
 import type { UvalibFilterDrawer } from '../src/components/uvalib-filter-drawer/UvalibFilterDrawer.js';
 import type { UvalibBackToTop } from '../src/components/uvalib-back-to-top/UvalibBackToTop.js';
+import {
+  citationTiming,
+  type UvalibCitation,
+} from '../src/components/uvalib-citation/UvalibCitation.js';
 import { recordAnalytics } from './helpers/analytics.js';
 import { resetEvents, useEventsHost } from './helpers/events.js';
 import { resetHours, setClock, settled, useHoursHost } from './helpers/hours.js';
@@ -687,6 +692,38 @@ describe('analytics catalogue', () => {
         root(el).querySelector<HTMLButtonElement>('button.btt-button')!.click();
         expect(events()).to.deep.equal([['uvalib-back-to-top', 'click']]);
         (document.activeElement as HTMLElement | null)?.blur();
+      });
+    });
+
+    describe(`uvalib-citation (${mode})`, () => {
+      it('format (settled), copy and download with the format name, never the citation', async () => {
+        const restore = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+        Object.defineProperty(navigator, 'clipboard', {
+          value: { writeText: () => Promise.resolve(), write: () => Promise.resolve() },
+          configurable: true,
+        });
+        const settle = citationTiming.settle;
+        citationTiming.settle = 20;
+        try {
+          const el = await fixture<UvalibCitation>(
+            `<uvalib-citation ${attr(mode)} ris-href="/secret.ris"><blockquote data-format="MLA">Secret, <i>Title</i>.</blockquote><blockquote data-format="APA">Secret (1836). <i>Title</i>.</blockquote></uvalib-citation>`,
+          );
+          await quietRender(el);
+          root(el).querySelectorAll<HTMLInputElement>('input[type=radio]')[1]!.click();
+          await waitUntil(() => events().length === 1, 'no format event');
+          root(el).querySelector<HTMLButtonElement>('.actions button')!.click();
+          root(el).querySelector<HTMLAnchorElement>('.actions a[download]')!.click();
+          expect(events()).to.deep.equal([
+            ['uvalib-citation', 'format', 'APA'],
+            ['uvalib-citation', 'copy', 'APA'],
+            ['uvalib-citation', 'download', 'ris'],
+          ]);
+          expect(JSON.stringify(rec.events)).to.not.match(/Secret|Title|secret/);
+        } finally {
+          citationTiming.settle = settle;
+          if (restore) Object.defineProperty(navigator, 'clipboard', restore);
+          else delete (navigator as { clipboard?: unknown }).clipboard;
+        }
       });
     });
 

@@ -83,3 +83,5 @@ export { UvalibMap } from './components/uvalib-map/UvalibMap.js';
 export type { MapItem } from './components/uvalib-map/UvalibMap.js';
 export { UvalibFilterDrawer } from './components/uvalib-filter-drawer/UvalibFilterDrawer.js';
 export { UvalibBackToTop } from './components/uvalib-back-to-top/UvalibBackToTop.js';
+export { UvalibCitation } from './components/uvalib-citation/UvalibCitation.js';
+export type { CitationItem } from './components/uvalib-citation/UvalibCitation.js';

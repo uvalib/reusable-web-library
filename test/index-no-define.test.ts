@@ -33,6 +33,7 @@ describe('index', () => {
     expect(lib.UvalibMap).to.be.a('function');
     expect(lib.UvalibFilterDrawer).to.be.a('function');
     expect(lib.UvalibBackToTop).to.be.a('function');
+    expect(lib.UvalibCitation).to.be.a('function');
     expect(lib.SiteAlerts).to.be.a('function');
     expect(lib.UvalibAnalytics).to.be.a('function');
     expect(lib.SiteAnalyticsMixin).to.be.a('function');
@@ -85,6 +86,7 @@ describe('index', () => {
       'uvalib-map',
       'uvalib-filter-drawer',
       'uvalib-back-to-top',
+      'uvalib-citation',
     ]) {
       expect(customElements.get(tag) === undefined, `${tag} is defined`).to.equal(true);
     }

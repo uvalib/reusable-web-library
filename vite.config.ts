@@ -35,6 +35,7 @@ const tags = [
   'uvalib-map',
   'uvalib-filter-drawer',
   'uvalib-back-to-top',
+  'uvalib-citation',
 ];
 
 /** Plain modules a page's own scripts import (no element): analytics.js, the track* helpers. */
