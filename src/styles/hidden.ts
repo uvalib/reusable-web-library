@@ -39,6 +39,8 @@ export const HIDDEN_CLASSES = [
   'uvalib-result__meta',
   'uvalib-result__snippet',
   'uvalib-result__actions',
+  // Field help text (field-text.ts)
+  'uvalib-help',
 ];
 
 /** Children that base.css itself gives a `display`, by their parent's class. */

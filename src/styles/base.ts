@@ -263,6 +263,12 @@ export const base = css`
       display: none;
     }
   }
+  /* A dialog before <uvalib-dialog> upgrades: its children are the dialog's content, never
+     shown in the page, so nothing flashes or moves. Once defined, a closed dialog renders
+     nothing (its host is display: contents around a closed <dialog>). */
+  uvalib-dialog:not(:defined) {
+    display: none;
+  }
   /* Printing a <site-page> (issue #20; its own styles leave out the chrome): a dark scheme
      prints light (the role tokens resolve to their light values), and the content's links
      are black and underlined, so they are told apart without colour. Content is <main> in
