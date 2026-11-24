@@ -376,7 +376,8 @@ describe('base.css before <uvalib-filter-drawer> is defined', function () {
 /**
  * base.css before <uvalib-filter> is defined: a collapsed filter group (collapsible collapsed)
  * upgrades to its 44px legend button alone, so that height is held and nothing below moves.
- * An open group is left alone (its values come from script), and `hidden` still hides.
+ * An open group is left alone (its values come from script, so it grows whatever base.css does),
+ * and `hidden` still hides.
  */
 describe('base.css before <uvalib-filter> is defined', function () {
   this.timeout(12000);
@@ -389,8 +390,8 @@ describe('base.css before <uvalib-filter> is defined', function () {
       <uvalib-filter id="shadow" collapsible collapsed searchable sortable></uvalib-filter>
       <uvalib-filter id="light" no-shadow-dom collapsible collapsed match="any"></uvalib-filter>
       <uvalib-filter id="hid" collapsible collapsed hidden></uvalib-filter>
-      <uvalib-filter id="open" collapsible></uvalib-filter>
-      <p id="after">After</p></body></html>`;
+      <p id="after">After</p>
+      <uvalib-filter id="open" collapsible></uvalib-filter></body></html>`;
     document.body.append(iframe);
     await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
     try {

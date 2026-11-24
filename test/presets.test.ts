@@ -363,6 +363,62 @@ describe('playground presets', function () {
     }
   });
 
+  it('search-facets: the Subject group searches, sorts and clears; Format applies; axe passes', async () => {
+    const p = presets.find((x) => x.id === 'search-facets')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    try {
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(iframe.contentWindow!, ['site-page', 'uvalib-filter']);
+      await new Promise((r) => setTimeout(r, 100));
+      type Lit = HTMLElement & { updateComplete: Promise<unknown>; shadowRoot: ShadowRoot };
+      const subjects = doc.querySelector('#subjects') as Lit;
+      const formats = doc.querySelector('#formats') as Lit;
+      await subjects.updateComplete;
+      const s = subjects.shadowRoot;
+      const boxes = (r: ShadowRoot) => [
+        ...r.querySelectorAll<HTMLInputElement>('input[type=checkbox]'),
+      ];
+      expect(
+        s.querySelector('legend h2 button[part=toggle]')!.getAttribute('aria-expanded'),
+      ).to.equal('true');
+      expect(s.querySelector('.match')!.textContent!.trim()).to.equal('Matches any selected value');
+      expect(boxes(s)).to.have.length(5);
+      const input = s.querySelector<HTMLInputElement>('[part=search]')!;
+      input.value = 'ecolo';
+      input.dispatchEvent(new Event('input'));
+      await subjects.updateComplete;
+      expect(boxes(s).map((b) => b.value)).to.have.length(5); // Écologie and its four subdivisions
+      expect(s.querySelector('.search-status')!.textContent!.trim()).to.equal('5 of 150 subjects');
+      expect(s.querySelector('label mark')!.textContent).to.equal('Écolo');
+      boxes(s)[0]!.click();
+      await subjects.updateComplete;
+      input.value = '';
+      input.dispatchEvent(new Event('input'));
+      s.querySelectorAll<HTMLInputElement>('.sort input')[1]!.click();
+      await subjects.updateComplete;
+      expect(boxes(s)[0]!.value).to.equal('Agriculture');
+      s.querySelector<HTMLButtonElement>('[part=clear]')!.click();
+      await subjects.updateComplete;
+      expect(boxes(s).some((b) => b.checked)).to.equal(false);
+      await formats.updateComplete;
+      const f = formats.shadowRoot;
+      boxes(f)[0]!.click();
+      boxes(f)[2]!.click();
+      await formats.updateComplete;
+      expect(doc.querySelector('#log')!.textContent).to.not.include('applied');
+      const apply = f.querySelector<HTMLButtonElement>('[part=apply]')!;
+      expect(apply.textContent!.replace(/\s+/g, ' ').trim()).to.equal('Apply 2 changes to Format');
+      apply.click();
+      await formats.updateComplete;
+      expect(doc.querySelector('#log')!.textContent).to.include('filter-change (applied)');
+      expect(doc.querySelector('#log')!.textContent).to.include('"Map"');
+      await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  });
+
   it('combobox: choosing a person and a subject fills the form, and the page passes axe', async () => {
     const p = presets.find((x) => x.id === 'combobox')!;
     const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
