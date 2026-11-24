@@ -971,6 +971,133 @@ An inline message for the page's own content: a search error, a notice that resu
 - **Live regions:** use `role="alert"` only for an error that appears in response to what the visitor did (it interrupts); use `role="status"` for a notice or confirmation (polite). For a status to be announced reliably, put the empty `role="status"` container in the page first and fill it later, rather than inserting the whole element. A message that is there when the page loads needs no role. Do not put an alert role on a message that is always shown.
 - **Forced colors:** every message keeps a system-colour border, thicker at the start. In the flow of the page it is a block with the content's own width, its first and last child without outer margins.
 
+## Tables
+
+Data tables in the page's own content (holdings, schedules, statistics) in the library look: library.virginia.edu's W3.CSS tables (left-aligned cells padded 8px, the first column 16px from the edge, top-aligned, a light rule between rows), the same rules `<library-weekly-hours>` draws. The classes are in `base.css`. See the [Tables](https://uvalib.github.io/reusable-web-library/#tables) example.
+
+```html
+<!-- Holdings grouped by library: a heading per library, then its table. -->
+<h3>Clemons Library</h3>
+<table class="uvalib-table">
+  <caption>
+    Clemons Library holdings
+  </caption>
+  <thead>
+    <tr>
+      <th scope="col">Location</th>
+      <th scope="col">Call number</th>
+      <th scope="col">Barcode</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Stacks</td>
+      <td>PS3545 .O337 Z5 2004</td>
+      <td>X004812345</td>
+    </tr>
+  </tbody>
+</table>
+<h3>Law Library</h3>
+<table class="uvalib-table">
+  <caption>
+    Law Library holdings
+  </caption>
+  <thead>
+    <tr>
+      <th scope="col">Location</th>
+      <th scope="col">Call number</th>
+      <th scope="col">Barcode</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Law Library Stacks, Lower Level</td>
+      <td>KF4550 .A2 1787a vol. 1–4 suppl.</td>
+      <td>35000101234567890123456789</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- A striped, compact schedule with a number column. -->
+<table class="uvalib-table uvalib-table--striped uvalib-table--compact">
+  <caption>
+    Study rooms this week
+  </caption>
+  <thead>
+    <tr>
+      <th scope="col">Day</th>
+      <th scope="col">Hours</th>
+      <th scope="col" class="uvalib-table__num">Rooms free</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th scope="row">Monday</th>
+      <td>8 a.m. – midnight</td>
+      <td class="uvalib-table__num">12</td>
+    </tr>
+    <tr>
+      <th scope="row">Tuesday</th>
+      <td>8 a.m. – midnight</td>
+      <td class="uvalib-table__num">7</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- A wide table scrolls inside its own region, named by the caption. -->
+<div class="uvalib-table-scroll" role="region" tabindex="0" aria-labelledby="circ-caption">
+  <table class="uvalib-table">
+    <caption id="circ-caption">
+      Items borrowed per month, 2025
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">Library</th>
+        <th scope="col" class="uvalib-table__num">Jan</th>
+        <th scope="col" class="uvalib-table__num">Feb</th>
+        <!-- … -->
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">Clemons Library</th>
+        <td class="uvalib-table__num">4,210</td>
+        <td class="uvalib-table__num">3,987</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Opt-in: rows stack below 30em of the wrapper's width. Explicit roles are required. -->
+<div class="uvalib-table-stack">
+  <table class="uvalib-table uvalib-table--stack" role="table">
+    <caption>
+      Clemons Library holdings
+    </caption>
+    <thead role="rowgroup">
+      <tr role="row">
+        <th scope="col" role="columnheader">Location</th>
+        <th scope="col" role="columnheader">Call number</th>
+      </tr>
+    </thead>
+    <tbody role="rowgroup">
+      <tr role="row">
+        <td role="cell" data-label="Location">Stacks</td>
+        <td role="cell" data-label="Call number">PS3545 .O337 Z5 2004</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+```
+
+- **`.uvalib-table`** on a `<table>`: full width, collapsed borders, bold left-aligned header cells, a 2px rule under the header row and a 1px rule between rows (`--uva-color-table-border`). Cells wrap long values anywhere, so a long barcode, call number or URL never pushes the table past a phone's width.
+- **Every table needs an accessible name:** a `<caption>` (drawn as a bold line above the table; keep it visible) or `aria-labelledby` pointing at a visible heading. Header cells are `<th>` with `scope="col"` or `scope="row"` (a row's first cell is often its header: a day, a library); use `<td>` for data. Do not use a table for layout, and do not leave empty header cells: give them visually hidden text.
+- **Modifiers:** `--striped` (every even body row on `--uva-color-table-stripe`; body text is 12.5:1 on it in light and 12.6:1 in dark, AAA), `--compact` (4px by 8px cells), and **`.uvalib-table__num`** on a `<th>` or `<td>` for numbers: right-aligned with tabular digits, so columns line up. Put it on the column's header too.
+- **Wide tables:** wrap the table in `<div class="uvalib-table-scroll" role="region" tabindex="0" aria-labelledby="CAPTION-ID">` (give the caption that id). The wrapper scrolls sideways inside itself, never the page; `tabindex="0"` lets keyboard users focus and scroll it (it shows the library focus ring), and the region is named by the caption. Inside it, cells break only words that cannot fit. This is the default for any table wider than a phone.
+- **Stacked rows (opt-in):** in a `.uvalib-table-stack` wrapper (a size container), `.uvalib-table--stack` turns each row into a block when the wrapper is 30em wide or narrower (480px at 16px; in a sidebar too), each cell headed by its `data-label` (drawn by CSS and hidden from screen readers, which hear the column header). Changing a table's display removes its table semantics in some browsers (Safari/WebKit), so **a stacked table must carry explicit roles**: `role="table"` on the table, `rowgroup` on `<thead>`/`<tbody>`, `row`, `columnheader` (and `rowheader` for a `<th scope="row">`) and `cell`. Prefer the scroll wrapper; stack only short tables whose rows read well as cards.
+- **Grouped tables** (holdings by library, items by location): a heading per group followed by its table, each table with its own caption. The heading level follows the page's outline (Virgo's record design uses `<h5>` for locations because of where they sit; on your page it may be `<h2>` or `<h3>`), never a fixed level.
+- **Forced colors** draws the rules in the system text colour and drops the stripes; **print** draws the rules black, drops the stripes, and lets a scroll-wrapped table print in full. `hidden` hides a table, the wrappers and a stacked row.
+
 ## Back to top
 
 `<uvalib-back-to-top>` is a “Back to top” button for long pages: minutes, finding aids, transcriptions, long result lists. Entry: `uvalib-back-to-top.js` on the CDN, `@uvalib/web-components/uvalib-back-to-top.js` on npm. See the [Back to top](https://uvalib.github.io/reusable-web-library/#back-to-top) example.
