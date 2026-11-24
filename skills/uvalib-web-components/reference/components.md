@@ -773,6 +773,49 @@ A row of chips: a segmented control or single-select filter (`mode="single"`), f
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 | `--uva-color-surface` |  | Dark-mode role token: the page background the scrolling row fades into at an edge with more chips (else #fff). |
 
+## `<uvalib-citation>`
+
+One record's citation in several formats (MLA, APA, Chicago, Bluebook…), a radio group to choose one, and a Copy citation button, as in Virgo's Cite dialog. Inline on a record page or inside a dialog: it assumes nothing about where it sits. Give each format as a child, `<blockquote data-format="MLA">…</blockquote>` (any element with `data-format`), so the page reads the same before the script loads (with `base.css`, only the first shows then, and the chooser's and button's space is held). Inline markup in a citation (`<i>` or `<em>` for a title) is kept; other elements are reduced to their text and nothing is parsed as HTML. Apps set the `citations` property instead (`[{ format, text, html? }]`, winning over the children while set); `html` keeps only inline elements, too. The formats are native radios drawn as one segmented bar (`role="radiogroup"`, "Citation format"): one tab stop, the arrow keys move and select, and the selected one is filled and ticked. `format` names the selected one (default the first). With `remember`, the visitor's last choice is kept in localStorage (per site) and wins over `format` on their next record. The selected citation is shown as selectable text in a region named "<format> citation". Copy citation copies it as plain text and as HTML where the browser allows (so an italic title stays italic when pasted into a word processor) and says "MLA citation copied" in a polite status next to the button, in the text colour (AAA), not in a toast. If the clipboard is unavailable, the citation is selected and the status says to copy it with the keyboard. `ris-href` adds a "Download RIS" link (`ris-label`) with a `download` attribute. Other export links go in the `actions` slot (`<a slot="actions" href="…" download>EndNote</a>`), after it.
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `label` | `string` | `'Cite this item'` | The group's visible label and accessible name. |
+| `hide-label` | `boolean` | `false` | Hide the label visually (it still names the group), for a dialog whose heading says it. |
+| `format` | `string` | `''` | The selected format's name (default the first). Reflected when the visitor chooses one. |
+| `remember` | `boolean` | `false` | Keep the visitor's last format in localStorage (per site), winning over `format`. |
+| `ris-href` | `string` | `''` | A RIS file for the record: adds a download link. |
+| `ris-label` | `string` | `'Download RIS'` | The RIS link's text. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### Slots
+
+| Slot | Description |
+|---|---|
+| `actions` | More export links or buttons, after Copy citation and Download RIS. |
+
+### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-citation-format` | The visitor chose another format: `detail` is `{ format }`. Not fired when the app sets `format`. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`, on the visitor's actions only: `['uvalib-citation', 'format', '<format>']` (once the visitor settles on one, a second after the last change), `['uvalib-citation', 'copy', '<format>']` and `['uvalib-citation', 'download', 'ris']`. Never the citation. Bubbles and is composed. |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-text` |  | Dark-mode role token: label, citation and status colour (else `--uva-grey-darkest`). |
+| `--uva-color-border` |  | Dark-mode role token: the citation's border (else #dadada). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: the citation's, segments' and buttons' background (else #fff). |
+| `--uva-color-control-border` |  | Dark-mode role token: segment border (else `--uva-grey`, #808080). |
+| `--uva-color-link` |  | Dark-mode role token: segment and button text, button border (else `--uva-brand-blue`). |
+| `--uva-color-accent-bg` |  | Dark-mode role token: the selected segment (else `--uva-brand-blue`). |
+| `--uva-color-on-accent` |  | Dark-mode role token: the selected segment's text (else #fff). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+
 ## `<uvalib-combobox>`
 
 An editable text field that suggests values as you type, from a local list or a URL: a person, place or subject picker. It follows the WAI-ARIA APG “Editable Combobox With List Autocomplete”: a real `<input role="combobox">` and a `role="listbox"` popup under it. Suggestions come from the `items` property (`{ value, label?, description?, disabled? }` objects, or strings), from `<option>` children (directly or inside a `<datalist>`; the `label` attribute or text is the label, `data-description` the second line), or from `src`, a URL template with `{q}` (fetched 250 ms after the last keystroke once the text has `min-length` characters, default 1; a newer keystroke aborts the older request; the response is a JSON array of the same shape, or anything `transform(data, query)` turns into one). `items` wins over the children while set. Local suggestions match anywhere in the label, ignoring case and accents, those starting with the text first, then those with a word starting with it; at most `max-results` (default 50, 0 for all) are shown, which keeps a list of 16,000 people fast. The matched text is bold and underlined in a `<mark>`. Keys: Down opens the list on the first suggestion and moves (wrapping), Up opens on the last, Alt+Down opens without moving, Alt+Up closes, Enter chooses the active suggestion (and then does not submit the form; with none active, Enter submits as in any field), Escape closes the list and a second Escape clears the field, Home, End, Left and Right move the caret, and Tab leaves without choosing. A real clear button (“Clear <label>”, 44px, shown only with text) empties the field and returns focus to it. Free text is allowed: `value` is whatever is in the field, and `selected` the chosen suggestion (or null); typing after choosing clears it, and leaving the field with text that is exactly one suggestion's label chooses it. `must-choose` makes any other text invalid (“Choose one of the suggestions.”). The element is form-associated: with `name` it submits the chosen suggestion's value, or else the text, and a form reset restores the `value` attribute. `required` and `disabled` (also from a disabled fieldset) work as on an input. A polite status says “5 suggestions”, “50 of 1,234 suggestions”, “No suggestions”, “Loading suggestions” or “Couldn't load suggestions” half a second after the list settles (never on the first render); the popup shows the same notes visibly. A failed load never throws. Where the browser supports the Popover API and CSS anchor positioning, the popup is a manual popover in the top layer, anchored under the field and as wide as it (above it when there is no room below), so an ancestor with `overflow: hidden` or a scrolling panel never clips it. Elsewhere it is positioned under the field inside the element, as before. Pages can style the runtime state with `:state(open)`, `:state(invalid)` and `:state(loading)` (no attributes are added). Before it upgrades, `base.css` shows the label (from the attribute) and holds the field's height. A fallback `<input list>` child works as a plain field meanwhile; on upgrade its text, `name` and `placeholder` carry over, and it is disabled so it does not submit twice.
