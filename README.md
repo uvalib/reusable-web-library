@@ -12,7 +12,7 @@ Reusable web components for UVA Library sites, built with Lit and TypeScript:
 - **Records:** `<uvalib-metadata>` (a record's details, credit, rights and how to cite).
 - **Images:** `<uvalib-lightbox>` (an image viewer over plain links), `<uvalib-photo-grid>` (justified rows of thumbnails) and `<uvalib-image-regions>` (numbered region outlines on an image, with their list).
 - **Maps:** `<uvalib-map>` (places on the page's own Leaflet map, sized by a count, with a linked list).
-- **Search:** `<uvalib-filter>`, `<uvalib-date-range>`, `<uvalib-date-histogram>`, `<uvalib-combobox>` (a text field that suggests values as you type), `<uvalib-filter-drawer>` (the filters as a sidebar, or a modal panel on phones) and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
+- **Search:** `<uvalib-filter>`, `<uvalib-date-range>`, `<uvalib-date-histogram>`, `<uvalib-combobox>` (a text field that suggests values as you type), `<uvalib-filter-drawer>` (the filters as a sidebar, or a modal panel on phones), `<uvalib-dialog>` (a modal dialog for search tips, Cite or a short form) and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
 - **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
 - **Library events:** `<events-section>`.
 - **Search results:** `<bento-box>` (library.virginia.edu/search), with its `<catalog-section>`, `<articles-section>`, `<libguides-section>` and `<website-section>`.
@@ -1251,6 +1251,82 @@ The filter and the date range are controlled: set `value` (and `scopeValue`) fro
 
 - **Analytics.** `open` and `close` with the drawer's `label`, only when the visitor does it (not a resize or a script).
 
+## Dialog
+
+`<uvalib-dialog>` is a modal dialog for content and short forms: search tips, Cite, a sign-in prompt, a request form. It looks and behaves like the library's other dialogs (`<uvalib-lightbox>`, `<uvalib-filter-drawer>`): a native `<dialog>` opened with `showModal()`, a visible heading that names it, a 44px Close button, the same tokens, backdrop, dark mode and forced colors. Use it instead of a hand-built modal, a `role="dialog"` div or a framework's dialog (such as PrimeVue's). Entry: `uvalib-dialog.js` on the CDN, `@uvalib/web-components/uvalib-dialog.js` on npm. See the [Dialog](https://uvalib.github.io/reusable-web-library/#dialog) example.
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-dialog.js"
+></script>
+
+<!-- A content dialog opened by a button anywhere in the page. -->
+<button type="button" class="uvalib-button" data-uvalib-dialog="search-tips">Search tips</button>
+
+<uvalib-dialog id="search-tips" label="Search tips">
+  <ul>
+    <li>Put a phrase in quotes: <code>"board of visitors"</code>.</li>
+    <li>Use <code>OR</code> for either word: <code>Jefferson OR Madison</code>.</li>
+  </ul>
+  <p>
+    <a href="https://guides.lib.virginia.edu/" target="_blank" rel="noopener"
+      >Research guides (opens in a new tab)</a
+    >
+  </p>
+</uvalib-dialog>
+
+<!-- A form dialog: method="dialog" closes it with the button's value. -->
+<button type="button" class="uvalib-button" data-uvalib-dialog="email-cite">Email citation</button>
+
+<uvalib-dialog id="email-cite" label="Email this citation" size="small">
+  <form method="dialog">
+    <div class="uvalib-message uvalib-message--error" role="alert" id="cite-errors" hidden></div>
+    <label for="cite-email">Email <span class="uvalib-required">(required)</span></label>
+    <input
+      class="uvalib-input"
+      id="cite-email"
+      name="email"
+      type="email"
+      required
+      autofocus
+      aria-describedby="cite-email-help"
+    />
+    <span class="uvalib-help" id="cite-email-help">We send the citation to this address only.</span>
+    <button class="uvalib-button" value="send">Send</button>
+    <button class="uvalib-button uvalib-button--secondary" value="cancel" formnovalidate>
+      Cancel
+    </button>
+  </form>
+</uvalib-dialog>
+
+<script type="module">
+  const dialog = document.querySelector('#email-cite');
+  dialog.addEventListener('uvalib-dialog-close', (e) => {
+    if (e.detail.returnValue === 'send') {
+      /* send it */
+    }
+  });
+  // From script (after a sign-in check, say): focus returns to what had focus.
+  // dialog.show();  dialog.close('cancel');
+</script>
+```
+
+- **Opening.** A `<button type="button" data-uvalib-dialog="<id>">` anywhere in the document opens the dialog with that id: one delegated listener, so buttons a framework renders later work too (also inside another component's shadow root). Where the browser has invoker commands, `<button commandfor="<id>" command="--show-modal">` works too; the built-in `show-modal` command only applies to a real `<dialog>`, so a custom element needs the `--show-modal` custom command (`--close` closes it). Keep `data-uvalib-dialog` for browsers without invokers; no polyfill is needed. From script: `show()`, `close(returnValue?)`, or set `open` (it reflects, so `<uvalib-dialog open>` and a framework's `:open` binding work).
+- **Focus.** On open, focus moves to the content's `[autofocus]` element if there is one (a form dialog: put `autofocus` on the first field), else to the heading (`tabindex="-1"`), so a screen reader starts at the top and long content opens at its start (the APG's advice for content dialogs). On every close, whichever way (Close, Escape, the backdrop, Cancel, a form submit, `close()`, the element being removed), focus returns to the element that opened it; if that element is gone, to `return-focus` (a selector, or an element set as the property). Virgo's dialogs sent focus to the top of the page instead.
+- **Modal.** `showModal()` makes the rest of the page inert, `<site-page>`'s shadow header, skip link and alerts included: Tab and a screen reader's virtual cursor stay in the dialog with no trap script, and nothing else needs `inert` or `aria-hidden`.
+- **Dismissal.** Escape always closes it (if a control inside uses Escape itself, such as a combobox, it must stop the key while it handles it). A click on the backdrop closes it (`closedby="any"`; in Safari, which lacks `closedby`, the same check in script), but a press that starts inside and ends on the backdrop (selecting text, a drag) does not. `persistent` keeps the backdrop from closing it, for a form that would lose typed text; Escape and Close still work.
+- **Forms.** A `<form method="dialog">` (or a submitter with `formmethod="dialog"`) closes it on submit with the submitter's `value` as `returnValue`, after the browser's own validation; give Cancel `formnovalidate`. A `<button data-uvalib-dialog-close="cancel">` closes it without submitting. Other forms submit as usual (call `close()` yourself when done). `uvalib-dialog-close` has `detail.returnValue` and `detail.reason` (`close-button`, `button`, `escape`, `backdrop`, `form`, `api` or `removed`); `uvalib-dialog-open` has `detail.reason` (`button` or `api`).
+- **Required and help text.** Say "required" in words (`<span class="uvalib-required">(required)</span>` in the label, plus `required` on the field), never with colour or an asterisk alone. Help text is `.uvalib-help`, tied to its field with `aria-describedby`. Both are in `base.css` in the muted text colour, 7:1 or more in light and dark (WCAG AAA): Virgo's grey failed contrast.
+- **Errors.** Never only red outlines. On a failed submit, fill an error summary at the top of the form, `<div class="uvalib-message uvalib-message--error" role="alert">`, that starts with “Error:” and lists each problem as a link to its field; set `aria-invalid="true"` on each bad field and put its own message next to it, tied with `aria-describedby`. Then move focus to the first bad field. Clear it all when the field is fixed.
+- **Status messages.** A "Copied" or "Sent" confirmation inside the dialog is a `<div class="uvalib-message uvalib-message--success" role="status">` that is in the dialog from the start and filled when it happens (text 7:1 or more in light and dark), not a toast: Virgo's copy toast failed contrast and disappeared before it could be read. Keep focus where it was.
+- **Links.** A link that opens a new tab or window says so in its text (“(opens in a new tab)”); better, open it in the same tab.
+- **Sizes.** `size="small"` (30rem), `medium` (the default, 40rem) or `large` (60rem) at most; `--uvalib-dialog-width` sets another width. On phones it is the viewport less 16px on each side, never taller than the viewport less 32px; the content scrolls inside it and the heading and Close stay in view (320px reflow).
+- **Content stays yours.** In shadow DOM the children are slotted, never moved: ids, `getElementById`, the page's CSS and listeners, and framework-rendered content keep working (use the default shadow mode with Vue, React and the like). With `no-shadow-dom` they are moved into the dialog element, in the same document. `description` (or a `slot="description"` child) is shown under the heading and set as `aria-describedby`; use it only for a short sentence.
+- **Look.** It fades in (no motion with reduced motion); in forced colors it keeps a 2px system-colour edge. Style it with `::part(dialog)`, `header`, `heading`, `close`, `description` and `body`, and `:state(open)`.
+- **Before the script loads.** `base.css` hides `uvalib-dialog:not(:defined)`, so the content never shows in the page; once defined, a closed dialog renders nothing.
+- **Analytics.** `['uvalib-dialog', 'open', '<label>']` when a visitor's button opens it and `['uvalib-dialog', 'close', '<label>']` when the visitor closes it; nothing for `show()`, `close()` or `open` from script, and never the content or what was typed.
+
 ## Results, badges and tags
 
 For search pages, Virgo-like result lists and digital collections: badges and labels, a toolbar above the results, a results count that screen readers hear, keyword lists, an empty state and loading placeholders. The classes are in `base.css` (no script); `<uvalib-tag-list>` and `<uvalib-results-count>` are elements with their own entries (`uvalib-tag-list.js`, `uvalib-results-count.js`; npm `@uvalib/web-components/uvalib-tag-list.js`, `…/uvalib-results-count.js`). See the [Results toolbar & badges](https://uvalib.github.io/reusable-web-library/#results-toolbar) example.
@@ -1637,55 +1713,56 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
 - **`<site-page matomo-id="N">`** (and optional `matomo-url` and `matomo-downloads`) adds one `<site-analytics>` for that site and loads its code only then. Off by default. While that code loads, what the components report is kept and handed over, so an early bento search is not lost. If the page already has a `<site-analytics>` or `<uvalib-analytics>` (including the old v0.0.12 one), site-page adds none and that element does the recording.
 - **What the library's components send.** They only fire `uvalib-analytics-*` events, so nothing happens without an analytics element (the old v0.0.12 element records them too). Every event is `[category, action, name?, value?]`: the category is the component's tag, the action a fixed verb, the name a short label from the library's own chrome or data (never a URL, never typed text), the value a number. Each one follows a visitor's action or a real failure: nothing is sent on render, re-render, the initial state or a restored one (a filter value set by the app, a remembered colour scheme). Errors are sent once per element and kind of failure.
 
-  | Component                                    | Action                                                                                                               | Name                                                                                                                                      | Value                             |
-  | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-  | `site-header`                                | `link-click` (a utility or site link)                                                                                | the link's label                                                                                                                          |                                   |
-  | `site-header`                                | `menu-open` (the phone Menu popover)                                                                                 |                                                                                                                                           |                                   |
-  | `site-header`                                | `skip-link`, `logo-click`                                                                                            |                                                                                                                                           |                                   |
-  | `site-header`                                | `color-scheme`                                                                                                       | `light`, `dark` or `system`                                                                                                               |                                   |
-  | `site-main-nav`                              | `menu-open` (a group opens, not closes)                                                                              | the group's label                                                                                                                         |                                   |
-  | `site-main-nav`                              | `link-click`                                                                                                         | `Group > Link` (a top-level link: its label)                                                                                              |                                   |
-  | `site-footer`                                | `link-click` (not the pre-footer's)                                                                                  | `Column: Link`, e.g. `About: Staff directory`; `Contact us: Phone`, `Contact us: Email`; `Social: Facebook`, `Social: Instagram`          |                                   |
-  | `uvalib-breadcrumbs`                         | `link-click`                                                                                                         | `level N` (never the label)                                                                                                               | N, from 1                         |
-  | `uvalib-card`                                | `card-click`                                                                                                         | `single`, or the card's place in its grid (`1`, `2`, …); never the title or URL                                                           | that place, from 1, in a grid     |
-  | `uvalib-pager`                               | `page-change`                                                                                                        | `next`, `previous` or `number` (never the label or URL)                                                                                   | the page, for `number` only       |
-  | `uvalib-pager`                               | `load-more`                                                                                                          | (empty)                                                                                                                                   | the next page                     |
-  | `uvalib-tabs`                                | `change`                                                                                                             | the tab's label (capped at 100 characters; not a URL)                                                                                     |                                   |
-  | `uvalib-contents`                            | `link-click`                                                                                                         | `level N` (never the label or URL)                                                                                                        | N, from 1 (the top level)         |
-  | `uvalib-contents`                            | `toggle` (the narrow-screen disclosure)                                                                              | `open` or `close`                                                                                                                         |                                   |
-  | `uvalib-metadata`                            | `copy-citation` (downloads are left to Matomo's, or to `downloads="event"`)                                          |                                                                                                                                           |                                   |
-  | `uvalib-metadata`                            | `show-all`, `show-fewer` (a long list's toggle)                                                                      | `row N` (the row's place in the list; never its label or values)                                                                          |                                   |
-  | `uvalib-lightbox`                            | `open`, `next`, `previous`, `full-size`                                                                              | `image N` (never the URL or the caption)                                                                                                  | N, from 1                         |
-  | `uvalib-lightbox` (versions)                 | `compare`                                                                                                            | `switch`, `wipe` or `fade` (never a version's label or URL)                                                                               | the version's place, from 1       |
-  | `uvalib-image-regions`                       | `select` (an outline clicked; nothing on hover or focus)                                                             | the list's `label` (never a region's label)                                                                                               | the region's number, from 1       |
-  | `uvalib-tag-list`                            | `tag-click`                                                                                                          | `list N` (the list's place on the page), or with `track-label` the list's own fixed `label`; never the tag's text or URL                  | the tag's place, from 1           |
-  | `uvalib-tag-list`                            | `show-all`, `show-fewer`                                                                                             | `list N`, or with `track-label` the `label`                                                                                               |                                   |
-  | `site-alerts`                                | a content impression, once per alert per page view: `trackContentImpression('Library alert', '<severity>: <title>')` |                                                                                                                                           |                                   |
-  | `site-alerts`                                | `dismiss`, `link-click` (a link in an alert's text)                                                                  | `<severity>: <title>`                                                                                                                     |                                   |
-  | `site-alerts`                                | `error` (the alerts script failed to load)                                                                           | `alerts-script`                                                                                                                           |                                   |
-  | `events-section`                             | `event-click`                                                                                                        | the `category` id, or `all`                                                                                                               | the event's position, from 1      |
-  | `events-section`                             | `error`                                                                                                              | `events-load`                                                                                                                             |                                   |
-  | `site-hours-section`                         | `link-click`                                                                                                         | `See all hours`                                                                                                                           |                                   |
-  | `site-hours-section`, `library-weekly-hours` | `error`                                                                                                              | `hours-load`                                                                                                                              |                                   |
-  | `library-weekly-hours`                       | `week-change`                                                                                                        | `next` or `previous`                                                                                                                      |                                   |
-  | `uvalib-chip-group`                          | `change` (single: 1 s after the last change, and only if it differs from where it started; multi: each toggle)       | `<group label>: <chip label>`                                                                                                             | the chip's count, when it has one |
-  | `uvalib-chip-group`                          | `select` (links mode)                                                                                                | the group's label (never the chip or its URL)                                                                                             |                                   |
-  | `uvalib-combobox`                            | `select` (a suggestion chosen)                                                                                       | the field's label (never the typed text or the suggestion)                                                                                | the suggestion's position, from 1 |
-  | `uvalib-combobox`                            | `clear` (the clear button, or Escape on a closed list)                                                               | the field's label                                                                                                                         |                                   |
-  | `uvalib-combobox`                            | `error` (`src` failed to load)                                                                                       | `load`                                                                                                                                    |                                   |
-  | `uvalib-filter-drawer`                       | `open`, `close` (by the visitor: the button, Close, Escape or the backdrop; not a resize or a script)                | the drawer's `label`                                                                                                                      |                                   |
-  | `uvalib-back-to-top`                         | `click`                                                                                                              |                                                                                                                                           |                                   |
-  | `uvalib-map`                                 | `select` (a marker chosen: click, Enter or Space)                                                                    | the map's label (never the place's name, coordinates or URL)                                                                              | the place's position, from 1      |
-  | `uvalib-map`                                 | `zoom` (1 s after the last zoom-button press)                                                                        | the map's label                                                                                                                           | the zoom level                    |
-  | `uvalib-map`                                 | `expand` (a group of places chosen: it zooms in or opens its ring)                                                   | the map's label                                                                                                                           | the number of places in the group |
-  | `uvalib-filter`                              | `facet-change`                                                                                                       | `<filter title>: <value>` (the facet value as the search service returns it, such as a format, library or subject; cut at 100 characters) | 1 checked, 0 unchecked            |
-  | `uvalib-filter`                              | `scope-change`                                                                                                       | the scope's label                                                                                                                         | 1 pressed, 0 not                  |
-  | `uvalib-filter`                              | `see-more`, `see-less`                                                                                               | the filter's title                                                                                                                        |                                   |
-  | `uvalib-date-range`                          | `range-change` (1 s after the last change, and only if the years differ)                                             | `<from year>–<to year>`                                                                                                                   |                                   |
-  | `uvalib-date-histogram`                      | `select` (not when the selection is cleared, set in script, or restored from a date range)                           | `<from>–<to>` when both ends are ISO dates, otherwise `other`                                                                             |                                   |
-  | `bento-box`                                  | `result-click`                                                                                                       | the section (`Virgo catalog`, `Virgo articles`, `Subject guides`, `Library website`)                                                      | the result's position, from 1     |
-  | `bento-box`                                  | `see-all-click`, `retry`                                                                                             | the section                                                                                                                               |                                   |
-  | `bento-box`                                  | `error`                                                                                                              | `section-load: <section>`                                                                                                                 |                                   |
+  | Component                                    | Action                                                                                                                            | Name                                                                                                                                      | Value                             |
+  | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+  | `site-header`                                | `link-click` (a utility or site link)                                                                                             | the link's label                                                                                                                          |                                   |
+  | `site-header`                                | `menu-open` (the phone Menu popover)                                                                                              |                                                                                                                                           |                                   |
+  | `site-header`                                | `skip-link`, `logo-click`                                                                                                         |                                                                                                                                           |                                   |
+  | `site-header`                                | `color-scheme`                                                                                                                    | `light`, `dark` or `system`                                                                                                               |                                   |
+  | `site-main-nav`                              | `menu-open` (a group opens, not closes)                                                                                           | the group's label                                                                                                                         |                                   |
+  | `site-main-nav`                              | `link-click`                                                                                                                      | `Group > Link` (a top-level link: its label)                                                                                              |                                   |
+  | `site-footer`                                | `link-click` (not the pre-footer's)                                                                                               | `Column: Link`, e.g. `About: Staff directory`; `Contact us: Phone`, `Contact us: Email`; `Social: Facebook`, `Social: Instagram`          |                                   |
+  | `uvalib-breadcrumbs`                         | `link-click`                                                                                                                      | `level N` (never the label)                                                                                                               | N, from 1                         |
+  | `uvalib-card`                                | `card-click`                                                                                                                      | `single`, or the card's place in its grid (`1`, `2`, …); never the title or URL                                                           | that place, from 1, in a grid     |
+  | `uvalib-pager`                               | `page-change`                                                                                                                     | `next`, `previous` or `number` (never the label or URL)                                                                                   | the page, for `number` only       |
+  | `uvalib-pager`                               | `load-more`                                                                                                                       | (empty)                                                                                                                                   | the next page                     |
+  | `uvalib-tabs`                                | `change`                                                                                                                          | the tab's label (capped at 100 characters; not a URL)                                                                                     |                                   |
+  | `uvalib-contents`                            | `link-click`                                                                                                                      | `level N` (never the label or URL)                                                                                                        | N, from 1 (the top level)         |
+  | `uvalib-contents`                            | `toggle` (the narrow-screen disclosure)                                                                                           | `open` or `close`                                                                                                                         |                                   |
+  | `uvalib-metadata`                            | `copy-citation` (downloads are left to Matomo's, or to `downloads="event"`)                                                       |                                                                                                                                           |                                   |
+  | `uvalib-metadata`                            | `show-all`, `show-fewer` (a long list's toggle)                                                                                   | `row N` (the row's place in the list; never its label or values)                                                                          |                                   |
+  | `uvalib-lightbox`                            | `open`, `next`, `previous`, `full-size`                                                                                           | `image N` (never the URL or the caption)                                                                                                  | N, from 1                         |
+  | `uvalib-lightbox` (versions)                 | `compare`                                                                                                                         | `switch`, `wipe` or `fade` (never a version's label or URL)                                                                               | the version's place, from 1       |
+  | `uvalib-image-regions`                       | `select` (an outline clicked; nothing on hover or focus)                                                                          | the list's `label` (never a region's label)                                                                                               | the region's number, from 1       |
+  | `uvalib-tag-list`                            | `tag-click`                                                                                                                       | `list N` (the list's place on the page), or with `track-label` the list's own fixed `label`; never the tag's text or URL                  | the tag's place, from 1           |
+  | `uvalib-tag-list`                            | `show-all`, `show-fewer`                                                                                                          | `list N`, or with `track-label` the `label`                                                                                               |                                   |
+  | `site-alerts`                                | a content impression, once per alert per page view: `trackContentImpression('Library alert', '<severity>: <title>')`              |                                                                                                                                           |                                   |
+  | `site-alerts`                                | `dismiss`, `link-click` (a link in an alert's text)                                                                               | `<severity>: <title>`                                                                                                                     |                                   |
+  | `site-alerts`                                | `error` (the alerts script failed to load)                                                                                        | `alerts-script`                                                                                                                           |                                   |
+  | `events-section`                             | `event-click`                                                                                                                     | the `category` id, or `all`                                                                                                               | the event's position, from 1      |
+  | `events-section`                             | `error`                                                                                                                           | `events-load`                                                                                                                             |                                   |
+  | `site-hours-section`                         | `link-click`                                                                                                                      | `See all hours`                                                                                                                           |                                   |
+  | `site-hours-section`, `library-weekly-hours` | `error`                                                                                                                           | `hours-load`                                                                                                                              |                                   |
+  | `library-weekly-hours`                       | `week-change`                                                                                                                     | `next` or `previous`                                                                                                                      |                                   |
+  | `uvalib-chip-group`                          | `change` (single: 1 s after the last change, and only if it differs from where it started; multi: each toggle)                    | `<group label>: <chip label>`                                                                                                             | the chip's count, when it has one |
+  | `uvalib-chip-group`                          | `select` (links mode)                                                                                                             | the group's label (never the chip or its URL)                                                                                             |                                   |
+  | `uvalib-combobox`                            | `select` (a suggestion chosen)                                                                                                    | the field's label (never the typed text or the suggestion)                                                                                | the suggestion's position, from 1 |
+  | `uvalib-combobox`                            | `clear` (the clear button, or Escape on a closed list)                                                                            | the field's label                                                                                                                         |                                   |
+  | `uvalib-combobox`                            | `error` (`src` failed to load)                                                                                                    | `load`                                                                                                                                    |                                   |
+  | `uvalib-filter-drawer`                       | `open`, `close` (by the visitor: the button, Close, Escape or the backdrop; not a resize or a script)                             | the drawer's `label`                                                                                                                      |                                   |
+  | `uvalib-back-to-top`                         | `click`                                                                                                                           |                                                                                                                                           |                                   |
+  | `uvalib-dialog`                              | `open` (a visitor's button), `close` (by the visitor: Close, a close button, Escape, the backdrop or a dialog form; not a script) | the dialog's `label` (never its content)                                                                                                  |
+  | `uvalib-map`                                 | `select` (a marker chosen: click, Enter or Space)                                                                                 | the map's label (never the place's name, coordinates or URL)                                                                              | the place's position, from 1      |
+  | `uvalib-map`                                 | `zoom` (1 s after the last zoom-button press)                                                                                     | the map's label                                                                                                                           | the zoom level                    |
+  | `uvalib-map`                                 | `expand` (a group of places chosen: it zooms in or opens its ring)                                                                | the map's label                                                                                                                           | the number of places in the group |
+  | `uvalib-filter`                              | `facet-change`                                                                                                                    | `<filter title>: <value>` (the facet value as the search service returns it, such as a format, library or subject; cut at 100 characters) | 1 checked, 0 unchecked            |
+  | `uvalib-filter`                              | `scope-change`                                                                                                                    | the scope's label                                                                                                                         | 1 pressed, 0 not                  |
+  | `uvalib-filter`                              | `see-more`, `see-less`                                                                                                            | the filter's title                                                                                                                        |                                   |
+  | `uvalib-date-range`                          | `range-change` (1 s after the last change, and only if the years differ)                                                          | `<from year>–<to year>`                                                                                                                   |                                   |
+  | `uvalib-date-histogram`                      | `select` (not when the selection is cleared, set in script, or restored from a date range)                                        | `<from>–<to>` when both ends are ISO dates, otherwise `other`                                                                             |                                   |
+  | `bento-box`                                  | `result-click`                                                                                                                    | the section (`Virgo catalog`, `Virgo articles`, `Subject guides`, `Library website`)                                                      | the result's position, from 1     |
+  | `bento-box`                                  | `see-all-click`, `retry`                                                                                                          | the section                                                                                                                               |                                   |
+  | `bento-box`                                  | `error`                                                                                                                           | `section-load: <section>`                                                                                                                 |                                   |
 
   `<bento-box>` also sends a Matomo site search per section once its results are in (not on an error, not again on a re-render): the query, the section as category, and the section's total (0 when nothing was found). A new query, also by Back or Forward, is a new search. The `<library-weekly-hours>` elements `<library-hours-setup>` creates report as `library-weekly-hours`. Alert severities are `Critical`, `Warning`, `Information`, `Header` or `Regional warning` / `Regional information`. Names are capped at 100 characters. `<uvalib-photo-grid>` and `<uvalib-results-count>` report nothing.
 
@@ -2681,6 +2758,70 @@ A date-range picker: a two-thumb year slider plus "From" and "To" date inputs. `
 | `--uva-color-input-text` |  | Dark-mode role token: date input text (else #1f2937). |
 | `--uva-color-text-muted` |  | Dark-mode role token: From / To labels (else #4b5563). |
 | `--uva-color-control-border` |  | Dark-mode role token: date input border (else `--uva-grey`, #808080). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+
+### `<uvalib-dialog>`
+
+A modal dialog for content and short forms: search tips, Cite, a sign-in prompt, a request form. Use it instead of a hand-built modal, a `role="dialog"` div or a framework's dialog. The children are the content. In shadow DOM they are slotted, never moved, so the page's CSS, ids, listeners and framework-rendered nodes keep working; with `no-shadow-dom` they are moved into the dialog (the same nodes, in the same document). It opens as a native `<dialog>` with `showModal()`: everything else on the page, `<site-page>`'s shadow header included, is inert while it is open, so focus stays inside without a trap script. The visible heading (`label`, an `<h2>` unless `heading-level` says otherwise) names it, and a 44px Close button is always shown; `description` (or a `slot="description"` child) is shown under the heading and is the dialog's description. Open it with a button anywhere in the page, `<button type="button" data-uvalib-dialog="<id>">` (one delegated listener, so buttons rendered later work too), with an invoker button (`commandfor="<id>" command="--show-modal"`) where the browser has invoker commands, with `show()`, or by setting `open`. On open, focus goes to the content's `[autofocus]` element when it has one (a form dialog: the first field), else to the heading, so a screen reader reads the dialog from the top and long content starts in view. On every close (Close, Escape, the backdrop, a `data-uvalib-dialog-close` button, a `<form method="dialog">` submitted, `close()`) focus returns to the element that opened it; if that is gone, to `return-focus` (a selector, or an element set as the property). Escape always closes it. A click on the backdrop closes it too (the native `closedby="any"`, or the same check in script where the browser lacks it), except with `persistent`, and never when a press starts inside the dialog and ends on the backdrop (a text selection or a drag). A `<form method="dialog">` in the content closes it on submit with the submitter's `value` as `returnValue`; other forms submit as usual. `size` is `small` (30rem), `medium` (the default, 40rem) or `large` (60rem) at most, and never wider or taller than the viewport less 16px on each side; the content scrolls inside it under a header that stays in view.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `label` | `string` | `''` | The visible heading and the dialog's accessible name. |
+| `heading-level` | `number` | `2` | The heading's level, 1 to 6 (default 2). |
+| `description` | `string` | `''` | A short description under the heading (or a `slot="description"` child), read as the dialog's description. |
+| `size` | `'small' \| 'medium' \| 'large'` | `'medium'` | The widest the dialog gets: `small` (30rem), `medium` (40rem) or `large` (60rem). |
+| `open` | `boolean` | `false` | Whether it is open. Reflected; setting it opens or closes the dialog (as `show()` and `close()`). |
+| `persistent` | `boolean` | `false` | A click on the backdrop does not close it (Escape and Close still do). For forms that would lose typed text. |
+| `return-focus` | `string \| HTMLElement \| null` | `null` | Where focus goes on close when the opener is gone: a selector (in the dialog's root, then the document) or an element. |
+| `close-label` | `string` | `'Close'` | The Close button's text. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Slots
+
+| Slot | Description |
+|---|---|
+| (default) | The content: text, links, a form. |
+| `description` | A short description under the heading, read as the dialog's description (instead of the `description` attribute). |
+
+#### CSS parts
+
+| Part | Description |
+|---|---|
+| `dialog` | The `<dialog>`. |
+| `header` | The heading row (the heading and Close). |
+| `heading` | The heading. |
+| `close` | The Close button. |
+| `description` | The description under the heading. |
+| `body` | The scrolling wrapper of the content. |
+
+#### CSS states
+
+| State | Description |
+|---|---|
+| `:state(open)` | The dialog is open. |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-dialog-open` | The dialog opened: `detail` is `{ reason }`, `button` (a visitor's opener) or `api` (`show()` or `open`). Bubbles and is composed. |
+| `uvalib-dialog-close` | The dialog closed: `detail` is `{ reason, returnValue }`, `reason` one of `close-button`, `button` (a `data-uvalib-dialog-close` or invoker close button), `escape`, `backdrop`, `form` (a `<form method="dialog">`), `api` (`close()` or `open = false`) or `removed` (taken out of the page while open). Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-dialog', 'open', '<label>']` when a visitor's button opens it, and `['uvalib-dialog', 'close', '<label>']` when the visitor closes it (Close, a close button, Escape, the backdrop or a dialog form); never on `show()`, `close()` or `open` from script, and never the content. Bubbles and is composed. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uvalib-dialog-width` |  | The dialog's widest inline size, instead of `size`'s (still never wider than the viewport less 16px on each side). |
+| `--uva-color-surface` |  | Dark-mode role token: dialog background (else #fff). |
+| `--uva-color-text` |  | Dark-mode role token: dialog text (else `--uva-grey-darkest`, #2b2b2b). |
+| `--uva-color-text-muted` |  | Dark-mode role token: the description (else #4b5563, 7.5:1 on white). |
+| `--uva-color-border` |  | Dark-mode role token: dialog edge and heading rule (else #dadada). |
+| `--uva-color-button-bg` |  | Dark-mode role token: Close's border and text (else `--uva-blue-alt`, #007bac). |
+| `--uva-color-button-hover-bg` |  | Dark-mode role token: hovered Close (else `--uva-blue-alt-A`, #005679). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ### `<uvalib-filter>`

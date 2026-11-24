@@ -982,6 +982,70 @@ A date-range picker: a two-thumb year slider plus "From" and "To" date inputs. `
 | `--uva-color-control-border` |  | Dark-mode role token: date input border (else `--uva-grey`, #808080). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
+## `<uvalib-dialog>`
+
+A modal dialog for content and short forms: search tips, Cite, a sign-in prompt, a request form. Use it instead of a hand-built modal, a `role="dialog"` div or a framework's dialog. The children are the content. In shadow DOM they are slotted, never moved, so the page's CSS, ids, listeners and framework-rendered nodes keep working; with `no-shadow-dom` they are moved into the dialog (the same nodes, in the same document). It opens as a native `<dialog>` with `showModal()`: everything else on the page, `<site-page>`'s shadow header included, is inert while it is open, so focus stays inside without a trap script. The visible heading (`label`, an `<h2>` unless `heading-level` says otherwise) names it, and a 44px Close button is always shown; `description` (or a `slot="description"` child) is shown under the heading and is the dialog's description. Open it with a button anywhere in the page, `<button type="button" data-uvalib-dialog="<id>">` (one delegated listener, so buttons rendered later work too), with an invoker button (`commandfor="<id>" command="--show-modal"`) where the browser has invoker commands, with `show()`, or by setting `open`. On open, focus goes to the content's `[autofocus]` element when it has one (a form dialog: the first field), else to the heading, so a screen reader reads the dialog from the top and long content starts in view. On every close (Close, Escape, the backdrop, a `data-uvalib-dialog-close` button, a `<form method="dialog">` submitted, `close()`) focus returns to the element that opened it; if that is gone, to `return-focus` (a selector, or an element set as the property). Escape always closes it. A click on the backdrop closes it too (the native `closedby="any"`, or the same check in script where the browser lacks it), except with `persistent`, and never when a press starts inside the dialog and ends on the backdrop (a text selection or a drag). A `<form method="dialog">` in the content closes it on submit with the submitter's `value` as `returnValue`; other forms submit as usual. `size` is `small` (30rem), `medium` (the default, 40rem) or `large` (60rem) at most, and never wider or taller than the viewport less 16px on each side; the content scrolls inside it under a header that stays in view.
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `label` | `string` | `''` | The visible heading and the dialog's accessible name. |
+| `heading-level` | `number` | `2` | The heading's level, 1 to 6 (default 2). |
+| `description` | `string` | `''` | A short description under the heading (or a `slot="description"` child), read as the dialog's description. |
+| `size` | `'small' \| 'medium' \| 'large'` | `'medium'` | The widest the dialog gets: `small` (30rem), `medium` (40rem) or `large` (60rem). |
+| `open` | `boolean` | `false` | Whether it is open. Reflected; setting it opens or closes the dialog (as `show()` and `close()`). |
+| `persistent` | `boolean` | `false` | A click on the backdrop does not close it (Escape and Close still do). For forms that would lose typed text. |
+| `return-focus` | `string \| HTMLElement \| null` | `null` | Where focus goes on close when the opener is gone: a selector (in the dialog's root, then the document) or an element. |
+| `close-label` | `string` | `'Close'` | The Close button's text. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### Slots
+
+| Slot | Description |
+|---|---|
+| (default) | The content: text, links, a form. |
+| `description` | A short description under the heading, read as the dialog's description (instead of the `description` attribute). |
+
+### CSS parts
+
+| Part | Description |
+|---|---|
+| `dialog` | The `<dialog>`. |
+| `header` | The heading row (the heading and Close). |
+| `heading` | The heading. |
+| `close` | The Close button. |
+| `description` | The description under the heading. |
+| `body` | The scrolling wrapper of the content. |
+
+### CSS states
+
+| State | Description |
+|---|---|
+| `:state(open)` | The dialog is open. |
+
+### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-dialog-open` | The dialog opened: `detail` is `{ reason }`, `button` (a visitor's opener) or `api` (`show()` or `open`). Bubbles and is composed. |
+| `uvalib-dialog-close` | The dialog closed: `detail` is `{ reason, returnValue }`, `reason` one of `close-button`, `button` (a `data-uvalib-dialog-close` or invoker close button), `escape`, `backdrop`, `form` (a `<form method="dialog">`), `api` (`close()` or `open = false`) or `removed` (taken out of the page while open). Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`: `['uvalib-dialog', 'open', '<label>']` when a visitor's button opens it, and `['uvalib-dialog', 'close', '<label>']` when the visitor closes it (Close, a close button, Escape, the backdrop or a dialog form); never on `show()`, `close()` or `open` from script, and never the content. Bubbles and is composed. |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uvalib-dialog-width` |  | The dialog's widest inline size, instead of `size`'s (still never wider than the viewport less 16px on each side). |
+| `--uva-color-surface` |  | Dark-mode role token: dialog background (else #fff). |
+| `--uva-color-text` |  | Dark-mode role token: dialog text (else `--uva-grey-darkest`, #2b2b2b). |
+| `--uva-color-text-muted` |  | Dark-mode role token: the description (else #4b5563, 7.5:1 on white). |
+| `--uva-color-border` |  | Dark-mode role token: dialog edge and heading rule (else #dadada). |
+| `--uva-color-button-bg` |  | Dark-mode role token: Close's border and text (else `--uva-blue-alt`, #007bac). |
+| `--uva-color-button-hover-bg` |  | Dark-mode role token: hovered Close (else `--uva-blue-alt-A`, #005679). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+
 ## `<uvalib-filter>`
 
 A faceted-search filter: a fieldset of checkboxes (value plus result count), optional toggle chips ("scopes") above them, and "See more" / "See less" buttons when `limit` is set. It is controlled: set `filter`, `value` and `scopeValue` from your search state and listen for the change events.
