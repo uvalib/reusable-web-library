@@ -183,6 +183,10 @@
       "types": "./dist/components/uvalib-dialog/uvalib-dialog.d.ts",
       "default": "./dist/components/uvalib-dialog/uvalib-dialog.js"
     },
+    "./uvalib-citation.js": {
+      "types": "./dist/components/uvalib-citation/uvalib-citation.d.ts",
+      "default": "./dist/components/uvalib-citation/uvalib-citation.js"
+    },
     "./tokens.css": "./dist/tokens.css",
     "./base.css": "./dist/base.css",
     "./pagefind.css": "./dist/pagefind.css",

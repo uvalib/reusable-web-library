@@ -90,3 +90,5 @@ export type {
   DialogOpenDetail,
   DialogOpenReason,
 } from './components/uvalib-dialog/UvalibDialog.js';
+export { UvalibCitation } from './components/uvalib-citation/UvalibCitation.js';
+export type { CitationItem } from './components/uvalib-citation/UvalibCitation.js';

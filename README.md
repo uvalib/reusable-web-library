@@ -9,7 +9,7 @@ Reusable web components for UVA Library sites, built with Lit and TypeScript:
 - **Cards:** `<uvalib-card>`, `<uvalib-card-grid>` and `<uvalib-pager>`.
 - **Tabs:** `<uvalib-tabs>`.
 - **Long pages:** `<uvalib-back-to-top>` (a “Back to top” button that appears once the top has scrolled away).
-- **Records:** `<uvalib-metadata>` (a record's details, credit, rights and how to cite).
+- **Records:** `<uvalib-metadata>` (a record's details, credit, rights and how to cite) and `<uvalib-citation>` (a citation in several formats, with Copy citation).
 - **Images:** `<uvalib-lightbox>` (an image viewer over plain links), `<uvalib-photo-grid>` (justified rows of thumbnails) and `<uvalib-image-regions>` (numbered region outlines on an image, with their list).
 - **Maps:** `<uvalib-map>` (places on the page's own Leaflet map, sized by a count, with a linked list).
 - **Search:** `<uvalib-filter>`, `<uvalib-date-range>`, `<uvalib-date-histogram>`, `<uvalib-combobox>` (a text field that suggests values as you type), `<uvalib-filter-drawer>` (the filters as a sidebar, or a modal panel on phones), `<uvalib-dialog>` (a modal dialog for search tips, Cite or a short form) and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
@@ -557,6 +557,47 @@ Two components for Library sites with records and long texts, such as the Electr
 - **Layout.** Label and value side by side when the element is 36rem wide or more, stacked below that (a container query: the element's own width). Labels in `--uva-color-text-muted`, rows divided by `--uva-color-border`.
 
 Both follow dark mode through the role tokens and reflow at 320px; `no-style` keeps only the structure, and light DOM styles are scoped to the tag in `@layer uvalib`.
+
+## Citations
+
+`<uvalib-citation>` shows one record's citation in several formats, as Virgo's Cite dialog does (MLA, APA, Chicago, Bluebook), with a Copy citation button and an optional Download RIS link. Entry: `uvalib-citation.js` on the CDN, `@uvalib/web-components/uvalib-citation.js` on npm. See the [Citation](https://uvalib.github.io/reusable-web-library/#citation) example. For a single citation in a record's details, `<uvalib-metadata citation="…">` (How to cite, with its own Copy citation button) is still the simpler choice.
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-citation.js"
+></script>
+
+<uvalib-citation ris-href="/sources/uva_library/items/u2297137.ris">
+  <blockquote data-format="MLA">
+    Jefferson, Thomas. <i>Notes on the State of Virginia</i>. Edited by William Peden, U of North
+    Carolina P, 1955.
+  </blockquote>
+  <blockquote data-format="APA">
+    Jefferson, T. (1955). <i>Notes on the state of Virginia</i> (W. Peden, Ed.). University of North
+    Carolina Press. (Original work published 1785)
+  </blockquote>
+  <blockquote data-format="Chicago">
+    Jefferson, Thomas. <i>Notes on the State of Virginia</i>. Edited by William Peden. Chapel Hill:
+    University of North Carolina Press, 1955.
+  </blockquote>
+  <blockquote data-format="Bluebook">
+    Thomas Jefferson, <i>Notes on the State of Virginia</i> (William Peden ed., Univ. of N.C. Press
+    1955).
+  </blockquote>
+</uvalib-citation>
+```
+
+- **Formats as children.** Any element with `data-format` (a `<blockquote>` reads well without the script). Inline markup is kept (`<i>`/`<em>` for a title, `<b>`, `<span lang>`…, copied element by element with only `lang` and `dir`); anything else (links, images, scripts) is reduced to its text, and nothing is parsed as HTML. A second citation with the same name is ignored with a console warning. It follows changes to the children. Apps set the `citations` property instead, `[{ format, text, html? }]`, winning over the children while set: `text` is shown as text, `html` is parsed in an inert template and only its inline elements are kept, as above. Do not fetch citations into the element from a URL template: give it what your page or app already has.
+- **Choosing a format.** A segmented radio group, "Citation format" (native radios: one tab stop, the arrow keys move and select, Space selects), inside a group named by `label` (default "Cite this item", shown in bold above it; `hide-label` keeps it for screen readers only, for a dialog whose heading already says it). The selected format is filled and ticked, never told by colour alone, and in forced colors it is `Highlight`. `format` names the selected one (case-insensitive; default the first) and reflects the visitor's choice; the element fires `uvalib-citation-format` (`detail: { format }`) when the visitor changes it. Why radios and not tabs: choosing a format is a single choice that changes one value (like the header's Light / Dark / System), not a set of panels to browse, so a radio group is the right pattern; tabs would also add a second tab stop and panel semantics for one region of text.
+- **Remembering.** `remember` keeps the visitor's last format in `localStorage` (`uvalib-citation-format`; storage is per origin, so per site) and uses it on the next record that has that format, over `format`. Off by default, so a page shows what its author chose; where storage is blocked it simply is not remembered.
+- **The citation.** Selectable text in a bordered box, a region named "MLA citation" (the selected format's name).
+- **Copy citation.** A 44px `.uvalib-button`. It copies the citation as `text/plain` and, when it has inline markup, also as `text/html` (one `ClipboardItem`), so the italic title stays italic when pasted into a word processor; where HTML is not supported or refused it copies plain text. It then says "MLA citation copied" in a polite `role="status"` next to the button, in the text colour (AAA in light and dark), for five seconds: not a floating toast. If the clipboard is unavailable (permission denied, an insecure page), it selects the citation and says "Could not copy: the MLA citation is selected, copy it with your keyboard".
+- **Exports.** `ris-href` adds a "Download RIS" link (`ris-label` changes its text) with a `download` attribute, styled like the button. Other export links go in the `actions` slot after it: `<a slot="actions" class="uvalib-button" href="…/u2297137.enw" download>EndNote</a>` (give them `.uvalib-button` and keep them 44px tall).
+- **In a dialog.** It assumes nothing about where it sits: put it inline on a record page, or inside a dialog (with `hide-label` when the dialog's heading is "Cite this item").
+- **No jump on upgrade.** With `base.css`, only the first citation shows before the script runs, boxed as it will be, and the label, the format bar and the Copy citation row are held, so nothing moves when it upgrades. The `citations` property cannot be held that way.
+- **Colours and modes.** Dark mode follows the role tokens; it reflows at 320px (the format bar scrolls sideways if the names do not fit); `no-style` keeps only the structure (the 44px radios, the hidden label); light DOM styles are scoped to the tag in `@layer uvalib`.
+- **Analytics.** `['uvalib-citation', 'format', '<format>']` once the visitor settles on a format (a second after the last change, nothing when they end where they started), `['uvalib-citation', 'copy', '<format>']` and `['uvalib-citation', 'download', 'ris']`. Never the citation.
 
 ## Images
 
@@ -1858,6 +1899,7 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
   | `uvalib-contents`                            | `toggle` (the narrow-screen disclosure)                                                                                           | `open` or `close`                                                                                                                         |                                   |
   | `uvalib-metadata`                            | `copy-citation` (downloads are left to Matomo's, or to `downloads="event"`)                                                       |                                                                                                                                           |                                   |
   | `uvalib-metadata`                            | `show-all`, `show-fewer` (a long list's toggle)                                                                                   | `row N` (the row's place in the list; never its label or values)                                                                          |                                   |
+  | `uvalib-citation`                            | `format` (once the visitor settles on one), `copy`, `download` (the RIS link)                                        | the format's name (`MLA`, `APA`…), or `ris` for `download`; never the citation                                                            |                                   |
   | `uvalib-lightbox`                            | `open`, `next`, `previous`, `full-size`                                                                                           | `image N` (never the URL or the caption)                                                                                                  | N, from 1                         |
   | `uvalib-lightbox` (versions)                 | `compare`                                                                                                                         | `switch`, `wipe` or `fade` (never a version's label or URL)                                                                               | the version's place, from 1       |
   | `uvalib-image-regions`                       | `select` (an outline clicked; nothing on hover or focus)                                                                          | the list's `label` (never a region's label)                                                                                               | the region's number, from 1       |
@@ -2677,6 +2719,49 @@ A row of chips: a segmented control or single-select filter (`mode="single"`), f
 | `--uva-color-on-accent` |  | Dark-mode role token: selected chip text (else #fff). |
 | `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 | `--uva-color-surface` |  | Dark-mode role token: the page background the scrolling row fades into at an edge with more chips (else #fff). |
+
+### `<uvalib-citation>`
+
+One record's citation in several formats (MLA, APA, Chicago, Bluebook…), a radio group to choose one, and a Copy citation button, as in Virgo's Cite dialog. Inline on a record page or inside a dialog: it assumes nothing about where it sits. Give each format as a child, `<blockquote data-format="MLA">…</blockquote>` (any element with `data-format`), so the page reads the same before the script loads (with `base.css`, only the first shows then, and the chooser's and button's space is held). Inline markup in a citation (`<i>` or `<em>` for a title) is kept; other elements are reduced to their text and nothing is parsed as HTML. Apps set the `citations` property instead (`[{ format, text, html? }]`, winning over the children while set); `html` keeps only inline elements, too. The formats are native radios drawn as one segmented bar (`role="radiogroup"`, "Citation format"): one tab stop, the arrow keys move and select, and the selected one is filled and ticked. `format` names the selected one (default the first). With `remember`, the visitor's last choice is kept in localStorage (per site) and wins over `format` on their next record. The selected citation is shown as selectable text in a region named "<format> citation". Copy citation copies it as plain text and as HTML where the browser allows (so an italic title stays italic when pasted into a word processor) and says "MLA citation copied" in a polite status next to the button, in the text colour (AAA), not in a toast. If the clipboard is unavailable, the citation is selected and the status says to copy it with the keyboard. `ris-href` adds a "Download RIS" link (`ris-label`) with a `download` attribute. Other export links go in the `actions` slot (`<a slot="actions" href="…" download>EndNote</a>`), after it.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `label` | `string` | `'Cite this item'` | The group's visible label and accessible name. |
+| `hide-label` | `boolean` | `false` | Hide the label visually (it still names the group), for a dialog whose heading says it. |
+| `format` | `string` | `''` | The selected format's name (default the first). Reflected when the visitor chooses one. |
+| `remember` | `boolean` | `false` | Keep the visitor's last format in localStorage (per site), winning over `format`. |
+| `ris-href` | `string` | `''` | A RIS file for the record: adds a download link. |
+| `ris-label` | `string` | `'Download RIS'` | The RIS link's text. |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### Slots
+
+| Slot | Description |
+|---|---|
+| `actions` | More export links or buttons, after Copy citation and Download RIS. |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-citation-format` | The visitor chose another format: `detail` is `{ format }`. Not fired when the app sets `format`. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`, on the visitor's actions only: `['uvalib-citation', 'format', '<format>']` (once the visitor settles on one, a second after the last change), `['uvalib-citation', 'copy', '<format>']` and `['uvalib-citation', 'download', 'ris']`. Never the citation. Bubbles and is composed. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-text` |  | Dark-mode role token: label, citation and status colour (else `--uva-grey-darkest`). |
+| `--uva-color-border` |  | Dark-mode role token: the citation's border (else #dadada). |
+| `--uva-color-surface-raised` |  | Dark-mode role token: the citation's, segments' and buttons' background (else #fff). |
+| `--uva-color-control-border` |  | Dark-mode role token: segment border (else `--uva-grey`, #808080). |
+| `--uva-color-link` |  | Dark-mode role token: segment and button text, button border (else `--uva-brand-blue`). |
+| `--uva-color-accent-bg` |  | Dark-mode role token: the selected segment (else `--uva-brand-blue`). |
+| `--uva-color-on-accent` |  | Dark-mode role token: the selected segment's text (else #fff). |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ### `<uvalib-combobox>`
 

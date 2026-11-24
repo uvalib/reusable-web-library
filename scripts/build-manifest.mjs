@@ -42,6 +42,7 @@ const TAGS = [
   'uvalib-filter-drawer',
   'uvalib-back-to-top',
   'uvalib-dialog',
+  'uvalib-citation',
 ];
 
 const manifest = {

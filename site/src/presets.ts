@@ -1364,6 +1364,42 @@ article p {
     },
   },
   {
+    id: 'citation',
+    group: 'Metadata',
+    title: 'Citation',
+    description:
+      'uvalib-citation shows one record\'s citation in MLA, APA, Chicago and Bluebook, as Virgo\'s Cite dialog does. The formats are a segmented radio group (one tab stop, the arrow keys choose, the selected one filled and ticked); the selected citation is selectable text in a region named "MLA citation". Copy citation copies it as plain text and as HTML, so the italic title survives a paste into a word processor, and says "MLA citation copied" in a polite status next to the button (AAA text colour, no toast). If the clipboard is unavailable it selects the citation and says so. ris-href adds a Download RIS link. It can sit inline, as here, or inside a dialog. With base.css only the first citation shows before the script runs, and the space for the formats and the button is held, so nothing moves.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Citation',
+          components: ['uvalib-citation'],
+          body: `    <site-page>
+      <h1>Notes on the State of Virginia</h1>
+      <uvalib-citation ris-href="notes-on-the-state-of-virginia.ris">
+        <blockquote data-format="MLA">
+          Jefferson, Thomas. <i>Notes on the State of Virginia</i>. Edited by William Peden, U of
+          North Carolina P, 1955.
+        </blockquote>
+        <blockquote data-format="APA">
+          Jefferson, T. (1955). <i>Notes on the state of Virginia</i> (W. Peden, Ed.). University
+          of North Carolina Press. (Original work published 1785)
+        </blockquote>
+        <blockquote data-format="Chicago">
+          Jefferson, Thomas. <i>Notes on the State of Virginia</i>. Edited by William Peden. Chapel
+          Hill: University of North Carolina Press, 1955.
+        </blockquote>
+        <blockquote data-format="Bluebook">
+          Thomas Jefferson, <i>Notes on the State of Virginia</i> (William Peden ed., Univ. of N.C.
+          Press 1955).
+        </blockquote>
+      </uvalib-citation>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'tables',
     group: 'Tables',
     title: 'Tables',

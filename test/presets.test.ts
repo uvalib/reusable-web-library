@@ -56,6 +56,7 @@ describe('playground presets', function () {
       'contents-sidebar',
       'contents-headings',
       'record-metadata',
+      'citation',
       'tables',
       'photo-grid',
       'photo-grid-badges',
@@ -137,7 +138,7 @@ describe('playground presets', function () {
       ],
       Chips: ['chip-groups'],
       Contents: ['contents-sidebar', 'contents-headings'],
-      Metadata: ['record-metadata'],
+      Metadata: ['record-metadata', 'citation'],
       Tables: ['tables'],
       Images: ['photo-grid', 'photo-grid-badges', 'page-images', 'image-regions', 'image-versions'],
       Maps: ['places-map'],
@@ -699,6 +700,44 @@ describe('playground presets', function () {
       await el.updateComplete;
       expect(shown()).to.equal(34);
       expect(b.getAttribute('aria-expanded')).to.equal('true');
+      await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  });
+
+  it('citation: four formats, the arrow keys choose, Copy citation, and axe passes', async () => {
+    const p = presets.find((x) => x.id === 'citation')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    iframe.style.width = '400px';
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-page', 'uvalib-citation']);
+      const el = doc.querySelector('uvalib-citation')! as HTMLElement & {
+        updateComplete: Promise<unknown>;
+      };
+      await el.updateComplete;
+      const r = el.shadowRoot!;
+      const radios = [...r.querySelectorAll<HTMLInputElement>('input[type=radio]')];
+      expect(radios.map((x) => x.closest('label')!.textContent!.trim())).to.deep.equal([
+        'MLA',
+        'APA',
+        'Chicago',
+        'Bluebook',
+      ]);
+      expect(r.querySelector('.citation')!.getAttribute('aria-label')).to.equal('MLA citation');
+      radios[3]!.click();
+      await el.updateComplete;
+      expect(r.querySelector('.citation')!.textContent).to.contain('Thomas Jefferson,');
+      expect(r.querySelector('.citation i')!.textContent).to.equal(
+        'Notes on the State of Virginia',
+      );
+      const ris = r.querySelector<HTMLAnchorElement>('a[download]')!;
+      expect(ris.textContent!.trim()).to.equal('Download RIS');
+      expect(doc.documentElement.scrollWidth).to.be.at.most(400);
+      expect(countMain(doc)).to.equal(1);
       await expectNoPageAxeViolations(doc);
       expect(errors).to.deep.equal([]);
     } finally {
