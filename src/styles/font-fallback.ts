@@ -62,3 +62,18 @@ export const fontFallback = css`
     line-gap-override: 0%;
   }
 `;
+
+/** One font per fallback face, so each one is asked for. */
+const FACES = ['400', '500', '700', 'italic 400'];
+
+/**
+ * Load every fallback face now (issue #35). A face from a local() font loads only when text
+ * first needs it, so the first italic (or medium) text could be drawn in unscaled Arial and
+ * redrawn a moment later. Called once the faces are installed; failures (no Arial or
+ * Liberation Sans on the system) are left to the next font in the stack, as before.
+ */
+export function loadFontFallback(doc: Document): void {
+  const fonts = doc.fonts;
+  if (!fonts?.load) return;
+  for (const face of FACES) fonts.load(`${face} 1em "UVA Franklin Fallback"`).catch(() => {});
+}

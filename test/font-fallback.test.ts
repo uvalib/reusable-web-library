@@ -22,6 +22,14 @@ describe('<site-page> installs the Franklin Gothic fallback', () => {
     expect(getComputedStyle(document.body).fontFamily).to.match(
       /^franklin-gothic-urw, "UVA Franklin Fallback", Arial/,
     );
+    // Issue #35: every face is loaded up front, not when text first needs it. This page draws
+    // only regular and bold text, so without that the medium and italic faces would stay
+    // "unloaded", and the first italic text would be drawn in unscaled Arial and then redrawn.
+    // ("error" where neither Arial nor Liberation Sans is installed: the load was still asked.)
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    expect(fallbackFaces().map((f) => `${f.style} ${f.weight} ${f.status}`)).to.satisfy(
+      (s: string[]) => s.every((x) => !x.endsWith('unloaded')),
+    );
   });
 });
 
