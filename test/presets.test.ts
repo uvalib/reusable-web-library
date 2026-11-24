@@ -72,6 +72,7 @@ describe('playground presets', function () {
       'date-histogram-decades',
       'combobox',
       'filter-drawer',
+      'dialog',
       'todays-hours',
       'weekly-hours',
       'events',
@@ -150,6 +151,7 @@ describe('playground presets', function () {
         'date-histogram-decades',
         'combobox',
         'filter-drawer',
+        'dialog',
         'uvalib-filter-shadow',
         'uvalib-filter-light',
         'uvalib-date-range-shadow',
@@ -447,6 +449,57 @@ describe('playground presets', function () {
       }
     }).timeout(10000);
   }
+
+  it('dialog: search tips and the email form open, validate, close and return focus; axe passes', async () => {
+    const p = presets.find((x) => x.id === 'dialog')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    iframe.style.width = '400px';
+    iframe.style.height = '800px';
+    try {
+      const doc = iframe.contentDocument!;
+      const win = iframe.contentWindow!;
+      await whenAllDefined(win, ['site-page', 'uvalib-dialog']);
+      type Dialog = HTMLElement & {
+        updateComplete: Promise<unknown>;
+        shadowRoot: ShadowRoot;
+        open: boolean;
+      };
+      const tips = doc.querySelector('#search-tips') as Dialog;
+      const cite = doc.querySelector('#email-cite') as Dialog;
+      await tips.updateComplete;
+      await cite.updateComplete;
+      const tipsBtn = doc.querySelector<HTMLButtonElement>('[data-uvalib-dialog="search-tips"]')!;
+      const citeBtn = doc.querySelector<HTMLButtonElement>('[data-uvalib-dialog="email-cite"]')!;
+      tipsBtn.focus();
+      tipsBtn.click();
+      await tips.updateComplete;
+      expect(tips.open).to.equal(true);
+      expect(tips.shadowRoot.activeElement?.classList.contains('dlg-heading')).to.equal(true);
+      await expectNoPageAxeViolations(doc);
+      tips.shadowRoot.querySelector<HTMLButtonElement>('.dlg-close')!.click();
+      expect(doc.activeElement === tipsBtn).to.equal(true);
+      citeBtn.focus();
+      citeBtn.click();
+      await cite.updateComplete;
+      const email = doc.querySelector<HTMLInputElement>('#cite-email')!;
+      expect(doc.activeElement === email).to.equal(true);
+      const send = doc.querySelector<HTMLButtonElement>('#cite-form button[value="send"]')!;
+      send.click();
+      expect(cite.open, 'an empty email keeps it open').to.equal(true);
+      expect(doc.querySelector('#cite-errors')!.textContent).to.include('Error:');
+      expect(email.getAttribute('aria-invalid')).to.equal('true');
+      await expectNoPageAxeViolations(doc);
+      email.value = 'ada@virginia.edu';
+      send.click();
+      await waitUntil(() => !cite.open, 'Send did not close');
+      expect(doc.activeElement === citeBtn).to.equal(true);
+      expect(doc.querySelector('#sent')!.textContent).to.include('would be sent');
+      expect(countMain(doc)).to.equal(1);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  }).timeout(10000);
 
   it('back-to-top: shown after scrolling, back to the h1, and axe passes', async () => {
     const p = presets.find((x) => x.id === 'back-to-top')!;

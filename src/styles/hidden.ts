@@ -43,6 +43,8 @@ export const HIDDEN_CLASSES = [
   'uvalib-table',
   'uvalib-table-scroll',
   'uvalib-table-stack',
+  // Field help text (field-text.ts)
+  'uvalib-help',
 ];
 
 /** Children that base.css itself gives a `display`, by their parent's class. */

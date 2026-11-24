@@ -453,3 +453,57 @@ describe('base.css before <uvalib-metadata> is defined', function () {
     });
   }
 });
+
+/**
+ * base.css before <uvalib-dialog> is defined: the children are a dialog's content, so they are
+ * never shown in the page, before the element upgrades or after (closed). Nothing moves when it
+ * upgrades.
+ */
+describe('base.css before <uvalib-dialog> is defined', function () {
+  this.timeout(12000);
+
+  it('hides the content before and after upgrading, and nothing moves', async () => {
+    const content =
+      '<p class="tip">Put a phrase in quotes.</p><form method="dialog"><label>Email <input name="e"></label></form>';
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'width: 600px; height: 600px; border: 0';
+    iframe.srcdoc = `<!doctype html><html lang="en"><head>
+      <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+      </head><body><p>Before</p>
+      <uvalib-dialog id="shadow" label="Search tips">${content}</uvalib-dialog>
+      <uvalib-dialog id="light" no-shadow-dom label="Search tips">${content}</uvalib-dialog>
+      <p id="after">After</p></body></html>`;
+    document.body.append(iframe);
+    await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+    try {
+      const doc = iframe.contentDocument!;
+      const win = iframe.contentWindow!;
+      const el = (id: string) => doc.getElementById(id)!;
+      const shown = (id: string) =>
+        [...el(id).querySelectorAll('.tip, form')].some((n) => n.getClientRects().length > 0);
+      expect(win.customElements.get('uvalib-dialog')).to.equal(undefined);
+      for (const id of ['shadow', 'light']) {
+        expect(win.getComputedStyle(el(id)).display, id).to.equal('none');
+        expect(shown(id), id).to.equal(false);
+      }
+      const before = el('after').getBoundingClientRect().top;
+      const script = doc.createElement('script');
+      script.type = 'module';
+      script.src = `${location.origin}/dist-cdn/uvalib-dialog.js`;
+      doc.head.append(script);
+      await new Promise((r) => script.addEventListener('load', r, { once: true }));
+      type Dialog = HTMLElement & { updateComplete: Promise<unknown>; show(): void; close(): void };
+      await Promise.all(['shadow', 'light'].map((id) => (el(id) as Dialog).updateComplete));
+      await new Promise((r) => setTimeout(r, 50));
+      for (const id of ['shadow', 'light']) expect(shown(id), `${id} upgraded`).to.equal(false);
+      expect(el('after').getBoundingClientRect().top).to.equal(before);
+      (el('shadow') as Dialog).show();
+      await (el('shadow') as Dialog).updateComplete;
+      expect(shown('shadow')).to.equal(true);
+      expect(el('after').getBoundingClientRect().top).to.equal(before);
+      (el('shadow') as Dialog).close();
+    } finally {
+      iframe.remove();
+    }
+  });
+});

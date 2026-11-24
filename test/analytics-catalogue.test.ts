@@ -26,6 +26,7 @@ import '../src/components/uvalib-image-regions/uvalib-image-regions.js';
 import '../src/components/uvalib-map/uvalib-map.js';
 import '../src/components/uvalib-filter-drawer/uvalib-filter-drawer.js';
 import '../src/components/uvalib-back-to-top/uvalib-back-to-top.js';
+import '../src/components/uvalib-dialog/uvalib-dialog.js';
 import * as Leaflet from 'leaflet/dist/leaflet-src.esm.js';
 import '../src/components/bento-box/bento-box.js';
 import type { SiteHeader } from '../src/components/site-header/SiteHeader.js';
@@ -46,6 +47,7 @@ import type { UvalibImageRegions } from '../src/components/uvalib-image-regions/
 import type { UvalibMap } from '../src/components/uvalib-map/UvalibMap.js';
 import type { UvalibFilterDrawer } from '../src/components/uvalib-filter-drawer/UvalibFilterDrawer.js';
 import type { UvalibBackToTop } from '../src/components/uvalib-back-to-top/UvalibBackToTop.js';
+import type { UvalibDialog } from '../src/components/uvalib-dialog/UvalibDialog.js';
 import { recordAnalytics } from './helpers/analytics.js';
 import { resetEvents, useEventsHost } from './helpers/events.js';
 import { resetHours, setClock, settled, useHoursHost } from './helpers/hours.js';
@@ -674,6 +676,32 @@ describe('analytics catalogue', () => {
           ['uvalib-filter-drawer', 'close', 'Search and filters'],
         ]);
         expect(JSON.stringify(rec.events)).to.not.include('Ada');
+      });
+    });
+
+    describe(`uvalib-dialog (${mode})`, () => {
+      it('open and close by the visitor, with the dialog label; never its content or what is typed', async () => {
+        const wrap = await fixture<HTMLDivElement>(
+          `<div><button type="button" data-uvalib-dialog="cat-dlg">Email</button>
+            <uvalib-dialog ${attr(mode)} id="cat-dlg" label="Email this citation">
+              <form method="dialog"><input aria-label="Email" value="ada@example.com" /><button value="send">Send</button></form>
+            </uvalib-dialog></div>`,
+        );
+        const el = wrap.querySelector<UvalibDialog>('uvalib-dialog')!;
+        await quietRender(el);
+        el.show(); // script opens and closes are not reported
+        await el.updateComplete;
+        el.close();
+        expect(rec.events).to.deep.equal([]);
+        wrap.querySelector<HTMLButtonElement>('[data-uvalib-dialog]')!.click();
+        await el.updateComplete;
+        wrap.querySelector<HTMLButtonElement>('button[value="send"]')!.click();
+        expect(events()).to.deep.equal([
+          ['uvalib-dialog', 'open', 'Email this citation'],
+          ['uvalib-dialog', 'close', 'Email this citation'],
+        ]);
+        expect(JSON.stringify(rec.events)).to.not.include('ada');
+        (document.activeElement as HTMLElement | null)?.blur();
       });
     });
 

@@ -41,6 +41,7 @@ const TAGS = [
   'uvalib-map',
   'uvalib-filter-drawer',
   'uvalib-back-to-top',
+  'uvalib-dialog',
 ];
 
 const manifest = {

@@ -2377,6 +2377,125 @@ uvalib-filter-drawer uvalib-filter {
     },
   },
   {
+    id: 'dialog',
+    group: 'Search',
+    title: 'Dialog: search tips and a form',
+    description:
+      'uvalib-dialog, the library’s modal dialog: “Search tips” opens a content dialog from a data-uvalib-dialog button (the heading takes focus); “Email this citation” opens a small form dialog whose email field has autofocus, with required and help text in AAA contrast, an error summary (role="alert") on a failed send, and a success status. Close, Escape, the backdrop, Cancel and Send all close it, and focus returns to the button that opened it. The rest of the page, the library header included, is inert while one is open.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Search the catalog',
+          styles: true,
+          components: ['uvalib-dialog'],
+          body: `    <site-page>
+      <h1>Search the catalog</h1>
+      <form class="uvalib-search-form" role="search" id="search">
+        <label for="q">Search the catalog</label>
+        <input class="uvalib-input" id="q" name="q" type="search" />
+        <button class="uvalib-button" type="submit">Search</button>
+      </form>
+      <p class="dialog-buttons">
+        <button type="button" class="uvalib-button uvalib-button--secondary" data-uvalib-dialog="search-tips">Search tips</button>
+        <button type="button" class="uvalib-button uvalib-button--secondary" data-uvalib-dialog="email-cite">Email this citation</button>
+      </p>
+      <p id="sent" role="status"></p>
+
+      <uvalib-dialog id="search-tips" label="Search tips">
+        <ul>
+          <li>Put a phrase in quotes to find the words together: <code>"board of visitors"</code>.</li>
+          <li>Use <code>OR</code> to find either word: <code>Jefferson OR Madison</code>.</li>
+          <li>Put <code>-</code> before a word to leave it out: <code>rotunda -fire</code>.</li>
+          <li>Use <code>*</code> for any ending: <code>architect*</code> finds architect, architects and architecture.</li>
+        </ul>
+        <p>
+          <a href="https://guides.lib.virginia.edu/" target="_blank" rel="noopener">Research guides (opens in a new tab)</a>
+        </p>
+      </uvalib-dialog>
+
+      <uvalib-dialog id="email-cite" label="Email this citation" size="small">
+        <form method="dialog" id="cite-form" novalidate>
+          <div class="uvalib-message uvalib-message--error" role="alert" id="cite-errors"></div>
+          <div class="field">
+            <label for="cite-email">Email <span class="uvalib-required">(required)</span></label>
+            <input class="uvalib-input" id="cite-email" name="email" type="email" required autofocus aria-describedby="cite-email-help" />
+            <span class="uvalib-help" id="cite-email-help">We send the citation to this address only.</span>
+          </div>
+          <div class="actions">
+            <button class="uvalib-button" value="send">Send</button>
+            <button class="uvalib-button uvalib-button--secondary" value="cancel" formnovalidate>Cancel</button>
+          </div>
+        </form>
+      </uvalib-dialog>
+    </site-page>
+    <script type="module">
+      const form = document.querySelector('#cite-form');
+      const email = document.querySelector('#cite-email');
+      const errors = document.querySelector('#cite-errors');
+      const help = 'cite-email-help';
+      // The form checks itself, so the error is in words, announced and linked to the field.
+      form.addEventListener('submit', (e) => {
+        if (e.submitter?.value !== 'send' || email.checkValidity()) {
+          errors.replaceChildren();
+          email.removeAttribute('aria-invalid');
+          email.setAttribute('aria-describedby', help);
+          return;
+        }
+        e.preventDefault(); // stay open
+        const message = email.value ? 'Enter an email address such as name@virginia.edu.' : 'Enter your email address.';
+        errors.innerHTML = '<strong class="uvalib-message__label">Error:</strong> <a href="#cite-email"></a>';
+        errors.querySelector('a').textContent = message;
+        email.setAttribute('aria-invalid', 'true');
+        email.setAttribute('aria-describedby', 'cite-errors ' + help);
+        email.focus();
+      });
+      errors.addEventListener('click', (e) => {
+        if (e.target.closest('a')) {
+          e.preventDefault();
+          email.focus();
+        }
+      });
+      document.querySelector('#email-cite').addEventListener('uvalib-dialog-close', (e) => {
+        if (e.detail.returnValue === 'send') {
+          document.querySelector('#sent').textContent = 'The citation would be sent to the address you gave.';
+          form.reset();
+        }
+      });
+      document.querySelector('#search').addEventListener('submit', (e) => e.preventDefault());
+    </script>`,
+        }),
+      },
+      'styles.css': {
+        content: `.dialog-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+#cite-form .field {
+  display: grid;
+  gap: 0.25rem;
+  margin-block-end: 1.25rem;
+}
+
+#cite-form .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+#cite-errors:empty {
+  display: none;
+}
+
+#cite-errors {
+  margin-block-start: 0;
+}
+`,
+      },
+    },
+  },
+  {
     id: 'todays-hours',
     group: 'Hours',
     title: "Today's hours",

@@ -4,6 +4,7 @@ import '../src/components/uvalib-combobox/uvalib-combobox.js';
 import '../src/components/uvalib-filter-drawer/uvalib-filter-drawer.js';
 import '../src/components/uvalib-lightbox/uvalib-lightbox.js';
 import '../src/components/uvalib-tag-list/uvalib-tag-list.js';
+import '../src/components/uvalib-dialog/uvalib-dialog.js';
 import { setState } from '../src/base/states.js';
 import {
   comboboxTiming,
@@ -12,6 +13,7 @@ import {
 import type { UvalibFilterDrawer } from '../src/components/uvalib-filter-drawer/UvalibFilterDrawer.js';
 import type { UvalibLightbox } from '../src/components/uvalib-lightbox/UvalibLightbox.js';
 import type { UvalibTagList } from '../src/components/uvalib-tag-list/UvalibTagList.js';
+import type { UvalibDialog } from '../src/components/uvalib-dialog/UvalibDialog.js';
 
 const PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAEUlEQVR4AWP4z8Dwn4Hh/38AD/kD/dtv74kAAAAASUVORK5CYII=';
@@ -180,6 +182,24 @@ for (const mode of ['shadow', 'no-shadow-dom'] as const) {
       btn.click();
       await el.updateComplete;
       expect(is(el, 'expanded')).to.equal(false);
+    });
+
+    it('uvalib-dialog: open while the dialog is, whichever way it closes', async () => {
+      const el = await fixture<UvalibDialog>(
+        `<uvalib-dialog ${attr} label="Search tips"><p>Tips</p></uvalib-dialog>`,
+      );
+      await el.updateComplete;
+      expect(is(el, 'open')).to.equal(false);
+      el.show();
+      await el.updateComplete;
+      expect(is(el, 'open')).to.equal(true);
+      await sendKeys({ press: 'Escape' });
+      await waitUntil(() => !is(el, 'open'), 'Escape closes it');
+      el.show();
+      await el.updateComplete;
+      expect(is(el, 'open')).to.equal(true);
+      el.close();
+      expect(is(el, 'open')).to.equal(false);
     });
   });
 }
