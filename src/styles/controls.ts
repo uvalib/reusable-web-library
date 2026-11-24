@@ -2,6 +2,7 @@ import { css, unsafeCSS } from 'lit';
 import { results } from './results.js';
 import { message } from './message.js';
 import { resultList } from './result-list.js';
+import { table } from './table.js';
 import { hidden } from './hidden.js';
 
 // Buttons, toggles and form fields for host content, in base.css only: no component
@@ -209,5 +210,6 @@ export const controls = css`
   ${results}
   ${message}
   ${resultList}
+  ${table}
   ${hidden}
 `;
