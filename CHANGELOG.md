@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.9.0 — 2026-11-24
+
+### Features
+
+- hide uvalib-dialog before it upgrades; .uvalib-help and .uvalib-required field text in AAA contrast
+- <uvalib-dialog>, a general modal dialog for Virgo's search tips, Cite and forms
+- uvalib-citation, one record's citation in several formats with Copy citation
+- data tables (.uvalib-table, scroll and stack wrappers)
+- opt-in filter-group features for <uvalib-filter>
+
+### Other
+
+- Merge branch 'integrate/virgo': uvalib-dialog, .uvalib-table, uvalib-citation, filter groups
+- budgets after the Virgo round merge (site-page.js, site-main-nav.js)
+- Merge branch 'feat/filter-groups' into integrate/virgo
+- Merge branch 'feat/uvalib-citation' into integrate/virgo
+- Merge branch 'feat/uvalib-dialog' into integrate/virgo
+- Merge branch 'feat/uvalib-table' into integrate/virgo
+- register uvalib-dialog (vite, manifest, exports, index, size budget, catalogue tests)
+- share the copy and select-for-copy helpers
+- filter-group tests, analytics catalogue entry, collapsed pre-upgrade hold
+
 ## v1.8.5 — 2026-11-23
 
 ### Fixes
