@@ -374,6 +374,72 @@ describe('base.css before <uvalib-filter-drawer> is defined', function () {
 });
 
 /**
+ * base.css before <uvalib-filter> is defined: a collapsed filter group (collapsible collapsed)
+ * upgrades to its 44px legend button alone, so that height is held and nothing below moves.
+ * An open group is left alone (its values come from script), and `hidden` still hides.
+ */
+describe('base.css before <uvalib-filter> is defined', function () {
+  this.timeout(12000);
+  it('holds a collapsed group at 44px, and nothing moves when it upgrades', async () => {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'width: 375px; height: 600px; border: 0';
+    iframe.srcdoc = `<!doctype html><html lang="en"><head>
+      <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+      </head><body><p>Before</p>
+      <uvalib-filter id="shadow" collapsible collapsed searchable sortable></uvalib-filter>
+      <uvalib-filter id="light" no-shadow-dom collapsible collapsed match="any"></uvalib-filter>
+      <uvalib-filter id="hid" collapsible collapsed hidden></uvalib-filter>
+      <uvalib-filter id="open" collapsible></uvalib-filter>
+      <p id="after">After</p></body></html>`;
+    document.body.append(iframe);
+    await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+    try {
+      const doc = iframe.contentDocument!;
+      const win = iframe.contentWindow!;
+      const el = (id: string) => doc.getElementById(id)!;
+      expect(win.customElements.get('uvalib-filter')).to.equal(undefined);
+      for (const id of ['shadow', 'light'])
+        expect(el(id).getBoundingClientRect().height, id).to.equal(44);
+      expect(win.getComputedStyle(el('hid')).display).to.equal('none');
+      expect(el('open').getBoundingClientRect().height).to.equal(0);
+      const tops = () =>
+        ['shadow', 'light', 'after'].map((id) => el(id).getBoundingClientRect().top);
+      const before = tops();
+      const script = doc.createElement('script');
+      script.type = 'module';
+      script.src = `${location.origin}/dist-cdn/uvalib-filter.js`;
+      doc.head.append(script);
+      await new Promise((r) => script.addEventListener('load', r, { once: true }));
+      type Lit = HTMLElement & {
+        updateComplete: Promise<unknown>;
+        filter: unknown;
+        value: string[];
+      };
+      for (const id of ['shadow', 'light']) {
+        const f = el(id) as Lit;
+        f.filter = {
+          name: 'subject',
+          title: 'Subject',
+          position: 0,
+          buckets: [{ key: 'History', doc_count: 3, selected: false }],
+        };
+        f.value = ['History'];
+        await f.updateComplete;
+      }
+      await new Promise((r) => setTimeout(r, 50));
+      expect(el('shadow').shadowRoot!.querySelector('button[part=toggle]')).to.not.equal(null);
+      expect(['shadow', 'light'].map((id) => el(id).getBoundingClientRect().height)).to.deep.equal([
+        44, 44,
+      ]);
+      expect(tops()).to.deep.equal(before);
+      expect(win.getComputedStyle(el('hid')).display).to.equal('none');
+    } finally {
+      iframe.remove();
+    }
+  });
+});
+
+/**
  * base.css before <uvalib-metadata> is defined (issue #34): the rows already sit as the upgraded
  * element lays them out (label beside value from 36rem, stacked below), and a list-limit list
  * shows only its first N values and a line for its "Show all" button, so nothing below moves
