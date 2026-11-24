@@ -78,6 +78,10 @@ export const colorScheme = css`
          text (7.6:1). */
       --uva-color-highlight: light-dark(var(--uva-brand-orange-200, #ffc999), #854200);
       --uva-color-on-highlight: light-dark(var(--uva-grey-darkest, #2b2b2b), #ffffff);
+      /* base.css's .uvalib-table: the row rules (decorative) and the stripes, where body text
+         is 12.5:1 in light and 12.6:1 in dark (AAA); muted text 6.7:1 and 6.9:1. */
+      --uva-color-table-border: light-dark(var(--uva-grey-100, #dadada), #4f5a7a);
+      --uva-color-table-stripe: light-dark(var(--uva-grey-200, #f1f1f1), #1a2340);
     }
     :root[data-uva-color-scheme='system'] {
       color-scheme: light dark;

@@ -56,6 +56,7 @@ describe('playground presets', function () {
       'contents-sidebar',
       'contents-headings',
       'record-metadata',
+      'tables',
       'photo-grid',
       'photo-grid-badges',
       'page-images',
@@ -88,6 +89,7 @@ describe('playground presets', function () {
       'Chips',
       'Contents',
       'Metadata',
+      'Tables',
       'Images',
       'Maps',
       'Search',
@@ -135,6 +137,7 @@ describe('playground presets', function () {
       Chips: ['chip-groups'],
       Contents: ['contents-sidebar', 'contents-headings'],
       Metadata: ['record-metadata'],
+      Tables: ['tables'],
       Images: ['photo-grid', 'photo-grid-badges', 'page-images', 'image-regions', 'image-versions'],
       Maps: ['places-map'],
       Search: [
@@ -1151,6 +1154,32 @@ describe('playground presets', function () {
       expect([...doc.querySelectorAll('.year')].every((y) => (y as HTMLElement).hidden)).to.equal(
         true,
       );
+      expect(countMain(doc)).to.equal(1);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  }).timeout(15000);
+
+  it('tables: holdings, a striped schedule and a scrolling wide table fit a phone and pass axe', async () => {
+    const p = presets.find((x) => x.id === 'tables')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    iframe.style.width = '320px';
+    iframe.style.height = '900px';
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-page']);
+      await new Promise((r) => setTimeout(r, 100));
+      expect(doc.querySelectorAll('table.uvalib-table').length).to.equal(4);
+      for (const t of doc.querySelectorAll('table'))
+        expect(t.querySelector('caption')!.textContent!.trim()).to.not.equal('');
+      // Nothing scrolls the page sideways: the long barcode wraps, the wide table scrolls inside.
+      expect(doc.documentElement.scrollWidth).to.be.at.most(win.innerWidth);
+      const scroller = doc.querySelector<HTMLElement>('.uvalib-table-scroll')!;
+      expect(scroller.scrollWidth).to.be.greaterThan(scroller.clientWidth);
+      expect(scroller.tabIndex).to.equal(0);
+      await expectNoPageAxeViolations(doc);
       expect(countMain(doc)).to.equal(1);
       expect(errors).to.deep.equal([]);
     } finally {

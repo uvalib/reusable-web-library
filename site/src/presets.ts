@@ -13,6 +13,7 @@ export const GROUPS = [
   'Chips',
   'Contents',
   'Metadata',
+  'Tables',
   'Images',
   'Maps',
   'Search',
@@ -147,6 +148,39 @@ ${body}
 </html>
 `;
 }
+
+/** The tables example's wide table: made-up monthly loans for five libraries. */
+const SHORT_MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+const CIRCULATION = (
+  [
+    ['Clemons Library', 4210],
+    ['Shannon Library', 6385],
+    ['Fine Arts Library', 1172],
+    ['Music Library', 893],
+    ['Albert and Shirley Small Special Collections Library', 318],
+  ] as const
+)
+  .map(
+    ([name, n], r) =>
+      `            <tr><th scope="row">${name}</th>${SHORT_MONTHS.map(
+        (_, i) =>
+          `<td class="uvalib-table__num">${Math.round((n * (90 + ((i * 7 + r * 3) % 21))) / 100).toLocaleString('en-US')}</td>`,
+      ).join('')}</tr>`,
+  )
+  .join('\n');
 
 /**
  * Example images from the Library's own IIIF server (never copied into this repository):
@@ -1324,6 +1358,71 @@ article p {
           </div>
         </dl>
       </uvalib-metadata>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'tables',
+    group: 'Tables',
+    title: 'Tables',
+    description:
+      "base.css's .uvalib-table: holdings grouped by library (a heading per library, then its table with a caption), with a long barcode that wraps instead of pushing the page sideways on a phone; a striped, compact schedule with right-aligned numbers (.uvalib-table--striped, --compact, __num); and a wide table in .uvalib-table-scroll, a focusable region named by its caption that scrolls inside itself. Every table has a caption; header cells have scope.",
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Holdings and schedules',
+          body: `    <site-page>
+      <h1>Holdings and schedules</h1>
+      <h2>Holdings</h2>
+      <h3>Clemons Library</h3>
+      <table class="uvalib-table">
+        <caption>Clemons Library holdings</caption>
+        <thead>
+          <tr><th scope="col">Location</th><th scope="col">Call number</th><th scope="col">Barcode</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Stacks</td><td>PS3545 .O337 Z5 2004</td><td>X004812345</td></tr>
+          <tr><td>Course reserve</td><td>PS3545 .O337 Z5 2004 c.2</td><td>X004812346</td></tr>
+        </tbody>
+      </table>
+      <h3>Law Library</h3>
+      <table class="uvalib-table">
+        <caption>Law Library holdings</caption>
+        <thead>
+          <tr><th scope="col">Location</th><th scope="col">Call number</th><th scope="col">Barcode</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Law Library Stacks, Lower Level</td><td>KF4550 .A2 1787a vol. 1–4 suppl.</td><td>35000101234567890123456789</td></tr>
+        </tbody>
+      </table>
+      <h2>Opening hours</h2>
+      <table class="uvalib-table uvalib-table--striped uvalib-table--compact">
+        <caption>Study rooms this week</caption>
+        <thead>
+          <tr><th scope="col">Day</th><th scope="col">Hours</th><th scope="col" class="uvalib-table__num">Rooms free</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Monday</th><td>8 a.m. – midnight</td><td class="uvalib-table__num">12</td></tr>
+          <tr><th scope="row">Tuesday</th><td>8 a.m. – midnight</td><td class="uvalib-table__num">7</td></tr>
+          <tr><th scope="row">Wednesday</th><td>8 a.m. – midnight</td><td class="uvalib-table__num">14</td></tr>
+          <tr><th scope="row">Thursday</th><td>8 a.m. – midnight</td><td class="uvalib-table__num">3</td></tr>
+          <tr><th scope="row">Friday</th><td>8 a.m. – 6 p.m.</td><td class="uvalib-table__num">21</td></tr>
+        </tbody>
+      </table>
+      <h2>Circulation by library</h2>
+      <div class="uvalib-table-scroll" role="region" tabindex="0" aria-labelledby="circ-caption">
+        <table class="uvalib-table">
+          <caption id="circ-caption">Items borrowed per month, 2025</caption>
+          <thead>
+            <tr><th scope="col">Library</th>${SHORT_MONTHS.map((m) => `<th scope="col" class="uvalib-table__num">${m}</th>`).join('')}</tr>
+          </thead>
+          <tbody>
+${CIRCULATION}
+          </tbody>
+        </table>
+      </div>
     </site-page>`,
         }),
       },
