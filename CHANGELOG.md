@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.8.5 — 2026-11-23
+
+### Fixes
+
+- load the Franklin Gothic fallback faces up front (issue #35)
+
+### Other
+
+- Merge pull request #36 from uvalib/fix/font-fallback-eager
+
 ## v1.8.4 — 2026-11-23
 
 ### Fixes
