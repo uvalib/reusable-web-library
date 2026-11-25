@@ -551,8 +551,8 @@ A person, place or subject picker, or any text field that suggests values as you
 A static site (11ty, Jekyll, a generated collection) that searches with [Pagefind](https://pagefind.app) keeps Pagefind's own index and `pagefind-ui.js`, and gets the library look and the accessibility fixes from this package:
 
 - Link `pagefind.css` (npm: `@uvalib/web-components/pagefind.css`) **instead of** Pagefind's `pagefind-ui.css`; never both (the stock rules out-rank the theme's). It styles Pagefind's default UI (`.pagefind-ui__*`): the field and Clear like `.uvalib-input`, the filters like `<uvalib-filter>`, link-coloured result titles, the library `<mark>`, Load more as a `.uvalib-button`, with dark mode and forced colors. Pagefind's `--pagefind-ui-*` properties still work for small changes.
-- Use `<uvalib-pagefind-search>` (from `uvalib-pagefind-search.js`) rather than `new PagefindUI(...)`: it loads `<bundle-path>pagefind-ui.js` from the site's bundle and adds what CSS cannot: a visible label (the stock field has only a title), a polite result-count status (the stock message is not announced), focus that stays in the field after Clear and Escape and moves to the first new result after Load more, `?q=` read and written (`query-param`), and analytics (`trackSearch(…, 'Pagefind', count)` once results settle, and `filter-change` events). Do not add your own `?q=` script or live region.
-- Attributes: `bundle-path` (default `/pagefind/`), `merge-index` (JSON array, for sharded indexes), `page-size` (10), `show-sub-results`, `show-images`, `excerpt-length`, `placeholder`, `label`, `label-hidden`, `translations` and `options` (JSON). For filters from the URL, call `el.ready.then((ui) => ui.triggerFilters({ collection: ['…'] }))`.
+- Use `<uvalib-pagefind-search>` (from `uvalib-pagefind-search.js`) rather than `new PagefindUI(...)`: it loads `<bundle-path>pagefind-ui.js` from the site's bundle and adds what CSS cannot: a visible label (the stock field has only a title), a polite result-count status (the stock message is not announced), focus that stays in the field after Clear and Escape and moves to the first new result after Load more, `?q=` read and written (`query-param`), Pagefind filters read from and written to the URL (`filter-params`), and analytics (`trackSearch(…, 'Pagefind', count)` once results settle, and `filter-change` events). Do not add your own `?q=` or `triggerFilters` URL script or live region.
+- Attributes: `bundle-path` (default `/pagefind/`), `merge-index` (JSON array, for sharded indexes), `page-size` (10), `show-sub-results`, `show-images`, `excerpt-length`, `placeholder`, `label`, `label-hidden`, `translations` and `options` (JSON), `query-param` (default `q`) and `filter-params` (space-separated filter names, such as `collection author`: `?collection=Manuscripts` lands with that filter checked and its group open, applied with `?q=` as one search; repeated parameters check several values; values the index lacks are ignored; checkbox changes are written back). For a "Search this collection" link, use `filter-params` and link to `/search/?collection=…`; `el.ready.then((ui) => ui.triggerFilters(…))` is for filters set from your own script.
 
 ```html
 <!doctype html>
@@ -587,6 +587,7 @@ A static site (11ty, Jekyll, a generated collection) that searches with [Pagefin
         placeholder="Search all texts"
         show-sub-results
         excerpt-length="30"
+        filter-params="collection"
       ></uvalib-pagefind-search>
     </site-page>
   </body>

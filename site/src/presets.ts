@@ -1860,7 +1860,7 @@ pre {
     group: 'Search',
     title: 'Static-site search (Pagefind)',
     description:
-      "Pagefind's own search UI with the library theme: pagefind.css in place of Pagefind's pagefind-ui.css, and <uvalib-pagefind-search>, which loads the site's Pagefind bundle (bundle-path) and adds a visible label, a polite result count, focus that stays put after Clear, Escape and Load more, a shareable ?q= and analytics. This one searches a tiny demo index of seven texts: try virginia, rivers or Blue Ridge, then a filter.",
+      "Pagefind's own search UI with the library theme: pagefind.css in place of Pagefind's pagefind-ui.css, and <uvalib-pagefind-search>, which loads the site's Pagefind bundle (bundle-path) and adds a visible label, a polite result count, focus that stays put after Clear, Escape and Load more, a shareable ?q= (and, with filter-params, shareable filters such as ?collection=) and analytics. This one searches a tiny demo index of seven texts: try virginia, rivers or Blue Ridge, then a filter.",
     files: {
       'index.html': {
         content: page({
@@ -1875,6 +1875,7 @@ pre {
         placeholder="Search all texts"
         page-size="3"
         show-sub-results
+        filter-params="collection author"
       ></uvalib-pagefind-search>
     </site-page>`,
         }),
