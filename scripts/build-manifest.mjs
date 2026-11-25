@@ -49,7 +49,7 @@ const TAGS = [
 const manifest = {
   version: pkg.version,
   elements: Object.fromEntries(TAGS.map((t) => [t, `${t}.js`])),
-  styles: ['tokens.css', 'base.css', 'pagefind.css'],
+  styles: ['tokens.css', 'base.css', 'pagefind.css', 'edition.css'],
   // Plain modules for a page's own scripts (no element): the analytics helpers.
   modules: ['analytics.js'],
 };

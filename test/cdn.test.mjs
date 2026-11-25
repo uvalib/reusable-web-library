@@ -52,7 +52,7 @@ const manifest = () => JSON.parse(readFileSync(join(cdn, 'manifest.json'), 'utf8
 test('manifest lists every element and style, and each file exists', () => {
   const m = manifest();
   assert.deepEqual(Object.keys(m.elements).sort(), [...TAGS].sort());
-  assert.deepEqual(m.styles, ['tokens.css', 'base.css', 'pagefind.css']);
+  assert.deepEqual(m.styles, ['tokens.css', 'base.css', 'pagefind.css', 'edition.css']);
   for (const [tag, file] of Object.entries(m.elements)) {
     assert.equal(file, `${tag}.js`);
     assert.ok(existsSync(join(cdn, file)), `missing ${file}`);

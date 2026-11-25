@@ -87,6 +87,7 @@ test('npm pack lists the css and the manifest', () => {
   assert.ok(paths.includes('dist/tokens.css'));
   assert.ok(paths.includes('dist/base.css'));
   assert.ok(paths.includes('dist/pagefind.css'));
+  assert.ok(paths.includes('dist/edition.css'));
   assert.ok(paths.includes('dist/custom-elements.json'));
   assert.ok(paths.includes('dist-cdn/manifest.json'));
 });

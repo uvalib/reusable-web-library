@@ -59,6 +59,7 @@ describe('playground presets', function () {
       'record-metadata',
       'citation',
       'tables',
+      'edition',
       'photo-grid',
       'photo-grid-badges',
       'page-images',
@@ -94,6 +95,7 @@ describe('playground presets', function () {
       'Contents',
       'Metadata',
       'Tables',
+      'Texts',
       'Images',
       'Maps',
       'Search',
@@ -143,6 +145,7 @@ describe('playground presets', function () {
       Contents: ['contents-sidebar', 'contents-headings'],
       Metadata: ['record-metadata', 'citation'],
       Tables: ['tables'],
+      Texts: ['edition'],
       Images: ['photo-grid', 'photo-grid-badges', 'page-images', 'image-regions', 'image-versions'],
       Maps: ['places-map'],
       Search: [
@@ -1410,6 +1413,37 @@ describe('playground presets', function () {
       expect(scroller.scrollWidth).to.be.greaterThan(scroller.clientWidth);
       expect(scroller.tabIndex).to.equal(0);
       await expectNoPageAxeViolations(doc);
+      expect(countMain(doc)).to.equal(1);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  }).timeout(15000);
+
+  it('edition: the text fits a phone, the line toggle works, a page image opens, and axe passes', async () => {
+    const p = presets.find((x) => x.id === 'edition')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    iframe.style.width = '320px';
+    iframe.style.height = '900px';
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-page', 'uvalib-lightbox']);
+      await new Promise((r) => setTimeout(r, 100));
+      doc.addEventListener('click', (e) => {
+        if ((e.target as Element).closest('a')) e.preventDefault();
+      });
+      expect(win.getComputedStyle(doc.querySelector('br.lb')!).display).to.equal('none');
+      doc.querySelector<HTMLInputElement>('.uvalib-edition__lines input')!.click();
+      expect(win.getComputedStyle(doc.querySelector('br.lb')!).display).to.equal('inline');
+      expect(doc.documentElement.scrollWidth).to.be.at.most(win.innerWidth);
+      await expectNoPageAxeViolations(doc);
+      const box = doc.querySelector('uvalib-lightbox') as HTMLElement & {
+        updateComplete: Promise<unknown>;
+      };
+      doc.querySelector<HTMLElement>('a.pb-image')!.click();
+      await box.updateComplete;
+      expect((box.shadowRoot ?? box).querySelector('dialog')!.open).to.equal(true);
       expect(countMain(doc)).to.equal(1);
       expect(errors).to.deep.equal([]);
     } finally {

@@ -194,6 +194,7 @@
     "./tokens.css": "./dist/tokens.css",
     "./base.css": "./dist/base.css",
     "./pagefind.css": "./dist/pagefind.css",
+    "./edition.css": "./dist/edition.css",
     "./custom-elements.json": "./dist/custom-elements.json",
     "./manifest.json": "./dist-cdn/manifest.json",
     "./package.json": "./package.json",
