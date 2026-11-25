@@ -47,6 +47,19 @@ Use one `<site-page>` per page. It renders the skip link, the header, a single `
 
 Caveat: in light-DOM mode, replacing `<site-page>`'s children wholesale (`innerHTML`, `textContent`) destroys the chrome. Append content, or update a container inside it.
 
+### Sidebar pages
+
+For a sidebar beside the content (a reading page's contents, sub-navigation, related links), use `base.css`'s `.uvalib-sidebar-layout` inside `<site-page>`, not your own grid:
+
+```html
+<div class="uvalib-sidebar-layout uvalib-sidebar-layout--sticky">
+  <uvalib-contents class="uvalib-sidebar-layout__sidebar">…</uvalib-contents>
+  <article class="uvalib-sidebar-layout__main">…</article>
+</div>
+```
+
+It goes side by side at 913px of its own width (library.virginia.edu's 993px breakpoint less `<site-page>`'s 40px gutters) and stacks below that, in source order: put the contents first so they come first on phones, or the sidebar after the main content for a right-hand sidebar. `--sticky` keeps the sidebar in view only when side by side; `--print-hide-sidebar` leaves it out of print. The sidebar is a `<nav>` (or `<uvalib-contents>`) or an `<aside>`; do not wrap a `<nav>` in `role="navigation"`. Details in the README's "Sidebar layout" section.
+
 ## Shadow DOM and light DOM
 
 - Default: shadow DOM, styled by the library.

@@ -714,6 +714,81 @@ describe('base.css before <uvalib-list-filter> is defined', function () {
     try {
       const el = iframe.contentDocument!.getElementById('h')!;
       expect(iframe.contentWindow!.getComputedStyle(el).display).to.equal('none');
+ * base.css before <uvalib-contents> is defined, as a .uvalib-sidebar-layout sidebar: the
+ * headline's line is held and the links are padded as the upgraded list pads them, so neither
+ * the main column beside it (wide) nor the text below it (narrow, where only the 44px button
+ * shows once it upgrades) moves. If the script never loads, the whole list shows.
+ */
+describe('base.css before <uvalib-contents> is defined (sidebar layout)', function () {
+  this.timeout(12000);
+  const list = `<ol><li><a href="#a">Preface</a></li>
+    <li><a href="#b">The actress of Padua, a long entry that wraps in a narrow sidebar</a>
+      <ol><li><a href="#b1">Part I. The Key</a></li><li><a href="#b2">Part II. The Crucifix</a></li></ol></li>
+    <li><a href="#c">Other tales</a></li></ol>`;
+  const open = async (width: number, script: boolean) => {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = `width: ${width}px; height: 700px; border: 0`;
+    iframe.srcdoc = `<!doctype html><html lang="en"><head>
+      <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+      <style>body { margin: 0 }</style></head><body>
+      <div class="uvalib-sidebar-layout">
+        <uvalib-contents class="uvalib-sidebar-layout__sidebar" id="shadow">${list}</uvalib-contents>
+        <div class="uvalib-sidebar-layout__main" id="main"><p>Text</p></div>
+      </div>
+      <div class="uvalib-sidebar-layout">
+        <uvalib-contents class="uvalib-sidebar-layout__sidebar" id="light" no-shadow-dom>${list}</uvalib-contents>
+        <div class="uvalib-sidebar-layout__main" id="main2"><p>Text</p></div>
+      </div><p id="after">After</p></body></html>`;
+    document.body.append(iframe);
+    await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+    const doc = iframe.contentDocument!;
+    if (script) {
+      const s = doc.createElement('script');
+      s.type = 'module';
+      s.src = `${location.origin}/dist-cdn/uvalib-contents.js`;
+      // Measured first, then loaded by the caller.
+      return { iframe, doc, load: () => loadScript(doc, s) };
+    }
+    return { iframe, doc, load: async () => {} };
+  };
+  const loadScript = async (doc: Document, s: HTMLScriptElement) => {
+    doc.head.append(s);
+    await new Promise((r) => s.addEventListener('load', r, { once: true }));
+    type Lit = HTMLElement & { updateComplete: Promise<unknown> };
+    for (const id of ['shadow', 'light']) await (doc.getElementById(id) as Lit).updateComplete;
+    await new Promise((r) => setTimeout(r, 50));
+  };
+  const rects = (doc: Document) =>
+    ['shadow', 'light', 'main', 'main2', 'after'].map((id) => {
+      const r = doc.getElementById(id)!.getBoundingClientRect();
+      return [r.left, r.top, r.width, r.height].map((n) => Math.round(n * 10) / 10);
+    });
+
+  for (const width of [1200, 600]) {
+    it(`nothing moves when it upgrades, at ${width}px`, async () => {
+      const { iframe, doc, load } = await open(width, true);
+      try {
+        expect(iframe.contentWindow!.customElements.get('uvalib-contents')).to.equal(undefined);
+        const before = rects(doc);
+        if (width === 600) expect(before[0]![3]).to.equal(44);
+        await load();
+        expect(doc.getElementById('shadow')!.shadowRoot).to.not.equal(null);
+        expect(JSON.stringify(rects(doc))).to.equal(JSON.stringify(before));
+      } finally {
+        iframe.remove();
+      }
+    });
+  }
+
+  it('on a narrow screen shows the whole list after two seconds if the script never loads', async () => {
+    const { iframe, doc } = await open(600, false);
+    try {
+      const el = doc.getElementById('shadow')!;
+      const win = iframe.contentWindow!;
+      expect(el.getBoundingClientRect().height).to.equal(44);
+      expect(await visibilityAfter(win, el)).to.equal('visible');
+      await new Promise((r) => setTimeout(r, 50));
+      expect(el.getBoundingClientRect().height).to.be.greaterThan(150);
     } finally {
       iframe.remove();
     }

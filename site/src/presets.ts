@@ -579,6 +579,80 @@ ${Array.from(
     },
   },
   {
+    id: 'sidebar-layout',
+    group: 'Page',
+    title: 'Sidebar layout',
+    description:
+      "base.css's .uvalib-sidebar-layout for a reading page: the uvalib-contents sidebar first in the source, then the text with a uvalib-pager. Side by side from 913px of the layout's own width (the library's 993px breakpoint less site-page's gutters), the sidebar a quarter of it, 3.5rem from the text; narrower, it stacks in source order, so the contents (a closed Contents button on phones) come before the text. --sticky keeps the contents in view only when side by side; --print-hide-sidebar leaves them out of print. The text column can shrink, so long words wrap and the wide table scrolls inside itself.",
+    files: {
+      'index.html': {
+        content: page({
+          title: 'The actress of Padua',
+          components: ['uvalib-contents', 'uvalib-pager'],
+          body: `    <site-page>
+      <h1>The actress of Padua, and other tales</h1>
+      <div class="uvalib-sidebar-layout uvalib-sidebar-layout--sticky uvalib-sidebar-layout--print-hide-sidebar">
+        <uvalib-contents class="uvalib-sidebar-layout__sidebar">
+          <ol>
+            <li><a href="#preface">Preface</a></li>
+            <li>
+              <a href="#part-1">The actress of Padua</a>
+              <ol>
+                <li><a href="#part-1">Part I. The Key</a></li>
+                <li><a href="#part-2">Part II. The Crucifix</a></li>
+              </ol>
+            </li>
+            <li><a href="#notes">Notes on the text</a></li>
+          </ol>
+        </uvalib-contents>
+        <article class="uvalib-sidebar-layout__main">
+${[
+  ['preface', 'Preface'],
+  ['part-1', 'Part I. The Key'],
+  ['part-2', 'Part II. The Crucifix'],
+]
+  .map(
+    ([id, title]) => `          <h2 id="${id}">${title}</h2>
+          <p>
+            Widen the preview past about 1000px: the contents sit beside the text and stay in
+            view as you scroll. Narrow it, and they stack above the text as a Contents button.
+          </p>
+          <p>
+            The tale opens in Padua, where the company of players has taken rooms near the
+            theatre, and the actress, newly arrived from Venice, is to make her first appearance
+            before the city. The manager is anxious; the house is full; the prompter has lost his
+            book, and the key to the wardrobe cannot be found.
+          </p>`,
+  )
+  .join('\n')}
+          <h2 id="notes">Notes on the text</h2>
+          <p>A long word wraps instead of widening the page: Pneumonoultramicroscopicsilicovolcanoconiosis.</p>
+          <div class="uvalib-table-scroll" role="region" tabindex="0" aria-labelledby="editions-caption">
+            <table class="uvalib-table">
+              <caption id="editions-caption">Editions compared</caption>
+              <thead>
+                <tr><th scope="col">Edition</th><th scope="col">Publisher</th><th scope="col">Place</th><th scope="col">Year</th><th scope="col">Pages</th><th scope="col">Copy</th></tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row">First</th><td>Ticknor, Reed, and Fields</td><td>Boston</td><td>1852</td><td>312</td><td>Albert and Shirley Small Special Collections Library</td></tr>
+                <tr><th scope="row">Second</th><td>Ticknor and Fields</td><td>Boston</td><td>1856</td><td>318</td><td>Alderman Library</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <uvalib-pager
+            prev-href="?section=title-page"
+            prev-label="Title page"
+            next-href="?section=campaigners-tale"
+            next-label="The campaigner's tale"
+          ></uvalib-pager>
+        </article>
+      </div>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'vendor-header',
     group: 'Header',
     title: 'Vendor header',
