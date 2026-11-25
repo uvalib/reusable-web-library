@@ -28,7 +28,7 @@ test('pnpm start serves every element entry and stylesheet from source or dist-c
     assert.equal(url, `/src/components/${tag}/${tag}.ts`);
     assert.ok(existsSync(join(root, url)), url);
   }
-  for (const css of ['tokens', 'base', 'pagefind'])
+  for (const css of ['tokens', 'base', 'pagefind', 'edition'])
     assert.equal(devCdnUrl(`/site/cdn/${css}.css`), `/dist-cdn/${css}.css`);
   assert.equal(devCdnUrl('/site/index.html'), '/site/index.html');
 });

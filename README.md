@@ -12,7 +12,8 @@ Reusable web components for UVA Library sites, built with Lit and TypeScript:
 - **Records:** `<uvalib-metadata>` (a record's details, credit, rights and how to cite) and `<uvalib-citation>` (a citation in several formats, with Copy citation).
 - **Images:** `<uvalib-lightbox>` (an image viewer over plain links), `<uvalib-photo-grid>` (justified rows of thumbnails) and `<uvalib-image-regions>` (numbered region outlines on an image, with their list).
 - **Maps:** `<uvalib-map>` (places on the page's own Leaflet map, sized by a count, with a linked list).
-- **Search:** `<uvalib-filter>`, `<uvalib-date-range>`, `<uvalib-date-histogram>`, `<uvalib-combobox>` (a text field that suggests values as you type), `<uvalib-filter-drawer>` (the filters as a sidebar, or a modal panel on phones), `<uvalib-dialog>` (a modal dialog for search tips, Cite or a short form) and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
+- **Search:** `<uvalib-filter>`, `<uvalib-date-range>`, `<uvalib-date-histogram>`, `<uvalib-combobox>` (a text field that suggests values as you type), `<uvalib-list-filter>` (a field that filters a long list on the page as you type), `<uvalib-filter-drawer>` (the filters as a sidebar, or a modal panel on phones), `<uvalib-dialog>` (a modal dialog for search tips, Cite or a short form) and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
+- **Reading texts:** `edition.css` (reading styles for TEI texts converted to class-annotated HTML).
 - **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
 - **Library events:** `<events-section>`.
 - **Search results:** `<bento-box>` (library.virginia.edu/search), with its `<catalog-section>`, `<articles-section>`, `<libguides-section>` and `<website-section>`.
@@ -523,7 +524,7 @@ Two components for Library sites with records and long texts, such as the Electr
 - **From the page's headings.** For a long document (minutes, transcriptions, reports, finding aids), `headings-from="#article"` builds the list from the headings in that element: `levels` (`2-3` by default, or one level such as `2`) picks which, each lower level nested under the heading before it, and `min` (default 2) is the fewest top-level entries worth a list (fewer shows nothing). Headings with no text or hidden with `aria-hidden` (and text inside `aria-hidden`, such as a `#` permalink) are skipped. A heading without an id gets one from its text (lowercase ASCII, accents dropped, anything else as `-`: "Résumé of the budget" is `resume-of-the-budget`, a repeat `-2`, `-3`); existing ids are kept, so links to sections keep working, and opening the page at such a section goes to it. Headings added, removed or retitled are followed; call `refresh()` after other changes. A child list or `items` wins while given. Without JavaScript there is no list: where the list can be rendered at build time, give it as children instead.
 - **Current entry.** `aria-current="page"` on the link to this page and `aria-current="location"` on the link to the section in the URL's hash, drawn bold with a bar. It is found from the page URL (path, ignoring a trailing slash or `index.html`, and hash; an entry whose href has a query string, such as `?part=2`, matches only that query, one without matches whatever the query), followed through `hashchange`, `popstate` and the Navigation API, or from `current` (a URL, for apps whose route is not the page URL; hash-only entries are then places on that URL). With `current` unset, a valid `aria-current` the author put on a source link (`page`, `location`, or `true` for a page) is used, at most one of each.
 - **Narrow screens.** At and below `collapse-below` (a viewport width, default `64rem`; `0` never collapses) the headline becomes a full-width 44px button with `aria-expanded` and `aria-controls`, and the list starts closed until the reader opens it (as the Electronic Text Collections' Contents does on phones, so the text comes first; the `open` attribute starts it open), and opening it shows the current entry. It measures the viewport, not the element (no container query) on purpose: a contents sidebar is always much narrower than 64rem, so its own width cannot tell a phone from a desktop.
-- **Sidebars.** `sticky` keeps it in view on wide screens (`--uvalib-contents-sticky-top`, default 1rem); the list then scrolls within the window's height (`--uvalib-contents-max-height`) and the current entry is scrolled into view inside it, never the page.
+- **Sidebars.** `sticky` keeps it in view on wide screens (`--uvalib-contents-sticky-top`, default 1rem); the list then scrolls within the window's height (`--uvalib-contents-max-height`) and the current entry is scrolled into view inside it, never the page. In a [`.uvalib-sidebar-layout`](#sidebar-layout), use the layout's `--sticky` or this, not both.
 - **Single-page apps.** The list is drawn from copies of the children. A plain click on an entry fires `uvalib-contents-navigate` (`detail: { href, level }`, bubbling, cancelable): cancel it to route in place. Hash links need nothing.
 
 `<uvalib-metadata>`, a record's description list:
@@ -1139,6 +1140,89 @@ Data tables in the page's own content (holdings, schedules, statistics) in the l
 - **Grouped tables** (holdings by library, items by location): a heading per group followed by its table, each table with its own caption. The heading level follows the page's outline (Virgo's record design uses `<h5>` for locations because of where they sit; on your page it may be `<h2>` or `<h3>`), never a fixed level.
 - **Forced colors** draws the rules in the system text colour and drops the stripes; **print** draws the rules black, drops the stripes, and lets a scroll-wrapped table print in full. `hidden` hides a table, the wrappers and a stacked row.
 
+## Sidebar layout
+
+A sidebar beside the main content on wide screens, stacked on narrow ones: library.virginia.edu's sidebar pages (a quarter-width first sidebar, 3.5rem from the content) and the Electronic Text Collections' reading pages (a sticky Contents sidebar beside the text). The classes are in `base.css`; there is nothing to load. See the [Sidebar layout](https://uvalib.github.io/reusable-web-library/#sidebar-layout) example.
+
+```html
+<!-- A reading page: the contents first in the source, so they also come first when stacked. -->
+<div
+  class="uvalib-sidebar-layout uvalib-sidebar-layout--sticky uvalib-sidebar-layout--print-hide-sidebar"
+>
+  <uvalib-contents class="uvalib-sidebar-layout__sidebar">
+    <ol>
+      <li><a href="#preface">Preface</a></li>
+      <li><a href="#part-1">Part I. The Key</a></li>
+    </ol>
+  </uvalib-contents>
+  <article class="uvalib-sidebar-layout__main">
+    <h2 id="preface">Preface</h2>
+    …
+    <uvalib-pager prev-href="…" prev-label="…" next-href="…" next-label="…"></uvalib-pager>
+  </article>
+</div>
+
+<!-- Related links on the right: the sidebar after the main content in the source. -->
+<div class="uvalib-sidebar-layout">
+  <div class="uvalib-sidebar-layout__main">…</div>
+  <aside class="uvalib-sidebar-layout__sidebar" aria-labelledby="related-heading">
+    <h2 id="related-heading">Related</h2>
+    …
+  </aside>
+</div>
+```
+
+- **`.uvalib-sidebar-layout`** holds exactly two children: **`__sidebar`** and **`__main`**. Side by side, the sidebar is about a quarter of the layout, `clamp(14rem, 25%, 20rem)`, with 3.5rem between it and the content; the main content takes the rest and can shrink below its content's width, so a long word wraps and a wide table scrolls inside its `.uvalib-table-scroll` instead of pushing the page sideways. Stacked, the two are full width and 2rem apart.
+- **When:** from **913px of the layout's own width** (a container query), so it works in `<site-page>`'s main, a drawer or any column. 913px is library.virginia.edu's desktop breakpoint (993px of viewport) less `<site-page>`'s 40px gutters on each side, so on a `<site-page>` the layout changes where library.virginia.edu's does (a classic, non-overlay scrollbar moves it about 15px later). The layout fills its parent like any block; inside a shrink-wrapped flex or grid item, give it a width.
+- **Order is the source order,** side by side and stacked, so the reading and focus order always match what is seen (nothing is reordered with CSS). Sidebar first: a left-hand sidebar that stacks above the content, right for a reading page's contents. Sidebar after the main content: a right-hand sidebar that stacks below it (related links, a contact box). No modifier is needed for either.
+- **Landmarks are yours:** no role is added. For navigation, make the sidebar the `<nav>` itself: put the class on `<uvalib-contents>` (it is a `<nav>` landmark) or on a `<nav aria-label="…">`. For related content, an `<aside>` (complementary) named by its heading. Do not wrap a `<nav>` in another element with `role="navigation"`, and in a sidebar do not skip heading levels; if one category header is a link, make them all links.
+- **`--sticky`** keeps the sidebar in view while the page scrolls, **only when side by side** (never stacked): it sticks 1rem from the top (`--uvalib-sidebar-sticky-top`) and, when taller than the window, scrolls by itself. `<site-page>`'s header is not sticky, so nothing covers it; a site with a fixed header sets the offset to the header's height. Use the layout's `--sticky` **or** `<uvalib-contents sticky>` in a plain sidebar, not both; `--sticky` also covers a sidebar holding more than the contents. A sticky sidebar that can overflow needs something focusable in it (links), so keyboard users can scroll it.
+- **`<uvalib-contents>` in the sidebar:** keep its default `collapse-below` (64rem of viewport). Below that it is a closed Contents button, so on phones the text comes first; between the layout's breakpoint and 64rem it is that button at the top of the side-by-side sidebar. With `base.css` linked, the page does not move when it upgrades.
+- **Custom properties:** `--uvalib-sidebar-width` (default `clamp(14rem, 25%, 20rem)`), `--uvalib-sidebar-gap` (3.5rem), `--uvalib-sidebar-stack-gap` (2rem), `--uvalib-sidebar-sticky-top` (1rem).
+- **Print** always stacks it, never stuck or clipped. **`--print-hide-sidebar`** leaves the sidebar out of the printout (a reading page's contents are no use on paper); without it the sidebar prints above or below the content as in the source. `hidden` hides the layout. Forced colors changes nothing: the layout draws no colours of its own.
+
+## Reading texts (edition.css)
+
+`edition.css` styles TEI texts converted to class-annotated HTML, where each element's class is its TEI element name (`<div class="lg">`, `<span class="pb">`, `<ins class="add">`), as Electronic Text Collections' converter, TEI Boilerplate and most TEI-to-HTML stylesheets write them. Put the converted text in an element with `class="uvalib-edition"`. Every rule is inside `:where()` (zero specificity), so any rule of the site's own wins; it carries the dark-mode role tokens it reads, like `pagefind.css`.
+
+```html
+<link rel="stylesheet" href="https://unpkg.internal.lib.virginia.edu/web-components/v1/base.css" />
+<link
+  rel="stylesheet"
+  href="https://unpkg.internal.lib.virginia.edu/web-components/v1/edition.css"
+/>
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-lightbox.js"
+></script>
+
+<uvalib-lightbox selector=".uvalib-edition a.pb-image"></uvalib-lightbox>
+<label class="uvalib-edition__lines"><input type="checkbox" /> Show original line breaks</label>
+<label class="uvalib-edition__readings"><input type="checkbox" /> Show original readings</label>
+<div class="uvalib-edition" lang="en">
+  <section class="div div-letter">
+    <span class="pb" data-n="1"><a class="pb-image" href="…/default.jpg">p. 1</a></span>
+    <div class="opener">
+      <div class="dateline">May 3, 1859</div>
+      <div class="salute">My dear Sister,</div>
+    </div>
+    <p class="p">
+      The lawn is <ins class="add">all</ins> in bloom. I walked <del class="del">yesterday</del>
+      <br class="lb" />
+      this morning to the <span class="orig" title="Regularized: weather">wether</span>…
+    </p>
+  </section>
+</div>
+```
+
+- **The look** is the library's, not a facsimile's: Franklin Gothic (`--uva-font-family`; serif body text is on the UX team's deprecated list), a 70ch measure at 1.125rem with a 1.7 line height, headings in the theme's colour and scale, epigraphs and quotations as the theme's blockquote (1px orange start border, italic), ornaments as a centred muted ⁂, footnotes after a rule in smaller text, and page breaks as small muted labels (a link to the page image is underlined in the link colour, at least 24px tall, with the library focus ring). Headings and title pages are left-aligned except where the text says `rend-center`.
+- **Class vocabulary.** Structure: `div` (and `div-*`, the TEI `@type`: `div-letter`, `div-poem`, `div-chapter`), `head` (`head-sub`), `p`, `ab`, `seg-*`, `list` (`list-simple`, `label`, `list-head`), `table-wrap`. Verse: `lg`, `l` (with `data-n`, shown as a line number). Drama: `sp`, `speaker`, `stage`. Letters: `opener`, `closer`, `dateline`, `salute`, `signed`, `postscript` (or `seg-postscript`). Front and back matter: `epigraph`, `argument`, `trailer`, `byline`, `dedication`, `bibl`, `cit`, `q`, `titlepage` (or ETC's `titlePage`), `titlePart`, `docTitle`, `docAuthor`, `docImprint`, `docDate`. Figures: `figure`, `figDesc` (or a `head` inside it). Editorial: `add`, `del`, `sic`, `orig`, `reg`, `corr`, `unclear`, `gap`. Notes: `noteref`, `footnotes`, `note` (`note-foot`, `note-end`, `note-n`, `note-body`), `note-inline` (a box as `aside`, bracketed as `span`). Breaks: `lb`, `pb` (`pb-n` for a label, `a.pb-image` for a link to the page image), `ornament`, `textbreak`. Renditions: `rend-italic`, `rend-bold`, `rend-roman`, `rend-smallcaps` (or `rend-small-caps`), `rend-underline`, `rend-sup`, `rend-sub`, `rend-center`, `rend-right`, `rend-left`, `rend-indent`, `rend-indent2`, `rend-indent3` (`rend-indent4` on verse lines), `rend-no-indent`, `rend-hang`.
+- **Editorial marks never rest on colour or strike-through alone.** An addition (raised, smaller) and a deletion (struck through) are announced by screen readers as "added: … (end added)" and "deleted: … (end deleted)" (generated text hidden from sight); an empty deletion shows "[deletion]". Unclear text is followed by a small "[?]" read as "(unclear)"; an empty `gap` shows "[…]" read as "gap in the text". A note reference is read as "Note 1". Line numbers and ornaments are hidden from screen readers.
+- **Readings** (`title` on `orig`, `reg`, `sic`, `corr` or `abbr`) get a dotted underline. A `title` shows only on mouse hover and most screen readers do not read it on plain text, so the readings toggle (a checkbox `.uvalib-edition__readings`, or the class `uvalib-edition--readings` on the edition) shows every reading inline in brackets, and print always does. Without the toggle, keyboard and touch users cannot reach them.
+- **Original line breaks.** Prose reflows: `br.lb` is hidden. CSS cannot give a `<br>` a space (browsers ignore `content` on it), so **the converter must keep whitespace before each `<br class="lb">`** or the words on either side run together (ETC's text does: all 12,061 in a sample of 70 pages; a contents label built from a heading's text, which drops the `<br>`, needs the same care); or write `<span class="lb"></span>`, which edition.css spaces itself. A line ending inside a word (`ca<lb/>pite`) needs the converter to drop the break. Lineation is shown by a checked `.uvalib-edition__lines` (a `<label>` round a checkbox, drawn like the library's outline toggle and filled while checked, or the checkbox itself) inside the edition or anywhere in an element before it, or by the class `uvalib-edition--lines` (for a script toggle such as a `.uvalib-button[aria-pressed]`). Verse lines (`l`) always break.
+- **Page images:** `<uvalib-lightbox selector=".uvalib-edition a.pb-image">` opens each `a.pb-image` in the viewer (Previous and Next through the pages); without JavaScript the link opens the image. A page break that starts a section sits on its own line at the end.
+- **Dark mode** via the role tokens; **forced colors** keeps the page labels, the note box and the checked toggle visible; **print** shows the text full width in black, keeps the page-break labels, shows every reading, and hides the toggles. Wide tables in `table-wrap` scroll sideways; give the wrapper `tabindex="0"` and a name in the converter if it can scroll. See the [edition example](https://uvalib.github.io/reusable-web-library/#edition).
+
 ## Back to top
 
 `<uvalib-back-to-top>` is a “Back to top” button for long pages: minutes, finding aids, transcriptions, long result lists. Entry: `uvalib-back-to-top.js` on the CDN, `@uvalib/web-components/uvalib-back-to-top.js` on npm. See the [Back to top](https://uvalib.github.io/reusable-web-library/#back-to-top) example.
@@ -1419,6 +1503,61 @@ Analytics: `toggle` (1 open, 0 closed), `sort` (`Subject: name`), `clear` and `a
 - **States.** `:state(open)` while the popup shows, `:state(invalid)` while the text is shown as invalid, `:state(loading)` while `src` loads (see [Tokens and theming](#tokens-and-theming)).
 - **Before the script loads.** `base.css` shows the label (from the attribute) and holds the field's height, plus one line for a `description`, so nothing below moves on upgrade. A fallback `<input>` child is a working field meanwhile (with `list`, the browser's own suggestions); once upgraded it is disabled so it does not submit twice. Other children stay hidden.
 - **Analytics.** `select` with the label and the suggestion's position (from 1), and `clear` with the label. Never the typed text or a suggestion's text or value: they can be people's names.
+
+## List filter
+
+`<uvalib-list-filter>` is a text field that filters a long list already on the page as you type: a collection's 473 texts, a staff directory, a table of databases. The list is your own markup and stays complete without the script; the field looks like `.uvalib-input`. Entry: `uvalib-list-filter.js` on the CDN, `@uvalib/web-components/uvalib-list-filter.js` on npm. See the [List filter](https://uvalib.github.io/reusable-web-library/#list-filter) example.
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-list-filter.js"
+></script>
+
+<uvalib-list-filter
+  for="doc-list"
+  noun="texts"
+  singular="text"
+  placeholder="Title or author"
+  query-param
+></uvalib-list-filter>
+<ol id="doc-list">
+  <li data-filter-text="amanda c. armentrout to william f. brand, 1866 armentrout, amanda c">
+    <a href="/text/A2956/">Amanda C. Armentrout to William F. Brand, August 17, 1866</a>
+    <span>Armentrout, Amanda C · 1866</span>
+  </li>
+  <!-- … -->
+</ol>
+```
+
+- **The list.** `for` is the id of an element whose children are the items: a `<ul>` or `<ol>`, a `<dl>` of `<div>` rows, a card grid, or a `<table>` (the rows of its `<tbody>` elements; the header stays). `selector` picks the items instead, inside `for` when both are set, else anywhere in the page (or the shadow root the element is in).
+- **Matching.** Every word typed must appear in the item, in any order (“kate armentrout” finds “Angus to Kate Armentrout”), ignoring case and accents (“eneide” finds “L’Énéide”). The item's `data-filter-text` is matched when present (put the title, author and dates there, as ETC does), otherwise its text. Items that do not match get the `hidden` attribute, and a small rule keeps them hidden even if your CSS gives them a `display`; clearing the field removes it from all of them.
+- **Fast with thousands of items.** The items' text is read and folded once, on the first keystroke; each keystroke then compares strings and touches only the items whose state changes. In the tests a 3,000-item list takes from under 1 ms to about 25 ms per keystroke, style and layout included (the slowest is showing all 3,000 again); the test fails above 150 ms. Items added or removed later, and `data-filter-text` changes, are picked up; after changing an item's text in script, call `refresh()`.
+- **Groups.** For a list in headed sections, put `data-filter-group` on each section's wrapper (its heading and its list) and point `selector` at the items: a group whose items are all hidden is hidden too, heading and all. Groups are wrappers, not heading-and-sibling pairs, to keep the rule simple and the markup explicit.
+  ```html
+  <uvalib-list-filter selector="#by-letter li" noun="people"></uvalib-list-filter>
+  <div id="by-letter">
+    <section data-filter-group>
+      <h2>A</h2>
+      <ul>
+        <li>Ada Lovelace</li>
+      </ul>
+    </section>
+    <section data-filter-group>
+      <h2>B</h2>
+      <ul>
+        <li>Bruno Taut</li>
+      </ul>
+    </section>
+  </div>
+  ```
+- **The field.** A visible `label` (default “Filter”; `hide-label` keeps it for screen readers only, when a heading beside the field says it) and an optional `placeholder`. A Clear button (a real button named “Clear Filter”, 44px, shown only with text) or Escape empties the field, and focus stays in it. Enter does nothing: the list is already filtered.
+- **The count.** Under the field: “Showing all 473 texts”, “Showing 12 of 473 texts”, updated at once (`noun` is the plural, default “items”; `singular` the word for one). A polite status announces it once the typing settles (a second after the last keystroke), never on every key and never at load. When nothing matches, a `.uvalib-message` under the count says “No texts match “zzz”.”, and that is what is announced. To show the count somewhere else, point `results-count` at a `<uvalib-results-count>` with `total` and `noun` in its markup (so it shows the count before the script and does not announce it at load): the filter sets its `shown` and `total`, and leaves the visible count and the announcement to it.
+- **In the URL.** `query-param` (a bare attribute means `filter`; `query-param="q"` names it) reads the filter from the URL at start and writes it back with `history.replaceState` a moment after typing (and before the page is left), so a filtered list can be shared or bookmarked and Back returns to it. Hash routes keep it in the hash, as the lightbox does. Off by default.
+- **Events.** `uvalib-list-filter-change` (`detail: { query, shown, total }`, bubbling and composed) each time the filter is applied with a new query: typing, Clear, Escape, `value` set in script, the URL at start, Back and Forward. `value` (the field's text) can be read and set; `shown` and `total` are read-only.
+- **No jump on upgrade.** With `base.css`, the label, field and count's height are held before the script runs (less the label with `hide-label`, less the count with `results-count`), and the whole list is shown, so nothing moves when it upgrades. A filter restored from the URL does hide items at load.
+- **Accessibility.** The field is a labelled `<input type="search">` (the browser's own clear icon is hidden, as the 44px Clear button does its job); the focus ring is the library's 3px orange. The count, the status and the message use the muted and alert role tokens, which keep at least 4.5:1 in light and dark. `no-style` keeps the layout, the 44px targets and the hidden status. Removing the element shows the whole list again.
+- **Analytics.** `['uvalib-list-filter', 'filter', '', <how many match>]` once the typing settles on a new query (the same words in another case or order do not count again), and `['uvalib-list-filter', 'clear']` when the visitor empties the field. Never the typed text. A filter restored from the URL or set in script is not reported.
 
 ## Filter drawer
 
@@ -1861,14 +2000,16 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
   merge-index='[{"bundlePath": "/pagefind/s1/"}, {"bundlePath": "/pagefind/s2/"}]'
   placeholder="Search all texts"
   show-sub-results
+  filter-params="collection author"
 ></uvalib-pagefind-search>
 ```
 
 - **`pagefind.css` replaces Pagefind's `pagefind-ui.css`**: link one or the other, never both (the stock rules carry Svelte hash classes that out-rank the theme's). It maps Pagefind's `--pagefind-ui-*` custom properties to the library tokens (set them yourself for small changes) and restyles its classes: the field and the Clear button like `.uvalib-input` and a small outline `.uvalib-button`, the filters like `<uvalib-filter>` (a fieldset of native checkbox rows, "value (count)", long facets scroll in their own box), result titles in the link colour, excerpts with library.virginia.edu's `<mark>` colour, metadata tags, and "Load more results" as a `.uvalib-button`. It carries the dark-mode role tokens it reads (like `base.css`) and keeps every control visible in forced colors.
 - **What it fixes in the stock UI:** text at 16px and up (the stock scale makes it 12.8px), a readable placeholder (stock: 20% opacity), the library focus ring on every control, a hidden Clear button that can no longer take focus (stock: invisible but focusable), native checkboxes (the stock ones vanish in forced colors), 44px targets for the filter headings, rows and buttons, no fixed heights that clip zoomed or spaced text, no arrow glyph read out before each sub-result, and a 320px reflow. Text is 7:1 or more (WCAG AAA) in light and dark, except the Load more button's white on blue-alt in light mode (4.7:1, as on every `.uvalib-button`).
 - **What needs script, done by `<uvalib-pagefind-search>`:** a visible `<label>` for the field (the stock field is named only by its `title` and has no id to point a label at), a polite status region that announces "7 results for virginia" once results settle (the stock message is not a live region), focus kept in the field after Clear and Escape (the stock UI blurs it) and moved to the first new result after "Load more results", and the loading placeholders' dots hidden from screen readers. It also reads `?q=` when it starts (and again on Back and Forward) and writes the settled query back with `history.replaceState` (`query-param`, default `q`; empty turns it off), and reports to `<site-analytics>`: the settled search (`trackSearch`, category `Pagefind`, with the result count, once per query and filter set) and `['uvalib-pagefind-search', 'filter-change', '<filter>: <value>', 1 | 0]`.
+- **Filters in the URL: `filter-params`.** List Pagefind filter names, space-separated (`filter-params="collection author"`), and each becomes a URL parameter of the same name, so a collection page can link to `/search/?collection=Manuscripts` ("Search this collection") or `/search/?q=virginia&collection=Manuscripts`. A repeated parameter (`?collection=A&collection=B`) checks several values; as with boxes checked by hand, Pagefind then wants pages with every one. At start (and on Back and Forward) the element loads the index, waits for Pagefind's filter list, checks the URL's values and applies them with the query, so there is one search; those filter groups start open (added to any `openFilters` in `options`), so the visitor sees why the results are narrowed. Values the index does not have are dropped without an error (matched without regard to case, then written back in the index's own case), so a stale link searches everything rather than showing no results; if the filter list never appears (an index with no filters), it searches without them after 10 s. Checking or unchecking a named filter writes it back with `history.replaceState`, keeping every other parameter; unchecking the last value removes the parameter. Filters not named stay out of the URL. A filter set from the URL is not a `filter-change` event; the settled search is still reported once, with the filters in its key. Without a query, the filters wait for the first search, as in Pagefind. Do not add your own `triggerFilters` script for this.
 - **Still open** (in Pagefind's markup, not fixable from outside without rewriting it): filter checkbox ids are built from the filter and value (`author-Jefferson, Thomas`), so they can contain spaces and repeat if a page has two search UIs.
-- The element loads `<bundle-path>pagefind-ui.js` unless `window.PagefindUI` already exists; Pagefind itself stays the site's. `el.ready` resolves with the `PagefindUI` instance, for `triggerFilters` (filters from the URL, say). Attributes are read when it connects; removing the element destroys the Pagefind UI, and inserting it again starts a new one (`bundle-path` and each `merge-index` path get their trailing `/` if missing, and `options` cannot move the UI out of the element). Without the element, the theme still styles `new PagefindUI({ element })`, but then the field needs a label and the results a live region from your own script. See the [Pagefind example](https://uvalib.github.io/reusable-web-library/#pagefind-search) in the playground and the reference below.
+- The element loads `<bundle-path>pagefind-ui.js` unless `window.PagefindUI` already exists; Pagefind itself stays the site's. `el.ready` resolves with the `PagefindUI` instance, for `triggerFilters` (filters from your own script; for filters from the URL use `filter-params`). Attributes are read when it connects; removing the element destroys the Pagefind UI, and inserting it again starts a new one (`bundle-path` and each `merge-index` path get their trailing `/` if missing, and `options` cannot move the UI out of the element). Without the element, the theme still styles `new PagefindUI({ element })`, but then the field needs a label and the results a live region from your own script. See the [Pagefind example](https://uvalib.github.io/reusable-web-library/#pagefind-search) in the playground and the reference below.
 
 ## Analytics
 
@@ -1971,6 +2112,8 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
   | `uvalib-combobox`                            | `select` (a suggestion chosen)                                                                                                    | the field's label (never the typed text or the suggestion)                                                                                | the suggestion's position, from 1 |
   | `uvalib-combobox`                            | `clear` (the clear button, or Escape on a closed list)                                                                            | the field's label                                                                                                                         |                                   |
   | `uvalib-combobox`                            | `error` (`src` failed to load)                                                                                                    | `load`                                                                                                                                    |                                   |
+  | `uvalib-list-filter`                         | `filter` (once the typing settles on a new query, 1 s after the last keystroke)                                                   | empty (never the typed text)                                                                                                              | how many items match              |
+  | `uvalib-list-filter`                         | `clear` (the clear button, Escape, or the field emptied by typing)                                                                |                                                                                                                                           |                                   |
   | `uvalib-filter-drawer`                       | `open`, `close` (by the visitor: the button, Close, Escape or the backdrop; not a resize or a script)                             | the drawer's `label`                                                                                                                      |                                   |
   | `uvalib-back-to-top`                         | `click`                                                                                                                           |                                                                                                                                           |                                   |
   | `uvalib-dialog`                              | `open` (a visitor's button), `close` (by the visitor: Close, a close button, Escape, the backdrop or a dialog form; not a script) | the dialog's `label` (never its content)                                                                                                  |
@@ -3346,6 +3489,57 @@ An accessible image viewer over a set of plain links. With JavaScript a primary 
 | `--uva-grey-darkest` | `#2b2b2b` | Text when `--uva-color-text` is unset. |
 | `--uva-grey-100` | `#dadada` | Border when `--uva-color-border` is unset. |
 
+### `<uvalib-list-filter>`
+
+A text field that filters a long list on the page as you type: a collection's 473 texts, a staff directory, a table of databases. The list is the page's own markup and stays fully visible without the script. `for` is the id of the list: any element whose children are the items (a `<ul>` or `<ol>`, a `<dl>` of `<div>` rows, a grid of cards; for a `<table>`, the rows of its bodies). `selector` picks the items instead (inside `for` when both are set, else in the page). An item matches when every word typed appears in its `data-filter-text`, or else its text, in any order, ignoring case and accents (“eneide” finds “Énéide”). Items that do not match get the `hidden` attribute (kept hidden whatever `display` the page gives them); clearing the field shows them all again. Thousands of items filter at once on every keystroke: the text is read once, and only items whose state changes are touched. Groups: give each group's wrapper `data-filter-group` (a `<section>` with its heading and its list) and point `selector` at the items; a group whose items are all hidden is hidden too, heading and all. The visible `label` (default “Filter”; `hide-label` hides it visually) names the field, and a Clear button (“Clear <label>”, 44px, shown only with text) or Escape empties it, keeping focus in the field. Under the field a count follows at once (“Showing 12 of 473 texts”; `noun`, plural, and `singular` name the items), and a polite status announces it once the typing settles (a second after the last keystroke), never on every key or at load. When nothing matches, a message says “No texts match “…”.” To put the count elsewhere, point `results-count` at a `<uvalib-results-count>` (give it `total` and `noun` in the markup): the element then sets its `shown` and `total` and leaves the count and announcement to it. With `query-param` (bare: `filter`) the filter is read from that URL parameter at start and written back with `history.replaceState` as you type, so a filtered list can be shared and Back returns to it. The list's content is read once; call `refresh()` after changing an item's text in script (added or removed items and `data-filter-text` changes are noticed). Before it upgrades, `base.css` holds the label, field and count's height, so nothing moves.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `for` | `string` | `''` | The id of the list whose children are the items (for a table, its body rows). |
+| `selector` | `string` | `''` | A CSS selector for the items, inside `for` when it is set, else in the page. |
+| `label` | `string` | `'Filter'` | The field's visible label and accessible name. |
+| `hide-label` | `boolean` | `false` | Hide the label visually (it still names the field), when a heading beside it says it. |
+| `placeholder` | `string` | `''` | Placeholder text in the empty field, such as “Title or author”. |
+| `noun` | `string` | `'items'` | What the items are, plural: “items” by default. |
+| `singular` | `string` | `''` | What one item is. Default: “item” when `noun` is unset, else `noun`. |
+| `results-count` | `string` | `''` | The id of a `<uvalib-results-count>` to drive instead of the element's own count. |
+| `query-param` | `string \| null` | `null` | The URL parameter to read the filter from and write it to; a bare attribute uses `filter`. Off by default. |
+| `value` | `string` | `''` | The text in the field. Setting it filters the list (not reported to analytics). |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### CSS parts
+
+| Part | Description |
+|---|---|
+| `label` | The visible label. |
+| `field` | The box around the field and its clear button. |
+| `input` | The text field. |
+| `clear` | The clear button. |
+| `count` | The visible count under the field. |
+| `empty` | The “No … match” message. |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-list-filter-change` | The filter was applied with a new query (typing, Clear, Escape, `value` set in script, the URL at start, Back and Forward). `detail` is `{ query, shown, total }`. Not fired at load without a query. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`, on the visitor's actions only: `['uvalib-list-filter', 'filter', '', <shown>]` once the typing settles on a new query, and `['uvalib-list-filter', 'clear']` when the visitor empties the field. Never the typed text. Bubbles and is composed. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-surface-raised` |  | Dark-mode role token: field background (else #fff). |
+| `--uva-color-control-border` |  | Dark-mode role token: field border (else `--uva-grey`, #808080). |
+| `--uva-color-input-text` |  | Dark-mode role token: field text (else #2b2b2b). |
+| `--uva-color-text` |  | Dark-mode role token: label text (else #2b2b2b). |
+| `--uva-color-text-muted` |  | Dark-mode role token: placeholder, count and the clear icon (else #4f4f4f). |
+| `--uva-color-alert-info-bg` |  | Dark-mode role token: the no-match message background. |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+
 ### `<uvalib-map>`
 
 A map of places with a linked list of the same places: buildings, rooms or outdoor spaces, each a marker sized by a count, with a link to the place's page. It wraps [Leaflet](https://leafletjs.com) 1.9, which the page provides (the library never bundles it): set the `leaflet` property to the Leaflet module (`import * as L from 'leaflet'`), or load leaflet.js so that `window.L` exists. Without Leaflet only the list is shown, with one console warning. Leaflet's leaflet.css is optional: the element carries the layout rules it needs, in shadow DOM and light DOM alike. Places come from `items` (`{ id?, name, lat, lng, count?, href?, description? }`) or from a child `<ul>`/`<ol>` of `<li><a href data-lat data-lng data-count>Name</a></li>`, which is the list before the script runs (and without it). The list always stays, under the map: it is the text equivalent. Each marker is a real link (a button when the place has no `href`) named like "The Rotunda, 2,702 photos" (`count-label` is the noun), sized by the square root of its count (a 24 to 56px dot in a hit area of at least 44px). Tab or the arrow keys move between markers, Enter follows the link (or chooses the place), and Escape hides the tooltip. Hovering or focusing a marker shows a tooltip with its name and count and highlights its list entry; hovering or focusing a list entry highlights its marker (a ring and a larger dot, not colour alone) and brings it into view. Markers whose 44px targets would overlap at the current zoom are drawn as one group marker (regrouped after every zoom and resize): a button showing how many places it holds, sized by their summed count and named like "The Rotunda and 2 more places, 3,610 photos" (the largest place's name; `place-label` is the noun). Choosing it zooms in until its places part; when they cannot (one point, or the maximum zoom) it spreads them in a ring around it instead, with focus on the first; Escape or a zoom closes the ring and focus returns to the group. The arrow keys move between the markers shown (a group is one); a place in the list that is in a group highlights the group, whose tooltip names the place. The map is a region named by `label`, after a "Skip map, go to the list" link and a line of key instructions. It opens on the bounds of the places, or on `center` and `zoom`. The zoom buttons are 44px with a visible focus ring; the attribution stays. Tiles come from `tile-url` (OpenStreetMap by default: low-traffic use only) with `attribution`. In the page's dark mode the tiles are inverted with a CSS filter (`--uvalib-map-dark-filter`) unless `dark-tile-url` gives dark tiles; markers and controls are never filtered. With `prefers-reduced-motion` nothing animates.
@@ -3451,7 +3645,7 @@ A record's details as a description list, as on the library's digital collection
 
 ### `<uvalib-pagefind-search>`
 
-Pagefind's default search UI (`PagefindUI`, from the site's own Pagefind bundle) with the library's defaults and the accessibility fixes that need script. Use it with pagefind.css, in place of Pagefind's pagefind-ui.css. It renders in light DOM, so the page's styles reach Pagefind's markup. It loads `<bundle-path>pagefind-ui.js` unless `window.PagefindUI` already exists. What it adds to the stock UI: a visible `<label>` for the field (the stock field is named only by its title); a polite status region that announces the result count ("12 results for virginia") once results settle (the stock message is not a live region); focus kept in the field after Clear or Escape (the stock UI blurs it, dropping focus to the page) and moved to the first new result after "Load more results"; the loading placeholders' dots hidden from screen readers; `?q=` read at start (and on Back and Forward) and the settled query written back with `history.replaceState`, so a search can be shared; and reports to `<site-analytics>`. The `ui` property is the `PagefindUI` instance (for `triggerFilters`), and `ready` resolves with it. Attributes are read once, when the element is first connected.
+Pagefind's default search UI (`PagefindUI`, from the site's own Pagefind bundle) with the library's defaults and the accessibility fixes that need script. Use it with pagefind.css, in place of Pagefind's pagefind-ui.css. It renders in light DOM, so the page's styles reach Pagefind's markup. It loads `<bundle-path>pagefind-ui.js` unless `window.PagefindUI` already exists. What it adds to the stock UI: a visible `<label>` for the field (the stock field is named only by its title); a polite status region that announces the result count ("12 results for virginia") once results settle (the stock message is not a live region); focus kept in the field after Clear or Escape (the stock UI blurs it, dropping focus to the page) and moved to the first new result after "Load more results"; the loading placeholders' dots hidden from screen readers; `?q=` read at start (and on Back and Forward) and the settled query written back with `history.replaceState`, so a search can be shared; with `filter-params`, the named Pagefind filters read from and written to the URL the same way; and reports to `<site-analytics>`. The `ui` property is the `PagefindUI` instance (for `triggerFilters`), and `ready` resolves with it. Attributes are read once, when the element is first connected.
 
 #### Attributes
 
@@ -3469,6 +3663,7 @@ Pagefind's default search UI (`PagefindUI`, from the site's own Pagefind bundle)
 | `translations` | `string` |  | JSON of Pagefind UI strings to override (`{"zero_results": "…"}`). |
 | `options` | `string` |  | JSON of any other `PagefindUI` options (`{"openFilters": ["author"]}`), applied last. |
 | `query-param` | `string` | `q` | The URL parameter that holds the query; empty turns it off. |
+| `filter-params` | `string` |  | Space-separated Pagefind filter names read from and written to URL parameters of the same name (`collection author`: `?collection=A&collection=B`). URL filters are applied with the query as one search, their filter groups open; values not in the index are ignored. Empty (the default) turns it off. |
 
 #### Events
 

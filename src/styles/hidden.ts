@@ -43,6 +43,8 @@ export const HIDDEN_CLASSES = [
   'uvalib-table',
   'uvalib-table-scroll',
   'uvalib-table-stack',
+  // Sidebar layout (layout.ts)
+  'uvalib-sidebar-layout',
   // Field help text (field-text.ts)
   'uvalib-help',
 ];

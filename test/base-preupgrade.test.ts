@@ -650,3 +650,154 @@ describe('base.css before <uvalib-citation> is defined', function () {
     });
   }
 });
+
+/**
+ * base.css before <uvalib-list-filter> is defined: the label, field and count's height held
+ * (less the label with hide-label, less the count with results-count), so the list below does
+ * not move when it upgrades; the list is fully shown meanwhile.
+ */
+describe('base.css before <uvalib-list-filter> is defined', function () {
+  this.timeout(12000);
+  const rows = [
+    `<uvalib-list-filter id="plain" for="docs" noun="texts"></uvalib-list-filter>`,
+    `<uvalib-list-filter id="nolabel" for="docs" hide-label></uvalib-list-filter>`,
+    `<uvalib-list-filter id="external" for="docs" results-count="rc"></uvalib-list-filter>`,
+    `<uvalib-list-filter id="both" for="docs" hide-label results-count="rc"></uvalib-list-filter>`,
+  ];
+
+  it('holds its height, shows the whole list, and nothing moves on upgrade', async () => {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'width: 320px; height: 600px';
+    iframe.srcdoc = `<!doctype html><html lang="en"><head>
+      <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+      </head><body>${rows.join('')}<p id="rc">5 texts</p>
+      <ol id="docs"><li>Ada</li><li>Bruno</li><li>Clara</li></ol></body></html>`;
+    document.body.append(iframe);
+    await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+    try {
+      const doc = iframe.contentDocument!;
+      const ids = ['plain', 'nolabel', 'external', 'both'];
+      const heights = () => ids.map((id) => doc.getElementById(id)!.getBoundingClientRect().height);
+      const listTop = () => doc.getElementById('docs')!.getBoundingClientRect().top;
+      const before = heights();
+      expect(before[0]).to.be.greaterThan(before[1]!);
+      expect(Math.round(before[3]!)).to.equal(44);
+      expect(doc.querySelectorAll('#docs li:not([hidden])').length).to.equal(3);
+      const top = listTop();
+      const script = doc.createElement('script');
+      script.type = 'module';
+      script.src = `${location.origin}/dist-cdn/uvalib-list-filter.js`;
+      doc.head.append(script);
+      await new Promise((r) => script.addEventListener('load', r, { once: true }));
+      await Promise.all(
+        ids.map(
+          (id) =>
+            (doc.getElementById(id) as unknown as { updateComplete: Promise<unknown> })
+              .updateComplete,
+        ),
+      );
+      await new Promise((r) => setTimeout(r, 50));
+      expect(heights().map(Math.round)).to.deep.equal(before.map(Math.round));
+      expect(Math.round(listTop())).to.equal(Math.round(top));
+    } finally {
+      iframe.remove();
+    }
+  });
+
+  it('keeps a hidden one hidden', async () => {
+    const iframe = document.createElement('iframe');
+    iframe.srcdoc = `<!doctype html><html lang="en"><head>
+      <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+      </head><body><uvalib-list-filter id="h" hidden></uvalib-list-filter></body></html>`;
+    document.body.append(iframe);
+    await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+    try {
+      const el = iframe.contentDocument!.getElementById('h')!;
+      expect(iframe.contentWindow!.getComputedStyle(el).display).to.equal('none');
+    } finally {
+      iframe.remove();
+    }
+  });
+});
+
+/**
+ * base.css before <uvalib-contents> is defined, as a .uvalib-sidebar-layout sidebar: the
+ * headline's line is held and the links are padded as the upgraded list pads them, so neither
+ * the main column beside it (wide) nor the text below it (narrow, where only the 44px button
+ * shows once it upgrades) moves. If the script never loads, the whole list shows.
+ */
+describe('base.css before <uvalib-contents> is defined (sidebar layout)', function () {
+  this.timeout(12000);
+  const list = `<ol><li><a href="#a">Preface</a></li>
+    <li><a href="#b">The actress of Padua, a long entry that wraps in a narrow sidebar</a>
+      <ol><li><a href="#b1">Part I. The Key</a></li><li><a href="#b2">Part II. The Crucifix</a></li></ol></li>
+    <li><a href="#c">Other tales</a></li></ol>`;
+  const open = async (width: number, script: boolean) => {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = `width: ${width}px; height: 700px; border: 0`;
+    iframe.srcdoc = `<!doctype html><html lang="en"><head>
+      <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+      <style>body { margin: 0 }</style></head><body>
+      <div class="uvalib-sidebar-layout">
+        <uvalib-contents class="uvalib-sidebar-layout__sidebar" id="shadow">${list}</uvalib-contents>
+        <div class="uvalib-sidebar-layout__main" id="main"><p>Text</p></div>
+      </div>
+      <div class="uvalib-sidebar-layout">
+        <uvalib-contents class="uvalib-sidebar-layout__sidebar" id="light" no-shadow-dom>${list}</uvalib-contents>
+        <div class="uvalib-sidebar-layout__main" id="main2"><p>Text</p></div>
+      </div><p id="after">After</p></body></html>`;
+    document.body.append(iframe);
+    await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+    const doc = iframe.contentDocument!;
+    if (script) {
+      const s = doc.createElement('script');
+      s.type = 'module';
+      s.src = `${location.origin}/dist-cdn/uvalib-contents.js`;
+      // Measured first, then loaded by the caller.
+      return { iframe, doc, load: () => loadScript(doc, s) };
+    }
+    return { iframe, doc, load: async () => {} };
+  };
+  const loadScript = async (doc: Document, s: HTMLScriptElement) => {
+    doc.head.append(s);
+    await new Promise((r) => s.addEventListener('load', r, { once: true }));
+    type Lit = HTMLElement & { updateComplete: Promise<unknown> };
+    for (const id of ['shadow', 'light']) await (doc.getElementById(id) as Lit).updateComplete;
+    await new Promise((r) => setTimeout(r, 50));
+  };
+  const rects = (doc: Document) =>
+    ['shadow', 'light', 'main', 'main2', 'after'].map((id) => {
+      const r = doc.getElementById(id)!.getBoundingClientRect();
+      return [r.left, r.top, r.width, r.height].map((n) => Math.round(n * 10) / 10);
+    });
+
+  for (const width of [1200, 600]) {
+    it(`nothing moves when it upgrades, at ${width}px`, async () => {
+      const { iframe, doc, load } = await open(width, true);
+      try {
+        expect(iframe.contentWindow!.customElements.get('uvalib-contents')).to.equal(undefined);
+        const before = rects(doc);
+        if (width === 600) expect(before[0]![3]).to.equal(44);
+        await load();
+        expect(doc.getElementById('shadow')!.shadowRoot).to.not.equal(null);
+        expect(JSON.stringify(rects(doc))).to.equal(JSON.stringify(before));
+      } finally {
+        iframe.remove();
+      }
+    });
+  }
+
+  it('on a narrow screen shows the whole list after two seconds if the script never loads', async () => {
+    const { iframe, doc } = await open(600, false);
+    try {
+      const el = doc.getElementById('shadow')!;
+      const win = iframe.contentWindow!;
+      expect(el.getBoundingClientRect().height).to.equal(44);
+      expect(await visibilityAfter(win, el)).to.equal('visible');
+      await new Promise((r) => setTimeout(r, 50));
+      expect(el.getBoundingClientRect().height).to.be.greaterThan(150);
+    } finally {
+      iframe.remove();
+    }
+  });
+});

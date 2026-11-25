@@ -3,6 +3,7 @@ import { results } from './results.js';
 import { message } from './message.js';
 import { resultList } from './result-list.js';
 import { table } from './table.js';
+import { layout } from './layout.js';
 import { hidden } from './hidden.js';
 import { fieldText } from './field-text.js';
 
@@ -212,6 +213,7 @@ export const controls = css`
   ${message}
   ${resultList}
   ${table}
+  ${layout}
   ${hidden}
   ${fieldText}
 `;

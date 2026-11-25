@@ -14,6 +14,7 @@ export const GROUPS = [
   'Contents',
   'Metadata',
   'Tables',
+  'Texts',
   'Images',
   'Maps',
   'Search',
@@ -315,6 +316,81 @@ const SKELETONS = Array.from(
           </div>`,
 ).join('\n');
 
+/** A page-break label linking to its page image (the lightbox opens it). */
+const pb = (n: number, id: number) =>
+  `<span class="pb" id="pb${n}" data-n="${n}"><a class="pb-image" href="${iiif(String(id), '!1600,1600')}" data-caption="Page ${n}">p. ${n}</a></span>`;
+
+/**
+ * The edition example's converted text (edition.css), also used by test/edition.test.ts: a
+ * letter written for this example, the first stanza of Emily Dickinson's “Hope” (1891), the
+ * opening of Hamlet (1603), and an epigraph from Pope (1734); all public domain. Original
+ * line breaks are `<br class="lb">` with whitespace before each, as ETC's converter writes.
+ */
+export const EDITION_SAMPLE = `<div class="uvalib-edition" lang="en">
+        <section class="div div-letter">
+          ${pb(1, 286686)}
+          <h2 class="head" id="letter">A letter from the University</h2>
+          <div class="opener">
+            <div class="dateline"><span class="date">Charlottesville, May 3, 1859</span></div>
+            <div class="salute">My dear Sister,</div>
+          </div>
+          <p class="p">Your kind letter came to hand on Monday last &amp; I take up my <br class="lb">
+            pen at once to answer it. The <span class="orig" title="Regularized: weather">wether</span> has
+            been fine &amp; the lawn is <ins class="add">all</ins> in bloom. I walked <del class="del">yesterday</del>
+            this morning to the <span class="unclear">Rotunda</span> &amp; found the library <br class="lb">
+            open, but the <span class="gap"></span> was closed. <span class="note-inline">written in the margin: the
+            reading room</span> ${pb(2, 286687)} The professors are kind &amp; I <del class="del"></del> study
+            every evening by the lamp until <span class="orig" title="Regularized: ten">tenn</span>.</p>
+          <div class="closer">
+            <div class="salute">Your affectionate brother,</div>
+            <div class="signed">William</div>
+            <div class="postscript"><p class="p">P.S. Tell Mother I have not forgot the
+              <span class="sic" title="Corrected: almanac">almanack</span>.</p></div>
+          </div>
+        </section>
+        <hr class="ornament" />
+        <section class="div div-poem">
+          <h2 class="head" id="hope">Hope<sup class="noteref"><a id="ref-n1" href="#n1">1</a></sup></h2>
+          <div class="epigraph">
+            <blockquote class="q">
+              <div class="l">Hope springs eternal in the human breast.</div>
+              <div class="bibl">Alexander Pope</div>
+            </blockquote>
+          </div>
+          <div class="lg lg-stanza">
+            <div class="l">Hope is the thing with feathers</div>
+            <div class="l rend-indent">That perches in the soul,</div>
+            <div class="l">And sings the tune without the words,</div>
+            <div class="l rend-indent">And never stops at all,</div>
+            <div class="l" data-n="5">And sweetest in the gale is heard;</div>
+            <div class="l rend-indent">And sore must be the storm</div>
+            <div class="l">That could abash the little bird</div>
+            <div class="l rend-indent">That kept so many warm.</div>
+          </div>
+        </section>
+        <section class="div div-scene">
+          <h2 class="head" id="scene">Elsinore. A platform before the castle.</h2>
+          <p class="stage">Francisco at his post. Enter to him Bernardo.</p>
+          <div class="sp"><p class="speaker">Bernardo.</p><p class="p">Who’s there?</p></div>
+          <div class="sp"><p class="speaker">Francisco.</p><p class="p">Nay, answer me: stand, and unfold yourself.</p></div>
+          <div class="sp"><p class="speaker">Bernardo.</p><p class="p">Long live the king!</p></div>
+          <div class="sp"><p class="speaker">Francisco.</p><p class="p">Bernardo?</p></div>
+          <div class="sp"><p class="speaker">Bernardo.</p><p class="p">He.</p></div>
+          <aside class="note note-inline" id="n2">
+            <div class="note-body"><p class="p">An editor’s note in the flow of the text: these lines open the play.</p></div>
+          </aside>
+        </section>
+        <section class="footnotes" aria-label="Notes">
+          <aside class="note note-foot" id="n1"><a class="note-n" href="#ref-n1" aria-label="Back to the text, note 1">1</a>
+            <div class="note-body"><p class="p">First printed in <cite>Poems by Emily Dickinson, Second Series</cite> (1891).</p></div>
+          </aside>
+        </section>
+      </div>`;
+
+/** The edition example's toggles, before the text: original line breaks and readings. */
+export const EDITION_TOGGLES = `<label class="uvalib-edition__lines"><input type="checkbox" /> Show original line breaks</label>
+      <label class="uvalib-edition__readings"><input type="checkbox" /> Show original readings</label>`;
+
 export const presets: Preset[] = [
   {
     id: 'full-page',
@@ -573,6 +649,80 @@ ${Array.from(
       </p>`,
 ).join('\n')}
       <uvalib-back-to-top></uvalib-back-to-top>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'sidebar-layout',
+    group: 'Page',
+    title: 'Sidebar layout',
+    description:
+      "base.css's .uvalib-sidebar-layout for a reading page: the uvalib-contents sidebar first in the source, then the text with a uvalib-pager. Side by side from 913px of the layout's own width (the library's 993px breakpoint less site-page's gutters), the sidebar a quarter of it, 3.5rem from the text; narrower, it stacks in source order, so the contents (a closed Contents button on phones) come before the text. --sticky keeps the contents in view only when side by side; --print-hide-sidebar leaves them out of print. The text column can shrink, so long words wrap and the wide table scrolls inside itself.",
+    files: {
+      'index.html': {
+        content: page({
+          title: 'The actress of Padua',
+          components: ['uvalib-contents', 'uvalib-pager'],
+          body: `    <site-page>
+      <h1>The actress of Padua, and other tales</h1>
+      <div class="uvalib-sidebar-layout uvalib-sidebar-layout--sticky uvalib-sidebar-layout--print-hide-sidebar">
+        <uvalib-contents class="uvalib-sidebar-layout__sidebar">
+          <ol>
+            <li><a href="#preface">Preface</a></li>
+            <li>
+              <a href="#part-1">The actress of Padua</a>
+              <ol>
+                <li><a href="#part-1">Part I. The Key</a></li>
+                <li><a href="#part-2">Part II. The Crucifix</a></li>
+              </ol>
+            </li>
+            <li><a href="#notes">Notes on the text</a></li>
+          </ol>
+        </uvalib-contents>
+        <article class="uvalib-sidebar-layout__main">
+${[
+  ['preface', 'Preface'],
+  ['part-1', 'Part I. The Key'],
+  ['part-2', 'Part II. The Crucifix'],
+]
+  .map(
+    ([id, title]) => `          <h2 id="${id}">${title}</h2>
+          <p>
+            Widen the preview past about 1000px: the contents sit beside the text and stay in
+            view as you scroll. Narrow it, and they stack above the text as a Contents button.
+          </p>
+          <p>
+            The tale opens in Padua, where the company of players has taken rooms near the
+            theatre, and the actress, newly arrived from Venice, is to make her first appearance
+            before the city. The manager is anxious; the house is full; the prompter has lost his
+            book, and the key to the wardrobe cannot be found.
+          </p>`,
+  )
+  .join('\n')}
+          <h2 id="notes">Notes on the text</h2>
+          <p>A long word wraps instead of widening the page: Pneumonoultramicroscopicsilicovolcanoconiosis.</p>
+          <div class="uvalib-table-scroll" role="region" tabindex="0" aria-labelledby="editions-caption">
+            <table class="uvalib-table">
+              <caption id="editions-caption">Editions compared</caption>
+              <thead>
+                <tr><th scope="col">Edition</th><th scope="col">Publisher</th><th scope="col">Place</th><th scope="col">Year</th><th scope="col">Pages</th><th scope="col">Copy</th></tr>
+              </thead>
+              <tbody>
+                <tr><th scope="row">First</th><td>Ticknor, Reed, and Fields</td><td>Boston</td><td>1852</td><td>312</td><td>Albert and Shirley Small Special Collections Library</td></tr>
+                <tr><th scope="row">Second</th><td>Ticknor and Fields</td><td>Boston</td><td>1856</td><td>318</td><td>Alderman Library</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <uvalib-pager
+            prev-href="?section=title-page"
+            prev-label="Title page"
+            next-href="?section=campaigners-tale"
+            next-label="The campaigner's tale"
+          ></uvalib-pager>
+        </article>
+      </div>
     </site-page>`,
         }),
       },
@@ -1465,6 +1615,28 @@ ${CIRCULATION}
     },
   },
   {
+    id: 'edition',
+    group: 'Texts',
+    title: 'Reading a text (edition.css)',
+    description:
+      'A TEI text converted to class-annotated HTML (the class is the TEI element name: lg, l, sp, speaker, pb, add, del…) inside .uvalib-edition, styled by edition.css: a letter with its opener, closer and postscript, additions and deletions announced to screen readers, regularised spellings, page-break labels that open the page image in <uvalib-lightbox selector="a.pb-image">, verse with a line number, drama, an epigraph, an ornament and notes. The two toggles are CSS only: original line breaks and the editors’ readings.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'A letter from the University',
+          components: ['uvalib-lightbox'],
+          head: `\n    <link rel="stylesheet" href="${CDN_TOKEN}edition.css" />`,
+          body: `    <site-page>
+      <h1>Letters and verse: a sample text</h1>
+      <uvalib-lightbox selector=".uvalib-edition a.pb-image"></uvalib-lightbox>
+      ${EDITION_TOGGLES}
+      ${EDITION_SAMPLE}
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
     id: 'photo-grid',
     group: 'Images',
     title: 'Photo grid',
@@ -1860,7 +2032,7 @@ pre {
     group: 'Search',
     title: 'Static-site search (Pagefind)',
     description:
-      "Pagefind's own search UI with the library theme: pagefind.css in place of Pagefind's pagefind-ui.css, and <uvalib-pagefind-search>, which loads the site's Pagefind bundle (bundle-path) and adds a visible label, a polite result count, focus that stays put after Clear, Escape and Load more, a shareable ?q= and analytics. This one searches a tiny demo index of seven texts: try virginia, rivers or Blue Ridge, then a filter.",
+      "Pagefind's own search UI with the library theme: pagefind.css in place of Pagefind's pagefind-ui.css, and <uvalib-pagefind-search>, which loads the site's Pagefind bundle (bundle-path) and adds a visible label, a polite result count, focus that stays put after Clear, Escape and Load more, a shareable ?q= (and, with filter-params, shareable filters such as ?collection=) and analytics. This one searches a tiny demo index of seven texts: try virginia, rivers or Blue Ridge, then a filter.",
     files: {
       'index.html': {
         content: page({
@@ -1875,6 +2047,7 @@ pre {
         placeholder="Search all texts"
         page-size="3"
         show-sub-results
+        filter-params="collection author"
       ></uvalib-pagefind-search>
     </site-page>`,
         }),
@@ -2585,6 +2758,150 @@ uvalib-filter-drawer uvalib-filter {
 
 #cite-errors {
   margin-block-start: 0;
+}
+`,
+      },
+    },
+  },
+  {
+    id: 'list-filter',
+    group: 'Search',
+    title: 'List filter: a collection’s texts',
+    description:
+      'uvalib-list-filter over a collection page’s list of 24 texts, as the Electronic Text Collections show theirs: type to narrow it. Every word must match, in any order, ignoring case and accents (try “eneide” or “poe raven”), against each item’s data-filter-text. The count under the field follows at once and is announced once the typing settles; when nothing matches, a message says so. Clear or Escape empties the field and keeps focus in it. query-param keeps the filter in the URL (?filter=). Below, a list in headed groups (data-filter-group): a decade whose letters are all filtered out disappears, heading and all. With base.css the field’s space is held and the whole list shows before the script runs.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Early American and world literature',
+          styles: true,
+          components: ['uvalib-list-filter'],
+          body: `    <site-page>
+      <h1>Early American and world literature</h1>
+      <uvalib-list-filter
+        for="doc-list"
+        noun="texts"
+        singular="text"
+        placeholder="Title or author"
+        query-param
+      ></uvalib-list-filter>
+      <ol class="doc-list" id="doc-list">
+        <li data-filter-text="amanda c. armentrout to william f. brand, august 17, 1866 armentrout, amanda c 1866">
+          <a href="#text">Amanda C. Armentrout to William F. Brand, August 17, 1866</a> <span class="meta">Armentrout, Amanda C · 1866</span>
+        </li>
+        <li data-filter-text="angus to kate armentrout, march 3, 1860 angus 1860">
+          <a href="#text">Angus to Kate Armentrout, March 3, 1860</a> <span class="meta">Angus · 1860</span>
+        </li>
+        <li data-filter-text="annie armentrout to kate armentrout, february 20, 1862 trout, annie 1862">
+          <a href="#text">Annie Armentrout to Kate Armentrout, February 20, 1862</a> <span class="meta">Trout, Annie · 1862</span>
+        </li>
+        <li data-filter-text="blair family records booker, james 1923">
+          <a href="#text">Blair family records</a> <span class="meta">Booker, James · 1923</span>
+        </li>
+        <li data-filter-text="brand civil war collection: letter from jane brand to william francis brand brand, jane 1866">
+          <a href="#text">Brand Civil War collection: letter from Jane Brand to William Francis Brand</a> <span class="meta">Brand, Jane · 1866</span>
+        </li>
+        <li data-filter-text="the aeneid virgil 1697">
+          <a href="#text">The Aeneid</a> <span class="meta">Virgil · 1697</span>
+        </li>
+        <li data-filter-text="l’énéide de virgile virgile 1804">
+          <a href="#text">L’Énéide de Virgile</a> <span class="meta">Virgile · 1804</span>
+        </li>
+        <li data-filter-text="notes on the state of virginia jefferson, thomas 1785">
+          <a href="#text">Notes on the State of Virginia</a> <span class="meta">Jefferson, Thomas · 1785</span>
+        </li>
+        <li data-filter-text="letters from an american farmer crèvecœur, j. hector st. john de 1782">
+          <a href="#text">Letters from an American Farmer</a> <span class="meta">Crèvecœur, J. Hector St. John de · 1782</span>
+        </li>
+        <li data-filter-text="the federalist hamilton, alexander 1788">
+          <a href="#text">The Federalist</a> <span class="meta">Hamilton, Alexander · 1788</span>
+        </li>
+        <li data-filter-text="narrative of the life of frederick douglass douglass, frederick 1845">
+          <a href="#text">Narrative of the Life of Frederick Douglass</a> <span class="meta">Douglass, Frederick · 1845</span>
+        </li>
+        <li data-filter-text="incidents in the life of a slave girl jacobs, harriet a. 1861">
+          <a href="#text">Incidents in the Life of a Slave Girl</a> <span class="meta">Jacobs, Harriet A. · 1861</span>
+        </li>
+        <li data-filter-text="the souls of black folk du bois, w. e. b. 1903">
+          <a href="#text">The Souls of Black Folk</a> <span class="meta">Du Bois, W. E. B. · 1903</span>
+        </li>
+        <li data-filter-text="walden thoreau, henry david 1854">
+          <a href="#text">Walden</a> <span class="meta">Thoreau, Henry David · 1854</span>
+        </li>
+        <li data-filter-text="leaves of grass whitman, walt 1855">
+          <a href="#text">Leaves of Grass</a> <span class="meta">Whitman, Walt · 1855</span>
+        </li>
+        <li data-filter-text="the raven poe, edgar allan 1845">
+          <a href="#text">The Raven</a> <span class="meta">Poe, Edgar Allan · 1845</span>
+        </li>
+        <li data-filter-text="tamerlane and other poems poe, edgar allan 1827">
+          <a href="#text">Tamerlane and Other Poems</a> <span class="meta">Poe, Edgar Allan · 1827</span>
+        </li>
+        <li data-filter-text="swallow barn kennedy, john pendleton 1832">
+          <a href="#text">Swallow Barn</a> <span class="meta">Kennedy, John Pendleton · 1832</span>
+        </li>
+        <li data-filter-text="les misérables hugo, victor 1862">
+          <a href="#text">Les Misérables</a> <span class="meta">Hugo, Victor · 1862</span>
+        </li>
+        <li data-filter-text="don quijote de la mancha cervantes saavedra, miguel de 1605">
+          <a href="#text">Don Quijote de la Mancha</a> <span class="meta">Cervantes Saavedra, Miguel de · 1605</span>
+        </li>
+        <li data-filter-text="faust goethe, johann wolfgang von 1808">
+          <a href="#text">Faust</a> <span class="meta">Goethe, Johann Wolfgang von · 1808</span>
+        </li>
+        <li data-filter-text="œuvres complètes de molière molière 1734">
+          <a href="#text">Œuvres complètes de Molière</a> <span class="meta">Molière · 1734</span>
+        </li>
+        <li data-filter-text="pride and prejudice austen, jane 1813">
+          <a href="#text">Pride and Prejudice</a> <span class="meta">Austen, Jane · 1813</span>
+        </li>
+        <li data-filter-text="uncle tom’s cabin stowe, harriet beecher 1852">
+          <a href="#text">Uncle Tom’s Cabin</a> <span class="meta">Stowe, Harriet Beecher · 1852</span>
+        </li>
+      </ol>
+      <h2>Letters by decade</h2>
+      <uvalib-list-filter
+        selector="#by-decade li"
+        label="Filter the letters"
+        noun="letters"
+        singular="letter"
+      ></uvalib-list-filter>
+      <div id="by-decade">
+        <section data-filter-group>
+          <h3>1850s</h3>
+          <ul>
+            <li>Angus to Kate Armentrout, March 4, 1859</li>
+          </ul>
+        </section>
+        <section data-filter-group>
+          <h3>1860s</h3>
+          <ul>
+            <li>Angus to Kate Armentrout, March 3, 1860</li>
+            <li>Annie Armentrout to Kate Armentrout, February 8, 1862</li>
+            <li>Amanda C. Armentrout to William F. Brand, June 3, 1866</li>
+          </ul>
+        </section>
+        <section data-filter-group>
+          <h3>1870s</h3>
+          <ul>
+            <li>William F. Brand to Amanda C. Brand, May 1, 1871</li>
+          </ul>
+        </section>
+      </div>
+    </site-page>`,
+        }),
+      },
+      'styles.css': {
+        content: `.doc-list {
+  padding-inline-start: 1.5rem;
+}
+.doc-list li {
+  margin-block: 0.25rem;
+}
+.doc-list .meta {
+  color: var(--uva-color-text-muted, #4f4f4f);
+}
+uvalib-list-filter {
+  margin-block: 1rem;
 }
 `,
       },

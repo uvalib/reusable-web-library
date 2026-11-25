@@ -1,6 +1,6 @@
 # Using @uvalib/web-components
 
-Custom elements for UVA Library pages: `<site-page>`, `<site-header>`, `<site-footer>`, `<site-analytics>` (also `<uvalib-analytics>`) and `<site-style>`, the breadcrumb trail `<uvalib-breadcrumbs>`, cards and paging `<uvalib-card>`, `<uvalib-card-grid>` and `<uvalib-pager>`, tabs `<uvalib-tabs>`, sub-navigation `<uvalib-contents>`, record details `<uvalib-metadata>`, citations in several formats `<uvalib-citation>`, the image viewer `<uvalib-lightbox>`, the photo grid `<uvalib-photo-grid>` and image regions `<uvalib-image-regions>`, plus the search components `<uvalib-filter>`, `<uvalib-date-range>` and `<uvalib-date-histogram>`, the suggesting text field `<uvalib-combobox>`, the search page's filter drawer `<uvalib-filter-drawer>`, the map of places `<uvalib-map>` (over the page's own Leaflet), the back-to-top button `<uvalib-back-to-top>`, and the modal dialog `<uvalib-dialog>` (search tips, Cite, short forms). Full attribute, slot, part, event and custom-property tables are in [the component reference](../skills/uvalib-web-components/reference/components.md) (generated from `custom-elements.json`).
+Custom elements for UVA Library pages: `<site-page>`, `<site-header>`, `<site-footer>`, `<site-analytics>` (also `<uvalib-analytics>`) and `<site-style>`, the breadcrumb trail `<uvalib-breadcrumbs>`, cards and paging `<uvalib-card>`, `<uvalib-card-grid>` and `<uvalib-pager>`, tabs `<uvalib-tabs>`, sub-navigation `<uvalib-contents>`, record details `<uvalib-metadata>`, citations in several formats `<uvalib-citation>`, the image viewer `<uvalib-lightbox>`, the photo grid `<uvalib-photo-grid>` and image regions `<uvalib-image-regions>`, plus the search components `<uvalib-filter>`, `<uvalib-date-range>` and `<uvalib-date-histogram>`, the suggesting text field `<uvalib-combobox>`, the list filter `<uvalib-list-filter>` (filter a long list on the page as you type), the search page's filter drawer `<uvalib-filter-drawer>`, the map of places `<uvalib-map>` (over the page's own Leaflet), the back-to-top button `<uvalib-back-to-top>`, and the modal dialog `<uvalib-dialog>` (search tips, Cite, short forms). Full attribute, slot, part, event and custom-property tables are in [the component reference](../skills/uvalib-web-components/reference/components.md) (generated from `custom-elements.json`).
 
 ## Two ways to load
 
@@ -31,7 +31,7 @@ npm i @uvalib/web-components
 import '@uvalib/web-components/site-page.js'; // registers the element
 ```
 
-The define entries are `site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-breadcrumbs.js`, `uvalib-card.js`, `uvalib-card-grid.js`, `uvalib-pager.js`, `uvalib-contents.js`, `uvalib-metadata.js`, `uvalib-lightbox.js`, `uvalib-photo-grid.js`, `uvalib-tabs.js`, `uvalib-chip-group.js`, `uvalib-tag-list.js`, `uvalib-results-count.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `uvalib-date-histogram.js`, `uvalib-combobox.js`, `uvalib-image-regions.js`, `uvalib-map.js`, `uvalib-filter-drawer.js`, `uvalib-back-to-top.js`, `uvalib-dialog.js` and `uvalib-citation.js`. `import '@uvalib/web-components'` exports the classes only and registers nothing; if you use `SitePage` directly, import the header and footer define entries too. CSS: `@uvalib/web-components/tokens.css` and `base.css`.
+The define entries are `site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-breadcrumbs.js`, `uvalib-card.js`, `uvalib-card-grid.js`, `uvalib-pager.js`, `uvalib-contents.js`, `uvalib-metadata.js`, `uvalib-lightbox.js`, `uvalib-photo-grid.js`, `uvalib-tabs.js`, `uvalib-chip-group.js`, `uvalib-tag-list.js`, `uvalib-results-count.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `uvalib-date-histogram.js`, `uvalib-combobox.js`, `uvalib-image-regions.js`, `uvalib-map.js`, `uvalib-filter-drawer.js`, `uvalib-back-to-top.js`, `uvalib-dialog.js`, `uvalib-citation.js` and `uvalib-list-filter.js`. `import '@uvalib/web-components'` exports the classes only and registers nothing; if you use `SitePage` directly, import the header and footer define entries too. CSS: `@uvalib/web-components/tokens.css` and `base.css`; `pagefind.css` (the Pagefind search theme) and `edition.css` (reading styles for converted TEI texts) are separate.
 
 ## Page structure
 
@@ -47,6 +47,19 @@ Use one `<site-page>` per page. It renders the skip link, the header, a single `
 
 Caveat: in light-DOM mode, replacing `<site-page>`'s children wholesale (`innerHTML`, `textContent`) destroys the chrome. Append content, or update a container inside it.
 
+### Sidebar pages
+
+For a sidebar beside the content (a reading page's contents, sub-navigation, related links), use `base.css`'s `.uvalib-sidebar-layout` inside `<site-page>`, not your own grid:
+
+```html
+<div class="uvalib-sidebar-layout uvalib-sidebar-layout--sticky">
+  <uvalib-contents class="uvalib-sidebar-layout__sidebar">…</uvalib-contents>
+  <article class="uvalib-sidebar-layout__main">…</article>
+</div>
+```
+
+It goes side by side at 913px of its own width (library.virginia.edu's 993px breakpoint less `<site-page>`'s 40px gutters) and stacks below that, in source order: put the contents first so they come first on phones, or the sidebar after the main content for a right-hand sidebar. `--sticky` keeps the sidebar in view only when side by side; `--print-hide-sidebar` leaves it out of print. The sidebar is a `<nav>` (or `<uvalib-contents>`) or an `<aside>`; do not wrap a `<nav>` in `role="navigation"`. Details in the README's "Sidebar layout" section.
+
 ## Shadow DOM and light DOM
 
 - Default: shadow DOM, styled by the library.
@@ -58,6 +71,13 @@ Caveat: in light-DOM mode, replacing `<site-page>`'s children wholesale (`innerH
 ## Tokens and parts
 
 Theme through inherited `--uva-*` custom properties (see `tokens.css`) set on `:root` or an ancestor, and through parts in shadow mode: `site-page::part(header)`, `site-page::part(footer)` and `site-page::part(main)` on a page, or `site-header::part(header)` / `site-footer::part(footer)` for standalone elements. Light mode has no shadow parts; use ordinary selectors. Components read tokens with fallbacks and never set them.
+
+## Reading texts (edition.css)
+
+Link `edition.css` (npm `@uvalib/web-components/edition.css`) and put a TEI text converted to class-annotated HTML in an element with `class="uvalib-edition"`. The classes are the TEI element names: `div` (`div-*`), `head`, `p`, `ab`, `seg-*`, `lb`, `pb` (`pb-n`, `a.pb-image`), `lg`, `l` (`data-n` for line numbers), `sp`, `speaker`, `stage`, `opener`, `closer`, `dateline`, `salute`, `signed`, `postscript`, `epigraph`, `argument`, `trailer`, `byline`, `dedication`, `bibl`, `cit`, `q`, `titlepage`/`titlePage`, `figure`, `figDesc`, `add`, `del`, `sic`, `orig`, `reg`, `corr`, `unclear`, `gap`, `noteref`, `footnotes`, `note` (`note-n`, `note-body`), `note-inline`, `ornament`, `textbreak`, `list`, and `rend-*` (italic, bold, roman, smallcaps, underline, sup, sub, center, right, left, indent, indent2, indent3, no-indent, hang). Rules are zero-specificity (`:where()`), so the site's own CSS wins.
+
+- Prose reflows (`br.lb` hidden; keep whitespace before each `<br class="lb">`, or use `<span class="lb"></span>`). A checkbox `.uvalib-edition__lines` inside or before the edition, or the class `uvalib-edition--lines`, shows the original line breaks; `.uvalib-edition__readings` / `uvalib-edition--readings` shows `title` readings inline. Verse lines always break.
+- Additions and deletions are announced ("added: …", "deleted: …"); unclear text shows "[?]". Page-image links work with `<uvalib-lightbox selector=".uvalib-edition a.pb-image">`. See the README's "Reading texts (edition.css)".
 
 ## Analytics
 

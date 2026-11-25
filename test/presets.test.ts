@@ -35,6 +35,7 @@ describe('playground presets', function () {
       'dark-mode',
       'buttons-forms',
       'back-to-top',
+      'sidebar-layout',
       'vendor-header',
       'site-navigation',
       'site-name',
@@ -58,6 +59,7 @@ describe('playground presets', function () {
       'record-metadata',
       'citation',
       'tables',
+      'edition',
       'photo-grid',
       'photo-grid-badges',
       'page-images',
@@ -74,6 +76,7 @@ describe('playground presets', function () {
       'combobox',
       'filter-drawer',
       'dialog',
+      'list-filter',
       'todays-hours',
       'weekly-hours',
       'events',
@@ -92,6 +95,7 @@ describe('playground presets', function () {
       'Contents',
       'Metadata',
       'Tables',
+      'Texts',
       'Images',
       'Maps',
       'Search',
@@ -112,6 +116,7 @@ describe('playground presets', function () {
         'dark-mode',
         'buttons-forms',
         'back-to-top',
+        'sidebar-layout',
       ],
       Header: [
         'vendor-header',
@@ -140,6 +145,7 @@ describe('playground presets', function () {
       Contents: ['contents-sidebar', 'contents-headings'],
       Metadata: ['record-metadata', 'citation'],
       Tables: ['tables'],
+      Texts: ['edition'],
       Images: ['photo-grid', 'photo-grid-badges', 'page-images', 'image-regions', 'image-versions'],
       Maps: ['places-map'],
       Search: [
@@ -153,6 +159,7 @@ describe('playground presets', function () {
         'combobox',
         'filter-drawer',
         'dialog',
+        'list-filter',
         'uvalib-filter-shadow',
         'uvalib-filter-light',
         'uvalib-date-range-shadow',
@@ -588,6 +595,41 @@ describe('playground presets', function () {
     }
   });
 
+  for (const width of [1200, 375]) {
+    it(`sidebar-layout: contents ${width > 1000 ? 'beside' : 'above'} the text, nothing scrolls sideways, and axe passes at ${width}px`, async () => {
+      const p = presets.find((x) => x.id === 'sidebar-layout')!;
+      const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+      iframe.style.width = `${width}px`;
+      iframe.style.height = '700px';
+      try {
+        const doc = iframe.contentDocument!;
+        const win = iframe.contentWindow!;
+        await whenAllDefined(win, ['site-page', 'uvalib-contents', 'uvalib-pager']);
+        await new Promise((r) => setTimeout(r, 150));
+        const side = doc.querySelector('.uvalib-sidebar-layout__sidebar')!;
+        const main = doc.querySelector('.uvalib-sidebar-layout__main')!;
+        const s = side.getBoundingClientRect();
+        const m = main.getBoundingClientRect();
+        if (width > 1000) {
+          expect(m.top).to.equal(s.top);
+          expect(m.left).to.be.greaterThan(s.right);
+          expect(win.getComputedStyle(side).position).to.equal('sticky');
+        } else {
+          expect(m.top).to.be.greaterThan(s.bottom);
+          expect(win.getComputedStyle(side).position).to.equal('static');
+          // A closed Contents button on a phone, so the text comes first.
+          expect(side.hasAttribute('data-narrow')).to.equal(true);
+        }
+        expect(doc.documentElement.scrollWidth).to.be.at.most(win.innerWidth);
+        await expectNoPageAxeViolations(doc);
+        expect(countMain(doc)).to.equal(1);
+        expect(errors).to.deep.equal([]);
+      } finally {
+        iframe.remove();
+      }
+    }).timeout(15000);
+  }
+
   for (const width of [1000, 400]) {
     it(`places-map: Leaflet from the (stubbed) CDN draws the markers, linked to the list, and the page passes axe at ${width}px`, async () => {
       const p = presets.find((x) => x.id === 'places-map')!;
@@ -795,6 +837,49 @@ describe('playground presets', function () {
       expect(doc.documentElement.scrollWidth).to.be.at.most(400);
       expect(countMain(doc)).to.equal(1);
       await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  });
+
+  it('list-filter: typing narrows the list, accents ignored, groups hide, and axe passes', async () => {
+    const p = presets.find((x) => x.id === 'list-filter')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    iframe.style.width = '400px';
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-page', 'uvalib-list-filter']);
+      const [texts, letters] = [...doc.querySelectorAll('uvalib-list-filter')] as (HTMLElement & {
+        updateComplete: Promise<unknown>;
+      })[];
+      await texts!.updateComplete;
+      const type = async (el: typeof texts, q: string) => {
+        const input = el!.shadowRoot!.querySelector('input')!;
+        input.value = q;
+        input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+        await el!.updateComplete;
+      };
+      const shown = () => [...doc.querySelectorAll('#doc-list > li:not([hidden])')].length;
+      expect(texts!.shadowRoot!.querySelector('.count')!.textContent).to.equal(
+        'Showing all 24 texts',
+      );
+      await type(texts, 'eneide');
+      expect(shown()).to.equal(1);
+      await type(texts, 'poe raven');
+      expect(shown()).to.equal(1);
+      await type(texts, 'zzz');
+      expect(texts!.shadowRoot!.querySelector('[part="empty"]')!.textContent).to.contain(
+        'No texts match',
+      );
+      await expectNoPageAxeViolations(doc);
+      await type(texts, '');
+      await type(letters, '1866');
+      const groups = [...doc.querySelectorAll<HTMLElement>('#by-decade [data-filter-group]')];
+      expect(groups.map((g) => g.hidden)).to.deep.equal([true, false, true]);
+      expect(doc.documentElement.scrollWidth).to.be.at.most(400);
+      expect(countMain(doc)).to.equal(1);
       expect(errors).to.deep.equal([]);
     } finally {
       iframe.remove();
@@ -1328,6 +1413,37 @@ describe('playground presets', function () {
       expect(scroller.scrollWidth).to.be.greaterThan(scroller.clientWidth);
       expect(scroller.tabIndex).to.equal(0);
       await expectNoPageAxeViolations(doc);
+      expect(countMain(doc)).to.equal(1);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  }).timeout(15000);
+
+  it('edition: the text fits a phone, the line toggle works, a page image opens, and axe passes', async () => {
+    const p = presets.find((x) => x.id === 'edition')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    iframe.style.width = '320px';
+    iframe.style.height = '900px';
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-page', 'uvalib-lightbox']);
+      await new Promise((r) => setTimeout(r, 100));
+      doc.addEventListener('click', (e) => {
+        if ((e.target as Element).closest('a')) e.preventDefault();
+      });
+      expect(win.getComputedStyle(doc.querySelector('br.lb')!).display).to.equal('none');
+      doc.querySelector<HTMLInputElement>('.uvalib-edition__lines input')!.click();
+      expect(win.getComputedStyle(doc.querySelector('br.lb')!).display).to.equal('inline');
+      expect(doc.documentElement.scrollWidth).to.be.at.most(win.innerWidth);
+      await expectNoPageAxeViolations(doc);
+      const box = doc.querySelector('uvalib-lightbox') as HTMLElement & {
+        updateComplete: Promise<unknown>;
+      };
+      doc.querySelector<HTMLElement>('a.pb-image')!.click();
+      await box.updateComplete;
+      expect((box.shadowRoot ?? box).querySelector('dialog')!.open).to.equal(true);
       expect(countMain(doc)).to.equal(1);
       expect(errors).to.deep.equal([]);
     } finally {
