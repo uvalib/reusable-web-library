@@ -31,7 +31,7 @@ npm i @uvalib/web-components
 import '@uvalib/web-components/site-page.js'; // registers the element
 ```
 
-The define entries are `site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-breadcrumbs.js`, `uvalib-card.js`, `uvalib-card-grid.js`, `uvalib-pager.js`, `uvalib-contents.js`, `uvalib-metadata.js`, `uvalib-lightbox.js`, `uvalib-photo-grid.js`, `uvalib-tabs.js`, `uvalib-chip-group.js`, `uvalib-tag-list.js`, `uvalib-results-count.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `uvalib-date-histogram.js`, `uvalib-combobox.js`, `uvalib-image-regions.js`, `uvalib-map.js`, `uvalib-filter-drawer.js`, `uvalib-back-to-top.js`, `uvalib-dialog.js` and `uvalib-citation.js`. `import '@uvalib/web-components'` exports the classes only and registers nothing; if you use `SitePage` directly, import the header and footer define entries too. CSS: `@uvalib/web-components/tokens.css` and `base.css`.
+The define entries are `site-page.js`, `site-header.js`, `site-footer.js`, `site-analytics.js`, `uvalib-analytics.js`, `site-style.js`, `uvalib-breadcrumbs.js`, `uvalib-card.js`, `uvalib-card-grid.js`, `uvalib-pager.js`, `uvalib-contents.js`, `uvalib-metadata.js`, `uvalib-lightbox.js`, `uvalib-photo-grid.js`, `uvalib-tabs.js`, `uvalib-chip-group.js`, `uvalib-tag-list.js`, `uvalib-results-count.js`, `uvalib-filter.js`, `uvalib-date-range.js`, `uvalib-date-histogram.js`, `uvalib-combobox.js`, `uvalib-image-regions.js`, `uvalib-map.js`, `uvalib-filter-drawer.js`, `uvalib-back-to-top.js`, `uvalib-dialog.js` and `uvalib-citation.js`. `import '@uvalib/web-components'` exports the classes only and registers nothing; if you use `SitePage` directly, import the header and footer define entries too. CSS: `@uvalib/web-components/tokens.css` and `base.css`; `pagefind.css` (the Pagefind search theme) and `edition.css` (reading styles for converted TEI texts) are separate.
 
 ## Page structure
 
@@ -58,6 +58,13 @@ Caveat: in light-DOM mode, replacing `<site-page>`'s children wholesale (`innerH
 ## Tokens and parts
 
 Theme through inherited `--uva-*` custom properties (see `tokens.css`) set on `:root` or an ancestor, and through parts in shadow mode: `site-page::part(header)`, `site-page::part(footer)` and `site-page::part(main)` on a page, or `site-header::part(header)` / `site-footer::part(footer)` for standalone elements. Light mode has no shadow parts; use ordinary selectors. Components read tokens with fallbacks and never set them.
+
+## Reading texts (edition.css)
+
+Link `edition.css` (npm `@uvalib/web-components/edition.css`) and put a TEI text converted to class-annotated HTML in an element with `class="uvalib-edition"`. The classes are the TEI element names: `div` (`div-*`), `head`, `p`, `ab`, `seg-*`, `lb`, `pb` (`pb-n`, `a.pb-image`), `lg`, `l` (`data-n` for line numbers), `sp`, `speaker`, `stage`, `opener`, `closer`, `dateline`, `salute`, `signed`, `postscript`, `epigraph`, `argument`, `trailer`, `byline`, `dedication`, `bibl`, `cit`, `q`, `titlepage`/`titlePage`, `figure`, `figDesc`, `add`, `del`, `sic`, `orig`, `reg`, `corr`, `unclear`, `gap`, `noteref`, `footnotes`, `note` (`note-n`, `note-body`), `note-inline`, `ornament`, `textbreak`, `list`, and `rend-*` (italic, bold, roman, smallcaps, underline, sup, sub, center, right, left, indent, indent2, indent3, no-indent, hang). Rules are zero-specificity (`:where()`), so the site's own CSS wins.
+
+- Prose reflows (`br.lb` hidden; keep whitespace before each `<br class="lb">`, or use `<span class="lb"></span>`). A checkbox `.uvalib-edition__lines` inside or before the edition, or the class `uvalib-edition--lines`, shows the original line breaks; `.uvalib-edition__readings` / `uvalib-edition--readings` shows `title` readings inline. Verse lines always break.
+- Additions and deletions are announced ("added: …", "deleted: …"); unclear text shows "[?]". Page-image links work with `<uvalib-lightbox selector=".uvalib-edition a.pb-image">`. See the README's "Reading texts (edition.css)".
 
 ## Analytics
 

@@ -13,6 +13,7 @@ Reusable web components for UVA Library sites, built with Lit and TypeScript:
 - **Images:** `<uvalib-lightbox>` (an image viewer over plain links), `<uvalib-photo-grid>` (justified rows of thumbnails) and `<uvalib-image-regions>` (numbered region outlines on an image, with their list).
 - **Maps:** `<uvalib-map>` (places on the page's own Leaflet map, sized by a count, with a linked list).
 - **Search:** `<uvalib-filter>`, `<uvalib-date-range>`, `<uvalib-date-histogram>`, `<uvalib-combobox>` (a text field that suggests values as you type), `<uvalib-filter-drawer>` (the filters as a sidebar, or a modal panel on phones), `<uvalib-dialog>` (a modal dialog for search tips, Cite or a short form) and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
+- **Reading texts:** `edition.css` (reading styles for TEI texts converted to class-annotated HTML).
 - **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
 - **Library events:** `<events-section>`.
 - **Search results:** `<bento-box>` (library.virginia.edu/search), with its `<catalog-section>`, `<articles-section>`, `<libguides-section>` and `<website-section>`.
@@ -1138,6 +1139,48 @@ Data tables in the page's own content (holdings, schedules, statistics) in the l
 - **Stacked rows (opt-in):** in a `.uvalib-table-stack` wrapper (a size container), `.uvalib-table--stack` turns each row into a block when the wrapper is 30em wide or narrower (480px at 16px; in a sidebar too), each cell headed by its `data-label` (drawn by CSS and hidden from screen readers, which hear the column header). Changing a table's display removes its table semantics in some browsers (Safari/WebKit), so **a stacked table must carry explicit roles**: `role="table"` on the table, `rowgroup` on `<thead>`/`<tbody>`, `row`, `columnheader` (and `rowheader` for a `<th scope="row">`) and `cell`. Prefer the scroll wrapper; stack only short tables whose rows read well as cards.
 - **Grouped tables** (holdings by library, items by location): a heading per group followed by its table, each table with its own caption. The heading level follows the page's outline (Virgo's record design uses `<h5>` for locations because of where they sit; on your page it may be `<h2>` or `<h3>`), never a fixed level.
 - **Forced colors** draws the rules in the system text colour and drops the stripes; **print** draws the rules black, drops the stripes, and lets a scroll-wrapped table print in full. `hidden` hides a table, the wrappers and a stacked row.
+
+## Reading texts (edition.css)
+
+`edition.css` styles TEI texts converted to class-annotated HTML, where each element's class is its TEI element name (`<div class="lg">`, `<span class="pb">`, `<ins class="add">`), as Electronic Text Collections' converter, TEI Boilerplate and most TEI-to-HTML stylesheets write them. Put the converted text in an element with `class="uvalib-edition"`. Every rule is inside `:where()` (zero specificity), so any rule of the site's own wins; it carries the dark-mode role tokens it reads, like `pagefind.css`.
+
+```html
+<link rel="stylesheet" href="https://unpkg.internal.lib.virginia.edu/web-components/v1/base.css" />
+<link
+  rel="stylesheet"
+  href="https://unpkg.internal.lib.virginia.edu/web-components/v1/edition.css"
+/>
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-lightbox.js"
+></script>
+
+<uvalib-lightbox selector=".uvalib-edition a.pb-image"></uvalib-lightbox>
+<label class="uvalib-edition__lines"><input type="checkbox" /> Show original line breaks</label>
+<label class="uvalib-edition__readings"><input type="checkbox" /> Show original readings</label>
+<div class="uvalib-edition" lang="en">
+  <section class="div div-letter">
+    <span class="pb" data-n="1"><a class="pb-image" href="…/default.jpg">p. 1</a></span>
+    <div class="opener">
+      <div class="dateline">May 3, 1859</div>
+      <div class="salute">My dear Sister,</div>
+    </div>
+    <p class="p">
+      The lawn is <ins class="add">all</ins> in bloom. I walked <del class="del">yesterday</del>
+      <br class="lb" />
+      this morning to the <span class="orig" title="Regularized: weather">wether</span>…
+    </p>
+  </section>
+</div>
+```
+
+- **The look** is the library's, not a facsimile's: Franklin Gothic (`--uva-font-family`; serif body text is on the UX team's deprecated list), a 70ch measure at 1.125rem with a 1.7 line height, headings in the theme's colour and scale, epigraphs and quotations as the theme's blockquote (1px orange start border, italic), ornaments as a centred muted ⁂, footnotes after a rule in smaller text, and page breaks as small muted labels (a link to the page image is underlined in the link colour, at least 24px tall, with the library focus ring). Headings and title pages are left-aligned except where the text says `rend-center`.
+- **Class vocabulary.** Structure: `div` (and `div-*`, the TEI `@type`: `div-letter`, `div-poem`, `div-chapter`), `head` (`head-sub`), `p`, `ab`, `seg-*`, `list` (`list-simple`, `label`, `list-head`), `table-wrap`. Verse: `lg`, `l` (with `data-n`, shown as a line number). Drama: `sp`, `speaker`, `stage`. Letters: `opener`, `closer`, `dateline`, `salute`, `signed`, `postscript` (or `seg-postscript`). Front and back matter: `epigraph`, `argument`, `trailer`, `byline`, `dedication`, `bibl`, `cit`, `q`, `titlepage` (or ETC's `titlePage`), `titlePart`, `docTitle`, `docAuthor`, `docImprint`, `docDate`. Figures: `figure`, `figDesc` (or a `head` inside it). Editorial: `add`, `del`, `sic`, `orig`, `reg`, `corr`, `unclear`, `gap`. Notes: `noteref`, `footnotes`, `note` (`note-foot`, `note-end`, `note-n`, `note-body`), `note-inline` (a box as `aside`, bracketed as `span`). Breaks: `lb`, `pb` (`pb-n` for a label, `a.pb-image` for a link to the page image), `ornament`, `textbreak`. Renditions: `rend-italic`, `rend-bold`, `rend-roman`, `rend-smallcaps` (or `rend-small-caps`), `rend-underline`, `rend-sup`, `rend-sub`, `rend-center`, `rend-right`, `rend-left`, `rend-indent`, `rend-indent2`, `rend-indent3` (`rend-indent4` on verse lines), `rend-no-indent`, `rend-hang`.
+- **Editorial marks never rest on colour or strike-through alone.** An addition (raised, smaller) and a deletion (struck through) are announced by screen readers as "added: … (end added)" and "deleted: … (end deleted)" (generated text hidden from sight); an empty deletion shows "[deletion]". Unclear text is followed by a small "[?]" read as "(unclear)"; an empty `gap` shows "[…]" read as "gap in the text". A note reference is read as "Note 1". Line numbers and ornaments are hidden from screen readers.
+- **Readings** (`title` on `orig`, `reg`, `sic`, `corr` or `abbr`) get a dotted underline. A `title` shows only on mouse hover and most screen readers do not read it on plain text, so the readings toggle (a checkbox `.uvalib-edition__readings`, or the class `uvalib-edition--readings` on the edition) shows every reading inline in brackets, and print always does. Without the toggle, keyboard and touch users cannot reach them.
+- **Original line breaks.** Prose reflows: `br.lb` is hidden. CSS cannot give a `<br>` a space (browsers ignore `content` on it), so **the converter must keep whitespace before each `<br class="lb">`** or the words on either side run together (ETC's text does: all 12,061 in a sample of 70 pages; a contents label built from a heading's text, which drops the `<br>`, needs the same care); or write `<span class="lb"></span>`, which edition.css spaces itself. A line ending inside a word (`ca<lb/>pite`) needs the converter to drop the break. Lineation is shown by a checked `.uvalib-edition__lines` (a `<label>` round a checkbox, drawn like the library's outline toggle and filled while checked, or the checkbox itself) inside the edition or anywhere in an element before it, or by the class `uvalib-edition--lines` (for a script toggle such as a `.uvalib-button[aria-pressed]`). Verse lines (`l`) always break.
+- **Page images:** `<uvalib-lightbox selector=".uvalib-edition a.pb-image">` opens each `a.pb-image` in the viewer (Previous and Next through the pages); without JavaScript the link opens the image. A page break that starts a section sits on its own line at the end.
+- **Dark mode** via the role tokens; **forced colors** keeps the page labels, the note box and the checked toggle visible; **print** shows the text full width in black, keeps the page-break labels, shows every reading, and hides the toggles. Wide tables in `table-wrap` scroll sideways; give the wrapper `tabindex="0"` and a name in the converter if it can scroll. See the [edition example](https://uvalib.github.io/reusable-web-library/#edition).
 
 ## Back to top
 
