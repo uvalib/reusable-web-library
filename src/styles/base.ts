@@ -271,6 +271,57 @@ export const base = css`
       display: none;
     }
   }
+  /* A contents list before <uvalib-contents> upgrades (a .uvalib-sidebar-layout sidebar): the
+     headline's line held above, the links already padded as it pads them (the rules drawn
+     transparent while hidden), so the list does not move. Narrow (the default 64rem
+     collapse-below, closed): only its 44px button shows once it upgrades, so hold that and
+     clip the list; the reveal releases it, so the list still shows if the script never loads.
+     The [hidden] rule above still wins (it alone sets display). */
+  uvalib-contents:not(:defined) {
+    padding-block-start: calc(1.125rem * 1.3 + 0.5rem);
+    animation-name: uvalib-contents-reveal;
+  }
+  :where(uvalib-contents):not(:defined) :is(ol, ul) {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  :where(uvalib-contents):not(:defined) > :is(ol, ul) {
+    border-block: 1px solid transparent;
+  }
+  :where(uvalib-contents):not(:defined) > :is(ol, ul) > li + li {
+    border-block-start: 1px solid transparent;
+  }
+  :where(uvalib-contents):not(:defined) li > a {
+    display: block;
+    padding: 0.5rem 0.75rem 0.5rem calc(0.75rem + 4px);
+  }
+  :where(uvalib-contents):not(:defined) li li > a {
+    padding-block: 0.25rem;
+  }
+  :where(uvalib-contents):not(:defined) li :is(ol, ul) {
+    padding-inline-start: 1rem;
+    border-inline-start: 2px solid transparent;
+  }
+  /* In light DOM (no-shadow-dom) a nested list is indented by a margin, with 0.5rem below. */
+  :where(uvalib-contents[no-shadow-dom]):not(:defined) li :is(ol, ul) {
+    margin: 0 0 0.5rem 0.75rem;
+    padding-inline-start: 0;
+  }
+  @media (max-width: 64rem) {
+    uvalib-contents:not([collapse-below], [open]):not(:defined) {
+      max-block-size: 44px;
+      padding-block-start: 0;
+      overflow: hidden;
+    }
+  }
+  @keyframes uvalib-contents-reveal {
+    to {
+      visibility: visible;
+      max-block-size: none;
+      overflow: visible;
+    }
+  }
   /* A dialog before <uvalib-dialog> upgrades: its children are the dialog's content, never
      shown in the page, so nothing flashes or moves. Once defined, a closed dialog renders
      nothing (its host is display: contents around a closed <dialog>). */
