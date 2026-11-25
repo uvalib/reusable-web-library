@@ -263,3 +263,149 @@ test('package.json exposes the bin', () => {
   const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
   assert.equal(pkg.bin['uvalib-web-components'], 'bin/install-skill.mjs');
 });
+
+/** Run the installer in `cwd` with HOME set to `home`, so project and global folders are temp. */
+const runIn = (cwd, home, ...args) =>
+  spawnSync('node', [join(root, 'bin/install-skill.mjs'), 'install-skill', ...args], {
+    encoding: 'utf8',
+    cwd,
+    env: { ...process.env, HOME: home, USERPROFILE: home },
+  });
+
+test('install-skill installs for Claude Code and the shared Agent Skills folder by default', () => {
+  const project = mkdtempSync(join(tmpdir(), 'uvalib-skill-project-'));
+  const home = mkdtempSync(join(tmpdir(), 'uvalib-skill-home-'));
+  try {
+    const r = runIn(project, home);
+    assert.equal(r.status, 0, r.stderr);
+    for (const sub of ['.claude/skills', '.agents/skills']) {
+      assert.ok(existsSync(join(project, sub, 'uvalib-web-components/SKILL.md')), sub);
+      assert.ok(existsSync(join(project, sub, 'uvalib-web-components/installed.json')), sub);
+    }
+    assert.match(r.stdout, /\.agents\/skills\/uvalib-web-components \(Codex, Gemini CLI/);
+    // Nothing global.
+    assert.ok(!existsSync(join(home, '.claude')));
+    // Either copy existing refuses the whole install, and changes nothing.
+    rmSync(join(project, '.agents'), { recursive: true });
+    const again = runIn(project, home);
+    assert.notEqual(again.status, 0);
+    assert.match(again.stderr, /already exists/);
+    assert.ok(!existsSync(join(project, '.agents')));
+    assert.equal(runIn(project, home, '--force').status, 0);
+    assert.ok(existsSync(join(project, '.agents/skills/uvalib-web-components/SKILL.md')));
+  } finally {
+    rmSync(project, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('install-skill --global installs in the home folder', () => {
+  const project = mkdtempSync(join(tmpdir(), 'uvalib-skill-project-'));
+  const home = mkdtempSync(join(tmpdir(), 'uvalib-skill-home-'));
+  try {
+    const r = runIn(project, home, '--global');
+    assert.equal(r.status, 0, r.stderr);
+    assert.ok(existsSync(join(home, '.claude/skills/uvalib-web-components/SKILL.md')));
+    assert.ok(existsSync(join(home, '.agents/skills/uvalib-web-components/SKILL.md')));
+    assert.match(r.stdout, /~\/\.claude\/skills\/uvalib-web-components/);
+    assert.ok(!existsSync(join(project, '.claude')));
+  } finally {
+    rmSync(project, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('install-skill --agent picks tools, all covers every folder once, and --list prints them', () => {
+  const project = mkdtempSync(join(tmpdir(), 'uvalib-skill-project-'));
+  const home = mkdtempSync(join(tmpdir(), 'uvalib-skill-home-'));
+  try {
+    let r = runIn(project, home, '--agent', 'gemini,copilot');
+    assert.equal(r.status, 0, r.stderr);
+    assert.ok(existsSync(join(project, '.gemini/skills/uvalib-web-components/SKILL.md')));
+    assert.ok(existsSync(join(project, '.github/skills/uvalib-web-components/SKILL.md')));
+    assert.ok(!existsSync(join(project, '.claude')));
+
+    r = runIn(project, home, '--list', '--agent', 'all');
+    assert.equal(r.status, 0, r.stderr);
+    const lines = r.stdout.trim().split('\n');
+    // agents, codex and grok share .agents/skills: listed once, with every reader.
+    assert.deepEqual(lines.map((l) => l.split('  ')[0]).sort(), [
+      '.agents/skills/uvalib-web-components',
+      '.claude/skills/uvalib-web-components',
+      '.cursor/skills/uvalib-web-components',
+      '.gemini/skills/uvalib-web-components',
+      '.github/skills/uvalib-web-components',
+    ]);
+    assert.match(
+      r.stdout,
+      /\.agents\/skills\S* +\(Codex, Gemini CLI, GitHub Copilot, Cursor, Grok and other/,
+    );
+    r = runIn(project, home, '--list', '--agent', 'codex,grok');
+    assert.match(r.stdout, /^\.agents\/skills\/uvalib-web-components +\(OpenAI Codex, Grok\)\n$/);
+    // --list writes nothing.
+    assert.ok(!existsSync(join(project, '.cursor')));
+
+    r = runIn(project, home, '--list', '--global', '--agent=copilot,grok');
+    assert.deepEqual(
+      r.stdout
+        .trim()
+        .split('\n')
+        .map((l) => l.split('  ')[0]),
+      ['~/.copilot/skills/uvalib-web-components', '~/.grok/skills/uvalib-web-components'],
+    );
+  } finally {
+    rmSync(project, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('install-skill rejects unknown agents and --dir with --agent or --global', () => {
+  const project = mkdtempSync(join(tmpdir(), 'uvalib-skill-project-'));
+  try {
+    let r = runIn(project, project, '--agent', 'claude,bard');
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /Unknown agent: bard/);
+    r = runIn(project, project, '--dir', 'x', '--global');
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /--dir names one folder/);
+    r = runIn(project, project, '--bogus');
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /Unknown option: --bogus/);
+    assert.ok(!existsSync(join(project, 'x')));
+  } finally {
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test('install-skill --check reports each copy and repeats the options in the update command', async () => {
+  const project = mkdtempSync(join(tmpdir(), 'uvalib-skill-project-'));
+  const home = mkdtempSync(join(tmpdir(), 'uvalib-skill-home-'));
+  const reg = await registry(latest('99.0.0'));
+  const run2 = (...args) =>
+    new Promise((done) => {
+      const child = spawn('node', [join(root, 'bin/install-skill.mjs'), 'install-skill', ...args], {
+        cwd: project,
+        env: { ...process.env, HOME: home, USERPROFILE: home, UVALIB_SKILL_REGISTRY: reg.url },
+      });
+      let stdout = '';
+      child.stdout.on('data', (d) => (stdout += d));
+      child.on('close', (status) => done({ status, stdout }));
+    });
+  try {
+    assert.equal(runIn(project, home, '--global', '--agent', 'claude').status, 0);
+    const r = await run2('--check', '--global', '--agent', 'claude,agents');
+    assert.equal(r.status, 0);
+    const lines = r.stdout.trim().split('\n');
+    assert.equal(lines.length, 2);
+    assert.match(r.stdout, /not installed in ~\/\.agents\/skills/);
+    assert.match(r.stdout, /in ~\/\.claude\/skills is .*; 99\.0\.0 is available/);
+    assert.match(
+      r.stdout,
+      /npx @uvalib\/web-components@latest install-skill --global --agent claude,agents --force/,
+    );
+  } finally {
+    await reg.close();
+    rmSync(project, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
+  }
+});

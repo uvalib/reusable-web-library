@@ -22,11 +22,14 @@ Reusable web components for UVA Library sites, built with Lit and TypeScript:
 
 ## Quick start with a coding agent
 
-The fastest route: install the agent skill, then ask your coding agent (Claude Code and others) to do the work. The skill teaches it which entry to load, how to pin versions, shadow vs light DOM, theming, alerts and hours, and how to check the result.
+The fastest route: install the agent skill, then ask your coding agent (Claude Code, Codex, Gemini CLI, GitHub Copilot, Cursor, Grok and others) to do the work. The skill teaches it which entry to load, how to pin versions, shadow vs light DOM, theming, alerts and hours, and how to check the result.
 
 ```sh
-npx @uvalib/web-components install-skill   # copies the skill to .claude/skills/uvalib-web-components
+npx @uvalib/web-components install-skill            # this project, for every agent
+npx @uvalib/web-components install-skill --global   # your home folder, for every project
 ```
+
+It is an [Agent Skills](https://agentskills.io) folder (`SKILL.md` and its references), the open format most coding agents read. By default it goes into `.claude/skills/` (Claude Code) and `.agents/skills/` (the shared folder that Codex, Gemini CLI, GitHub Copilot, Cursor, Grok and other tools read); `--global` uses `~/.claude/skills/` and `~/.agents/skills/` instead. See [Installing the skill](#installing-the-skill) for one agent's own folder.
 
 Then ask, for example:
 
@@ -76,19 +79,42 @@ Name the skill so the agent loads it, say what to keep, and ask it to audit befo
 
 > Update the uvalib-web-components skill in this project to the latest release, then check whether anything we use changed and needs updating.
 
-- `npx` fetches the package on the fly, so this works in any repository, including sites that only use script tags (it needs Node, not an npm dependency).
-- Other agents or folders: `npx @uvalib/web-components install-skill --dir .agents/skills`. Add `--force` to update an existing copy.
-- Or copy `node_modules/@uvalib/web-components/skills/uvalib-web-components` into your skills folder. The skill is also on the CDN at `https://unpkg.internal.lib.virginia.edu/web-components/v1/skills/uvalib-web-components/SKILL.md`. More in [docs/usage.md](docs/usage.md#agent-skill).
+### Installing the skill
+
+`npx` fetches the package on the fly, so this works in any repository, including sites that only use script tags (it needs Node, not an npm dependency).
+
+| Command                                | Installs to                                                                     |
+| -------------------------------------- | ------------------------------------------------------------------------------- |
+| `install-skill`                        | `.claude/skills/` and `.agents/skills/` in this project                         |
+| `install-skill --global`               | `~/.claude/skills/` and `~/.agents/skills/`, for every project on this computer |
+| `install-skill --agent gemini,copilot` | each named agent's own folder (add `--global` for the home folder)              |
+| `install-skill --agent all`            | every folder below                                                              |
+| `install-skill --dir <folder>`         | one folder of your choosing                                                     |
+| `install-skill --list …`               | prints the folders it would use, and changes nothing                            |
+
+| `--agent` | Project folder   | Global folder       | Read by                                                                                    |
+| --------- | ---------------- | ------------------- | ------------------------------------------------------------------------------------------ |
+| `agents`  | `.agents/skills` | `~/.agents/skills`  | the shared Agent Skills folder: Codex, Gemini CLI, GitHub Copilot, Cursor, Grok and others |
+| `claude`  | `.claude/skills` | `~/.claude/skills`  | Claude Code (also read by Copilot, Cursor and Grok)                                        |
+| `codex`   | `.agents/skills` | `~/.agents/skills`  | OpenAI Codex                                                                               |
+| `gemini`  | `.gemini/skills` | `~/.gemini/skills`  | Gemini CLI                                                                                 |
+| `copilot` | `.github/skills` | `~/.copilot/skills` | GitHub Copilot (cloud agent, CLI, VS Code and other IDEs)                                  |
+| `cursor`  | `.cursor/skills` | `~/.cursor/skills`  | Cursor                                                                                     |
+| `grok`    | `.agents/skills` | `~/.grok/skills`    | Grok                                                                                       |
+
+The default (`claude` and `agents`) covers all of these. A tool that reads more than one of the folders (Copilot, Cursor and Grok read both `.claude/skills` and `.agents/skills`) may list the skill twice; the copies are identical, so it does no harm, or install for one folder with `--agent`. Agents check their folders when a session starts, so start a new session after installing. Add `--force` to replace an existing copy.
+
+Without the installer: copy `node_modules/@uvalib/web-components/skills/uvalib-web-components` into a skills folder, or point a chat assistant without skills at `https://unpkg.internal.lib.virginia.edu/web-components/v1/skills/uvalib-web-components/SKILL.md`. More in [docs/usage.md](docs/usage.md#agent-skill).
 
 ### Keeping the skill current
 
-Each install is a copy stamped with its package version (`installed.json` next to `SKILL.md`), so it does not change as this library does. Update it after a release:
+Each install is a copy stamped with its package version (`installed.json` next to `SKILL.md`), so it does not change as this library does. Update it after a release with the same options you installed with, plus `--force`:
 
 ```sh
-npx @uvalib/web-components@latest install-skill --dir .claude/skills --force
+npx @uvalib/web-components@latest install-skill --force            # or: --global --force
 ```
 
-`--check` compares an installed copy with the latest release on npm. It prints one line with that update command only when the copy is missing or out of date, is silent when it is current, and never fails offline (`--strict` exits 1 when it is out of date, for CI). To be told automatically, add it as a Claude Code SessionStart hook, in the project's `.claude/settings.json` (or `~/.claude/settings.json` with `--dir ~/.claude/skills` for a user-level copy):
+`--check` compares the installed copies with the latest release on npm. It prints one line per copy, with that update command, only when a copy is missing or out of date, is silent when they are current, and never fails offline (`--strict` exits 1 when one is out of date, for CI). To be told automatically, run it when your agent starts a session; for Claude Code, a SessionStart hook in the project's `.claude/settings.json` (or `~/.claude/settings.json` with `--global` for the copies in your home folder):
 
 ```json
 {
@@ -98,7 +124,7 @@ npx @uvalib/web-components@latest install-skill --dir .claude/skills --force
         "hooks": [
           {
             "type": "command",
-            "command": "npx --yes @uvalib/web-components@latest install-skill --check --dir .claude/skills"
+            "command": "npx --yes @uvalib/web-components@latest install-skill --check"
           }
         ]
       }
@@ -107,7 +133,7 @@ npx @uvalib/web-components@latest install-skill --dir .claude/skills --force
 }
 ```
 
-Projects that commit `.claude/skills/` get each update as an ordinary reviewed change.
+Agents with their own session-start hooks can run the same command; otherwise run it with `--strict` in CI. Projects that commit `.claude/skills/` and `.agents/skills/` get each update as an ordinary reviewed change.
 
 To do it by hand, read on.
 

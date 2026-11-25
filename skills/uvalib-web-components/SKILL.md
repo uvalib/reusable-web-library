@@ -901,7 +901,7 @@ Before finishing, load the page in a browser (or test) and confirm:
 
 ## 10. Keeping this skill current
 
-This skill is a copy. `installed.json` next to this file records the package version it came from. When the user asks about updating it, or the page loads a newer component version than that, check it with `npx @uvalib/web-components@latest install-skill --check --dir <skills-dir>` (`<skills-dir>` is the folder that holds this skill, usually `.claude/skills`); it prints the update command when a newer release exists.
+This skill is a copy. `installed.json` next to this file records the package version it came from. When the user asks about updating it, or the page loads a newer component version than that, check it with `npx @uvalib/web-components@latest install-skill --check --dir <skills-dir>` (`<skills-dir>` is the folder that holds this skill, such as `.claude/skills`, `.agents/skills` or `~/.agents/skills`); it prints the update command when a newer release exists. `install-skill --force` updates the copies in this project (`.claude/skills` and `.agents/skills`), `--global --force` those in the home folder.
 
 ## 11. Requesting components, features and fixes
 
