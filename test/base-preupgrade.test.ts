@@ -714,6 +714,13 @@ describe('base.css before <uvalib-list-filter> is defined', function () {
     try {
       const el = iframe.contentDocument!.getElementById('h')!;
       expect(iframe.contentWindow!.getComputedStyle(el).display).to.equal('none');
+    } finally {
+      iframe.remove();
+    }
+  });
+});
+
+/**
  * base.css before <uvalib-contents> is defined, as a .uvalib-sidebar-layout sidebar: the
  * headline's line is held and the links are padded as the upgraded list pads them, so neither
  * the main column beside it (wide) nor the text below it (narrow, where only the 44px button
