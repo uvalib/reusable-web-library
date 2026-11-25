@@ -34,6 +34,8 @@ const MARKS = /\p{M}/gu;
 export const fold = (s: string): string => s.normalize('NFD').replace(MARKS, '').toLowerCase();
 /** The query's words, folded: every one must appear in an item, in any order. */
 export const queryWords = (q: string): string[] => fold(q).split(/\s+/).filter(Boolean);
+/** The same words in any case or order are the same query (for analytics). */
+const queryKey = (q: string): string => queryWords(q).toSorted().join(' ');
 
 const count = (n: number) => n.toLocaleString('en-US');
 
@@ -346,7 +348,7 @@ export class UvalibListFilter extends UvalibElement {
     this.started = true;
     const fromUrl = this.urlQuery();
     if (fromUrl !== null) this.value = fromUrl;
-    this.reported = queryWords(this.value).join(' ');
+    this.reported = queryKey(this.value);
     this.apply();
   }
 
@@ -552,7 +554,7 @@ export class UvalibListFilter extends UvalibElement {
   /** The typing settled: announce the count, and report a new query. */
   private settle(): void {
     if (!this.externalCount()) this.announce(this.emptyText || this.countText);
-    const key = queryWords(this.value).join(' ');
+    const key = queryKey(this.value);
     if (key === this.reported) return;
     if (key) trackEvent(this, [TAG, 'filter', '', this.shownCount]);
     else trackEvent(this, [TAG, 'clear']);
@@ -633,7 +635,7 @@ export class UvalibListFilter extends UvalibElement {
     const q = this.urlQuery() ?? '';
     if (q === this.value) return;
     this.value = q;
-    this.reported = queryWords(q).join(' ');
+    this.reported = queryKey(q);
     this.apply();
   };
 
