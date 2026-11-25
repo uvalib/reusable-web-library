@@ -523,7 +523,7 @@ Two components for Library sites with records and long texts, such as the Electr
 - **From the page's headings.** For a long document (minutes, transcriptions, reports, finding aids), `headings-from="#article"` builds the list from the headings in that element: `levels` (`2-3` by default, or one level such as `2`) picks which, each lower level nested under the heading before it, and `min` (default 2) is the fewest top-level entries worth a list (fewer shows nothing). Headings with no text or hidden with `aria-hidden` (and text inside `aria-hidden`, such as a `#` permalink) are skipped. A heading without an id gets one from its text (lowercase ASCII, accents dropped, anything else as `-`: "Résumé of the budget" is `resume-of-the-budget`, a repeat `-2`, `-3`); existing ids are kept, so links to sections keep working, and opening the page at such a section goes to it. Headings added, removed or retitled are followed; call `refresh()` after other changes. A child list or `items` wins while given. Without JavaScript there is no list: where the list can be rendered at build time, give it as children instead.
 - **Current entry.** `aria-current="page"` on the link to this page and `aria-current="location"` on the link to the section in the URL's hash, drawn bold with a bar. It is found from the page URL (path, ignoring a trailing slash or `index.html`, and hash; an entry whose href has a query string, such as `?part=2`, matches only that query, one without matches whatever the query), followed through `hashchange`, `popstate` and the Navigation API, or from `current` (a URL, for apps whose route is not the page URL; hash-only entries are then places on that URL). With `current` unset, a valid `aria-current` the author put on a source link (`page`, `location`, or `true` for a page) is used, at most one of each.
 - **Narrow screens.** At and below `collapse-below` (a viewport width, default `64rem`; `0` never collapses) the headline becomes a full-width 44px button with `aria-expanded` and `aria-controls`, and the list starts closed until the reader opens it (as the Electronic Text Collections' Contents does on phones, so the text comes first; the `open` attribute starts it open), and opening it shows the current entry. It measures the viewport, not the element (no container query) on purpose: a contents sidebar is always much narrower than 64rem, so its own width cannot tell a phone from a desktop.
-- **Sidebars.** `sticky` keeps it in view on wide screens (`--uvalib-contents-sticky-top`, default 1rem); the list then scrolls within the window's height (`--uvalib-contents-max-height`) and the current entry is scrolled into view inside it, never the page.
+- **Sidebars.** `sticky` keeps it in view on wide screens (`--uvalib-contents-sticky-top`, default 1rem); the list then scrolls within the window's height (`--uvalib-contents-max-height`) and the current entry is scrolled into view inside it, never the page. In a [`.uvalib-sidebar-layout`](#sidebar-layout), use the layout's `--sticky` or this, not both.
 - **Single-page apps.** The list is drawn from copies of the children. A plain click on an entry fires `uvalib-contents-navigate` (`detail: { href, level }`, bubbling, cancelable): cancel it to route in place. Hash links need nothing.
 
 `<uvalib-metadata>`, a record's description list:
@@ -1138,6 +1138,47 @@ Data tables in the page's own content (holdings, schedules, statistics) in the l
 - **Stacked rows (opt-in):** in a `.uvalib-table-stack` wrapper (a size container), `.uvalib-table--stack` turns each row into a block when the wrapper is 30em wide or narrower (480px at 16px; in a sidebar too), each cell headed by its `data-label` (drawn by CSS and hidden from screen readers, which hear the column header). Changing a table's display removes its table semantics in some browsers (Safari/WebKit), so **a stacked table must carry explicit roles**: `role="table"` on the table, `rowgroup` on `<thead>`/`<tbody>`, `row`, `columnheader` (and `rowheader` for a `<th scope="row">`) and `cell`. Prefer the scroll wrapper; stack only short tables whose rows read well as cards.
 - **Grouped tables** (holdings by library, items by location): a heading per group followed by its table, each table with its own caption. The heading level follows the page's outline (Virgo's record design uses `<h5>` for locations because of where they sit; on your page it may be `<h2>` or `<h3>`), never a fixed level.
 - **Forced colors** draws the rules in the system text colour and drops the stripes; **print** draws the rules black, drops the stripes, and lets a scroll-wrapped table print in full. `hidden` hides a table, the wrappers and a stacked row.
+
+## Sidebar layout
+
+A sidebar beside the main content on wide screens, stacked on narrow ones: library.virginia.edu's sidebar pages (a quarter-width first sidebar, 3.5rem from the content) and the Electronic Text Collections' reading pages (a sticky Contents sidebar beside the text). The classes are in `base.css`; there is nothing to load. See the [Sidebar layout](https://uvalib.github.io/reusable-web-library/#sidebar-layout) example.
+
+```html
+<!-- A reading page: the contents first in the source, so they also come first when stacked. -->
+<div
+  class="uvalib-sidebar-layout uvalib-sidebar-layout--sticky uvalib-sidebar-layout--print-hide-sidebar"
+>
+  <uvalib-contents class="uvalib-sidebar-layout__sidebar">
+    <ol>
+      <li><a href="#preface">Preface</a></li>
+      <li><a href="#part-1">Part I. The Key</a></li>
+    </ol>
+  </uvalib-contents>
+  <article class="uvalib-sidebar-layout__main">
+    <h2 id="preface">Preface</h2>
+    …
+    <uvalib-pager prev-href="…" prev-label="…" next-href="…" next-label="…"></uvalib-pager>
+  </article>
+</div>
+
+<!-- Related links on the right: the sidebar after the main content in the source. -->
+<div class="uvalib-sidebar-layout">
+  <div class="uvalib-sidebar-layout__main">…</div>
+  <aside class="uvalib-sidebar-layout__sidebar" aria-labelledby="related-heading">
+    <h2 id="related-heading">Related</h2>
+    …
+  </aside>
+</div>
+```
+
+- **`.uvalib-sidebar-layout`** holds exactly two children: **`__sidebar`** and **`__main`**. Side by side, the sidebar is about a quarter of the layout, `clamp(14rem, 25%, 20rem)`, with 3.5rem between it and the content; the main content takes the rest and can shrink below its content's width, so a long word wraps and a wide table scrolls inside its `.uvalib-table-scroll` instead of pushing the page sideways. Stacked, the two are full width and 2rem apart.
+- **When:** from **913px of the layout's own width** (a container query), so it works in `<site-page>`'s main, a drawer or any column. 913px is library.virginia.edu's desktop breakpoint (993px of viewport) less `<site-page>`'s 40px gutters on each side, so on a `<site-page>` the layout changes where library.virginia.edu's does (a classic, non-overlay scrollbar moves it about 15px later). The layout fills its parent like any block; inside a shrink-wrapped flex or grid item, give it a width.
+- **Order is the source order,** side by side and stacked, so the reading and focus order always match what is seen (nothing is reordered with CSS). Sidebar first: a left-hand sidebar that stacks above the content, right for a reading page's contents. Sidebar after the main content: a right-hand sidebar that stacks below it (related links, a contact box). No modifier is needed for either.
+- **Landmarks are yours:** no role is added. For navigation, make the sidebar the `<nav>` itself: put the class on `<uvalib-contents>` (it is a `<nav>` landmark) or on a `<nav aria-label="…">`. For related content, an `<aside>` (complementary) named by its heading. Do not wrap a `<nav>` in another element with `role="navigation"`, and in a sidebar do not skip heading levels; if one category header is a link, make them all links.
+- **`--sticky`** keeps the sidebar in view while the page scrolls, **only when side by side** (never stacked): it sticks 1rem from the top (`--uvalib-sidebar-sticky-top`) and, when taller than the window, scrolls by itself. `<site-page>`'s header is not sticky, so nothing covers it; a site with a fixed header sets the offset to the header's height. Use the layout's `--sticky` **or** `<uvalib-contents sticky>` in a plain sidebar, not both; `--sticky` also covers a sidebar holding more than the contents. A sticky sidebar that can overflow needs something focusable in it (links), so keyboard users can scroll it.
+- **`<uvalib-contents>` in the sidebar:** keep its default `collapse-below` (64rem of viewport). Below that it is a closed Contents button, so on phones the text comes first; between the layout's breakpoint and 64rem it is that button at the top of the side-by-side sidebar. With `base.css` linked, the page does not move when it upgrades.
+- **Custom properties:** `--uvalib-sidebar-width` (default `clamp(14rem, 25%, 20rem)`), `--uvalib-sidebar-gap` (3.5rem), `--uvalib-sidebar-stack-gap` (2rem), `--uvalib-sidebar-sticky-top` (1rem).
+- **Print** always stacks it, never stuck or clipped. **`--print-hide-sidebar`** leaves the sidebar out of the printout (a reading page's contents are no use on paper); without it the sidebar prints above or below the content as in the source. `hidden` hides the layout. Forced colors changes nothing: the layout draws no colours of its own.
 
 ## Back to top
 

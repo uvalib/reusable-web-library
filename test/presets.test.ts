@@ -35,6 +35,7 @@ describe('playground presets', function () {
       'dark-mode',
       'buttons-forms',
       'back-to-top',
+      'sidebar-layout',
       'vendor-header',
       'site-navigation',
       'site-name',
@@ -112,6 +113,7 @@ describe('playground presets', function () {
         'dark-mode',
         'buttons-forms',
         'back-to-top',
+        'sidebar-layout',
       ],
       Header: [
         'vendor-header',
@@ -587,6 +589,41 @@ describe('playground presets', function () {
       iframe.remove();
     }
   });
+
+  for (const width of [1200, 375]) {
+    it(`sidebar-layout: contents ${width > 1000 ? 'beside' : 'above'} the text, nothing scrolls sideways, and axe passes at ${width}px`, async () => {
+      const p = presets.find((x) => x.id === 'sidebar-layout')!;
+      const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+      iframe.style.width = `${width}px`;
+      iframe.style.height = '700px';
+      try {
+        const doc = iframe.contentDocument!;
+        const win = iframe.contentWindow!;
+        await whenAllDefined(win, ['site-page', 'uvalib-contents', 'uvalib-pager']);
+        await new Promise((r) => setTimeout(r, 150));
+        const side = doc.querySelector('.uvalib-sidebar-layout__sidebar')!;
+        const main = doc.querySelector('.uvalib-sidebar-layout__main')!;
+        const s = side.getBoundingClientRect();
+        const m = main.getBoundingClientRect();
+        if (width > 1000) {
+          expect(m.top).to.equal(s.top);
+          expect(m.left).to.be.greaterThan(s.right);
+          expect(win.getComputedStyle(side).position).to.equal('sticky');
+        } else {
+          expect(m.top).to.be.greaterThan(s.bottom);
+          expect(win.getComputedStyle(side).position).to.equal('static');
+          // A closed Contents button on a phone, so the text comes first.
+          expect(side.hasAttribute('data-narrow')).to.equal(true);
+        }
+        expect(doc.documentElement.scrollWidth).to.be.at.most(win.innerWidth);
+        await expectNoPageAxeViolations(doc);
+        expect(countMain(doc)).to.equal(1);
+        expect(errors).to.deep.equal([]);
+      } finally {
+        iframe.remove();
+      }
+    }).timeout(15000);
+  }
 
   for (const width of [1000, 400]) {
     it(`places-map: Leaflet from the (stubbed) CDN draws the markers, linked to the list, and the page passes axe at ${width}px`, async () => {

@@ -228,10 +228,7 @@ describe('base.css sidebar layout', function () {
     };
 
     it('as the sidebar of a --sticky layout: stays in view, and the main column does not move when it upgrades', async () => {
-      const body = page('uvalib-sidebar-layout--sticky').replace(
-        SIDEBAR,
-        contents(''),
-      );
+      const body = page('uvalib-sidebar-layout--sticky').replace(SIDEBAR, contents(''));
       await open({ width: 1100, height: 600 }, body);
       const before = box('main');
       await load();
@@ -257,7 +254,7 @@ describe('base.css sidebar layout', function () {
       await load();
       win.scrollTo(0, 1500);
       await new Promise((r) => requestAnimationFrame(r));
-      expect(box("side").top).to.be.closeTo(REM, 0.5); // its own --uvalib-contents-sticky-top
+      expect(box('side').top).to.be.closeTo(REM, 0.5); // its own --uvalib-contents-sticky-top
     });
   });
 });
