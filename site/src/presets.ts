@@ -14,6 +14,7 @@ export const GROUPS = [
   'Contents',
   'Metadata',
   'Tables',
+  'Texts',
   'Images',
   'Maps',
   'Search',
@@ -314,6 +315,81 @@ const SKELETONS = Array.from(
             <p><span class="uvalib-skeleton-text"></span><span class="uvalib-skeleton-text"></span></p>
           </div>`,
 ).join('\n');
+
+/** A page-break label linking to its page image (the lightbox opens it). */
+const pb = (n: number, id: number) =>
+  `<span class="pb" id="pb${n}" data-n="${n}"><a class="pb-image" href="${iiif(String(id), '!1600,1600')}" data-caption="Page ${n}">p. ${n}</a></span>`;
+
+/**
+ * The edition example's converted text (edition.css), also used by test/edition.test.ts: a
+ * letter written for this example, the first stanza of Emily Dickinson's “Hope” (1891), the
+ * opening of Hamlet (1603), and an epigraph from Pope (1734); all public domain. Original
+ * line breaks are `<br class="lb">` with whitespace before each, as ETC's converter writes.
+ */
+export const EDITION_SAMPLE = `<div class="uvalib-edition" lang="en">
+        <section class="div div-letter">
+          ${pb(1, 286686)}
+          <h2 class="head" id="letter">A letter from the University</h2>
+          <div class="opener">
+            <div class="dateline"><span class="date">Charlottesville, May 3, 1859</span></div>
+            <div class="salute">My dear Sister,</div>
+          </div>
+          <p class="p">Your kind letter came to hand on Monday last &amp; I take up my <br class="lb">
+            pen at once to answer it. The <span class="orig" title="Regularized: weather">wether</span> has
+            been fine &amp; the lawn is <ins class="add">all</ins> in bloom. I walked <del class="del">yesterday</del>
+            this morning to the <span class="unclear">Rotunda</span> &amp; found the library <br class="lb">
+            open, but the <span class="gap"></span> was closed. <span class="note-inline">written in the margin: the
+            reading room</span> ${pb(2, 286687)} The professors are kind &amp; I <del class="del"></del> study
+            every evening by the lamp until <span class="orig" title="Regularized: ten">tenn</span>.</p>
+          <div class="closer">
+            <div class="salute">Your affectionate brother,</div>
+            <div class="signed">William</div>
+            <div class="postscript"><p class="p">P.S. Tell Mother I have not forgot the
+              <span class="sic" title="Corrected: almanac">almanack</span>.</p></div>
+          </div>
+        </section>
+        <hr class="ornament" />
+        <section class="div div-poem">
+          <h2 class="head" id="hope">Hope<sup class="noteref"><a id="ref-n1" href="#n1">1</a></sup></h2>
+          <div class="epigraph">
+            <blockquote class="q">
+              <div class="l">Hope springs eternal in the human breast.</div>
+              <div class="bibl">Alexander Pope</div>
+            </blockquote>
+          </div>
+          <div class="lg lg-stanza">
+            <div class="l">Hope is the thing with feathers</div>
+            <div class="l rend-indent">That perches in the soul,</div>
+            <div class="l">And sings the tune without the words,</div>
+            <div class="l rend-indent">And never stops at all,</div>
+            <div class="l" data-n="5">And sweetest in the gale is heard;</div>
+            <div class="l rend-indent">And sore must be the storm</div>
+            <div class="l">That could abash the little bird</div>
+            <div class="l rend-indent">That kept so many warm.</div>
+          </div>
+        </section>
+        <section class="div div-scene">
+          <h2 class="head" id="scene">Elsinore. A platform before the castle.</h2>
+          <p class="stage">Francisco at his post. Enter to him Bernardo.</p>
+          <div class="sp"><p class="speaker">Bernardo.</p><p class="p">Who’s there?</p></div>
+          <div class="sp"><p class="speaker">Francisco.</p><p class="p">Nay, answer me: stand, and unfold yourself.</p></div>
+          <div class="sp"><p class="speaker">Bernardo.</p><p class="p">Long live the king!</p></div>
+          <div class="sp"><p class="speaker">Francisco.</p><p class="p">Bernardo?</p></div>
+          <div class="sp"><p class="speaker">Bernardo.</p><p class="p">He.</p></div>
+          <aside class="note note-inline" id="n2">
+            <div class="note-body"><p class="p">An editor’s note in the flow of the text: these lines open the play.</p></div>
+          </aside>
+        </section>
+        <section class="footnotes" aria-label="Notes">
+          <aside class="note note-foot" id="n1"><a class="note-n" href="#ref-n1" aria-label="Back to the text, note 1">1</a>
+            <div class="note-body"><p class="p">First printed in <cite>Poems by Emily Dickinson, Second Series</cite> (1891).</p></div>
+          </aside>
+        </section>
+      </div>`;
+
+/** The edition example's toggles, before the text: original line breaks and readings. */
+export const EDITION_TOGGLES = `<label class="uvalib-edition__lines"><input type="checkbox" /> Show original line breaks</label>
+      <label class="uvalib-edition__readings"><input type="checkbox" /> Show original readings</label>`;
 
 export const presets: Preset[] = [
   {
@@ -1459,6 +1535,28 @@ ${CIRCULATION}
           </tbody>
         </table>
       </div>
+    </site-page>`,
+        }),
+      },
+    },
+  },
+  {
+    id: 'edition',
+    group: 'Texts',
+    title: 'Reading a text (edition.css)',
+    description:
+      'A TEI text converted to class-annotated HTML (the class is the TEI element name: lg, l, sp, speaker, pb, add, del…) inside .uvalib-edition, styled by edition.css: a letter with its opener, closer and postscript, additions and deletions announced to screen readers, regularised spellings, page-break labels that open the page image in <uvalib-lightbox selector="a.pb-image">, verse with a line number, drama, an epigraph, an ornament and notes. The two toggles are CSS only: original line breaks and the editors’ readings.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'A letter from the University',
+          components: ['uvalib-lightbox'],
+          head: `\n    <link rel="stylesheet" href="${CDN_TOKEN}edition.css" />`,
+          body: `    <site-page>
+      <h1>Letters and verse: a sample text</h1>
+      <uvalib-lightbox selector=".uvalib-edition a.pb-image"></uvalib-lightbox>
+      ${EDITION_TOGGLES}
+      ${EDITION_SAMPLE}
     </site-page>`,
         }),
       },
