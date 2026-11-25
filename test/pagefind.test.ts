@@ -606,6 +606,198 @@ describe('<uvalib-pagefind-search>', function () {
     );
   });
 
+  describe('filter-params', () => {
+    const FP = 'filter-params="collection author"';
+    const box = (doc: Document, name: string, value: string) =>
+      [...doc.querySelectorAll<HTMLInputElement>('.pagefind-ui__filter-checkbox')].find(
+        (b) => b.name === name && b.value === value,
+      );
+    const checkedKeys = (doc: Document) =>
+      [...doc.querySelectorAll<HTMLInputElement>('.pagefind-ui__filter-checkbox')]
+        .filter((b) => b.checked)
+        .map((b) => `${b.name}:${b.value}`)
+        .sort();
+    const firstResults = (el: HTMLElement) =>
+      new Promise<CustomEvent>((r) =>
+        el.addEventListener('search-results', (e) => r(e as CustomEvent), { once: true }),
+      );
+
+    /** A stand-in PagefindUI that draws two filter groups and records every call in order. */
+    function filterRecorder() {
+      const calls: unknown[] = [];
+      let options: Record<string, unknown> = {};
+      class FakeUI {
+        constructor(o: Record<string, unknown>) {
+          options = o;
+          const c = o.element as HTMLElement;
+          const input = c.ownerDocument.createElement('input');
+          input.className = 'pagefind-ui__search-input';
+          // Pagefind loads its index on focus; the filters are drawn once it has.
+          input.addEventListener('focus', () => {
+            calls.push(['load']);
+            setTimeout(() => {
+              c.insertAdjacentHTML(
+                'beforeend',
+                `<details><summary>Collection</summary>
+                  <input type="checkbox" class="pagefind-ui__filter-checkbox" name="collection" value="Modern English">
+                  <input type="checkbox" class="pagefind-ui__filter-checkbox" name="collection" value="Early American Fiction">
+                </details><details><summary>Author</summary>
+                  <input type="checkbox" class="pagefind-ui__filter-checkbox" name="author" value="Poe, Edgar Allan">
+                </details>`,
+              );
+            }, 20);
+          });
+          c.append(input);
+        }
+        triggerSearch(t: string) {
+          calls.push(['search', t]);
+        }
+        triggerFilters(f: unknown) {
+          calls.push(['filters', f]);
+        }
+        destroy() {}
+      }
+      return { FakeUI, calls, options: () => options };
+    }
+
+    it('applies repeated URL filters with the query in one go, dropping unknown values', async () => {
+      const { FakeUI, calls, options } = filterRecorder();
+      const { doc, win, el } = await element(
+        FP,
+        '?collection=Modern+English&collection=early+american+fiction&collection=Nope&author=Nobody&decade=1830s&q=rivers&x=1',
+        true,
+        FakeUI,
+      );
+      await until(() => calls.length >= 3, 'the filters and the search');
+      await new Promise((r) => setTimeout(r, 50));
+      expect(calls).to.deep.equal([
+        ['load'],
+        ['filters', { collection: ['Modern English', 'Early American Fiction'] }],
+        ['search', 'rivers'],
+      ]);
+      // Groups named in the URL start open, after any given in `options`.
+      expect(options().openFilters).to.deep.equal(['collection', 'author']);
+      expect(el.querySelector('details')!.open).to.equal(true);
+      // The unknown values leave the URL; the known one takes the index's case; others stay.
+      const p = new URLSearchParams(win.location.search);
+      expect(p.getAll('collection')).to.deep.equal(['Modern English', 'Early American Fiction']);
+      expect(p.has('author')).to.equal(false);
+      expect([p.get('decade'), p.get('q'), p.get('x')]).to.deep.equal(['1830s', 'rivers', '1']);
+      expect(doc.querySelectorAll('details[open]').length).to.equal(1);
+    });
+
+    it('waits for no filter list without filters in the URL (the old start)', async () => {
+      const { FakeUI, calls } = filterRecorder();
+      await element(FP, '?q=rivers', true, FakeUI);
+      expect(calls).to.deep.equal([['search', 'rivers']]);
+    });
+
+    it('starts a real search narrowed by ?collection=, reported once with its filter', async () => {
+      const { doc, win, el, analytics } = await element(
+        FP,
+        '?collection=Modern+English&q=virginia',
+        false,
+      );
+      const e = await firstResults(el);
+      expect(e.detail).to.deep.equal({ query: 'virginia', count: 4 });
+      expect(checkedKeys(doc)).to.deep.equal(['collection:Modern English']);
+      expect(box(doc, 'collection', 'Modern English')!.closest('details')!.open).to.equal(true);
+      expect(box(doc, 'author', 'Poe, Edgar Allan')!.closest('details')!.open).to.equal(false);
+      expect(status(doc).textContent).to.equal('4 results for virginia');
+      await new Promise((r) => setTimeout(r, 1500));
+      // No filter-change event (the URL set it, not the visitor), and one search.
+      expect(analytics).to.deep.equal([
+        ['search', { searchQuery: 'virginia', searchCategory: 'Pagefind', resultCount: 4 }],
+      ]);
+      expect(new URLSearchParams(win.location.search).get('collection')).to.equal('Modern English');
+      await expectNoAxeViolations(doc.documentElement);
+    });
+
+    it('takes several values of one filter from repeated parameters', async () => {
+      const { doc, el } = await element(
+        FP,
+        '?collection=Modern+English&collection=Early+American+Fiction&author=Poe%2C+Edgar+Allan&q=virginia',
+        false,
+      );
+      const e = await firstResults(el);
+      // As when the boxes are checked by hand: Pagefind wants pages with every checked value.
+      expect(e.detail.count).to.equal(0);
+      expect(checkedKeys(doc)).to.deep.equal([
+        'author:Poe, Edgar Allan',
+        'collection:Early American Fiction',
+        'collection:Modern English',
+      ]);
+    });
+
+    it('ignores values the index does not have, without an error or empty results', async () => {
+      const errors: unknown[] = [];
+      const { doc, win, el } = await element(FP, '?collection=Nope&q=virginia', false);
+      win.addEventListener('error', (e) => errors.push(e.message));
+      const e = await firstResults(el);
+      expect(e.detail.count).to.equal(7);
+      expect(checkedKeys(doc)).to.deep.equal([]);
+      expect(win.location.search).to.equal('?q=virginia');
+      expect(errors).to.deep.equal([]);
+    });
+
+    it('writes checked filters to the URL, keeping other parameters', async () => {
+      const { doc, win, el } = await element(FP, '?x=1');
+      let s = firstResults(el);
+      type(doc, 'virginia');
+      await s;
+      await results(doc);
+      box(doc, 'author', 'Jefferson, Thomas')!.click();
+      box(doc, 'author', 'Poe, Edgar Allan')!.click();
+      // decade is not in filter-params: not written.
+      box(doc, 'decade', '1830s')!.click();
+      let p = new URLSearchParams(win.location.search);
+      expect(p.getAll('author')).to.deep.equal(['Jefferson, Thomas', 'Poe, Edgar Allan']);
+      expect([p.get('x'), p.has('decade')]).to.deep.equal(['1', false]);
+      box(doc, 'author', 'Jefferson, Thomas')!.click();
+      box(doc, 'author', 'Poe, Edgar Allan')!.click();
+      p = new URLSearchParams(win.location.search);
+      expect(p.has('author')).to.equal(false);
+      s = firstResults(el);
+      await s;
+      expect(new URLSearchParams(win.location.search).get('q')).to.equal('virginia');
+      expect(new URLSearchParams(win.location.search).get('x')).to.equal('1');
+    });
+
+    it('follows Back and Forward through the filters and the query', async () => {
+      const { doc, win, el } = await element(FP);
+      let s = firstResults(el);
+      type(doc, 'virginia');
+      await s;
+      await results(doc);
+      // decade (not in filter-params) stays as the visitor set it.
+      box(doc, 'decade', '1830s')!.click();
+      s = firstResults(el);
+      win.history.pushState(null, '', '?q=virginia&collection=Modern+English');
+      win.dispatchEvent(new PopStateEvent('popstate'));
+      expect((await s).detail.count).to.equal(1);
+      expect(checkedKeys(doc)).to.deep.equal(['collection:Modern English', 'decade:1830s']);
+      s = firstResults(el);
+      win.history.pushState(null, '', '?q=rivers');
+      win.dispatchEvent(new PopStateEvent('popstate'));
+      const input = doc.querySelector<HTMLInputElement>('.pagefind-ui__search-input')!;
+      expect((await s).detail.count).to.equal(2);
+      expect(input.value).to.equal('rivers');
+      expect(checkedKeys(doc)).to.deep.equal(['decade:1830s']);
+    });
+
+    it('leaves URL filters alone without filter-params (the old behaviour)', async () => {
+      const { doc, win, el } = await element('', '?collection=Modern+English&q=virginia', false);
+      const e = await firstResults(el);
+      expect(e.detail.count).to.equal(7);
+      expect(checkedKeys(doc)).to.deep.equal([]);
+      box(doc, 'collection', 'Modern English')!.click();
+      box(doc, 'author', 'Poe, Edgar Allan')!.click();
+      const p = new URLSearchParams(win.location.search);
+      expect(p.getAll('collection')).to.deep.equal(['Modern English']);
+      expect(p.has('author')).to.equal(false);
+    });
+  });
+
   it('says so, and reports it, when Pagefind cannot be loaded', async () => {
     const { doc, analytics } = await element('bundle-path="/no-such-pagefind/"', '', false);
     const error = await until(
