@@ -301,6 +301,12 @@ export const base = css`
     padding-block-start: calc(1.125rem * 1.3 + 0.5rem);
     animation-name: uvalib-contents-reveal;
   }
+  /* With full-href (issue #38): the full-contents link's line held below the list (0.5rem
+     above a 44px link). A window="N" list is not held: the whole list shows until it upgrades
+     (in a sidebar beside the content, nothing else moves). */
+  uvalib-contents[full-href]:not(:defined) {
+    padding-block-end: calc(44px + 0.5rem);
+  }
   :where(uvalib-contents):not(:defined) :is(ol, ul) {
     margin: 0;
     padding: 0;
@@ -331,7 +337,7 @@ export const base = css`
   @media (max-width: 64rem) {
     uvalib-contents:not([collapse-below], [open]):not(:defined) {
       max-block-size: 44px;
-      padding-block-start: 0;
+      padding-block: 0;
       overflow: hidden;
     }
   }
