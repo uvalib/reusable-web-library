@@ -56,6 +56,7 @@ describe('playground presets', function () {
       'load-more-unknown-total',
       'contents-sidebar',
       'contents-headings',
+      'contents-window',
       'record-metadata',
       'citation',
       'tables',
@@ -142,7 +143,7 @@ describe('playground presets', function () {
         'load-more-unknown-total',
       ],
       Chips: ['chip-groups'],
-      Contents: ['contents-sidebar', 'contents-headings'],
+      Contents: ['contents-sidebar', 'contents-headings', 'contents-window'],
       Metadata: ['record-metadata', 'citation'],
       Tables: ['tables'],
       Texts: ['edition'],
@@ -939,6 +940,59 @@ describe('playground presets', function () {
       } finally {
         iframe.remove();
       }
+    }
+  });
+
+  it('contents-window shows a window that follows the hash, and the full-contents link', async function () {
+    this.timeout(10000);
+    const p = presets.find((x) => x.id === 'contents-window')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    iframe.style.width = '1200px';
+    iframe.style.height = '800px';
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-page', 'uvalib-contents']);
+      await new Promise((r) => setTimeout(r, 100));
+      const el = doc.querySelector('uvalib-contents')! as HTMLElement & {
+        updateComplete: Promise<unknown>;
+      };
+      const shown = () =>
+        [...el.shadowRoot!.querySelectorAll<HTMLElement>('.panel li > a')]
+          .filter((a) => a.getClientRects().length > 0)
+          .map((a) => a.textContent);
+      expect(shown()).to.deep.equal([
+        'Book 1',
+        'Chapter 1',
+        'Chapter 2',
+        'Chapter 3',
+        'Chapter 4',
+        'Chapter 5',
+        'Chapter 6',
+      ]);
+      const full = el.shadowRoot!.querySelector('.more a')!;
+      expect(full.textContent).to.equal('Full contents (243 sections)');
+      win.location.hash = 'chapter-15';
+      await new Promise((r) => setTimeout(r, 100));
+      await el.updateComplete;
+      expect(shown()).to.deep.equal([
+        'Book 2',
+        'Chapter 12',
+        'Chapter 13',
+        'Chapter 14',
+        'Chapter 15',
+        'Chapter 16',
+        'Chapter 17',
+        'Chapter 18',
+      ]);
+      expect(el.shadowRoot!.querySelector('.visually-hidden')!.textContent).to.equal(
+        'Showing 8 of 243 sections.',
+      );
+      expect(countMain(doc)).to.equal(1);
+      await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
     }
   });
 
