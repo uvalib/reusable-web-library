@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.10.0 — 2026-11-25
+
+### Features
+
+- install per project or globally, for Claude Code and the shared Agent Skills folder
+- edition.css, reading styles for converted TEI texts
+- .uvalib-sidebar-layout, a sidebar beside the main content
+- <uvalib-list-filter>, filter a long static list on the page as you type
+- filter-params reads and writes Pagefind filters in the URL
+
+### Fixes
+
+- the same words in any order are one query for analytics; literal event name for the manifest
+- hold <uvalib-contents>'s upgraded layout before it is defined
+
+### Other
+
+- Merge branch 'integrate/etc': edition.css, uvalib-list-filter, Pagefind filter-params, sidebar layout
+- Merge branch 'feat/edition-css' into integrate/etc
+- demo preset and tests for edition.css
+- keep both the list-filter and sidebar-layout blocks after the merge
+- Merge branch 'feat/sidebar-layout' into integrate/etc
+- Merge branch 'feat/list-filter' into integrate/etc
+- Merge branch 'feat/pagefind-filter-params' into integrate/etc
+- register uvalib-list-filter (vite, manifest, exports, index, size budget, base.css pre-upgrade hold, catalogue tests)
+
 ## v1.9.0 — 2026-11-24
 
 ### Features
