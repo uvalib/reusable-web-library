@@ -650,3 +650,72 @@ describe('base.css before <uvalib-citation> is defined', function () {
     });
   }
 });
+
+/**
+ * base.css before <uvalib-list-filter> is defined: the label, field and count's height held
+ * (less the label with hide-label, less the count with results-count), so the list below does
+ * not move when it upgrades; the list is fully shown meanwhile.
+ */
+describe('base.css before <uvalib-list-filter> is defined', function () {
+  this.timeout(12000);
+  const rows = [
+    `<uvalib-list-filter id="plain" for="docs" noun="texts"></uvalib-list-filter>`,
+    `<uvalib-list-filter id="nolabel" for="docs" hide-label></uvalib-list-filter>`,
+    `<uvalib-list-filter id="external" for="docs" results-count="rc"></uvalib-list-filter>`,
+    `<uvalib-list-filter id="both" for="docs" hide-label results-count="rc"></uvalib-list-filter>`,
+  ];
+
+  it('holds its height, shows the whole list, and nothing moves on upgrade', async () => {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'width: 320px; height: 600px';
+    iframe.srcdoc = `<!doctype html><html lang="en"><head>
+      <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+      </head><body>${rows.join('')}<p id="rc">5 texts</p>
+      <ol id="docs"><li>Ada</li><li>Bruno</li><li>Clara</li></ol></body></html>`;
+    document.body.append(iframe);
+    await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+    try {
+      const doc = iframe.contentDocument!;
+      const ids = ['plain', 'nolabel', 'external', 'both'];
+      const heights = () => ids.map((id) => doc.getElementById(id)!.getBoundingClientRect().height);
+      const listTop = () => doc.getElementById('docs')!.getBoundingClientRect().top;
+      const before = heights();
+      expect(before[0]).to.be.greaterThan(before[1]!);
+      expect(Math.round(before[3]!)).to.equal(44);
+      expect(doc.querySelectorAll('#docs li:not([hidden])').length).to.equal(3);
+      const top = listTop();
+      const script = doc.createElement('script');
+      script.type = 'module';
+      script.src = `${location.origin}/dist-cdn/uvalib-list-filter.js`;
+      doc.head.append(script);
+      await new Promise((r) => script.addEventListener('load', r, { once: true }));
+      await Promise.all(
+        ids.map(
+          (id) =>
+            (doc.getElementById(id) as unknown as { updateComplete: Promise<unknown> })
+              .updateComplete,
+        ),
+      );
+      await new Promise((r) => setTimeout(r, 50));
+      expect(heights().map(Math.round)).to.deep.equal(before.map(Math.round));
+      expect(Math.round(listTop())).to.equal(Math.round(top));
+    } finally {
+      iframe.remove();
+    }
+  });
+
+  it('keeps a hidden one hidden', async () => {
+    const iframe = document.createElement('iframe');
+    iframe.srcdoc = `<!doctype html><html lang="en"><head>
+      <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+      </head><body><uvalib-list-filter id="h" hidden></uvalib-list-filter></body></html>`;
+    document.body.append(iframe);
+    await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+    try {
+      const el = iframe.contentDocument!.getElementById('h')!;
+      expect(iframe.contentWindow!.getComputedStyle(el).display).to.equal('none');
+    } finally {
+      iframe.remove();
+    }
+  });
+});

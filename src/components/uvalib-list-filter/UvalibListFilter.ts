@@ -492,7 +492,7 @@ export class UvalibListFilter extends UvalibElement {
     this.driveResultsCount();
     if (changed && (query || prevQuery))
       this.dispatchEvent(
-        new CustomEvent<ListFilterChangeDetail>(`${TAG}-change`, {
+        new CustomEvent<ListFilterChangeDetail>('uvalib-list-filter-change', {
           detail: { query, shown, total: items.length },
           bubbles: true,
           composed: true,

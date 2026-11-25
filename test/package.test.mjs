@@ -44,6 +44,7 @@ const TAGS = [
   'uvalib-back-to-top',
   'uvalib-dialog',
   'uvalib-citation',
+  'uvalib-list-filter',
 ];
 
 const walk = (dir) =>

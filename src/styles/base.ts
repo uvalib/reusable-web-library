@@ -118,7 +118,8 @@ export const base = css`
       uvalib-image-regions,
       uvalib-map,
       uvalib-filter-drawer,
-      uvalib-filter
+      uvalib-filter,
+      uvalib-list-filter
     ):not(:defined)[hidden],
   :where(uvalib-combobox, uvalib-image-regions):not(:defined) > [hidden] {
     display: none;
@@ -216,6 +217,25 @@ export const base = css`
     min-block-size: 44px;
     font: inherit;
     line-height: 1.2;
+  }
+  /* A list filter draws its label, a 44px field and a one-line count from attributes: hold
+     their height (less the label with hide-label, less the count with results-count), so the
+     list below does not move when it upgrades. The list itself is the page's and stays
+     fully shown until then. */
+  uvalib-list-filter:not(:defined) {
+    display: block;
+    font-size: 1rem;
+    line-height: 1.5;
+    min-block-size: calc(1.5em + 0.25rem + 44px + 0.25rem + 1.5em);
+  }
+  uvalib-list-filter[hide-label]:not(:defined) {
+    min-block-size: calc(44px + 0.25rem + 1.5em);
+  }
+  uvalib-list-filter[results-count]:not(:defined) {
+    min-block-size: calc(1.5em + 0.25rem + 44px);
+  }
+  uvalib-list-filter[hide-label][results-count]:not(:defined) {
+    min-block-size: 44px;
   }
   /* Image regions: the image at its own width and the list beside it (or under it), the
      layout the element keeps once it upgrades, so the image does not move. */

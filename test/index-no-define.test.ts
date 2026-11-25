@@ -89,6 +89,7 @@ describe('index', () => {
       'uvalib-back-to-top',
       'uvalib-dialog',
       'uvalib-citation',
+      'uvalib-list-filter',
     ]) {
       expect(customElements.get(tag) === undefined, `${tag} is defined`).to.equal(true);
     }

@@ -28,6 +28,7 @@ import '../src/components/uvalib-filter-drawer/uvalib-filter-drawer.js';
 import '../src/components/uvalib-back-to-top/uvalib-back-to-top.js';
 import '../src/components/uvalib-dialog/uvalib-dialog.js';
 import '../src/components/uvalib-citation/uvalib-citation.js';
+import '../src/components/uvalib-list-filter/uvalib-list-filter.js';
 import * as Leaflet from 'leaflet/dist/leaflet-src.esm.js';
 import '../src/components/bento-box/bento-box.js';
 import type { SiteHeader } from '../src/components/site-header/SiteHeader.js';
@@ -53,6 +54,10 @@ import {
   citationTiming,
   type UvalibCitation,
 } from '../src/components/uvalib-citation/UvalibCitation.js';
+import {
+  listFilterTiming,
+  type UvalibListFilter,
+} from '../src/components/uvalib-list-filter/UvalibListFilter.js';
 import { recordAnalytics } from './helpers/analytics.js';
 import { resetEvents, useEventsHost } from './helpers/events.js';
 import { resetHours, setClock, settled, useHoursHost } from './helpers/hours.js';
@@ -805,6 +810,33 @@ describe('analytics catalogue', () => {
           citationTiming.settle = settle;
           if (restore) Object.defineProperty(navigator, 'clipboard', restore);
           else delete (navigator as { clipboard?: unknown }).clipboard;
+        }
+      });
+    });
+
+    describe(`uvalib-list-filter (${mode})`, () => {
+      it('filter (settled) with the count, and clear; never the typed text', async () => {
+        const settle = listFilterTiming.settle;
+        listFilterTiming.settle = 20;
+        try {
+          const wrap = await fixture<HTMLDivElement>(
+            `<div><uvalib-list-filter ${attr(mode)} for="cat-list"></uvalib-list-filter>
+              <ul id="cat-list"><li>Secret letter</li><li>Secret diary</li><li>Ledger</li></ul></div>`,
+          );
+          const el = wrap.querySelector<UvalibListFilter>('uvalib-list-filter')!;
+          await quietRender(el);
+          const field = root(el).querySelector<HTMLInputElement>('input')!;
+          field.value = 'secret';
+          field.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+          await waitUntil(() => events().length === 1, 'no filter event');
+          root(el).querySelector<HTMLButtonElement>('button.clear')!.click();
+          expect(events()).to.deep.equal([
+            ['uvalib-list-filter', 'filter', '', 2],
+            ['uvalib-list-filter', 'clear'],
+          ]);
+          expect(JSON.stringify(rec.events)).to.not.match(/secret/i);
+        } finally {
+          listFilterTiming.settle = settle;
         }
       });
     });

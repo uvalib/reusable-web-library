@@ -92,3 +92,5 @@ export type {
 } from './components/uvalib-dialog/UvalibDialog.js';
 export { UvalibCitation } from './components/uvalib-citation/UvalibCitation.js';
 export type { CitationItem } from './components/uvalib-citation/UvalibCitation.js';
+export { UvalibListFilter } from './components/uvalib-list-filter/UvalibListFilter.js';
+export type { ListFilterChangeDetail } from './components/uvalib-list-filter/UvalibListFilter.js';

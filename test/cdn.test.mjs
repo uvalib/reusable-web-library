@@ -44,6 +44,7 @@ const TAGS = [
   'uvalib-back-to-top',
   'uvalib-dialog',
   'uvalib-citation',
+  'uvalib-list-filter',
 ];
 
 const manifest = () => JSON.parse(readFileSync(join(cdn, 'manifest.json'), 'utf8'));
