@@ -2591,6 +2591,150 @@ uvalib-filter-drawer uvalib-filter {
     },
   },
   {
+    id: 'list-filter',
+    group: 'Search',
+    title: 'List filter: a collection’s texts',
+    description:
+      'uvalib-list-filter over a collection page’s list of 24 texts, as the Electronic Text Collections show theirs: type to narrow it. Every word must match, in any order, ignoring case and accents (try “eneide” or “poe raven”), against each item’s data-filter-text. The count under the field follows at once and is announced once the typing settles; when nothing matches, a message says so. Clear or Escape empties the field and keeps focus in it. query-param keeps the filter in the URL (?filter=). Below, a list in headed groups (data-filter-group): a decade whose letters are all filtered out disappears, heading and all. With base.css the field’s space is held and the whole list shows before the script runs.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Early American and world literature',
+          styles: true,
+          components: ['uvalib-list-filter'],
+          body: `    <site-page>
+      <h1>Early American and world literature</h1>
+      <uvalib-list-filter
+        for="doc-list"
+        noun="texts"
+        singular="text"
+        placeholder="Title or author"
+        query-param
+      ></uvalib-list-filter>
+      <ol class="doc-list" id="doc-list">
+        <li data-filter-text="amanda c. armentrout to william f. brand, august 17, 1866 armentrout, amanda c 1866">
+          <a href="#text">Amanda C. Armentrout to William F. Brand, August 17, 1866</a> <span class="meta">Armentrout, Amanda C · 1866</span>
+        </li>
+        <li data-filter-text="angus to kate armentrout, march 3, 1860 angus 1860">
+          <a href="#text">Angus to Kate Armentrout, March 3, 1860</a> <span class="meta">Angus · 1860</span>
+        </li>
+        <li data-filter-text="annie armentrout to kate armentrout, february 20, 1862 trout, annie 1862">
+          <a href="#text">Annie Armentrout to Kate Armentrout, February 20, 1862</a> <span class="meta">Trout, Annie · 1862</span>
+        </li>
+        <li data-filter-text="blair family records booker, james 1923">
+          <a href="#text">Blair family records</a> <span class="meta">Booker, James · 1923</span>
+        </li>
+        <li data-filter-text="brand civil war collection: letter from jane brand to william francis brand brand, jane 1866">
+          <a href="#text">Brand Civil War collection: letter from Jane Brand to William Francis Brand</a> <span class="meta">Brand, Jane · 1866</span>
+        </li>
+        <li data-filter-text="the aeneid virgil 1697">
+          <a href="#text">The Aeneid</a> <span class="meta">Virgil · 1697</span>
+        </li>
+        <li data-filter-text="l’énéide de virgile virgile 1804">
+          <a href="#text">L’Énéide de Virgile</a> <span class="meta">Virgile · 1804</span>
+        </li>
+        <li data-filter-text="notes on the state of virginia jefferson, thomas 1785">
+          <a href="#text">Notes on the State of Virginia</a> <span class="meta">Jefferson, Thomas · 1785</span>
+        </li>
+        <li data-filter-text="letters from an american farmer crèvecœur, j. hector st. john de 1782">
+          <a href="#text">Letters from an American Farmer</a> <span class="meta">Crèvecœur, J. Hector St. John de · 1782</span>
+        </li>
+        <li data-filter-text="the federalist hamilton, alexander 1788">
+          <a href="#text">The Federalist</a> <span class="meta">Hamilton, Alexander · 1788</span>
+        </li>
+        <li data-filter-text="narrative of the life of frederick douglass douglass, frederick 1845">
+          <a href="#text">Narrative of the Life of Frederick Douglass</a> <span class="meta">Douglass, Frederick · 1845</span>
+        </li>
+        <li data-filter-text="incidents in the life of a slave girl jacobs, harriet a. 1861">
+          <a href="#text">Incidents in the Life of a Slave Girl</a> <span class="meta">Jacobs, Harriet A. · 1861</span>
+        </li>
+        <li data-filter-text="the souls of black folk du bois, w. e. b. 1903">
+          <a href="#text">The Souls of Black Folk</a> <span class="meta">Du Bois, W. E. B. · 1903</span>
+        </li>
+        <li data-filter-text="walden thoreau, henry david 1854">
+          <a href="#text">Walden</a> <span class="meta">Thoreau, Henry David · 1854</span>
+        </li>
+        <li data-filter-text="leaves of grass whitman, walt 1855">
+          <a href="#text">Leaves of Grass</a> <span class="meta">Whitman, Walt · 1855</span>
+        </li>
+        <li data-filter-text="the raven poe, edgar allan 1845">
+          <a href="#text">The Raven</a> <span class="meta">Poe, Edgar Allan · 1845</span>
+        </li>
+        <li data-filter-text="tamerlane and other poems poe, edgar allan 1827">
+          <a href="#text">Tamerlane and Other Poems</a> <span class="meta">Poe, Edgar Allan · 1827</span>
+        </li>
+        <li data-filter-text="swallow barn kennedy, john pendleton 1832">
+          <a href="#text">Swallow Barn</a> <span class="meta">Kennedy, John Pendleton · 1832</span>
+        </li>
+        <li data-filter-text="les misérables hugo, victor 1862">
+          <a href="#text">Les Misérables</a> <span class="meta">Hugo, Victor · 1862</span>
+        </li>
+        <li data-filter-text="don quijote de la mancha cervantes saavedra, miguel de 1605">
+          <a href="#text">Don Quijote de la Mancha</a> <span class="meta">Cervantes Saavedra, Miguel de · 1605</span>
+        </li>
+        <li data-filter-text="faust goethe, johann wolfgang von 1808">
+          <a href="#text">Faust</a> <span class="meta">Goethe, Johann Wolfgang von · 1808</span>
+        </li>
+        <li data-filter-text="œuvres complètes de molière molière 1734">
+          <a href="#text">Œuvres complètes de Molière</a> <span class="meta">Molière · 1734</span>
+        </li>
+        <li data-filter-text="pride and prejudice austen, jane 1813">
+          <a href="#text">Pride and Prejudice</a> <span class="meta">Austen, Jane · 1813</span>
+        </li>
+        <li data-filter-text="uncle tom’s cabin stowe, harriet beecher 1852">
+          <a href="#text">Uncle Tom’s Cabin</a> <span class="meta">Stowe, Harriet Beecher · 1852</span>
+        </li>
+      </ol>
+      <h2>Letters by decade</h2>
+      <uvalib-list-filter
+        selector="#by-decade li"
+        label="Filter the letters"
+        noun="letters"
+        singular="letter"
+      ></uvalib-list-filter>
+      <div id="by-decade">
+        <section data-filter-group>
+          <h3>1850s</h3>
+          <ul>
+            <li>Angus to Kate Armentrout, March 4, 1859</li>
+          </ul>
+        </section>
+        <section data-filter-group>
+          <h3>1860s</h3>
+          <ul>
+            <li>Angus to Kate Armentrout, March 3, 1860</li>
+            <li>Annie Armentrout to Kate Armentrout, February 8, 1862</li>
+            <li>Amanda C. Armentrout to William F. Brand, June 3, 1866</li>
+          </ul>
+        </section>
+        <section data-filter-group>
+          <h3>1870s</h3>
+          <ul>
+            <li>William F. Brand to Amanda C. Brand, May 1, 1871</li>
+          </ul>
+        </section>
+      </div>
+    </site-page>`,
+        }),
+      },
+      'styles.css': {
+        content: `.doc-list {
+  padding-inline-start: 1.5rem;
+}
+.doc-list li {
+  margin-block: 0.25rem;
+}
+.doc-list .meta {
+  color: var(--uva-color-text-muted, #4f4f4f);
+}
+uvalib-list-filter {
+  margin-block: 1rem;
+}
+`,
+      },
+    },
+  },
+  {
     id: 'todays-hours',
     group: 'Hours',
     title: "Today's hours",
