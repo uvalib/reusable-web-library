@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Writes tokens.css (palette and dark-mode role tokens), base.css (base and controls) and
-// pagefind.css (the Pagefind search UI theme) from the built dist/styles modules.
+// pagefind.css (the Pagefind search UI theme) and edition.css (reading styles for converted TEI
+// texts) from the built dist/styles modules.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -31,6 +32,7 @@ writeFileSync(
 const { base } = await load('base');
 const { controls } = await load('controls');
 const { pagefind } = await load('pagefind');
+const { edition } = await load('edition');
 const schemes = [
   ['system', 'light dark'],
   ['light', 'light'],
@@ -63,4 +65,9 @@ writeFileSync(
 writeFileSync(
   join(outDir, 'pagefind.css'),
   `${pageRoles(pagefind.cssText, 'pagefind.css')}\n${pagefind.cssText}`,
+);
+// edition.css (reading styles for converted TEI texts) gets the role tokens it reads too.
+writeFileSync(
+  join(outDir, 'edition.css'),
+  `${pageRoles(edition.cssText, 'edition.css')}\n${edition.cssText}`,
 );

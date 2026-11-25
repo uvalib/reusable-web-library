@@ -6,7 +6,7 @@ import { extname, join, normalize, sep } from 'node:path';
 import { buildPagefindDemo } from './pagefind-demo.mjs';
 
 const ENTRY = /\/cdn\/((?:site|uvalib|library)-[a-z-]+|events-section|bento-box)\.js(?:\?.*)?$/;
-const CSS = /\/cdn\/(tokens|base|pagefind)\.css(?:\?.*)?$/;
+const CSS = /\/cdn\/(tokens|base|pagefind|edition)\.css(?:\?.*)?$/;
 
 /**
  * The dev URL for a request: `…/cdn/<tag>.js` from the component's source (every element
