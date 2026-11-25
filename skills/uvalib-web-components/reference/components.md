@@ -1451,7 +1451,7 @@ A record's details as a description list, as on the library's digital collection
 
 ## `<uvalib-pagefind-search>`
 
-Pagefind's default search UI (`PagefindUI`, from the site's own Pagefind bundle) with the library's defaults and the accessibility fixes that need script. Use it with pagefind.css, in place of Pagefind's pagefind-ui.css. It renders in light DOM, so the page's styles reach Pagefind's markup. It loads `<bundle-path>pagefind-ui.js` unless `window.PagefindUI` already exists. What it adds to the stock UI: a visible `<label>` for the field (the stock field is named only by its title); a polite status region that announces the result count ("12 results for virginia") once results settle (the stock message is not a live region); focus kept in the field after Clear or Escape (the stock UI blurs it, dropping focus to the page) and moved to the first new result after "Load more results"; the loading placeholders' dots hidden from screen readers; `?q=` read at start (and on Back and Forward) and the settled query written back with `history.replaceState`, so a search can be shared; and reports to `<site-analytics>`. The `ui` property is the `PagefindUI` instance (for `triggerFilters`), and `ready` resolves with it. Attributes are read once, when the element is first connected.
+Pagefind's default search UI (`PagefindUI`, from the site's own Pagefind bundle) with the library's defaults and the accessibility fixes that need script. Use it with pagefind.css, in place of Pagefind's pagefind-ui.css. It renders in light DOM, so the page's styles reach Pagefind's markup. It loads `<bundle-path>pagefind-ui.js` unless `window.PagefindUI` already exists. What it adds to the stock UI: a visible `<label>` for the field (the stock field is named only by its title); a polite status region that announces the result count ("12 results for virginia") once results settle (the stock message is not a live region); focus kept in the field after Clear or Escape (the stock UI blurs it, dropping focus to the page) and moved to the first new result after "Load more results"; the loading placeholders' dots hidden from screen readers; `?q=` read at start (and on Back and Forward) and the settled query written back with `history.replaceState`, so a search can be shared; with `filter-params`, the named Pagefind filters read from and written to the URL the same way; and reports to `<site-analytics>`. The `ui` property is the `PagefindUI` instance (for `triggerFilters`), and `ready` resolves with it. Attributes are read once, when the element is first connected.
 
 ### Attributes
 
@@ -1469,6 +1469,7 @@ Pagefind's default search UI (`PagefindUI`, from the site's own Pagefind bundle)
 | `translations` | `string` |  | JSON of Pagefind UI strings to override (`{"zero_results": "…"}`). |
 | `options` | `string` |  | JSON of any other `PagefindUI` options (`{"openFilters": ["author"]}`), applied last. |
 | `query-param` | `string` | `q` | The URL parameter that holds the query; empty turns it off. |
+| `filter-params` | `string` |  | Space-separated Pagefind filter names read from and written to URL parameters of the same name (`collection author`: `?collection=A&collection=B`). URL filters are applied with the query as one search, their filter groups open; values not in the index are ignored. Empty (the default) turns it off. |
 
 ### Events
 

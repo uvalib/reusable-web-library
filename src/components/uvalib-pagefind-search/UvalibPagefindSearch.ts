@@ -15,6 +15,12 @@ const TAG = 'uvalib-pagefind-search';
 /** How long results must stay put before they are announced, reported and put in the URL. */
 export const SETTLE_MS = 1000;
 
+/** How long to wait for Pagefind's filter list before searching without the URL's filters. */
+export const FILTER_WAIT_MS = 10000;
+
+/** Filters as Pagefind takes them: each name with its values. */
+type Filters = Record<string, string[]>;
+
 /** Each script URL is loaded once, however many elements ask for it. */
 const scripts = new Map<string, Promise<PagefindUIConstructor>>();
 function loadPagefindUI(src: string): Promise<PagefindUIConstructor> {
@@ -115,7 +121,9 @@ export function countFromMessage(
  * the field after Clear or Escape (the stock UI blurs it, dropping focus to the page) and
  * moved to the first new result after "Load more results"; the loading placeholders' dots
  * hidden from screen readers; `?q=` read at start (and on Back and Forward) and the settled
- * query written back with `history.replaceState`, so a search can be shared; and reports to `<site-analytics>`. The
+ * query written back with `history.replaceState`, so a search can be shared; with
+ * `filter-params`, the named Pagefind filters read from and written to the URL the same way;
+ * and reports to `<site-analytics>`. The
  * `ui` property is the `PagefindUI` instance (for `triggerFilters`), and `ready` resolves
  * with it. Attributes are read once, when the element is first connected.
  *
@@ -132,6 +140,7 @@ export function countFromMessage(
  * @attr {string} translations - JSON of Pagefind UI strings to override (`{"zero_results": "…"}`).
  * @attr {string} options - JSON of any other `PagefindUI` options (`{"openFilters": ["author"]}`), applied last.
  * @attr {string} [query-param=q] - The URL parameter that holds the query; empty turns it off.
+ * @attr {string} filter-params - Space-separated Pagefind filter names read from and written to URL parameters of the same name (`collection author`: `?collection=A&collection=B`). URL filters are applied with the query as one search, their filter groups open; values not in the index are ignored. Empty (the default) turns it off.
  * @fires search-results - Results settled: `detail` is `{ query, count }`; `{ query: '', count: 0 }` when the field is emptied after a search. Does not bubble.
  * @fires uvalib-analytics-search - For `<site-analytics>`: the settled query, category `Pagefind` and its result count, once per query and filter set. Bubbles and is composed.
  * @fires uvalib-analytics-event - For `<site-analytics>`: `['uvalib-pagefind-search', 'filter-change', '<filter>: <value>', 1 | 0]` (checked or unchecked), and `['uvalib-pagefind-search', 'error', 'load']` if Pagefind cannot be loaded. Bubbles and is composed.
@@ -155,6 +164,8 @@ export class UvalibPagefindSearch extends HTMLElement {
   /** After "Load more results": the index of the first new result, to focus once it loads. */
   private focusIndex?: number;
   private readonly onPopState = () => this.followUrl();
+  /** Resolves once Pagefind has drawn its filter checkboxes (set only while waiting for them). */
+  private filtersDrawn?: () => void;
 
   private newReady(): Promise<PagefindUIInstance> {
     const { promise, resolve } = Promise.withResolvers<PagefindUIInstance>();
@@ -181,6 +192,26 @@ export class UvalibPagefindSearch extends HTMLElement {
 
   private get queryParam(): string {
     return this.getAttribute('query-param') ?? 'q';
+  }
+
+  /** The filter names in `filter-params`. */
+  private get filterParams(): string[] {
+    return (this.getAttribute('filter-params') ?? '').split(/\s+/).filter(Boolean);
+  }
+
+  private get boxes(): HTMLInputElement[] {
+    return [...this.container.querySelectorAll<HTMLInputElement>('.pagefind-ui__filter-checkbox')];
+  }
+
+  /** The `filter-params` filters in the page URL that have values (repeated params: several). */
+  private urlFilters(): Filters {
+    const params = new URLSearchParams(location.search);
+    const out: Filters = {};
+    for (const name of this.filterParams) {
+      const values = params.getAll(name).filter(Boolean);
+      if (values.length) out[name] = values;
+    }
+    return out;
   }
 
   connectedCallback(): void {
@@ -248,6 +279,7 @@ export class UvalibPagefindSearch extends HTMLElement {
       return;
     }
     if (generation !== this.generation) return; // removed while the script loaded
+    const fromUrl = this.urlFilters();
     const num = (name: string, fallback?: number) => {
       const n = Number.parseInt(this.getAttribute(name) ?? '', 10);
       return Number.isFinite(n) && n > 0 ? n : fallback;
@@ -272,6 +304,12 @@ export class UvalibPagefindSearch extends HTMLElement {
       element: this.container,
     };
     if (typeof options.bundlePath === 'string') options.bundlePath = withSlash(options.bundlePath);
+    // The URL's filter groups start open, so the narrowed results explain themselves.
+    const open = Object.keys(fromUrl);
+    if (open.length) {
+      const given = Array.isArray(options.openFilters) ? (options.openFilters as unknown[]) : [];
+      options.openFilters = [...new Set([...given, ...open])];
+    }
     const excerpt = num('excerpt-length');
     if (excerpt) options.excerptLength ??= excerpt;
     const lang = (document.documentElement.lang || 'en').toLowerCase();
@@ -289,8 +327,84 @@ export class UvalibPagefindSearch extends HTMLElement {
     this.listen();
     window.addEventListener('popstate', this.onPopState);
     const q = this.urlQuery();
+    if (Object.keys(fromUrl).length) {
+      this.resolveReady(ui);
+      // Load the index (as focusing the field does) and wait for its filter list, so values
+      // it lacks can be dropped before the one search.
+      const drawn = new Promise<void>((r) => (this.filtersDrawn = r));
+      input?.dispatchEvent(new Event('focus'));
+      this.onMutation();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([drawn, new Promise((r) => (timer = setTimeout(r, FILTER_WAIT_MS)))]);
+      clearTimeout(timer);
+      this.filtersDrawn = undefined;
+      if (generation !== this.generation) return;
+      this.applyUrl(fromUrl, q, !this.input?.value);
+      return;
+    }
     if (q) ui.triggerSearch(q);
     this.resolveReady(ui);
+  }
+
+  /**
+   * The filter values Pagefind knows (matched without case, given in the index's own case),
+   * from its filter checkboxes; values it does not have are dropped.
+   */
+  private known(filters: Filters): Filters {
+    const boxes = this.boxes;
+    const out: Filters = {};
+    for (const [name, values] of Object.entries(filters)) {
+      const have = boxes.filter((b) => b.name === name).map((b) => b.value);
+      const found = values
+        .map(
+          (v) => have.find((h) => h === v) ?? have.find((h) => h.toLowerCase() === v.toLowerCase()),
+        )
+        .filter((v): v is string => v !== undefined);
+      if (found.length) out[name] = [...new Set(found)];
+    }
+    return out;
+  }
+
+  /** The checked filters, by name. */
+  private checked(): Filters {
+    const out: Filters = {};
+    for (const b of this.boxes) if (b.checked) (out[b.name] ??= []).push(b.value);
+    return out;
+  }
+
+  /**
+   * Apply the URL's filters (replacing those named in `filter-params`, keeping the others) and,
+   * with `search`, its query, in one go: Pagefind runs one search for both.
+   */
+  private applyUrl(fromUrl: Filters, q: string, search: boolean): void {
+    const ui = this._ui!;
+    const names = this.filterParams;
+    const selected = this.checked();
+    for (const name of names) delete selected[name];
+    const known = this.known(fromUrl);
+    Object.assign(selected, known);
+    const key = (f: Filters) =>
+      JSON.stringify(
+        Object.entries(f)
+          .flatMap(([n, vs]) => vs.map((v) => `${n}:${v}`))
+          .sort(),
+      );
+    if (key(selected) !== key(this.checked())) ui.triggerFilters(selected);
+    for (const name of Object.keys(known)) {
+      const box = this.boxes.find((b) => b.name === name);
+      const details = box?.closest('details');
+      if (details) details.open = true;
+    }
+    if (search) {
+      const input = this.input;
+      if (q) ui.triggerSearch(q);
+      else if (input && input.value) {
+        input.value = '';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+    // Drop unknown values from the URL (and give known ones the index's case).
+    this.writeFilters(selected);
   }
 
   /** The query in the page URL, or '' (always '' with `query-param=""`). */
@@ -300,10 +414,16 @@ export class UvalibPagefindSearch extends HTMLElement {
 
   /** Back and Forward: search for the URL's query, or clear the field when it has none. */
   private followUrl(): void {
-    if (!this.queryParam || !this._ui) return;
+    if (!this._ui) return;
     const q = this.urlQuery();
     const input = this.input;
-    if (!input || input.value.trim() === q) return;
+    if (!input) return;
+    const searchChanged = !!this.queryParam && input.value.trim() !== q;
+    if (this.filterParams.length) {
+      this.applyUrl(this.urlFilters(), q, searchChanged);
+      return;
+    }
+    if (!searchChanged) return;
     if (q) {
       this._ui.triggerSearch(q);
     } else {
@@ -337,6 +457,7 @@ export class UvalibPagefindSearch extends HTMLElement {
       const box = e.target as HTMLInputElement;
       if (!box.matches('.pagefind-ui__filter-checkbox')) return;
       trackEvent(this, [TAG, 'filter-change', `${box.name}: ${box.value}`, +box.checked]);
+      if (this.filterParams.includes(box.name)) this.writeFilters(this.checked());
     });
     this.observer = new MutationObserver(() => this.onMutation());
     this.observer.observe(c, { childList: true, subtree: true, characterData: true });
@@ -348,6 +469,7 @@ export class UvalibPagefindSearch extends HTMLElement {
 
   private onMutation(): void {
     const c = this.container;
+    if (this.filtersDrawn && c.querySelector('.pagefind-ui__filter-checkbox')) this.filtersDrawn();
     for (const el of c.querySelectorAll('.pagefind-ui__loading:not([aria-hidden])'))
       el.setAttribute('aria-hidden', 'true');
     if (this.focusIndex !== undefined) {
@@ -387,6 +509,7 @@ export class UvalibPagefindSearch extends HTMLElement {
   }
 
   private settle(): void {
+    if (this.filtersDrawn) return; // the URL's filters and query are not applied yet
     const s = this.settled();
     if (!s) {
       if (!(this.input?.value ?? '').trim()) this.cleared();
@@ -432,6 +555,25 @@ export class UvalibPagefindSearch extends HTMLElement {
     if ((url.searchParams.get(param) ?? '') === query) return;
     if (query) url.searchParams.set(param, query);
     else url.searchParams.delete(param);
+    this.replaceUrl(url);
+  }
+
+  /** Write the `filter-params` filters to the URL, keeping every other parameter. */
+  private writeFilters(filters: Filters): void {
+    const url = new URL(location.href);
+    const p = url.searchParams;
+    const names = this.filterParams.filter(
+      (n) => JSON.stringify(p.getAll(n)) !== JSON.stringify(filters[n] ?? []),
+    );
+    if (!names.length) return;
+    for (const name of names) {
+      p.delete(name);
+      for (const v of filters[name] ?? []) p.append(name, v);
+    }
+    this.replaceUrl(url);
+  }
+
+  private replaceUrl(url: URL): void {
     try {
       history.replaceState(history.state, '', url);
     } catch {
