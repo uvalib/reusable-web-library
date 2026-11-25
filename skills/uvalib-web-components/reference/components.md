@@ -1346,6 +1346,57 @@ An accessible image viewer over a set of plain links. With JavaScript a primary 
 | `--uva-grey-darkest` | `#2b2b2b` | Text when `--uva-color-text` is unset. |
 | `--uva-grey-100` | `#dadada` | Border when `--uva-color-border` is unset. |
 
+## `<uvalib-list-filter>`
+
+A text field that filters a long list on the page as you type: a collection's 473 texts, a staff directory, a table of databases. The list is the page's own markup and stays fully visible without the script. `for` is the id of the list: any element whose children are the items (a `<ul>` or `<ol>`, a `<dl>` of `<div>` rows, a grid of cards; for a `<table>`, the rows of its bodies). `selector` picks the items instead (inside `for` when both are set, else in the page). An item matches when every word typed appears in its `data-filter-text`, or else its text, in any order, ignoring case and accents (“eneide” finds “Énéide”). Items that do not match get the `hidden` attribute (kept hidden whatever `display` the page gives them); clearing the field shows them all again. Thousands of items filter at once on every keystroke: the text is read once, and only items whose state changes are touched. Groups: give each group's wrapper `data-filter-group` (a `<section>` with its heading and its list) and point `selector` at the items; a group whose items are all hidden is hidden too, heading and all. The visible `label` (default “Filter”; `hide-label` hides it visually) names the field, and a Clear button (“Clear <label>”, 44px, shown only with text) or Escape empties it, keeping focus in the field. Under the field a count follows at once (“Showing 12 of 473 texts”; `noun`, plural, and `singular` name the items), and a polite status announces it once the typing settles (a second after the last keystroke), never on every key or at load. When nothing matches, a message says “No texts match “…”.” To put the count elsewhere, point `results-count` at a `<uvalib-results-count>` (give it `total` and `noun` in the markup): the element then sets its `shown` and `total` and leaves the count and announcement to it. With `query-param` (bare: `filter`) the filter is read from that URL parameter at start and written back with `history.replaceState` as you type, so a filtered list can be shared and Back returns to it. The list's content is read once; call `refresh()` after changing an item's text in script (added or removed items and `data-filter-text` changes are noticed). Before it upgrades, `base.css` holds the label, field and count's height, so nothing moves.
+
+### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `for` | `string` | `''` | The id of the list whose children are the items (for a table, its body rows). |
+| `selector` | `string` | `''` | A CSS selector for the items, inside `for` when it is set, else in the page. |
+| `label` | `string` | `'Filter'` | The field's visible label and accessible name. |
+| `hide-label` | `boolean` | `false` | Hide the label visually (it still names the field), when a heading beside it says it. |
+| `placeholder` | `string` | `''` | Placeholder text in the empty field, such as “Title or author”. |
+| `noun` | `string` | `'items'` | What the items are, plural: “items” by default. |
+| `singular` | `string` | `''` | What one item is. Default: “item” when `noun` is unset, else `noun`. |
+| `results-count` | `string` | `''` | The id of a `<uvalib-results-count>` to drive instead of the element's own count. |
+| `query-param` | `string \| null` | `null` | The URL parameter to read the filter from and write it to; a bare attribute uses `filter`. Off by default. |
+| `value` | `string` | `''` | The text in the field. Setting it filters the list (not reported to analytics). |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+### CSS parts
+
+| Part | Description |
+|---|---|
+| `label` | The visible label. |
+| `field` | The box around the field and its clear button. |
+| `input` | The text field. |
+| `clear` | The clear button. |
+| `count` | The visible count under the field. |
+| `empty` | The “No … match” message. |
+
+### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-list-filter-change` | The filter was applied with a new query (typing, Clear, Escape, `value` set in script, the URL at start, Back and Forward). `detail` is `{ query, shown, total }`. Not fired at load without a query. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`, on the visitor's actions only: `['uvalib-list-filter', 'filter', '', <shown>]` once the typing settles on a new query, and `['uvalib-list-filter', 'clear']` when the visitor empties the field. Never the typed text. Bubbles and is composed. |
+
+### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-surface-raised` |  | Dark-mode role token: field background (else #fff). |
+| `--uva-color-control-border` |  | Dark-mode role token: field border (else `--uva-grey`, #808080). |
+| `--uva-color-input-text` |  | Dark-mode role token: field text (else #2b2b2b). |
+| `--uva-color-text` |  | Dark-mode role token: label text (else #2b2b2b). |
+| `--uva-color-text-muted` |  | Dark-mode role token: placeholder, count and the clear icon (else #4f4f4f). |
+| `--uva-color-alert-info-bg` |  | Dark-mode role token: the no-match message background. |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
+
 ## `<uvalib-map>`
 
 A map of places with a linked list of the same places: buildings, rooms or outdoor spaces, each a marker sized by a count, with a link to the place's page. It wraps [Leaflet](https://leafletjs.com) 1.9, which the page provides (the library never bundles it): set the `leaflet` property to the Leaflet module (`import * as L from 'leaflet'`), or load leaflet.js so that `window.L` exists. Without Leaflet only the list is shown, with one console warning. Leaflet's leaflet.css is optional: the element carries the layout rules it needs, in shadow DOM and light DOM alike. Places come from `items` (`{ id?, name, lat, lng, count?, href?, description? }`) or from a child `<ul>`/`<ol>` of `<li><a href data-lat data-lng data-count>Name</a></li>`, which is the list before the script runs (and without it). The list always stays, under the map: it is the text equivalent. Each marker is a real link (a button when the place has no `href`) named like "The Rotunda, 2,702 photos" (`count-label` is the noun), sized by the square root of its count (a 24 to 56px dot in a hit area of at least 44px). Tab or the arrow keys move between markers, Enter follows the link (or chooses the place), and Escape hides the tooltip. Hovering or focusing a marker shows a tooltip with its name and count and highlights its list entry; hovering or focusing a list entry highlights its marker (a ring and a larger dot, not colour alone) and brings it into view. Markers whose 44px targets would overlap at the current zoom are drawn as one group marker (regrouped after every zoom and resize): a button showing how many places it holds, sized by their summed count and named like "The Rotunda and 2 more places, 3,610 photos" (the largest place's name; `place-label` is the noun). Choosing it zooms in until its places part; when they cannot (one point, or the maximum zoom) it spreads them in a ring around it instead, with focus on the first; Escape or a zoom closes the ring and focus returns to the group. The arrow keys move between the markers shown (a group is one); a place in the list that is in a group highlights the group, whose tooltip names the place. The map is a region named by `label`, after a "Skip map, go to the list" link and a line of key instructions. It opens on the bounds of the places, or on `center` and `zoom`. The zoom buttons are 44px with a visible focus ring; the attribution stays. Tiles come from `tile-url` (OpenStreetMap by default: low-traffic use only) with `attribution`. In the page's dark mode the tiles are inverted with a CSS filter (`--uvalib-map-dark-filter`) unless `dark-tile-url` gives dark tiles; markers and controls are never filtered. With `prefers-reduced-motion` nothing animates.

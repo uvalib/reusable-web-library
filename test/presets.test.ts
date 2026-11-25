@@ -74,6 +74,7 @@ describe('playground presets', function () {
       'combobox',
       'filter-drawer',
       'dialog',
+      'list-filter',
       'todays-hours',
       'weekly-hours',
       'events',
@@ -153,6 +154,7 @@ describe('playground presets', function () {
         'combobox',
         'filter-drawer',
         'dialog',
+        'list-filter',
         'uvalib-filter-shadow',
         'uvalib-filter-light',
         'uvalib-date-range-shadow',
@@ -795,6 +797,49 @@ describe('playground presets', function () {
       expect(doc.documentElement.scrollWidth).to.be.at.most(400);
       expect(countMain(doc)).to.equal(1);
       await expectNoPageAxeViolations(doc);
+      expect(errors).to.deep.equal([]);
+    } finally {
+      iframe.remove();
+    }
+  });
+
+  it('list-filter: typing narrows the list, accents ignored, groups hide, and axe passes', async () => {
+    const p = presets.find((x) => x.id === 'list-filter')!;
+    const { iframe, errors } = await mount(previewSource(withCdnBase(p, '/dist-site/cdn/')));
+    iframe.style.width = '400px';
+    try {
+      const win = iframe.contentWindow!;
+      const doc = iframe.contentDocument!;
+      await whenAllDefined(win, ['site-page', 'uvalib-list-filter']);
+      const [texts, letters] = [...doc.querySelectorAll('uvalib-list-filter')] as (HTMLElement & {
+        updateComplete: Promise<unknown>;
+      })[];
+      await texts!.updateComplete;
+      const type = async (el: typeof texts, q: string) => {
+        const input = el!.shadowRoot!.querySelector('input')!;
+        input.value = q;
+        input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+        await el!.updateComplete;
+      };
+      const shown = () => [...doc.querySelectorAll('#doc-list > li:not([hidden])')].length;
+      expect(texts!.shadowRoot!.querySelector('.count')!.textContent).to.equal(
+        'Showing all 24 texts',
+      );
+      await type(texts, 'eneide');
+      expect(shown()).to.equal(1);
+      await type(texts, 'poe raven');
+      expect(shown()).to.equal(1);
+      await type(texts, 'zzz');
+      expect(texts!.shadowRoot!.querySelector('[part="empty"]')!.textContent).to.contain(
+        'No texts match',
+      );
+      await expectNoPageAxeViolations(doc);
+      await type(texts, '');
+      await type(letters, '1866');
+      const groups = [...doc.querySelectorAll<HTMLElement>('#by-decade [data-filter-group]')];
+      expect(groups.map((g) => g.hidden)).to.deep.equal([true, false, true]);
+      expect(doc.documentElement.scrollWidth).to.be.at.most(400);
+      expect(countMain(doc)).to.equal(1);
       expect(errors).to.deep.equal([]);
     } finally {
       iframe.remove();

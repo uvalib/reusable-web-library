@@ -12,7 +12,7 @@ Reusable web components for UVA Library sites, built with Lit and TypeScript:
 - **Records:** `<uvalib-metadata>` (a record's details, credit, rights and how to cite) and `<uvalib-citation>` (a citation in several formats, with Copy citation).
 - **Images:** `<uvalib-lightbox>` (an image viewer over plain links), `<uvalib-photo-grid>` (justified rows of thumbnails) and `<uvalib-image-regions>` (numbered region outlines on an image, with their list).
 - **Maps:** `<uvalib-map>` (places on the page's own Leaflet map, sized by a count, with a linked list).
-- **Search:** `<uvalib-filter>`, `<uvalib-date-range>`, `<uvalib-date-histogram>`, `<uvalib-combobox>` (a text field that suggests values as you type), `<uvalib-filter-drawer>` (the filters as a sidebar, or a modal panel on phones), `<uvalib-dialog>` (a modal dialog for search tips, Cite or a short form) and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
+- **Search:** `<uvalib-filter>`, `<uvalib-date-range>`, `<uvalib-date-histogram>`, `<uvalib-combobox>` (a text field that suggests values as you type), `<uvalib-list-filter>` (a field that filters a long list on the page as you type), `<uvalib-filter-drawer>` (the filters as a sidebar, or a modal panel on phones), `<uvalib-dialog>` (a modal dialog for search tips, Cite or a short form) and `<uvalib-pagefind-search>` (with `pagefind.css`, the library theme for Pagefind static-site search).
 - **Library hours:** `<site-hours-section>`, `<library-weekly-hours>` and `<library-hours-setup>`.
 - **Library events:** `<events-section>`.
 - **Search results:** `<bento-box>` (library.virginia.edu/search), with its `<catalog-section>`, `<articles-section>`, `<libguides-section>` and `<website-section>`.
@@ -1420,6 +1420,61 @@ Analytics: `toggle` (1 open, 0 closed), `sort` (`Subject: name`), `clear` and `a
 - **Before the script loads.** `base.css` shows the label (from the attribute) and holds the field's height, plus one line for a `description`, so nothing below moves on upgrade. A fallback `<input>` child is a working field meanwhile (with `list`, the browser's own suggestions); once upgraded it is disabled so it does not submit twice. Other children stay hidden.
 - **Analytics.** `select` with the label and the suggestion's position (from 1), and `clear` with the label. Never the typed text or a suggestion's text or value: they can be people's names.
 
+## List filter
+
+`<uvalib-list-filter>` is a text field that filters a long list already on the page as you type: a collection's 473 texts, a staff directory, a table of databases. The list is your own markup and stays complete without the script; the field looks like `.uvalib-input`. Entry: `uvalib-list-filter.js` on the CDN, `@uvalib/web-components/uvalib-list-filter.js` on npm. See the [List filter](https://uvalib.github.io/reusable-web-library/#list-filter) example.
+
+```html
+<script
+  type="module"
+  src="https://unpkg.internal.lib.virginia.edu/web-components/v1/uvalib-list-filter.js"
+></script>
+
+<uvalib-list-filter
+  for="doc-list"
+  noun="texts"
+  singular="text"
+  placeholder="Title or author"
+  query-param
+></uvalib-list-filter>
+<ol id="doc-list">
+  <li data-filter-text="amanda c. armentrout to william f. brand, 1866 armentrout, amanda c">
+    <a href="/text/A2956/">Amanda C. Armentrout to William F. Brand, August 17, 1866</a>
+    <span>Armentrout, Amanda C · 1866</span>
+  </li>
+  <!-- … -->
+</ol>
+```
+
+- **The list.** `for` is the id of an element whose children are the items: a `<ul>` or `<ol>`, a `<dl>` of `<div>` rows, a card grid, or a `<table>` (the rows of its `<tbody>` elements; the header stays). `selector` picks the items instead, inside `for` when both are set, else anywhere in the page (or the shadow root the element is in).
+- **Matching.** Every word typed must appear in the item, in any order (“kate armentrout” finds “Angus to Kate Armentrout”), ignoring case and accents (“eneide” finds “L’Énéide”). The item's `data-filter-text` is matched when present (put the title, author and dates there, as ETC does), otherwise its text. Items that do not match get the `hidden` attribute, and a small rule keeps them hidden even if your CSS gives them a `display`; clearing the field removes it from all of them.
+- **Fast with thousands of items.** The items' text is read and folded once, on the first keystroke; each keystroke then compares strings and touches only the items whose state changes. In the tests a 3,000-item list takes from under 1 ms to about 25 ms per keystroke, style and layout included (the slowest is showing all 3,000 again); the test fails above 150 ms. Items added or removed later, and `data-filter-text` changes, are picked up; after changing an item's text in script, call `refresh()`.
+- **Groups.** For a list in headed sections, put `data-filter-group` on each section's wrapper (its heading and its list) and point `selector` at the items: a group whose items are all hidden is hidden too, heading and all. Groups are wrappers, not heading-and-sibling pairs, to keep the rule simple and the markup explicit.
+  ```html
+  <uvalib-list-filter selector="#by-letter li" noun="people"></uvalib-list-filter>
+  <div id="by-letter">
+    <section data-filter-group>
+      <h2>A</h2>
+      <ul>
+        <li>Ada Lovelace</li>
+      </ul>
+    </section>
+    <section data-filter-group>
+      <h2>B</h2>
+      <ul>
+        <li>Bruno Taut</li>
+      </ul>
+    </section>
+  </div>
+  ```
+- **The field.** A visible `label` (default “Filter”; `hide-label` keeps it for screen readers only, when a heading beside the field says it) and an optional `placeholder`. A Clear button (a real button named “Clear Filter”, 44px, shown only with text) or Escape empties the field, and focus stays in it. Enter does nothing: the list is already filtered.
+- **The count.** Under the field: “Showing all 473 texts”, “Showing 12 of 473 texts”, updated at once (`noun` is the plural, default “items”; `singular` the word for one). A polite status announces it once the typing settles (a second after the last keystroke), never on every key and never at load. When nothing matches, a `.uvalib-message` under the count says “No texts match “zzz”.”, and that is what is announced. To show the count somewhere else, point `results-count` at a `<uvalib-results-count>` with `total` and `noun` in its markup (so it shows the count before the script and does not announce it at load): the filter sets its `shown` and `total`, and leaves the visible count and the announcement to it.
+- **In the URL.** `query-param` (a bare attribute means `filter`; `query-param="q"` names it) reads the filter from the URL at start and writes it back with `history.replaceState` a moment after typing (and before the page is left), so a filtered list can be shared or bookmarked and Back returns to it. Hash routes keep it in the hash, as the lightbox does. Off by default.
+- **Events.** `uvalib-list-filter-change` (`detail: { query, shown, total }`, bubbling and composed) each time the filter is applied with a new query: typing, Clear, Escape, `value` set in script, the URL at start, Back and Forward. `value` (the field's text) can be read and set; `shown` and `total` are read-only.
+- **No jump on upgrade.** With `base.css`, the label, field and count's height are held before the script runs (less the label with `hide-label`, less the count with `results-count`), and the whole list is shown, so nothing moves when it upgrades. A filter restored from the URL does hide items at load.
+- **Accessibility.** The field is a labelled `<input type="search">` (the browser's own clear icon is hidden, as the 44px Clear button does its job); the focus ring is the library's 3px orange. The count, the status and the message use the muted and alert role tokens, which keep at least 4.5:1 in light and dark. `no-style` keeps the layout, the 44px targets and the hidden status. Removing the element shows the whole list again.
+- **Analytics.** `['uvalib-list-filter', 'filter', '', <how many match>]` once the typing settles on a new query (the same words in another case or order do not count again), and `['uvalib-list-filter', 'clear']` when the visitor empties the field. Never the typed text. A filter restored from the URL or set in script is not reported.
+
 ## Filter drawer
 
 `<uvalib-filter-drawer>` holds a search page's form and filters: a plain sidebar on wide screens, and at and below `breakpoint` (default `48rem`) a “Search and filters” button that opens them in a modal panel from the side, as Virgo does on phones. Entry: `uvalib-filter-drawer.js` on the CDN, `@uvalib/web-components/uvalib-filter-drawer.js` on npm. See the [Filter drawer](https://uvalib.github.io/reusable-web-library/#filter-drawer) example.
@@ -1973,6 +2028,8 @@ Static sites that search with [Pagefind](https://pagefind.app) (such as Electron
   | `uvalib-combobox`                            | `select` (a suggestion chosen)                                                                                                    | the field's label (never the typed text or the suggestion)                                                                                | the suggestion's position, from 1 |
   | `uvalib-combobox`                            | `clear` (the clear button, or Escape on a closed list)                                                                            | the field's label                                                                                                                         |                                   |
   | `uvalib-combobox`                            | `error` (`src` failed to load)                                                                                                    | `load`                                                                                                                                    |                                   |
+  | `uvalib-list-filter`                         | `filter` (once the typing settles on a new query, 1 s after the last keystroke)                                                   | empty (never the typed text)                                                                                                              | how many items match              |
+  | `uvalib-list-filter`                         | `clear` (the clear button, Escape, or the field emptied by typing)                                                                |                                                                                                                                           |                                   |
   | `uvalib-filter-drawer`                       | `open`, `close` (by the visitor: the button, Close, Escape or the backdrop; not a resize or a script)                             | the drawer's `label`                                                                                                                      |                                   |
   | `uvalib-back-to-top`                         | `click`                                                                                                                           |                                                                                                                                           |                                   |
   | `uvalib-dialog`                              | `open` (a visitor's button), `close` (by the visitor: Close, a close button, Escape, the backdrop or a dialog form; not a script) | the dialog's `label` (never its content)                                                                                                  |
@@ -3347,6 +3404,57 @@ An accessible image viewer over a set of plain links. With JavaScript a primary 
 | `--uva-brand-blue` | `#232d4b` | Control background when `--uva-color-accent-bg` is unset. |
 | `--uva-grey-darkest` | `#2b2b2b` | Text when `--uva-color-text` is unset. |
 | `--uva-grey-100` | `#dadada` | Border when `--uva-color-border` is unset. |
+
+### `<uvalib-list-filter>`
+
+A text field that filters a long list on the page as you type: a collection's 473 texts, a staff directory, a table of databases. The list is the page's own markup and stays fully visible without the script. `for` is the id of the list: any element whose children are the items (a `<ul>` or `<ol>`, a `<dl>` of `<div>` rows, a grid of cards; for a `<table>`, the rows of its bodies). `selector` picks the items instead (inside `for` when both are set, else in the page). An item matches when every word typed appears in its `data-filter-text`, or else its text, in any order, ignoring case and accents (“eneide” finds “Énéide”). Items that do not match get the `hidden` attribute (kept hidden whatever `display` the page gives them); clearing the field shows them all again. Thousands of items filter at once on every keystroke: the text is read once, and only items whose state changes are touched. Groups: give each group's wrapper `data-filter-group` (a `<section>` with its heading and its list) and point `selector` at the items; a group whose items are all hidden is hidden too, heading and all. The visible `label` (default “Filter”; `hide-label` hides it visually) names the field, and a Clear button (“Clear <label>”, 44px, shown only with text) or Escape empties it, keeping focus in the field. Under the field a count follows at once (“Showing 12 of 473 texts”; `noun`, plural, and `singular` name the items), and a polite status announces it once the typing settles (a second after the last keystroke), never on every key or at load. When nothing matches, a message says “No texts match “…”.” To put the count elsewhere, point `results-count` at a `<uvalib-results-count>` (give it `total` and `noun` in the markup): the element then sets its `shown` and `total` and leaves the count and announcement to it. With `query-param` (bare: `filter`) the filter is read from that URL parameter at start and written back with `history.replaceState` as you type, so a filtered list can be shared and Back returns to it. The list's content is read once; call `refresh()` after changing an item's text in script (added or removed items and `data-filter-text` changes are noticed). Before it upgrades, `base.css` holds the label, field and count's height, so nothing moves.
+
+#### Attributes
+
+| Attribute | Type | Default | Description |
+|---|---|---|---|
+| `for` | `string` | `''` | The id of the list whose children are the items (for a table, its body rows). |
+| `selector` | `string` | `''` | A CSS selector for the items, inside `for` when it is set, else in the page. |
+| `label` | `string` | `'Filter'` | The field's visible label and accessible name. |
+| `hide-label` | `boolean` | `false` | Hide the label visually (it still names the field), when a heading beside it says it. |
+| `placeholder` | `string` | `''` | Placeholder text in the empty field, such as “Title or author”. |
+| `noun` | `string` | `'items'` | What the items are, plural: “items” by default. |
+| `singular` | `string` | `''` | What one item is. Default: “item” when `noun` is unset, else `noun`. |
+| `results-count` | `string` | `''` | The id of a `<uvalib-results-count>` to drive instead of the element's own count. |
+| `query-param` | `string \| null` | `null` | The URL parameter to read the filter from and write it to; a bare attribute uses `filter`. Off by default. |
+| `value` | `string` | `''` | The text in the field. Setting it filters the list (not reported to analytics). |
+| `no-shadow-dom` | `boolean` | `false` |  |
+| `no-style` | `boolean` | `false` |  |
+
+#### CSS parts
+
+| Part | Description |
+|---|---|
+| `label` | The visible label. |
+| `field` | The box around the field and its clear button. |
+| `input` | The text field. |
+| `clear` | The clear button. |
+| `count` | The visible count under the field. |
+| `empty` | The “No … match” message. |
+
+#### Events
+
+| Event | Description |
+|---|---|
+| `uvalib-list-filter-change` | The filter was applied with a new query (typing, Clear, Escape, `value` set in script, the URL at start, Back and Forward). `detail` is `{ query, shown, total }`. Not fired at load without a query. Bubbles and is composed. |
+| `uvalib-analytics-event` | For `<site-analytics>`, on the visitor's actions only: `['uvalib-list-filter', 'filter', '', <shown>]` once the typing settles on a new query, and `['uvalib-list-filter', 'clear']` when the visitor empties the field. Never the typed text. Bubbles and is composed. |
+
+#### CSS custom properties
+
+| Property | Default | Description |
+|---|---|---|
+| `--uva-color-surface-raised` |  | Dark-mode role token: field background (else #fff). |
+| `--uva-color-control-border` |  | Dark-mode role token: field border (else `--uva-grey`, #808080). |
+| `--uva-color-input-text` |  | Dark-mode role token: field text (else #2b2b2b). |
+| `--uva-color-text` |  | Dark-mode role token: label text (else #2b2b2b). |
+| `--uva-color-text-muted` |  | Dark-mode role token: placeholder, count and the clear icon (else #4f4f4f). |
+| `--uva-color-alert-info-bg` |  | Dark-mode role token: the no-match message background. |
+| `--uva-color-focus` |  | Dark-mode role token: focus ring (else `--uva-brand-orange`). |
 
 ### `<uvalib-map>`
 

@@ -37,6 +37,7 @@ const tags = [
   'uvalib-back-to-top',
   'uvalib-dialog',
   'uvalib-citation',
+  'uvalib-list-filter',
 ];
 
 /** Plain modules a page's own scripts import (no element): analytics.js, the track* helpers. */

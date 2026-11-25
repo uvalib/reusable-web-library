@@ -187,6 +187,10 @@
       "types": "./dist/components/uvalib-citation/uvalib-citation.d.ts",
       "default": "./dist/components/uvalib-citation/uvalib-citation.js"
     },
+    "./uvalib-list-filter.js": {
+      "types": "./dist/components/uvalib-list-filter/uvalib-list-filter.d.ts",
+      "default": "./dist/components/uvalib-list-filter/uvalib-list-filter.js"
+    },
     "./tokens.css": "./dist/tokens.css",
     "./base.css": "./dist/base.css",
     "./pagefind.css": "./dist/pagefind.css",
