@@ -22,6 +22,125 @@ const metadataLimits = unsafeCSS(
   }).join('\n'),
 );
 
+/**
+ * `<uvalib-pager>` before it upgrades (issue #39): it draws everything from attributes, so the
+ * hold draws it too, invisibly, laid out as the upgraded pager is, and nothing below moves.
+ * Load-more wins over numbered pages, which win over previous/next, as in the element.
+ *
+ * Previous/next: each side a box of its title (from prev-label/next-label, on one line, at
+ * most 48% wide, 2.75rem tall at least) under its kicker's line (0.75rem, or the text size
+ * with no-style) and 0.15rem gap, side by side 1rem apart or stacked when they do not fit,
+ * as the links are. Without a label, the side is its kicker. The kicker's line height is
+ * worked out from the title's (exact when line-height is a number or normal).
+ *
+ * Numbered pages: one 2.75rem row, or two (0.25rem apart) when the pager is narrower than its
+ * items: 1 to 7 pages are all shown; more show five numbers and one or two ellipses (one
+ * near the start; near the end cannot be told from the attributes, so two are assumed).
+ *
+ * Load more: the "Showing N of M" line and the 44px button beside it (wrapping as they
+ * wrap); the button is left out only for has-more="false" (a shown that has reached total
+ * cannot be compared in CSS).
+ *
+ * The drawn boxes stay hidden after the two-second reveal (they are not links): if the script
+ * never loads, the space stays empty.
+ */
+const OFF = ':defined, [hidden]';
+const NOPAGES = `[pages=''], [pages='0'], [pages^='-']`;
+const LOAD = `[mode='load-more' i]`;
+const FEW = [1, 2, 3, 4, 5, 6, 7].map((n) => `[pages='${n}']`).join(', ');
+const SECTIONS = `uvalib-pager:not(${OFF}, ${LOAD}, [pages]:not(${NOPAGES}))`;
+/** A side's box (prev ::before, next ::after), with `extra` on the host. */
+const side = (s: 'prev' | 'next', extra = '') =>
+  `${SECTIONS}[${s}-href]:not([${s}-href=''])${extra}::${s === 'prev' ? 'before' : 'after'}`;
+const sides = (extra = '') => `${side('prev', extra)}, ${side('next', extra)}`;
+const noLabel = (s: 'prev' | 'next', extra = '') =>
+  side(s, `${extra}:is(:not([${s}-label]), [${s}-label=''])`);
+const noLabels = (extra = '') => `${noLabel('prev', extra)}, ${noLabel('next', extra)}`;
+const PAGES = `uvalib-pager[pages]:not(${OFF}, ${LOAD}, ${NOPAGES})`;
+const MORE = `uvalib-pager${LOAD}:not(${OFF})`;
+const pagesRow = (n: number) => `${n * 2.75 + (n - 1) * 0.25}rem`;
+const pagerRules = unsafeCSS(`
+  uvalib-pager:not(:defined) { line-height: inherit; }
+  ${SECTIONS}:is([prev-href]:not([prev-href='']), [next-href]:not([next-href=''])) {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  ${sides()} {
+    display: block;
+    max-width: 48%;
+    min-width: 0;
+    min-height: 2.75rem;
+    padding-block-start: calc(0.75 * 1lh + 0.15rem);
+    padding-block-start: calc(1lh * 0.75rem / 1em + 0.15rem);
+    overflow: hidden;
+    white-space: nowrap;
+    visibility: hidden;
+  }
+  ${side('prev')} { content: attr(prev-label); }
+  ${side('next')} { content: attr(next-label); margin-inline-start: auto; }
+  ${sides('[no-style]')} { padding-block-start: calc(1lh + 0.15rem); }
+  ${noLabels()} {
+    padding-block-start: 0;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  ${noLabel('prev')} { content: 'Previous'; }
+  ${noLabel('next')} { content: 'Next'; }
+  ${noLabels('[no-style]')} {
+    padding-block-start: 0;
+    font-size: inherit;
+    letter-spacing: normal;
+    text-transform: none;
+  }
+  ${PAGES} { container-type: inline-size; }
+  ${PAGES}::before { content: ''; display: block; block-size: 2.75rem; }
+  ${[4, 5, 6, 7]
+    .map(
+      (n) =>
+        `@container (width < ${pagesRow(n)}) { uvalib-pager[pages='${n}']:not(${OFF}, ${LOAD})::before { block-size: 5.75rem; } }`,
+    )
+    .join('\n')}
+  @container (width < 18.25rem) {
+    ${PAGES}:not(${FEW})::before { block-size: 5.75rem; }
+  }
+  @container (16.5rem <= width < 18.25rem) {
+    ${PAGES}:not(${FEW}):is(:not([page]), [page='1'], [page='2'], [page='3'])::before {
+      block-size: 2.75rem;
+    }
+  }
+  ${MORE} {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+  }
+  ${MORE}::before {
+    content: 'Showing ' attr(shown);
+    min-width: 0;
+    overflow-wrap: anywhere;
+    visibility: hidden;
+  }
+  ${MORE}[total]:not([total=''], [total='0'])::before {
+    content: 'Showing ' attr(shown) ' of ' attr(total);
+  }
+  ${MORE}:not([has-more='false' i])::after {
+    content: 'Load more';
+    display: block;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.5rem 1.25rem;
+    border: 2px solid transparent;
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1.2;
+    visibility: hidden;
+  }
+  ${MORE}[no-style]::after { border-width: 0; }
+`);
+
 export const TYPEKIT_URL = 'https://use.typekit.net/oym8nvz.css';
 
 // The body background has no fallback: without dark mode it stays transparent, as before.
@@ -102,6 +221,7 @@ export const base = css`
   uvalib-results-count:not(:defined)[hidden] {
     display: none;
   }
+  ${pagerRules}
   /* The pre-upgrade rules here set display, which beats the hidden attribute's (issue #7).
      More specific than each of them (two pseudo-classes or attributes), so it needs no importance flag. */
   :where(

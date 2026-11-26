@@ -861,3 +861,169 @@ describe('base.css before <uvalib-contents full-href> is defined', function () {
     });
   }
 });
+
+/**
+ * base.css before <uvalib-pager> is defined (issue #39): previous/next drawn as a hidden
+ * replica from the attributes (kicker and title, the same sizes, gaps and wrapping as the
+ * upgraded links), numbered pages and load-more held at their heights, so the text under a
+ * pager at the top of a reading page does not move when it upgrades, in shadow and light DOM,
+ * styled and with no-style, at a phone's width and a desktop's.
+ */
+describe('base.css before <uvalib-pager> is defined', function () {
+  this.timeout(15000);
+  const longPrev =
+    'Chapter XII. In which the travellers reach the coast, and a long title wraps on a phone';
+  const longNext = 'Chapter XIV. The return to the city, with another long section title';
+  const sections = (extra: string, prev: string, next: string) =>
+    `prev-href="/t/1" prev-label="${prev}" next-href="/t/3" next-label="${next}" ${extra}`;
+  const pagers: Record<string, string> = {
+    short: sections('', 'Preface', 'Chapter I'),
+    long: sections('', longPrev, longNext),
+    mixed: sections('', 'Preface', longNext),
+    'prev-only': `prev-href="/t/1" prev-label="${longPrev}"`,
+    'next-only': 'next-href="/t/3" next-label="Chapter I"',
+    'no-labels': 'prev-href="/t/1" next-href="/t/3"',
+    'one-label': 'prev-href="/t/1" next-href="/t/3" next-label="Chapter I"',
+    'light-short': sections('no-shadow-dom', 'Preface', 'Chapter I'),
+    'light-long': sections('no-shadow-dom', longPrev, longNext),
+    'bare-long': sections('no-style', longPrev, longNext),
+    'bare-none': 'prev-href="/t/1" no-style',
+    pages3: 'pages="3" page="2"',
+    pages7: 'pages="7" page="4"',
+    pages20: 'pages="20" page="10"',
+    pages20start: 'pages="20"',
+    'pages-light': 'pages="7" page="1" no-shadow-dom',
+    'pages-bare': 'pages="7" page="1" no-style',
+    more: 'mode="load-more" shown="10" total="40"',
+    'more-open': 'mode="load-more" shown="10" has-more',
+    'more-light': 'mode="load-more" shown="10" total="1200" no-shadow-dom',
+    'more-bare': 'mode="load-more" shown="10" total="40" no-style',
+    'more-done': 'mode="load-more" shown="40" total="40" has-more="false"',
+  };
+  /**
+   * no-style in light DOM, alone in its page: a styled light-DOM pager in the same page would
+   * style it too (light-DOM styles go to the whole page, per tag).
+   */
+  const bare: Record<string, string> = {
+    'bare-light': sections('no-style no-shadow-dom', 'Preface', longNext),
+    'bare-light-none': 'next-href="/t/3" no-style no-shadow-dom',
+    'bare-light-pages': 'pages="7" no-style no-shadow-dom',
+    'bare-light-more': 'mode="load-more" shown="10" total="40" no-style no-shadow-dom',
+  };
+  /** Text at another size and line height than the page's (the kicker stays 0.75rem). */
+  const scaled: Record<string, string> = {
+    'scaled-short': sections('', 'Preface', 'Chapter I'),
+    'scaled-long': sections('', longPrev, longNext),
+    'scaled-light': sections('no-shadow-dom', longPrev, 'Chapter I'),
+    'scaled-bare': sections('no-style', 'Preface', 'Chapter I'),
+    'scaled-more': 'mode="load-more" shown="10" total="40"',
+  };
+  let ids = Object.keys(pagers);
+  const open = async (width: number, set = pagers, wrap = '') => {
+    ids = Object.keys(set);
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = `width: ${width}px; height: 600px; border: 0`;
+    iframe.srcdoc = `<!doctype html><html lang="en"><head>
+      <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+      </head><body><div style="${wrap}">${ids
+        .map(
+          (id) =>
+            `<uvalib-pager id="${id}" label="${id}" ${set[id]}></uvalib-pager><p id="${id}-text">Text</p>`,
+        )
+        .join('')}</div></body></html>`;
+    document.body.append(iframe);
+    await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+    return { iframe, doc: iframe.contentDocument! };
+  };
+  /** Each pager's height and the offset of the text below it, to a tenth of a pixel. */
+  const measure = (doc: Document) =>
+    Object.fromEntries(
+      ids.map((id) => {
+        const r = doc.getElementById(id)!.getBoundingClientRect();
+        const text = doc.getElementById(`${id}-text`)!.getBoundingClientRect().top;
+        return [id, [r.height, text - r.top].map((n) => Math.round(n * 10) / 10)];
+      }),
+    );
+  const upgrade = async (doc: Document) => {
+    const s = doc.createElement('script');
+    s.type = 'module';
+    s.src = `${location.origin}/dist-cdn/uvalib-pager.js`;
+    doc.head.append(s);
+    await new Promise((r) => s.addEventListener('load', r, { once: true }));
+    type Lit = HTMLElement & { updateComplete: Promise<unknown> };
+    for (const id of ids) await (doc.getElementById(id) as Lit).updateComplete;
+    await new Promise((r) => setTimeout(r, 50));
+  };
+
+  /** Measured before and after the script runs (after first paint, as on a reading page). */
+  const shift = async (doc: Document) => {
+    await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
+    const before = measure(doc);
+    await upgrade(doc);
+    const after = measure(doc);
+    const moved = ids.filter((id) =>
+      [0, 1].some((i) => Math.abs(after[id]![i]! - before[id]![i]!) > 1),
+    );
+    return {
+      after,
+      moved: moved.map((id) => `${id}: ${before[id]!.join(', ')} → ${after[id]!.join(', ')}`),
+    };
+  };
+
+  // 296: numbered pages with two ellipses wrap, one ellipsis (near the start) does not.
+  for (const width of [296, 320, 412, 1350]) {
+    it(`holds each pager's upgraded height, so the text below does not move, at ${width}px`, async () => {
+      const { iframe, doc } = await open(width);
+      try {
+        const win = iframe.contentWindow!;
+        expect(win.customElements.get('uvalib-pager')).to.equal(undefined);
+        expect(win.getComputedStyle(doc.getElementById('short')!).visibility).to.equal('hidden');
+        const { after, moved } = await shift(doc);
+        const link = doc.getElementById('long')!.shadowRoot!.querySelector('a.pager-next');
+        expect(link === null).to.equal(false);
+        expect(moved, 'height, text offset').to.deep.equal([]);
+        // On a phone the long titles stack the two links (two rows); the short ones do not.
+        if (width === 412) expect(after.long![0]).to.be.greaterThan(after.short![0]! * 2);
+        if (width === 296) {
+          expect(after.pages20![0]).to.be.greaterThan(90);
+          expect(after.pages20start![0]).to.be.lessThan(50);
+        }
+      } finally {
+        iframe.remove();
+      }
+    });
+  }
+
+  for (const width of [412, 1350]) {
+    it(`holds no-style in light DOM, and text at another size, at ${width}px`, async () => {
+      for (const [set, wrap] of [
+        [bare, ''],
+        [scaled, 'font-size: 1.25rem; line-height: 1.7'],
+      ] as const) {
+        const { iframe, doc } = await open(width, set, wrap);
+        try {
+          const { moved } = await shift(doc);
+          expect(moved, 'height, text offset').to.deep.equal([]);
+        } finally {
+          iframe.remove();
+        }
+      }
+    });
+  }
+
+  it('shows nothing and keeps its space if the script never loads', async () => {
+    const { iframe, doc } = await open(412);
+    try {
+      const win = iframe.contentWindow!;
+      const el = doc.getElementById('long')!;
+      const h = el.getBoundingClientRect().height;
+      expect(h).to.be.greaterThan(40);
+      expect(await visibilityAfter(win, el)).to.equal('visible');
+      for (const p of ['::before', '::after'])
+        expect(win.getComputedStyle(el, p).visibility).to.equal('hidden');
+      expect(el.getBoundingClientRect().height).to.equal(h);
+    } finally {
+      iframe.remove();
+    }
+  });
+});
