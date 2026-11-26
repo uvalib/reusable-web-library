@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.11.0 — 2026-11-25
+
+### Features
+
+- hold the page still while a search from the URL loads (issue #37)
+- full-contents link, partial-list line and window for long contents
+
+### Other
+
+- Merge branch 'integrate/xtf': Pagefind searching hold (issue #37), contents window and full-contents link (issue #38)
+- Merge branch 'feat/contents-window' into integrate/xtf
+- Merge branch 'feat/pagefind-hold' into integrate/xtf
+
 ## v1.10.0 — 2026-11-25
 
 ### Features
