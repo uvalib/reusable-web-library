@@ -24,6 +24,17 @@ import { css, unsafeCSS } from 'lit';
 // the role tokens it reads into pagefind.css, as it does for base.css).
 
 const P = '.pagefind-ui';
+
+/** <uvalib-pagefind-search> before its script runs, holding for a search from the URL. */
+const pre = unsafeCSS('uvalib-pagefind-search[searching]:not([no-skeleton]):not(:defined)');
+
+/** A vertical gradient of bars in --_bar between each pair of offsets (calc() terms). */
+const bands = (...pairs: [string, string][]) =>
+  unsafeCSS(
+    `linear-gradient(${pairs
+      .map(([a, b]) => `transparent 0 calc(${a}), var(--_bar) 0 calc(${b})`)
+      .join(', ')}, transparent 0)`,
+  );
 const p = unsafeCSS(P);
 
 /** The search field's height: the Clear button sits inside it, 6px from each edge (44px). */
@@ -375,6 +386,138 @@ export const pagefind = css`
     font-weight: 700;
     line-height: 1.5;
   }
+  /* While a search from the URL loads (issue #37): at least a screen's height, so what follows
+     stays below the fold, and placeholder results in place of Pagefind's results area until
+     they are drawn. A page may set searching in its HTML, so this holds from first paint. */
+  uvalib-pagefind-search[searching]:not([no-skeleton]) {
+    min-block-size: 100vh;
+  }
+  uvalib-pagefind-search[searching]:not([no-skeleton]) .pagefind-ui__drawer {
+    display: none;
+  }
+  /* Before the element's script runs: the same placeholders, drawn as still bars where the
+     label, field, results message and rows will be (::before the message, ::after the rows,
+     each row a repeating tile of gradient bars; with show-sub-results, two sections a row). */
+  ${pre} {
+    --_bar: var(--uva-color-track, var(--uva-grey-200, #f1f1f1));
+    --_top: calc(1.5em + 0.35rem + ${FIELD}px + 1.25rem);
+    --_msg: calc(1.95rem + 1.5em);
+    --_row: calc(1px + 4.41rem + 4.5em);
+    /* A row: its top border, title and short last line (60% wide), then two full lines. */
+    --_l: calc(1px + 3.16rem + 0.25em);
+    --_rows:
+      linear-gradient(var(--_bar) 0 1px, transparent 0),
+      ${bands(['1px + 1.43rem', '1px + 2.63rem'], ['var(--_l) + 3em', 'var(--_l) + 4em'])},
+      ${bands(['var(--_l)', 'var(--_l) + 1em'], ['var(--_l) + 1.5em', 'var(--_l) + 2.5em'])};
+    --_sizes: 100% var(--_row), 60% var(--_row), 100% var(--_row);
+  }
+  ${pre}[label-hidden] {
+    --_top: calc(${FIELD}px + 1.25rem);
+  }
+  ${pre}::before,
+  ${pre}::after {
+    content: '';
+    display: block;
+    background-repeat: no-repeat;
+  }
+  ${pre}::before {
+    /* No margin: it would collapse with the margin above the element. */
+    block-size: calc(var(--_top) + var(--_msg));
+    background-image: linear-gradient(var(--_bar) 0 0);
+    background-position: 0 calc(var(--_top) + 0.6rem + 0.25em);
+    background-size: min(14rem, 70%) 1em;
+  }
+  ${pre}::after {
+    block-size: calc(100vh - var(--_top) - var(--_msg));
+    background-repeat: repeat-y;
+    background-image: var(--_rows);
+    background-size: var(--_sizes);
+  }
+  /* Each section: a 3px bar beside a title and two lines (the last 60%), 0.75rem below. */
+  ${pre}[show-sub-results] {
+    --_row: calc(1px + 8.51rem + 10.5em);
+    --_s: calc(1px + 3.91rem + 4.5em);
+    --_t: calc(var(--_s) + 2.05rem + 3em);
+  }
+  ${pre}[show-sub-results]::after {
+    --_in: calc(100% - 1rem - 3px);
+    background-image:
+      var(--_rows),
+      ${bands(['var(--_s)', 'var(--_s) + 1.3rem + 3em'], ['var(--_t)', 'var(--_t) + 1.3rem + 3em'])},
+      ${bands(['var(--_s) + 0.15rem', 'var(--_s) + 1.15rem'], ['var(--_t) + 0.15rem', 'var(--_t) + 1.15rem'])},
+      ${bands(['var(--_s) + 1.3rem + 0.25em', 'var(--_s) + 1.3rem + 1.25em'], ['var(--_t) + 1.3rem + 0.25em', 'var(--_t) + 1.3rem + 1.25em'])},
+      ${bands(['var(--_s) + 1.3rem + 1.75em', 'var(--_s) + 1.3rem + 2.75em'], ['var(--_t) + 1.3rem + 1.75em', 'var(--_t) + 1.3rem + 2.75em'])};
+    background-position:
+      0 0,
+      0 0,
+      0 0,
+      0 0,
+      calc(1rem + 3px) 0,
+      calc(1rem + 3px) 0,
+      calc(1rem + 3px) 0;
+    background-size:
+      var(--_sizes),
+      3px var(--_row),
+      calc(var(--_in) * 0.45) var(--_row),
+      var(--_in) var(--_row),
+      calc(var(--_in) * 0.6) var(--_row);
+  }
+  /* The field's height before Pagefind draws it, so the placeholders below it stay put. */
+  uvalib-pagefind-search[searching] > .uvalib-pagefind-search__ui {
+    min-block-size: ${FIELD}px;
+  }
+  /* Sized like the results area: its message, then rows like .pagefind-ui__result. The bars
+     are base.css's .uvalib-skeleton-text (its shimmer, reduced motion and forced colors); the
+     sizes and colour here hold without base.css. */
+  /* Flex columns, so the bars' margins add up (no collapsing) to 1.5em lines. */
+  .uvalib-pagefind-search__skeleton,
+  .uvalib-pagefind-search__skeleton-result,
+  .uvalib-pagefind-search__skeleton-sub {
+    display: flex;
+    flex-direction: column;
+  }
+  .uvalib-pagefind-search__skeleton {
+    margin-block-start: 1.25rem;
+    line-height: 1.5;
+  }
+  .uvalib-pagefind-search__skeleton .uvalib-skeleton-text {
+    display: block;
+    box-sizing: border-box;
+    inline-size: 100%;
+    block-size: 1em;
+    margin-block: 0.25em;
+    border-radius: 0.2rem;
+    background-color: var(--uva-color-track, var(--uva-grey-200, #f1f1f1));
+  }
+  .uvalib-pagefind-search__skeleton .uvalib-pagefind-search__skeleton-message {
+    inline-size: min(14rem, 70%);
+    margin-block: calc(0.6rem + 0.25em) calc(1.35rem + 0.25em);
+  }
+  .uvalib-pagefind-search__skeleton-result {
+    padding-block: 1.25rem;
+    border-block-start: 1px solid var(--pagefind-ui-tag);
+  }
+  .uvalib-pagefind-search__skeleton-result:last-child {
+    border-block-end: 1px solid var(--pagefind-ui-tag);
+  }
+  .uvalib-pagefind-search__skeleton .uvalib-pagefind-search__skeleton-title {
+    inline-size: 60%;
+    block-size: 1.2rem;
+    margin-block: 0.18rem 0.53rem;
+  }
+  .uvalib-pagefind-search__skeleton .uvalib-pagefind-search__skeleton-short {
+    inline-size: 60%;
+  }
+  .uvalib-pagefind-search__skeleton-sub {
+    margin-block-start: 0.75rem;
+    padding-inline-start: 1rem;
+    border-inline-start: 3px solid var(--pagefind-ui-tag);
+  }
+  .uvalib-pagefind-search__skeleton-sub .uvalib-pagefind-search__skeleton-title {
+    inline-size: 45%;
+    block-size: 1rem;
+    margin-block: 0.15rem;
+  }
   /* Both set display, which would beat the hidden attribute's (issue #7). */
   :where(uvalib-pagefind-search, .uvalib-pagefind-search__label)[hidden] {
     display: none !important;
@@ -401,6 +544,18 @@ export const pagefind = css`
     ${p} .pagefind-ui__loading {
       border: 1px solid GrayText;
       color: GrayText;
+    }
+    /* The drawn bars in GrayText (forced colors would drop the gradients). */
+    ${pre} {
+      --_bar: GrayText;
+    }
+    ${pre}::before,
+    ${pre}::after {
+      forced-color-adjust: none;
+    }
+    /* As base.css's skeletons: an outline, for a page without base.css. */
+    .uvalib-pagefind-search__skeleton .uvalib-skeleton-text {
+      border: 1px solid GrayText;
     }
     ${p} :is(.pagefind-ui__search-clear, .pagefind-ui__button):hover {
       border-color: Highlight;
