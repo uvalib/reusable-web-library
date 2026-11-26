@@ -18,6 +18,12 @@ export const SETTLE_MS = 1000;
 /** How long to wait for Pagefind's filter list before searching without the URL's filters. */
 export const FILTER_WAIT_MS = 10000;
 
+/** The longest a skeleton holds the results' space before Pagefind's own state shows. */
+export const HOLD_MAX_MS = FILTER_WAIT_MS + 5000;
+
+/** Skeleton rows at most, whatever `page-size` says (only the first screenful matters). */
+const MAX_SKELETON_ROWS = 25;
+
 /** Filters as Pagefind takes them: each name with its values. */
 type Filters = Record<string, string[]>;
 
@@ -40,6 +46,21 @@ function loadPagefindUI(src: string): Promise<PagefindUIConstructor> {
     scripts.set(src, p);
   }
   return p;
+}
+
+/**
+ * Placeholder results, sized like pagefind.css's result rows (a title and three excerpt lines,
+ * and two sections with `show-sub-results`), drawn with base.css's `.uvalib-skeleton-text`.
+ */
+function skeleton(rows: number, subResults: boolean): HTMLElement {
+  const bar = (c: string) => `<span class="uvalib-skeleton-text ${TAG}__skeleton-${c}"></span>`;
+  const sub = `<div class="${TAG}__skeleton-sub">${bar('title')}${bar('line')}${bar('short')}</div>`;
+  const row = `<div class="${TAG}__skeleton-result">${bar('title')}${bar('line')}${bar('line')}${bar('short')}${subResults ? sub + sub : ''}</div>`;
+  const el = document.createElement('div');
+  el.className = `${TAG}__skeleton`;
+  el.setAttribute('aria-hidden', 'true');
+  el.innerHTML = bar('message') + row.repeat(rows);
+  return el;
 }
 
 /** Hidden from sight but read by screen readers; inline, so it holds without pagefind.css. */
@@ -123,7 +144,12 @@ export function countFromMessage(
  * hidden from screen readers; `?q=` read at start (and on Back and Forward) and the settled
  * query written back with `history.replaceState`, so a search can be shared; with
  * `filter-params`, the named Pagefind filters read from and written to the URL the same way;
- * and reports to `<site-analytics>`. The
+ * and reports to `<site-analytics>`. While a search from the URL loads, it can hold the page
+ * still (issue #37): with `searching` set in the page's HTML when the URL has a query, the
+ * element holds a screen's height from first paint, and placeholder results (aria-hidden) stand
+ * in for Pagefind's until they, or "no results", are drawn; the element then still reaches the
+ * bottom of the window until the visitor uses the search, so a short list does not pull the
+ * footer up. It does the same on Back and Forward to a new query. The
  * `ui` property is the `PagefindUI` instance (for `triggerFilters`), and `ready` resolves
  * with it. Attributes are read once, when the element is first connected.
  *
@@ -140,6 +166,8 @@ export function countFromMessage(
  * @attr {string} translations - JSON of Pagefind UI strings to override (`{"zero_results": "…"}`).
  * @attr {string} options - JSON of any other `PagefindUI` options (`{"openFilters": ["author"]}`), applied last.
  * @attr {string} [query-param=q] - The URL parameter that holds the query; empty turns it off.
+ * @attr {boolean} searching - Set it in the page's HTML when the URL has a query (server-side, or with a one-line inline script after the element): from first paint, before any script loads, it holds a screen's height for the results, and placeholder results show until they are drawn. The element removes it then (and at start without a query), and sets it itself on Back and Forward to a new query.
+ * @attr {boolean} no-skeleton - Never hold space or show placeholder results (`searching` is ignored).
  * @attr {string} filter-params - Space-separated Pagefind filter names read from and written to URL parameters of the same name (`collection author`: `?collection=A&collection=B`). URL filters are applied with the query as one search, their filter groups open; values not in the index are ignored. Empty (the default) turns it off.
  * @fires search-results - Results settled: `detail` is `{ query, count }`; `{ query: '', count: 0 }` when the field is emptied after a search. Does not bubble.
  * @fires uvalib-analytics-search - For `<site-analytics>`: the settled query, category `Pagefind` and its result count, once per query and filter set. Bubbles and is composed.
@@ -166,6 +194,13 @@ export class UvalibPagefindSearch extends HTMLElement {
   private readonly onPopState = () => this.followUrl();
   /** Resolves once Pagefind has drawn its filter checkboxes (set only while waiting for them). */
   private filtersDrawn?: () => void;
+  /** The placeholder results, while a search from the URL loads. */
+  private skeleton?: HTMLElement;
+  /** The results list when the hold began (Pagefind draws a new one for the new results). */
+  private heldList?: Element | null;
+  private holdTimer?: ReturnType<typeof setTimeout>;
+  /** The page's own inline min-block-size, while the element keeps the fold after a hold. */
+  private ownMinSize?: string;
 
   private newReady(): Promise<PagefindUIInstance> {
     const { promise, resolve } = Promise.withResolvers<PagefindUIInstance>();
@@ -232,6 +267,8 @@ export class UvalibPagefindSearch extends HTMLElement {
     this.generation++;
     this.started = false;
     clearTimeout(this.settleTimer);
+    this.release();
+    this.unkeep();
     this.observer?.disconnect();
     this.observer = undefined;
     window.removeEventListener('popstate', this.onPopState);
@@ -264,12 +301,19 @@ export class UvalibPagefindSearch extends HTMLElement {
     this.status.setAttribute('role', 'status');
     Object.assign(this.status.style, VISUALLY_HIDDEN);
     this.append(label, this.container, this.status);
+    // Starting with a query and `searching` (set by the page, so the space is held from first
+    // paint), show placeholders until the results are drawn. Without it the element does not
+    // hold: this script runs after first paint, so holding now would push what is in view
+    // (the footer) down as far as the results would, and further on a short list.
+    if (this.urlQuery() && this.hasAttribute('searching')) this.hold();
+    else this.removeAttribute('searching');
 
     let PagefindUI: PagefindUIConstructor;
     try {
       PagefindUI = await loadPagefindUI(`${bundlePath}pagefind-ui.js`);
     } catch {
       if (generation !== this.generation) return;
+      this.release();
       trackError(this, TAG, 'load');
       label.remove();
       const p = document.createElement('p');
@@ -419,6 +463,7 @@ export class UvalibPagefindSearch extends HTMLElement {
     const input = this.input;
     if (!input) return;
     const searchChanged = !!this.queryParam && input.value.trim() !== q;
+    if (q && searchChanged) this.hold();
     if (this.filterParams.length) {
       this.applyUrl(this.urlFilters(), q, searchChanged);
       return;
@@ -432,8 +477,57 @@ export class UvalibPagefindSearch extends HTMLElement {
     }
   }
 
+  /** Show placeholder results in place of Pagefind's until the new results are drawn. */
+  private hold(): void {
+    if (this.hasAttribute('no-skeleton')) {
+      this.removeAttribute('searching');
+      return;
+    }
+    this.release();
+    this.unkeep();
+    const n = Number.parseInt(this.getAttribute('page-size') ?? '', 10);
+    const rows = Math.min(Number.isFinite(n) && n > 0 ? n : 10, MAX_SKELETON_ROWS);
+    this.skeleton = skeleton(rows, this.hasAttribute('show-sub-results'));
+    this.heldList = this.container.querySelector('.pagefind-ui__results');
+    this.container.after(this.skeleton);
+    this.setAttribute('searching', '');
+    this.holdTimer = setTimeout(() => this.release(), HOLD_MAX_MS);
+  }
+
+  /**
+   * Drop the placeholders and show Pagefind's results area again. With `keepFold` (the results
+   * are drawn), the element keeps reaching the bottom of the window until the visitor uses the
+   * search, so a short list does not pull the footer up into view (a layout shift).
+   */
+  private release(keepFold = false): void {
+    clearTimeout(this.holdTimer);
+    if (keepFold && this.skeleton) {
+      const fold = Math.ceil(window.innerHeight - this.getBoundingClientRect().top);
+      if (fold > 0) {
+        this.ownMinSize ??= this.style.minBlockSize;
+        this.style.minBlockSize = `${fold}px`;
+      }
+    }
+    this.skeleton?.remove();
+    this.skeleton = undefined;
+    this.removeAttribute('searching');
+  }
+
+  /** Let go of the fold kept after a hold (the page's own inline min-block-size, if any, back). */
+  private unkeep(): void {
+    if (this.ownMinSize === undefined) return;
+    this.style.minBlockSize = this.ownMinSize;
+    this.ownMinSize = undefined;
+  }
+
   private listen(): void {
     const c = this.container;
+    // The visitor typing, clearing or clicking takes over from a search from the URL.
+    for (const type of ['input', 'click'])
+      c.addEventListener(type, () => {
+        this.release();
+        this.unkeep();
+      });
     // Pagefind blurs the field on Clear and Escape; bring focus back to it.
     c.addEventListener('click', (e) => {
       const t = e.target as Element;
@@ -469,6 +563,12 @@ export class UvalibPagefindSearch extends HTMLElement {
 
   private onMutation(): void {
     const c = this.container;
+    if (this.skeleton) {
+      // Released once a new results list (or "no results", an empty one) has fully loaded.
+      const list = c.querySelector('.pagefind-ui__results');
+      if (list && list !== this.heldList && !list.querySelector('.pagefind-ui__loading'))
+        this.release(true);
+    }
     if (this.filtersDrawn && c.querySelector('.pagefind-ui__filter-checkbox')) this.filtersDrawn();
     for (const el of c.querySelectorAll('.pagefind-ui__loading:not([aria-hidden])'))
       el.setAttribute('aria-hidden', 'true');

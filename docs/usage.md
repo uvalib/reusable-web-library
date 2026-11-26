@@ -58,7 +58,7 @@ For a sidebar beside the content (a reading page's contents, sub-navigation, rel
 </div>
 ```
 
-It goes side by side at 913px of its own width (library.virginia.edu's 993px breakpoint less `<site-page>`'s 40px gutters) and stacks below that, in source order: put the contents first so they come first on phones, or the sidebar after the main content for a right-hand sidebar. `--sticky` keeps the sidebar in view only when side by side; `--print-hide-sidebar` leaves it out of print. The sidebar is a `<nav>` (or `<uvalib-contents>`) or an `<aside>`; do not wrap a `<nav>` in `role="navigation"`. Details in the README's "Sidebar layout" section.
+It goes side by side at 913px of its own width (library.virginia.edu's 993px breakpoint less `<site-page>`'s 40px gutters) and stacks below that, in source order: put the contents first so they come first on phones, or the sidebar after the main content for a right-hand sidebar. `--sticky` keeps the sidebar in view only when side by side; `--print-hide-sidebar` leaves it out of print. The sidebar is a `<nav>` (or `<uvalib-contents>`) or an `<aside>`; do not wrap a `<nav>` in `role="navigation"`. Details in the README's "Sidebar layout" section. For a very long contents (hundreds of sections, each its own page), write only the entries near the current one and set `full-href` and `total` on `<uvalib-contents>`: it draws a "Full contents (243 sections)" link after the list and tells screen readers the list is partial (README, "Contents and record metadata").
 
 ## Shadow DOM and light DOM
 

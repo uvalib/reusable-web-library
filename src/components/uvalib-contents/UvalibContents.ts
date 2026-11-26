@@ -50,7 +50,24 @@ const DEFAULT_COLLAPSE = '64rem';
 const DEFAULT_LEVEL = 2;
 const DEFAULT_LEVELS = '2-3';
 const DEFAULT_MIN = 2;
+const DEFAULT_FULL_LABEL = 'Full contents';
+const DEFAULT_NOUN = 'sections';
 let uid = 0;
+
+/** A count as written in English text (`1,234`), as `<uvalib-results-count>`. */
+const count = (n: number) => n.toLocaleString('en-US');
+
+/** A whole number at least 0, or undefined. */
+const whole = (n: unknown): number | undefined => {
+  const v = typeof n === 'number' ? n : Number.NaN;
+  return Number.isFinite(v) && v >= 0 ? Math.trunc(v) : undefined;
+};
+
+/** `total` and `window` from attributes: a missing or blank one is unset, not 0. */
+const optionalNumber = {
+  fromAttribute: (v: string | null) => (v === null || v.trim() === '' ? undefined : Number(v)),
+  toAttribute: (v: number | undefined) => (v === undefined ? null : String(v)),
+};
 
 /** What is watched in the `headings-from` element: headings added, removed or retitled. */
 const HEADINGS: MutationObserverInit = { childList: true, characterData: true, subtree: true };
@@ -80,13 +97,18 @@ const headingText = (h: Element): string => {
 };
 
 /**
- * The rules kept with `no-style`: unmarked lists, the disclosure's closed panel hidden, and
- * `[hidden]` hides. `host` is `:host` (shadow) or the tag name (light DOM, so they stay scoped).
+ * The rules kept with `no-style`: unmarked lists, the disclosure's closed panel hidden, the
+ * screen-reader line about a partial list visually hidden, and `[hidden]` hides. `host` is
+ * `:host` (shadow) or the tag name (light DOM, so they stay scoped).
  */
 const structuralRules = (host: string) => `
   ${host} { display: block; }
   ${host} :is(ol, ul) { list-style: none; margin: 0; padding: 0; }
   ${host} li :is(ol, ul) { padding-inline-start: 1rem; }
+  ${host} .visually-hidden {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
   ${host}[hidden], ${host} [hidden] { display: none !important; }
 `;
 const shadowStructure = unsafeCSS(structuralRules(':host'));
@@ -144,13 +166,30 @@ const queryKey = (u: URL) => {
  * `items` win while they give a list. Without JavaScript there is no list: a list rendered
  * at build time, as children, works everywhere.
  *
+ * A very long contents (a text with hundreds of sections, each its own page) can show only
+ * part of the list, with a link to the whole. `full-href` adds that link after the list: not
+ * an entry but a call to action (bold, underlined, with an arrow), its text `full-label`
+ * ("Full contents") followed by the count when `total` (the entries in the full contents) is
+ * set: "Full contents (243 sections)" (`noun`, "sections" by default; `singular` for one). A
+ * static site writes only the entries near the current one (with their parents) and sets
+ * these. `window="12"` does it in the browser when the whole list is given: only the current
+ * entry and the 12 before and after it in document order (25 entries, shifted at either end)
+ * are shown, with their parents so the nesting still makes sense; the others are hidden, not
+ * removed, and a gap between the entries shown is marked with an ellipsis (hidden from
+ * assistive technology). It follows the current entry, and applies to `items` and
+ * `headings-from` too. Without `full-href`, a "Show all 243 sections" button shows the rest in
+ * place ("Show fewer" goes back). While part of the list is shown, a visually hidden line
+ * before it says so ("Showing 25 of 243 sections."); the headline and the landmark keep the
+ * visible label as their name. On narrow screens the link and the button are inside the
+ * disclosure.
+ *
  * Single-page apps: the list is drawn from copies of the children, so a router's own click
  * handlers on them do not run. Listen for `uvalib-contents-navigate` and cancel it to route in
  * place; hash links need nothing.
  *
  * @tagname uvalib-contents
- * @fires uvalib-analytics-event - For `<site-analytics>`: a click on an entry, `['uvalib-contents', 'link-click', 'level <N>', <N>]` (N from 1, the top level), and opening or closing the disclosure, `['uvalib-contents', 'toggle', 'open' | 'close']`; never the label or URL. Bubbles and is composed.
- * @fires uvalib-contents-navigate - A plain click on an entry: `detail` is `{ href, level }` (href as written). Cancel it (`preventDefault()`) to navigate in the app; the click's default is then prevented. Bubbles and is composed.
+ * @fires uvalib-analytics-event - For `<site-analytics>`: a click on an entry, `['uvalib-contents', 'link-click', 'level <N>', <N>]` (N from 1, the top level), on the full-contents link, `['uvalib-contents', 'full-contents-click']`, opening or closing the disclosure, `['uvalib-contents', 'toggle', 'open' | 'close']`, and the window's button, `['uvalib-contents', 'show-all' | 'show-fewer']`; never the label or URL. Bubbles and is composed.
+ * @fires uvalib-contents-navigate - A plain click on an entry or the full-contents link: `detail` is `{ href, level }` (href as written; level 0 for the full-contents link). Cancel it (`preventDefault()`) to navigate in the app; the click's default is then prevented. Bubbles and is composed.
  * @cssprop [--uvalib-contents-sticky-top=1rem] - With `sticky`: the gap kept above it.
  * @cssprop [--uvalib-contents-max-height=none] - The list's maximum height on wide screens (it scrolls beyond it); with `sticky`, the window's height less twice the sticky gap.
  * @cssprop [--uva-blue-alt-dark=#005679] - Link colour.
@@ -161,6 +200,7 @@ const queryKey = (u: URL) => {
  * @cssprop --uva-color-text - Dark-mode role token: text and current entry (else `--uva-grey-darkest`).
  * @cssprop --uva-color-link - Dark-mode role token: the current entry's bar and the button's text (else `--uva-brand-blue`).
  * @cssprop --uva-color-current - Dark-mode role token: the nested levels' bar (else `--uva-brand-orange`).
+ * @cssprop --uva-color-text-muted - Dark-mode role token: the ellipsis between the entries a window shows (else #4f4f4f).
  * @cssprop --uva-color-border - Dark-mode role token: dividers (else #dadada).
  * @cssprop --uva-color-control-border - Dark-mode role token: the button's border (else #808080).
  * @cssprop --uva-color-surface-raised - Dark-mode role token: the button's background (else #fff).
@@ -285,6 +325,59 @@ export class UvalibContents extends UvalibElement {
       :host([data-narrow]) .panel {
         margin-top: 0.5rem;
       }
+      /* A gap between the entries a window shows (aria-hidden). */
+      .gap {
+        padding: 0 0.75rem 0.25rem calc(0.75rem + 4px);
+        color: var(--uva-color-text-muted, var(--uva-grey-A, #4f4f4f));
+        line-height: 1;
+        letter-spacing: 0.1em;
+      }
+      /* The full-contents link and the window's button: a call to action after the list, as
+         library.virginia.edu's "See all" links (bold, underlined, an arrow), its text lined up
+         with the entries'. Outside the scrolling panel, so it shows however long the list. */
+      .more {
+        margin: 0.5rem 0 0;
+      }
+      .more > :is(a, button) {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        box-sizing: border-box;
+        min-height: 44px;
+        margin: 0;
+        padding: 0.5rem 0.75rem 0.5rem calc(0.75rem + 4px);
+        border: 0;
+        background: none;
+        color: var(--uva-color-link, var(--uva-brand-blue, #232d4b));
+        font: inherit;
+        font-weight: 700;
+        text-align: start;
+        text-decoration: underline;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 0.2em;
+        cursor: pointer;
+      }
+      .more > :is(a, button):hover {
+        text-decoration-thickness: 2px;
+      }
+      .more > a::after {
+        content: '';
+        flex: none;
+        width: 0.45em;
+        height: 0.45em;
+        border-inline-end: 2px solid currentColor;
+        border-block-start: 2px solid currentColor;
+        transform: rotate(45deg);
+      }
+      .more > a:dir(rtl)::after {
+        transform: rotate(-45deg);
+      }
+      :host([sticky][data-more]:not([data-narrow])) .panel {
+        max-height: var(
+          --uvalib-contents-max-height,
+          calc(100dvh - 2 * var(--uvalib-contents-sticky-top, 1rem) - 6.5rem)
+        );
+      }
     `,
   ];
 
@@ -336,6 +429,37 @@ export class UvalibContents extends UvalibElement {
    */
   @property({ type: Number }) min = DEFAULT_MIN;
 
+  /**
+   * The URL of the full contents, when the list is only part of it: a "Full contents" link
+   * after the list (`full-label`, with the count from `total`).
+   */
+  @property({ type: String, attribute: 'full-href' }) fullHref?: string;
+
+  /** The full-contents link's text, before the count: "Full contents" by default. */
+  @property({ type: String, attribute: 'full-label' }) fullLabel = DEFAULT_FULL_LABEL;
+
+  /**
+   * How many entries the full contents has, for the link ("Full contents (243 sections)") and
+   * the screen-reader line ("Showing 25 of 243 sections."). With `window`, the whole list's
+   * count when unset.
+   */
+  @property({ converter: optionalNumber }) total?: number;
+
+  /** What the entries are, plural, in the counts: "sections" by default. */
+  @property({ type: String }) noun = DEFAULT_NOUN;
+
+  /** What an entry is, singular, for a count of one. Default: "section" for the default `noun`, else `noun`. */
+  @property({ type: String }) singular = '';
+
+  /**
+   * Show only the current entry and this many before and after it in document order (and
+   * their parents); the others are hidden. Unset or blank: every entry.
+   */
+  @property({ converter: optionalNumber, attribute: 'window' }) windowSize?: number;
+
+  /** Whether "Show all" was pressed (a window without `full-href`). */
+  @state() private expanded = false;
+
   /** The entries built from the headings (`headings-from`). */
   @state() private headingItems: Entry[] = [];
   private headingsObserver?: MutationObserver;
@@ -354,6 +478,8 @@ export class UvalibContents extends UvalibElement {
   private warned = new Set<string>();
   private readonly panelId = `uvalib-contents-${++uid}`;
   private mql?: MediaQueryList;
+  /** Whether the last render drew the full-contents link or the window's button. */
+  private hasMore = false;
   /** What was last scrolled into view, so the list is not scrolled again on every update. */
   private scrolledTo?: string;
 
@@ -727,6 +853,58 @@ export class UvalibContents extends UvalibElement {
     return n >= 2 && n <= 6 ? n : DEFAULT_LEVEL;
   }
 
+  /** The noun for `n` entries. */
+  private word(n: number): string {
+    const plural = normalize(this.noun) || DEFAULT_NOUN;
+    if (n !== 1) return plural;
+    return normalize(this.singular) || (plural === DEFAULT_NOUN ? 'section' : plural);
+  }
+
+  /** The safe `full-href`, or undefined (unset, blank, or not http(s), mailto, tel or relative). */
+  private get fullLink(): string | undefined {
+    const href = this.fullHref?.trim();
+    if (!href) return undefined;
+    if (safeHref(href, this.ownerDocument.baseURI)) return href;
+    this.warnOnce('full-href', 'ignoring full-href: it is not http(s), mailto, tel or relative.');
+    return undefined;
+  }
+
+  /**
+   * With `window`: the entries shown (the current one, `window` before and after it in
+   * document order, shifted at either end, and their parents), or undefined when every entry
+   * shows. The current entry is the section's (`location`), else the page's; with none, the
+   * window starts at the top.
+   */
+  private windowOf(entries: Entry[], current: Map<Entry, Current>): Set<Entry> | undefined {
+    const n = whole(this.windowSize);
+    if (n === undefined || this.expanded) return undefined;
+    const flat: Entry[] = [];
+    const parent = new Map<Entry, Entry>();
+    const walk = (list: Entry[], up?: Entry) =>
+      list.forEach((e) => {
+        flat.push(e);
+        if (up) parent.set(e, up);
+        walk(e.children, e);
+      });
+    walk(entries);
+    const size = 2 * n + 1;
+    if (flat.length <= size) return undefined;
+    const marks = [...current];
+    const here = (marks.find(([, k]) => k === 'location') ??
+      marks.find(([, k]) => k === 'page'))?.[0];
+    const at = here ? flat.indexOf(here) : 0;
+    const start = Math.min(Math.max(at - n, 0), flat.length - size);
+    const shown = new Set<Entry>();
+    for (const first of flat.slice(start, start + size))
+      for (let e: Entry | undefined = first; e && !shown.has(e); e = parent.get(e)) shown.add(e);
+    return shown;
+  }
+
+  private showAll(): void {
+    this.expanded = !this.expanded;
+    trackEvent(this, ['uvalib-contents', this.expanded ? 'show-all' : 'show-fewer']);
+  }
+
   private toggle(): void {
     this.open = !this.open;
     trackEvent(this, ['uvalib-contents', 'toggle', this.open ? 'open' : 'close']);
@@ -741,7 +919,8 @@ export class UvalibContents extends UvalibElement {
     if (!a || !this.renderRoot.contains(a)) return;
     // Analytics: the entry's level (1 is the top), never its label or URL.
     const level = Number(a.getAttribute('data-level'));
-    trackEvent(this, ['uvalib-contents', 'link-click', `level ${level}`, level]);
+    if (level) trackEvent(this, ['uvalib-contents', 'link-click', `level ${level}`, level]);
+    else trackEvent(this, ['uvalib-contents', 'full-contents-click']);
     if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
       return;
     const go = new CustomEvent('uvalib-contents-navigate', {
@@ -766,6 +945,7 @@ export class UvalibContents extends UvalibElement {
     super.updated(changed);
     this.toggleAttribute('data-narrow', this.narrow);
     this.toggleAttribute('data-empty', !this.entries.length);
+    this.toggleAttribute('data-more', this.hasMore);
     this.reveal();
   }
 
@@ -789,37 +969,112 @@ export class UvalibContents extends UvalibElement {
     entries: Entry[],
     current: Map<Entry, Current>,
     level: number,
+    shown?: Set<Entry>,
   ): TemplateResult {
-    const items = entries.map((e) => {
-      const mark = current.get(e);
-      // Fresh copies of the label's inline markup each render (a node can be in one place).
-      const text = e.nodes ? e.nodes.map((n) => n.cloneNode(true)) : e.label;
-      const own =
-        e.href !== undefined
-          ? html`<a
-              href=${e.href}
-              data-level=${level}
-              aria-current=${mark ?? nothing}
-              lang=${e.lang ?? nothing}
-              dir=${e.dir ?? nothing}
-              >${text}</a
-            >`
-          : html`<span class="group" lang=${e.lang ?? nothing} dir=${e.dir ?? nothing}
-              >${text}</span
-            >`;
-      return html`<li role="listitem" lang=${e.itemLang ?? nothing} dir=${e.itemDir ?? nothing}>
-        ${own}${e.children.length ? this.renderList(e.children, current, level + 1) : nothing}
-      </li>`;
+    // A window: the entries it leaves out stay, hidden; each run of them between or around
+    // entries shown is one ellipsis (aria-hidden), and a list with none shown is hidden whole.
+    const some = !shown || entries.some((e) => shown.has(e));
+    const items: TemplateResult[] = [];
+    entries.forEach((e, i) => {
+      const out = !!shown && !shown.has(e);
+      if (out && some && (i === 0 || shown.has(entries[i - 1]!)))
+        items.push(html`<li class="gap" aria-hidden="true">…</li>`);
+      items.push(this.renderEntry(e, current, level, out, shown));
     });
     // role="list": Safari drops the list semantics of a list styled without markers. A list
     // built from headings is an <ol>: the document's order.
     return this.ordered || this.fromHeadingsNow
-      ? html`<ol role="list">
+      ? html`<ol role="list" ?hidden=${!some}>
           ${items}
         </ol>`
-      : html`<ul role="list">
+      : html`<ul role="list" ?hidden=${!some}>
           ${items}
         </ul>`;
+  }
+
+  private renderEntry(
+    e: Entry,
+    current: Map<Entry, Current>,
+    level: number,
+    out: boolean,
+    shown?: Set<Entry>,
+  ): TemplateResult {
+    const mark = current.get(e);
+    // Fresh copies of the label's inline markup each render (a node can be in one place).
+    const text = e.nodes ? e.nodes.map((n) => n.cloneNode(true)) : e.label;
+    const own =
+      e.href !== undefined
+        ? html`<a
+            href=${e.href}
+            data-level=${level}
+            aria-current=${mark ?? nothing}
+            lang=${e.lang ?? nothing}
+            dir=${e.dir ?? nothing}
+            >${text}</a
+          >`
+        : html`<span class="group" lang=${e.lang ?? nothing} dir=${e.dir ?? nothing}
+            >${text}</span
+          >`;
+    return html`<li
+      role="listitem"
+      lang=${e.itemLang ?? nothing}
+      dir=${e.itemDir ?? nothing}
+      ?hidden=${out}
+    >
+      ${own}${e.children.length ? this.renderList(e.children, current, level + 1, shown) : nothing}
+    </li>`;
+  }
+
+  /** The count of entries shown (all, or the window's). */
+  private static size(entries: Entry[], shown?: Set<Entry>): number {
+    let n = 0;
+    const walk = (l: Entry[]) =>
+      l.forEach((e) => {
+        if (!shown || shown.has(e)) n++;
+        walk(e.children);
+      });
+    walk(entries);
+    return n;
+  }
+
+  /**
+   * After the list: the full-contents link, or a window's Show all / Show fewer button; and
+   * the visually hidden line before the list that says it is partial.
+   */
+  private renderMore(entries: Entry[], shown: Set<Entry> | undefined, collapsed: boolean) {
+    const href = this.fullLink;
+    const windowed = !!shown || this.expanded;
+    const all = UvalibContents.size(entries);
+    const total = whole(this.total) ?? (windowed ? all : undefined);
+    const showing = UvalibContents.size(entries, shown);
+    let note = '';
+    if (total !== undefined && showing < total)
+      note = `Showing ${count(showing)} of ${count(total)} ${this.word(total)}.`;
+    else if (href && total === undefined)
+      note = `Showing ${count(showing)} ${this.word(showing)}, part of the contents.`;
+    let action: TemplateResult | undefined;
+    if (href) {
+      const text = `${normalize(this.fullLabel) || DEFAULT_FULL_LABEL}${
+        total !== undefined ? ` (${count(total)} ${this.word(total)})` : ''
+      }`;
+      action = html`<a class="full" href=${href} data-level="0">${text}</a>`;
+    } else if (windowed) {
+      action = html`<button
+        type="button"
+        aria-expanded=${this.expanded ? 'true' : 'false'}
+        aria-controls=${this.panelId}
+        @click=${this.showAll}
+      >
+        ${this.expanded ? 'Show fewer' : `Show all ${count(all)} ${this.word(all)}`}
+      </button>`;
+    }
+    return {
+      note: note ? html`<p class="visually-hidden">${note}</p>` : nothing,
+      more: action
+        ? html`<p class="more" id=${`${this.panelId}-more`} ?hidden=${collapsed}>${action}</p>`
+        : nothing,
+      has: !!action,
+    };
   }
 
   protected override render() {
@@ -827,12 +1082,16 @@ export class UvalibContents extends UvalibElement {
     const label = normalize(this.label) || DEFAULT_LABEL;
     const h = unsafeStatic(`h${this.level}`);
     const collapsed = this.narrow && !this.open;
+    const current = this.currentOf(entries);
+    const shown = this.windowOf(entries, current);
+    const { note, more, has } = this.renderMore(entries, shown, collapsed);
+    this.hasMore = has;
     const headline = this.narrow
       ? html`<button
           type="button"
           class="toggle"
           aria-expanded=${this.open ? 'true' : 'false'}
-          aria-controls=${this.panelId}
+          aria-controls=${has ? `${this.panelId} ${this.panelId}-more` : this.panelId}
           @click=${this.toggle}
         >
           ${label}
@@ -843,8 +1102,9 @@ export class UvalibContents extends UvalibElement {
     return html`<nav aria-label=${label} ?hidden=${!entries.length} @click=${this.onClick}>
       ${html`<${h} class="headline">${headline}</${h}>`}
       <div class="panel" id=${this.panelId} ?hidden=${collapsed}>
-        ${this.renderList(entries, this.currentOf(entries), 1)}
+        ${note}${this.renderList(entries, current, 1, shown)}
       </div>
+      ${more}
     </nav>`;
   }
 }

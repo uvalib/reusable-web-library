@@ -327,8 +327,8 @@ describe('<uvalib-pagefind-search>', function () {
   afterEach(() => iframe?.remove());
 
   /** The fixture page with the element (from dist-cdn) in place of #search. */
-  async function element(attrs = '', query = '', wait = true, stub?: unknown) {
-    const { doc, win } = await open({ query });
+  async function element(attrs = '', query = '', wait = true, stub?: unknown, width?: number) {
+    const { doc, win } = await open({ query, width });
     if (stub) (win as unknown as { PagefindUI: unknown }).PagefindUI = stub;
     const analytics: unknown[] = [];
     doc.addEventListener('uvalib-analytics-search', (e) =>
@@ -604,6 +604,242 @@ describe('<uvalib-pagefind-search>', function () {
     expect(countFromMessage('1 için 11 sonuç', '1', '[SEARCH_TERM] için [COUNT] sonuç')).to.equal(
       11,
     );
+  });
+
+  describe('holding the page while a search from the URL loads (issue #37)', () => {
+    afterEach(() =>
+      emulateMedia({ forcedColors: 'none', colorScheme: 'light', reducedMotion: 'no-preference' }),
+    );
+    const SK = '.uvalib-pagefind-search__skeleton';
+    const tick = () => new Promise((r) => setTimeout(r, 0));
+    const frames = (win: Window) =>
+      new Promise((r) => win.requestAnimationFrame(() => win.requestAnimationFrame(r)));
+
+    /** A stand-in PagefindUI that draws the field and an empty results area; tests fill it. */
+    function blank() {
+      return class {
+        constructor(o: Record<string, unknown>) {
+          (o.element as HTMLElement).innerHTML =
+            `<div class="pagefind-ui"><form class="pagefind-ui__form">
+            <input class="pagefind-ui__search-input"><div class="pagefind-ui__drawer">
+            <div class="pagefind-ui__results-area"></div></div></form></div>`;
+        }
+        triggerSearch() {}
+        triggerFilters() {}
+        destroy() {}
+      };
+    }
+
+    it('shows placeholder results in place of the results area until they have loaded', async () => {
+      const { doc, win, el } = await element('searching', '?q=virginia', true, blank());
+      const sk = el.querySelector(SK)!;
+      expect(sk.getAttribute('aria-hidden')).to.equal('true');
+      // page-size="2" rows, two sections each with show-sub-results, in base.css's bars.
+      expect(sk.querySelectorAll('.uvalib-pagefind-search__skeleton-result').length).to.equal(2);
+      expect(sk.querySelectorAll('.uvalib-pagefind-search__skeleton-sub').length).to.equal(4);
+      expect(
+        win.getComputedStyle(sk.querySelector('.uvalib-skeleton-text')!).animationName,
+      ).to.equal('uvalib-skeleton-shimmer');
+      expect(sk.previousElementSibling!.className).to.equal('uvalib-pagefind-search__ui');
+      expect(el.getBoundingClientRect().height).to.be.at.least(win.innerHeight - 1);
+      const drawer = doc.querySelector('.pagefind-ui__drawer')!;
+      expect(win.getComputedStyle(drawer).display).to.equal('none');
+
+      // Searching, then results still loading: held.
+      const area = doc.querySelector('.pagefind-ui__results-area')!;
+      area.innerHTML = '<p class="pagefind-ui__message">Searching for virginia...</p>';
+      await tick();
+      area.innerHTML = `<p class="pagefind-ui__message">2 results for virginia</p>
+        <ol class="pagefind-ui__results"><li class="pagefind-ui__result"></li><li><p class="pagefind-ui__loading">. .</p></li></ol>`;
+      await tick();
+      expect(!!el.querySelector(SK)).to.equal(true);
+      expect(el.hasAttribute('searching')).to.equal(true);
+      // Loaded: released, with the element still reaching the window's bottom.
+      area.querySelector('.pagefind-ui__loading')!.remove();
+      await tick();
+      expect(!!el.querySelector(SK)).to.equal(false);
+      expect(el.hasAttribute('searching')).to.equal(false);
+      expect(win.getComputedStyle(drawer).display).to.not.equal('none');
+      expect(el.style.minBlockSize).to.match(/px$/);
+      expect(el.getBoundingClientRect().bottom).to.be.at.least(win.innerHeight - 1);
+      // The visitor using the search lets the fold go.
+      type(doc, 'rivers');
+      expect(el.style.minBlockSize).to.equal('');
+    });
+
+    it('releases on "no results" (an empty list)', async () => {
+      const { doc, el } = await element('searching', '?q=zzz', true, blank());
+      doc.querySelector('.pagefind-ui__results-area')!.innerHTML =
+        '<p class="pagefind-ui__message">No results for zzz</p><ol class="pagefind-ui__results"></ol>';
+      await tick();
+      expect(!!el.querySelector(SK)).to.equal(false);
+      expect(el.hasAttribute('searching')).to.equal(false);
+    });
+
+    it('lets the visitor take over: typing during the hold releases it, keeping nothing', async () => {
+      const { doc, el } = await element('searching', '?q=virginia', true, blank());
+      type(doc, 'rivers');
+      expect(!!el.querySelector(SK)).to.equal(false);
+      expect(el.hasAttribute('searching')).to.equal(false);
+      expect(el.style.minBlockSize).to.equal('');
+    });
+
+    it('leaves a page that starts without a query as it was', async () => {
+      for (const attrs of ['', 'searching']) {
+        const { el } = await element(attrs, '', true, blank());
+        expect(!!el.querySelector(SK), attrs).to.equal(false);
+        // A searching attribute without a query in the URL is dropped.
+        expect(el.hasAttribute('searching'), attrs).to.equal(false);
+        expect(el.getBoundingClientRect().height, attrs).to.be.below(150);
+        iframe?.remove();
+      }
+    });
+
+    it('does not hold without searching from the page (it would run after first paint)', async () => {
+      const { el } = await element('', '?q=virginia', true, blank());
+      expect(!!el.querySelector(SK)).to.equal(false);
+      expect(el.hasAttribute('searching')).to.equal(false);
+    });
+
+    it('does nothing with no-skeleton', async () => {
+      const { doc, win, el } = await element('searching no-skeleton', '?q=virginia', true, blank());
+      expect(!!el.querySelector(SK)).to.equal(false);
+      expect(el.hasAttribute('searching')).to.equal(false);
+      const drawer = doc.querySelector('.pagefind-ui__drawer')!;
+      expect(win.getComputedStyle(drawer).display).to.not.equal('none');
+    });
+
+    it('releases, and says so, when Pagefind cannot be loaded', async () => {
+      const { doc, el } = await element(
+        'searching bundle-path="/no-such-pagefind/"',
+        '?q=virginia',
+        false,
+      );
+      await until(() => doc.querySelector('.uvalib-pagefind-search__error'), 'the error message');
+      expect(!!el.querySelector(SK)).to.equal(false);
+      expect(el.hasAttribute('searching')).to.equal(false);
+    });
+
+    it('draws the same placeholders before the script loads, where the script will', async () => {
+      const { doc, win } = await open({ query: '?q=virginia' });
+      doc.getElementById('search')!.outerHTML =
+        `<uvalib-pagefind-search searching show-sub-results bundle-path="${BUNDLE}" label="Search the texts"></uvalib-pagefind-search>`;
+      const el = doc.querySelector('uvalib-pagefind-search')!;
+      expect(el.getBoundingClientRect().height).to.be.at.least(win.innerHeight - 1);
+      const before = win.getComputedStyle(el, '::before');
+      const after = win.getComputedStyle(el, '::after');
+      expect(before.backgroundImage).to.match(/gradient/);
+      expect(after.backgroundImage).to.match(/gradient/);
+      const rowsAt = parseFloat(before.height);
+      const row = parseFloat(after.backgroundSize.split(',')[0]!.trim().split(' ')[1]!);
+      // Forced colors would drop the gradients: kept, in GrayText.
+      await emulateMedia({ forcedColors: 'active' });
+      expect(win.getComputedStyle(el, '::after').forcedColorAdjust).to.equal('none');
+      await emulateMedia({ forcedColors: 'none' });
+      (win as unknown as { PagefindUI: unknown }).PagefindUI = blank();
+      const script = doc.createElement('script');
+      script.type = 'module';
+      script.src = '/dist-cdn/uvalib-pagefind-search.js';
+      doc.head.append(script);
+      await until(() => win.customElements.get('uvalib-pagefind-search'), 'define');
+      // The rows start where the drawn ones did, and are as tall.
+      const top = el.getBoundingClientRect().top;
+      const rows = el.querySelectorAll('.uvalib-pagefind-search__skeleton-result');
+      expect(rows[0]!.getBoundingClientRect().top - top).to.be.closeTo(rowsAt, 1);
+      expect(
+        rows[1]!.getBoundingClientRect().top - rows[0]!.getBoundingClientRect().top,
+      ).to.be.closeTo(row, 1);
+      expect(win.getComputedStyle(el, '::before').content).to.equal('none');
+    });
+
+    /** Layout shifts (CLS) in the frame while a real search from `?q=virginia` loads. */
+    async function shifts(attrs: string, width: number) {
+      const { doc, win } = await open({ query: '?q=virginia', width });
+      doc.getElementById('search')!.outerHTML =
+        `<uvalib-pagefind-search ${attrs} bundle-path="${BUNDLE}" page-size="10" show-sub-results placeholder="Search all texts"></uvalib-pagefind-search>`;
+      const footer = doc.createElement('footer');
+      footer.style.cssText = 'block-size: 300px; background: #eee';
+      doc.body.append(footer);
+      await frames(win);
+      let cls = 0;
+      const PO = (win as unknown as typeof globalThis).PerformanceObserver;
+      new PO((list) => {
+        for (const e of list.getEntries()) cls += (e as unknown as { value: number }).value;
+      }).observe({ type: 'layout-shift' });
+      const el = doc.querySelector('uvalib-pagefind-search')!;
+      const settled = new Promise((r) => el.addEventListener('search-results', r, { once: true }));
+      const script = doc.createElement('script');
+      script.type = 'module';
+      script.src = '/dist-cdn/uvalib-pagefind-search.js';
+      doc.head.append(script);
+      await settled;
+      await frames(win);
+      iframe?.remove();
+      return cls;
+    }
+
+    it('keeps a real ?q= search from moving the page (CLS under 0.05; without it, more)', async () => {
+      for (const width of [1000, 320]) {
+        expect(await shifts('searching', width), `searching, ${width}px`).to.be.below(0.05);
+        expect(await shifts('', width), `no searching, ${width}px`).to.be.above(0.05);
+      }
+    });
+
+    it('holds again on Back and Forward to a new query, reporting as before', async () => {
+      const { doc, win, el, analytics } = await element();
+      const next = () =>
+        new Promise<CustomEvent>((r) =>
+          el.addEventListener('search-results', (e) => r(e as CustomEvent), { once: true }),
+        );
+      let s = next();
+      type(doc, 'virginia');
+      await s;
+      expect(!!el.querySelector(SK)).to.equal(false);
+      s = next();
+      win.history.pushState(null, '', '?q=rivers');
+      win.dispatchEvent(new PopStateEvent('popstate'));
+      expect(!!el.querySelector(SK)).to.equal(true);
+      expect(el.hasAttribute('searching')).to.equal(true);
+      expect((await s).detail).to.deep.equal({ query: 'rivers', count: 7 });
+      expect(!!el.querySelector(SK)).to.equal(false);
+      expect(el.hasAttribute('searching')).to.equal(false);
+      expect(status(doc).textContent).to.equal('7 results for rivers');
+      expect(analytics).to.deep.equal([
+        ['search', { searchQuery: 'virginia', searchCategory: 'Pagefind', resultCount: 7 }],
+        ['search', { searchQuery: 'rivers', searchCategory: 'Pagefind', resultCount: 7 }],
+      ]);
+    });
+
+    it('starts a real search held, announced and reported once, as without the hold', async () => {
+      const { doc, el, analytics } = await element('searching', '?q=virginia', false);
+      expect(!!el.querySelector(SK)).to.equal(true);
+      const e = await new Promise<CustomEvent>((r) =>
+        el.addEventListener('search-results', (ev) => r(ev as CustomEvent), { once: true }),
+      );
+      expect(e.detail).to.deep.equal({ query: 'virginia', count: 7 });
+      expect(!!el.querySelector(SK)).to.equal(false);
+      expect(status(doc).textContent).to.equal('7 results for virginia');
+      expect(analytics).to.deep.equal([
+        ['search', { searchQuery: 'virginia', searchCategory: 'Pagefind', resultCount: 7 }],
+      ]);
+      await expectNoAxeViolations(doc.documentElement);
+    });
+
+    it('is readable in dark mode and forced colors, still with reduced motion, and reflows at 320px', async () => {
+      const { doc, win, el } = await element('searching', '?q=virginia', true, blank(), 320);
+      const bar = el.querySelector<HTMLElement>(`${SK} .uvalib-skeleton-text`)!;
+      expect(doc.documentElement.scrollWidth).to.be.at.most(320);
+      await expectNoAxeViolations(doc.documentElement);
+      const light = win.getComputedStyle(bar).backgroundColor;
+      doc.documentElement.setAttribute('data-uva-color-scheme', 'dark');
+      await emulateMedia({ colorScheme: 'dark' });
+      expect(win.getComputedStyle(bar).backgroundColor).to.not.equal(light);
+      await expectNoAxeViolations(doc.documentElement);
+      await emulateMedia({ reducedMotion: 'reduce' });
+      expect(win.getComputedStyle(bar).animationName).to.equal('none');
+      await emulateMedia({ forcedColors: 'active' });
+      expect(win.getComputedStyle(bar).borderTopStyle).to.equal('solid');
+    });
   });
 
   describe('filter-params', () => {
