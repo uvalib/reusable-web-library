@@ -1412,6 +1412,62 @@ article p {
     },
   },
   {
+    id: 'contents-window',
+    group: 'Contents',
+    title: 'Long contents with a window',
+    description:
+      'For a text with hundreds of sections, uvalib-contents shows only part of its contents. full-href="/text/example/" with total="243" draws a "Full contents (243 sections)" link after the list: a call to action, not an entry, still inside the Contents landmark, and a visually hidden line tells screen readers the list is partial ("Showing 7 of 243 sections."). A static site writes only the entries near the current one; here the whole list of four books and 40 chapters is in the page and window="3" shows the current chapter and three either side, with their book, an ellipsis marking each gap. Select a chapter: the window follows it. Without full-href, a "Show all" button would show the rest in place.',
+    files: {
+      'index.html': {
+        content: page({
+          title: 'Long contents with a window',
+          styles: true,
+          components: ['uvalib-contents'],
+          body: `    <site-page>
+      <h1>A long text in forty chapters</h1>
+      <div class="uvalib-sidebar-layout uvalib-sidebar-layout--print-hide-sidebar">
+        <uvalib-contents class="uvalib-sidebar-layout__sidebar" sticky window="3" full-href="/text/example/" total="243">
+          <ol>
+${[1, 2, 3, 4]
+  .map(
+    (book) => `            <li>
+              <a href="#book-${book}">Book ${book}</a>
+              <ol>
+${Array.from({ length: 10 }, (_, i) => {
+  const n = (book - 1) * 10 + i + 1;
+  return `                <li><a href="#chapter-${n}">Chapter ${n}</a></li>`;
+}).join('\n')}
+              </ol>
+            </li>`,
+  )
+  .join('\n')}
+          </ol>
+        </uvalib-contents>
+        <article class="uvalib-sidebar-layout__main">
+${[1, 2, 3, 4]
+  .map(
+    (book) => `          <h2 id="book-${book}">Book ${book}</h2>
+${Array.from({ length: 10 }, (_, i) => {
+  const n = (book - 1) * 10 + i + 1;
+  return `          <h3 id="chapter-${n}">Chapter ${n}</h3>
+          <p>Chapter ${n} of a made-up text. Select another chapter in the contents: the window of entries moves with it.</p>`;
+}).join('\n')}`,
+  )
+  .join('\n')}
+        </article>
+      </div>
+    </site-page>`,
+        }),
+      },
+      'styles.css': {
+        content: `article p {
+  min-height: 10rem;
+}
+`,
+      },
+    },
+  },
+  {
     id: 'record-metadata',
     group: 'Metadata',
     title: 'Record metadata',

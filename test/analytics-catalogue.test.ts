@@ -341,6 +341,32 @@ describe('analytics catalogue', () => {
         ]);
         expect(JSON.stringify(rec.events)).to.not.match(/Alpha|Beta|\//);
       });
+
+      it('the full-contents link and the window button, never the label or URL', async () => {
+        const entries = Array.from(
+          { length: 9 },
+          (_, i) => `<li><a href="/s/${i}">Section ${i}</a></li>`,
+        ).join('');
+        const withLink = await fixture<HTMLElement & { updateComplete: Promise<unknown> }>(
+          `<uvalib-contents ${attr(mode)} full-href="/all" total="243" window="1" current="/s/4"><ol>${entries}</ol></uvalib-contents>`,
+        );
+        const withButton = await fixture<HTMLElement & { updateComplete: Promise<unknown> }>(
+          `<uvalib-contents ${attr(mode)} window="1" current="/s/4"><ol>${entries}</ol></uvalib-contents>`,
+        );
+        await quietRender(withLink);
+        await quietRender(withButton);
+        root(withLink).querySelector<HTMLAnchorElement>('nav .more a')!.click();
+        const button = () => root(withButton).querySelector<HTMLButtonElement>('nav .more button')!;
+        button().click();
+        await withButton.updateComplete;
+        button().click();
+        expect(events()).to.deep.equal([
+          ['uvalib-contents', 'full-contents-click'],
+          ['uvalib-contents', 'show-all'],
+          ['uvalib-contents', 'show-fewer'],
+        ]);
+        expect(JSON.stringify(rec.events)).to.not.match(/Full|Section|243|\//);
+      });
     });
 
     describe(`uvalib-metadata (${mode})`, () => {

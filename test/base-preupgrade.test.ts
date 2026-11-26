@@ -801,3 +801,63 @@ describe('base.css before <uvalib-contents> is defined (sidebar layout)', functi
     }
   });
 });
+
+/**
+ * base.css before <uvalib-contents full-href> is defined (issue #38): the full-contents link's
+ * line (0.5rem above a 44px link) is held below the list, beside the main column (wide) and
+ * not at all while only the closed disclosure's button shows (narrow), in shadow and light DOM.
+ */
+describe('base.css before <uvalib-contents full-href> is defined', function () {
+  this.timeout(12000);
+  const list = `<ol><li><a href="/t/11">Chapter 11</a>
+      <ol><li><a href="/t/11a">Part 11a</a></li><li><a href="/t/11b">Part 11b</a></li></ol></li>
+    <li><a href="/t/12">Chapter 12</a></li><li><a href="/t/13">Chapter 13</a></li></ol>`;
+  const attrs = 'full-href="/t/" total="243" current="/t/12"';
+  const open = async (width: number) => {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = `width: ${width}px; height: 700px; border: 0`;
+    iframe.srcdoc = `<!doctype html><html lang="en"><head>
+      <link rel="stylesheet" href="${location.origin}/dist-cdn/base.css" />
+      <style>body { margin: 0 }</style></head><body>
+      <div class="uvalib-sidebar-layout uvalib-sidebar-layout--sticky">
+        <uvalib-contents class="uvalib-sidebar-layout__sidebar" id="shadow" ${attrs}>${list}</uvalib-contents>
+        <div class="uvalib-sidebar-layout__main" id="main"><p>Text</p></div>
+      </div>
+      <div class="uvalib-sidebar-layout">
+        <uvalib-contents class="uvalib-sidebar-layout__sidebar" id="light" no-shadow-dom ${attrs}>${list}</uvalib-contents>
+        <div class="uvalib-sidebar-layout__main" id="main2"><p>Text</p></div>
+      </div><p id="after">After</p></body></html>`;
+    document.body.append(iframe);
+    await new Promise((r) => iframe.addEventListener('load', r, { once: true }));
+    return { iframe, doc: iframe.contentDocument! };
+  };
+  const rects = (doc: Document) =>
+    ['shadow', 'light', 'main', 'main2', 'after'].map((id) => {
+      const r = doc.getElementById(id)!.getBoundingClientRect();
+      return [r.left, r.top, r.width, r.height].map((n) => Math.round(n * 10) / 10);
+    });
+
+  for (const width of [1200, 600]) {
+    it(`nothing moves when it upgrades, at ${width}px`, async () => {
+      const { iframe, doc } = await open(width);
+      try {
+        expect(iframe.contentWindow!.customElements.get('uvalib-contents')).to.equal(undefined);
+        const before = rects(doc);
+        if (width === 600) expect(before[0]![3]).to.equal(44);
+        const s = doc.createElement('script');
+        s.type = 'module';
+        s.src = `${location.origin}/dist-cdn/uvalib-contents.js`;
+        doc.head.append(s);
+        await new Promise((r) => s.addEventListener('load', r, { once: true }));
+        type Lit = HTMLElement & { updateComplete: Promise<unknown> };
+        for (const id of ['shadow', 'light']) await (doc.getElementById(id) as Lit).updateComplete;
+        await new Promise((r) => setTimeout(r, 50));
+        const el = doc.getElementById('shadow')!;
+        expect(el.shadowRoot!.querySelector('.more a')).to.not.equal(null);
+        expect(JSON.stringify(rects(doc))).to.equal(JSON.stringify(before));
+      } finally {
+        iframe.remove();
+      }
+    });
+  }
+});
