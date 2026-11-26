@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.11.1 — 2026-11-26
+
+### Fixes
+
+- hold <uvalib-pager>'s space before it upgrades (issue #39)
+
+### Other
+
+- Merge branch 'fix/pager-preupgrade': hold <uvalib-pager>'s space before it upgrades (issue #39)
+
 ## v1.11.0 — 2026-11-25
 
 ### Features
